@@ -26,6 +26,7 @@ export default function InitialMonies({ tenancyId, onChanged }: { tenancyId: str
   const [fee, setFee] = useState('')
   const [payOn, setPayOn] = useState(today()), [payRef, setPayRef] = useState('')
   const [trfOn, setTrfOn] = useState(today()), [trfRef, setTrfRef] = useState('')
+  const [receipt, setReceipt] = useState<{ to: string | null; subject: string; text: string } | null>(null)
 
   const load = useCallback(async () => {
     const r = await adminFetch(`/api/admin/initial-monies?tenancyId=${tenancyId}`)
@@ -49,6 +50,13 @@ export default function InitialMonies({ tenancyId, onChanged }: { tenancyId: str
     setBusy(false)
     if (!r.ok) { setError(j.error ?? 'That didn’t save'); return }
     await load(); onChanged?.()
+  }
+
+  async function previewReceipt() {
+    setError('')
+    const r = await adminFetch('/api/admin/initial-monies', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tenancyId, action: 'receipt', preview: true }) })
+    const j = await r.json().catch(() => ({}))
+    if (!r.ok) setError(j.error ?? 'Could not make the receipt'); else setReceipt(j)
   }
 
   if (!d) return <section className={card}><h2 className="text-lg font-bold">Initial monies</h2><p className="mt-xs text-sm text-neutral-500">{error || 'Loading…'}</p></section>
@@ -126,6 +134,18 @@ export default function InitialMonies({ tenancyId, onChanged }: { tenancyId: str
       ) : (
         <div className="mt-md space-y-sm text-sm">
           <Row done title={`Received ${gbp(Number(rec.holding_amount) + Number(rec.balance_amount))}`} detail={`${rec.txn_no} · holding ${gbp(rec.holding_amount)} + balance ${gbp(rec.balance_amount)} on ${ukDay(rec.received_on)}${rec.bank_transactions ? ` · bank ${rec.bank_transactions.txn_no ?? ''}` : ' · entered by hand'}`} />
+          {rec.receipt_sent_at
+            ? <Row done title="Receipt sent to the tenant" detail={`${ukDay(String(rec.receipt_sent_at).slice(0, 10))}${rec.receipt_sent_to ? ` · ${rec.receipt_sent_to}` : ''}`} />
+            : receipt
+              ? <div className="rounded-lg border border-neutral-200 p-sm text-xs">
+                  <p><b>To:</b> {receipt.to ?? 'no email on file'} · <b>{receipt.subject}</b></p>
+                  <pre className="mt-xs whitespace-pre-wrap font-sans text-neutral-800">{receipt.text}</pre>
+                  <div className="mt-xs flex gap-sm">
+                    <button type="button" onClick={() => setReceipt(null)} className="rounded-lg border border-neutral-300 px-md py-xs font-semibold">Close</button>
+                    {receipt.to && <button type="button" disabled={busy} onClick={async () => { await act({ action: 'receipt' }, `Email this receipt to ${receipt.to}?`); setReceipt(null) }} className="rounded-lg bg-neutral-900 px-md py-xs font-bold text-white disabled:opacity-40">Send to {receipt.to}</button>}
+                  </div>
+                </div>
+              : <p className="text-sm"><button type="button" onClick={previewReceipt} className="font-semibold text-blue-700 hover:underline">Preview the tenant’s receipt</button> <span className="text-xs text-neutral-500">— for the money they paid before moving in</span></p>}
           <Row done title={`Tenant-find fee ${gbp(rec.fee)}`} detail="Our fee — kept from the initial monies" />
           {rec.paid_on
             ? <Row done title={`Landlord paid ${gbp(rec.amount_paid)}`} detail={`${rec.payout_no} · ${ukDay(rec.paid_on)}${rec.paid_reference ? ` · ref ${rec.paid_reference}` : ''}`} />

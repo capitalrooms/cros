@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
         if (!(await getElectedCommsLive())) return NextResponse.json({ error: 'Messages you choose to send are paused (Settings) — nothing was sent.' }, { status: 409 })
         return NextResponse.json(await tellTenant(s, tenancy, { email: !!b.email, text: !!b.text, extra: String(b.extra ?? '').slice(0, 600), by, req }))
       case 'reverse': return NextResponse.json(await reverseReceipt(s, tenancy, String(b.key ?? ''), String(b.reason ?? ''), by))
-      case 'refund': return NextResponse.json(await refundOver(s, tenancy, String(b.chargeId ?? ''), Number(b.amount), String(b.reason ?? ''), by))
+      case 'refund': return NextResponse.json(await refundOver(s, tenancy, String(b.chargeId ?? ''), Number(b.amount), String(b.reason ?? ''), by, { on: String(b.paidOn ?? ''), reference: String(b.reference ?? '') }))
       case 'direct': return NextResponse.json(await paidDirect(s, tenancy, String(b.chargeId ?? ''), { amount: Number(b.amount), date: String(b.date ?? ''), note: String(b.note ?? ''), takeFee: b.takeFee !== false, by }))
       case 'reduce': return NextResponse.json(await reduceDue(s, tenancy, String(b.chargeId ?? ''), Number(b.newDue), String(b.reason ?? ''), by))
       case 'plan': return NextResponse.json(await agreePlan(s, tenancy, { instalment: Number(b.instalment), startsOn: String(b.startsOn ?? ''), note: String(b.note ?? ''), by }))

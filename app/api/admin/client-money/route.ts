@@ -85,6 +85,8 @@ export async function POST(req: NextRequest) {
     if (!DATE.test(b.entryDate || '')) return NextResponse.json({ error: 'Pick the date.' }, { status: 400 })
     if (!isFinite(amount) || !amount) return NextResponse.json({ error: 'Enter the amount (use a minus for money out).' }, { status: 400 })
     if (!String(b.description || '').trim()) return NextResponse.json({ error: 'Say what it is for.' }, { status: 400 })
+    // every hand entry is traceable: the bank line's reference, or the document behind an opening balance or correction
+    if (!String(b.reference || '').trim()) return NextResponse.json({ error: 'Enter a reference — the bank payment reference, or the document it comes from.' }, { status: 400 })
     // contractors are only ever paid from the operations account (Harry, 3 Nov 2026), and deposits are recorded on the
     // letting file (migration 258) — neither is a hand entry here
     if (b.kind === 'expense_paid') return NextResponse.json({ error: 'Contractors are paid from the operations account, never the client account. Add the expense to the house; it’s repaid to the office in the payment run.' }, { status: 409 })

@@ -10,7 +10,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireStaff } from '@/lib/portalAuth'
 import { createServiceClient } from '@/lib/supabase'
-import { expectedFor, bankMatches, current, receive, pay, transferFee, voidRecord } from '@/lib/finance/initialMonies'
+import { expectedFor, bankMatches, current, receive, pay, transferFee, voidRecord, receiptFor } from '@/lib/finance/initialMonies'
+import { sendEmail } from '@/lib/sendEmail'
+import { messageHtml } from '@/lib/email/messageHtml'
+import { getElectedCommsLive } from '@/lib/comms'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -34,6 +37,19 @@ export async function POST(req: NextRequest) {
   if (!b.tenancyId) return NextResponse.json({ error: 'Which tenancy?' }, { status: 400 })
   const s = createServiceClient()
   const by = { personId: who.personId, email: who.email }
+  // the tenant's receipt (migration 260): { action: 'receipt', preview? } — previewed, then sent by the office
+  if (b.action === 'receipt') {
+    const rc = await receiptFor(s, b.tenancyId)
+    if ('error' in rc) return NextResponse.json({ error: rc.error }, { status: 409 })
+    if (b.preview) return NextResponse.json(rc)
+    if (!rc.to) return NextResponse.json({ error: 'No email address for the tenant.' }, { status: 422 })
+    if (!(await getElectedCommsLive())) return NextResponse.json({ error: 'Messages you send are switched off in Settings. Nothing was sent.' }, { status: 409 })
+    const { ok, error } = await sendEmail(rc.to, rc.subject, messageHtml(rc.text), { req })
+    if (!ok) return NextResponse.json({ error: error ?? 'The email didn’t send' }, { status: 502 })
+    const rec = await current(s, b.tenancyId)
+    await s.from('initial_monies').update({ receipt_sent_at: new Date().toISOString(), receipt_sent_to: rc.to }).eq('id', rec.id)
+    return NextResponse.json({ ok: true, to: rc.to })
+  }
   const r = b.action === 'receive' ? await receive(s, b.tenancyId, b, by)
     : b.action === 'pay' ? await pay(s, b.tenancyId, b, by)
     : b.action === 'transfer_fee' ? await transferFee(s, b.tenancyId, b, by)

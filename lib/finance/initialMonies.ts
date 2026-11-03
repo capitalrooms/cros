@@ -161,3 +161,37 @@ export async function voidRecord(s: SupabaseClient, tenancyId: string, b: any, b
   await logTenancyEvent(s, tenancyId, 'initial_monies_void', `Initial monies ${rec.txn_no} voided: ${reason}`, by.email)
   return { ok: true }
 }
+
+/** The tenant's receipt for their move-in money (migration 260): what they paid, what it's for, and who holds the
+ *  deposit now (the landlord, for a let-only let). Previewed and sent by the office, never on its own. */
+export async function receiptFor(s: SupabaseClient, tenancyId: string): Promise<{ to: string | null; subject: string; text: string } | { error: string }> {
+  const rec = await current(s, tenancyId)
+  if (!rec) return { error: 'Record the initial monies first.' }
+  const { data: t } = await s.from('tenancies').select('people!person_id(salutation, first_name, last_name, full_name, email), rooms(name), properties(name)').eq('id', tenancyId).maybeSingle() as { data: any }
+  const p = t?.people ?? {}
+  const { dearName } = await import('@/lib/people')
+  const day = (d: string) => new Date(`${d}T12:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+  const g = (n: unknown) => `£${Number(n || 0).toFixed(2)}`
+  const place = [t?.rooms?.name, String(t?.properties?.name ?? '').split('\n')[0]].filter(Boolean).join(', ')
+  const total = r2(Number(rec.holding_amount) + Number(rec.balance_amount))
+  return {
+    to: p.email ?? null,
+    subject: `Receipt ${rec.txn_no} — your move-in money for ${place}`,
+    text: `Dear ${dearName(p) || 'tenant'},
+
+Thank you — this is your receipt for the money you paid before moving in to ${place}.
+
+Receipt number: ${rec.txn_no}
+${Number(rec.holding_amount) > 0 ? `Holding deposit already held: ${g(rec.holding_amount)}\n` : ''}Balance received ${day(rec.received_on)}: ${g(rec.balance_amount)}
+Total received: ${g(total)}
+
+It covers your first month's rent of ${g(rec.first_rent)} and your tenancy deposit of ${g(rec.deposit)}.
+
+Your landlord now holds your deposit. They must protect it in a government-approved scheme within 30 days and give you the prescribed information about it. From now on you pay your rent to your landlord, as your tenancy agreement sets out.
+
+Please keep this email for your records.
+
+Kind regards,
+Capital Rooms`,
+  }
+}

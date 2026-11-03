@@ -150,7 +150,7 @@ export async function reverseReceipt(s: SupabaseClient, tenancyId: string, key: 
 }
 
 /** Pay back money received over what was due on a month (not yet paid over to the landlord). */
-export async function refundOver(s: SupabaseClient, tenancyId: string, chargeId: string, amount: number, reason: string, by: { personId: string; email: string }) {
+export async function refundOver(s: SupabaseClient, tenancyId: string, chargeId: string, amount: number, reason: string, by: { personId: string; email: string }, paid?: { on: string; reference: string }) {
   const pos = await rentPosition(s, tenancyId)
   const m = pos.months.find(x => x.chargeId === chargeId)
   if (!m) throw new Error('That month isn’t on this tenant’s account.')
@@ -161,11 +161,14 @@ export async function refundOver(s: SupabaseClient, tenancyId: string, chargeId:
   if (!(amount > 0) || amount > max + 0.005) throw new Error(future ? `Only ${gbp(max)} is held for ${monthName(m.month)}.` : `Only ${gbp(m.over)} was paid over what was due that month.`)
   if (m.remitted > r2(m.received - amount) + 0.005) throw new Error('That money has already been paid over to the landlord, so it can’t be refunded from here.')
   if (!reason.trim()) throw new Error('Say how it was refunded (e.g. “bank transfer to the tenant on 14 Oct”).')
+  // every refund out of the client account is traceable to the bank: the date it went and its payment reference (3 Nov 2026)
+  if (!paid || !/^\d{4}-\d{2}-\d{2}$/.test(paid.on)) throw new Error('Enter the date the refund was paid.')
+  if (!paid.reference.trim()) throw new Error('Enter the payment reference the refund went with.')
   const received = r2(m.received - amount)
   const { error } = await s.from('rent_charges').update({ amount_received: received, status: statusFor(m.due, received) }).eq('id', chargeId)
   if (error) throw new Error(error.message)
-  await audit(s, { rent_charge_id: chargeId, action: 'refunded', by: by.personId, old: { amount_received: m.received }, new: { amount_received: received, refunded: amount }, note: reason.trim() })
-  await logTenancyEvent(s, tenancyId, 'money', `Overpayment of ${gbp(amount)} for ${monthName(m.month)} refunded to the tenant: ${reason.trim()}`, by.email)
+  await audit(s, { rent_charge_id: chargeId, action: 'refunded', by: by.personId, old: { amount_received: m.received }, new: { amount_received: received, refunded: amount, refunded_on: paid.on, reference: paid.reference.trim() }, note: reason.trim() })
+  await logTenancyEvent(s, tenancyId, 'money', `Overpayment of ${gbp(amount)} for ${monthName(m.month)} refunded to the tenant on ${paid.on}, ref ${paid.reference.trim()}: ${reason.trim()}`, by.email)
   return { refunded: amount }
 }
 
