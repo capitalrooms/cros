@@ -75,7 +75,7 @@ function FinanceHomeScreen({ initialMonth }: { initialMonth?: string }) {
       <div className="mx-auto max-w-6xl px-lg py-xl">
         <div className="mb-lg flex flex-wrap items-center justify-between gap-md">
           <div>
-            <span className="inline-flex rounded-full bg-[#4A5320] px-sm py-[2px]"><HeroMonthPicker month={month} onChange={go} /></span>
+            <span className="inline-flex rounded-full bg-[var(--band,#4A5320)] px-sm py-[2px]"><HeroMonthPicker month={month} onChange={go} /></span>
             <h1 className={`${display.className} mt-xs text-4xl font-extrabold tracking-tight ${C.ink}`}>Agency accounts</h1>
           </div>
           <div className="flex items-center gap-md">
@@ -92,7 +92,7 @@ function FinanceHomeScreen({ initialMonth }: { initialMonth?: string }) {
         {error && <p className="mb-md rounded-2xl bg-red-50 px-lg py-md text-sm text-red-700">{error}</p>}
 
         <div className="grid items-start gap-md md:grid-cols-2 lg:grid-cols-3">
-          {!d && !error && [1, 2, 3, 4, 5, 6].map(i => <div key={i} className="h-56 animate-pulse rounded-[28px] bg-[#FFFDF6]" />)}
+          {!d && !error && [1, 2, 3, 4, 5, 6].map(i => <div key={i} className="h-56 animate-pulse rounded-[28px] bg-[var(--paper,#FFFDF6)]" />)}
           {d && <>
             <Tile id="ready" open={open} setOpen={setOpen} tone="olive"
               title="Ready to pay" big={String(d.ready.count)} sub={d.ready.count ? [d.ready.items.length && `${d.ready.items.length} house${d.ready.items.length === 1 ? '' : 's'} with every rent in`, d.ready.letOnly.length && `${d.ready.letOnly.length} let-only move-in${d.ready.letOnly.length === 1 ? '' : 's'}`].filter(Boolean).join(' · ') + (d.ready.total ? ` · ${gbp(d.ready.total)}` : '') : 'Nothing to pay out yet'}
@@ -174,8 +174,8 @@ function More() {
     <div className="relative">
       <Pill tone="paper" second onClick={() => setO(!o)}>More {o ? '▴' : '▾'}</Pill>
       {o && (
-        <ul className="absolute right-0 z-20 mt-sm max-h-96 w-60 overflow-y-auto rounded-2xl bg-[#FFFDF6] p-xs shadow-lg ring-1 ring-black/5">
-          {MORE.map(([l, h]) => <li key={h}><Link href={h} className="block rounded-xl px-md py-xs text-sm text-[#23261A] hover:bg-[#EDE8D6]">{l}</Link></li>)}
+        <ul className="absolute right-0 z-20 mt-sm max-h-96 w-60 overflow-y-auto rounded-2xl bg-[var(--paper,#FFFDF6)] p-xs shadow-lg ring-1 ring-black/5">
+          {MORE.map(([l, h]) => <li key={h}><Link href={h} className="block rounded-xl px-md py-xs text-sm text-[var(--ink,#23261A)] hover:bg-[var(--line,#EDE8D6)]">{l}</Link></li>)}
         </ul>
       )}
     </div>
@@ -203,7 +203,7 @@ function Tile({ id, open, setOpen, tone, warn, title, big, sub, actions, childre
           </button>
         )}
       </div>
-      {isOpen && <ul className="-mx-sm mt-md max-h-80 overflow-y-auto rounded-2xl bg-[#FFFDF6] px-md text-[#23261A]">{list}</ul>}
+      {isOpen && <ul className="-mx-sm mt-md max-h-80 overflow-y-auto rounded-2xl bg-[var(--paper,#FFFDF6)] px-md text-[var(--ink,#23261A)]">{list}</ul>}
     </div>
   )
 }
@@ -211,14 +211,14 @@ function Tile({ id, open, setOpen, tone, warn, title, big, sub, actions, childre
 function Row({ href, left, sub, right, cta }: { href: string; left: string; sub?: string; right: string; cta?: string }) {
   return (
     <li className="border-b border-[#E7E2CF] last:border-0">
-      <Link href={href} className="flex items-center justify-between gap-md py-sm hover:bg-[#F3F0E6]">
+      <Link href={href} className="flex items-center justify-between gap-md py-sm hover:bg-[var(--ground,#F3F0E6)]">
         <span className="min-w-0">
           <span className="block truncate text-sm font-semibold text-neutral-900">{left}</span>
           {sub && <span className="block truncate text-xs text-neutral-500">{sub}</span>}
         </span>
         <span className="flex shrink-0 items-center gap-sm">
           <span className="text-sm font-semibold tabular-nums">{right}</span>
-          {cta && <span className="rounded-full bg-[#4A5320] px-sm py-[2px] text-xs font-bold text-white">{cta}</span>}
+          {cta && <span className="rounded-full bg-[var(--band,#4A5320)] px-sm py-[2px] text-xs font-bold text-white">{cta}</span>}
         </span>
       </Link>
     </li>

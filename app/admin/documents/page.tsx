@@ -62,7 +62,7 @@ export default function DocumentLibraryPage() {
       <PageHero title="Documents" subtitle="Library: every filed document, across every house" tabs={documentTabs('library')} />
       <main className="mx-auto max-w-6xl px-lg py-xl space-y-md">
         {waiting > 0 && (
-          <Link href="/admin/documents/scanner" className="flex items-center justify-between gap-md rounded-2xl bg-[#E8B931] px-lg py-sm text-sm font-semibold text-[#23261A]">
+          <Link href="/admin/documents/scanner" className="flex items-center justify-between gap-md rounded-2xl bg-[var(--accent,#E8B931)] px-lg py-sm text-sm font-semibold text-[var(--ink,#23261A)]">
             <span>{waiting} read by the document scanner and waiting for you to confirm</span><span aria-hidden="true">›</span>
           </Link>
         )}

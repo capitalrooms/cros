@@ -24,14 +24,14 @@ export default function SidePanel({ open, title, eyebrow, onClose, children, foo
       {/* the shade only on a phone — on a desktop the list beside stays usable */}
       <button type="button" aria-label="Close" onClick={onClose} className="absolute inset-0 bg-[#23261A]/45 md:hidden" />
       <div ref={ref} tabIndex={-1}
-        className="absolute inset-x-0 bottom-0 flex max-h-[88dvh] flex-col rounded-t-[28px] bg-[#23261A] text-[#F3F0E6] shadow-[0_-12px_40px_rgba(35,38,26,0.35)] outline-none md:inset-y-0 md:right-0 md:left-auto md:max-h-none md:w-[420px] md:rounded-none md:rounded-l-[24px]">
+        className="absolute inset-x-0 bottom-0 flex max-h-[88dvh] flex-col rounded-t-[28px] bg-[var(--ink,#23261A)] text-[var(--ground,#F3F0E6)] shadow-[0_-12px_40px_rgba(35,38,26,0.35)] outline-none md:inset-y-0 md:right-0 md:left-auto md:max-h-none md:w-[420px] md:rounded-none md:rounded-l-[24px]">
         <span aria-hidden="true" className="mx-auto mt-sm h-[5px] w-11 shrink-0 rounded-full bg-[#F3F0E6]/30 md:hidden" />
         <header className="flex shrink-0 items-start justify-between gap-md px-lg pb-sm pt-md md:pt-lg">
           <div className="min-w-0">
             {eyebrow && <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-[#F3F0E6]/60">{eyebrow}</p>}
             <h2 className={`${display.className} text-[22px] font-extrabold leading-tight`}>{title}</h2>
           </div>
-          <button type="button" onClick={onClose} aria-label="Close panel" className="-mr-xs rounded-full px-sm text-2xl leading-none text-[#F3F0E6]/60 hover:text-[#F3F0E6]">×</button>
+          <button type="button" onClick={onClose} aria-label="Close panel" className="-mr-xs rounded-full px-sm text-2xl leading-none text-[#F3F0E6]/60 hover:text-[var(--ground,#F3F0E6)]">×</button>
         </header>
         <div className="min-h-0 flex-1 overflow-y-auto px-lg pb-lg text-sm">{children}</div>
         {footer && <div className="shrink-0 border-t border-[#F3F0E6]/10 px-lg py-md pb-[max(env(safe-area-inset-bottom),16px)]">{footer}</div>}
@@ -43,7 +43,7 @@ export default function SidePanel({ open, title, eyebrow, onClose, children, foo
 /** A label and value on one line in the panel. */
 export function PanelRow({ label, value, tone }: { label: ReactNode; value: ReactNode; tone?: 'warn' | 'good' }) {
   return (
-    <div className={`flex items-baseline justify-between gap-md border-b border-[#F3F0E6]/10 py-sm ${tone === 'warn' ? 'text-[#E8B931]' : tone === 'good' ? 'text-[#A9C98F]' : ''}`}>
+    <div className={`flex items-baseline justify-between gap-md border-b border-[#F3F0E6]/10 py-sm ${tone === 'warn' ? 'text-[var(--accent,#E8B931)]' : tone === 'good' ? 'text-[#A9C98F]' : ''}`}>
       <span className="text-[#F3F0E6]/75">{label}</span><b className="text-right tabular-nums">{value}</b>
     </div>
   )
@@ -51,6 +51,6 @@ export function PanelRow({ label, value, tone }: { label: ReactNode; value: Reac
 
 /** The mustard button in the panel's footer. */
 export function PanelButton({ children, onClick, href, second }: { children: ReactNode; onClick?: () => void; href?: string; second?: boolean }) {
-  const cls = `inline-flex items-center justify-center rounded-full px-lg py-sm text-sm font-bold ${second ? 'bg-[#F3F0E6]/12 text-[#F3F0E6]' : 'bg-[#E8B931] text-[#23261A]'}`
+  const cls = `inline-flex items-center justify-center rounded-full px-lg py-sm text-sm font-bold ${second ? 'bg-[#F3F0E6]/12 text-[var(--ground,#F3F0E6)]' : 'bg-[var(--accent,#E8B931)] text-[var(--ink,#23261A)]'}`
   return href ? <a href={href} target="_blank" rel="noreferrer" className={cls}>{children}</a> : <button type="button" onClick={onClick} className={cls}>{children}</button>
 }

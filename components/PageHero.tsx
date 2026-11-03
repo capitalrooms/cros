@@ -24,7 +24,7 @@ export default function PageHero({ title, subtitle, eyebrow, stats, actions, tab
   // every band is olive since the rebuild (3 Nov 2026); look stays accepted so older calls still compile
   const olive = look === 'olive' || true
   return (
-    <section className={olive ? 'bg-[#4A5320] text-[#F3F0E6]' : 'bg-[#181614] text-[#F6F3EC]'}>
+    <section className={olive ? 'bg-[var(--band,#4A5320)] text-[var(--ground,#F3F0E6)]' : 'bg-[#181614] text-[#F6F3EC]'}>
       <div className="mx-auto max-w-6xl px-lg pt-lg">
         <div className="flex flex-wrap items-end justify-between gap-md">
           <div className="min-w-0">
@@ -32,7 +32,7 @@ export default function PageHero({ title, subtitle, eyebrow, stats, actions, tab
               <nav aria-label="Where this is" className="mb-0.5 flex flex-wrap items-center gap-x-1.5 text-[13px] text-[#F3F0E6]/75">
                 {trail.map((t, i) => <span key={i} className="flex items-center gap-x-1.5">
                   {i > 0 && <span aria-hidden="true" className="text-[#F3F0E6]/45">›</span>}
-                  {t.href ? <Link href={t.href} className="hover:text-[#F3F0E6] hover:underline underline-offset-2">{t.label}</Link> : <span>{t.label}</span>}
+                  {t.href ? <Link href={t.href} className="hover:text-[var(--ground,#F3F0E6)] hover:underline underline-offset-2">{t.label}</Link> : <span>{t.label}</span>}
                 </span>)}
               </nav>
             )}
@@ -46,7 +46,7 @@ export default function PageHero({ title, subtitle, eyebrow, stats, actions, tab
           <div className={`mt-md grid gap-sm ${stats.length >= 4 ? 'grid-cols-2 sm:grid-cols-4' : stats.length === 3 ? 'grid-cols-3' : stats.length === 2 ? 'grid-cols-2' : 'grid-cols-1'}`}>
             {stats.map(s => {
               const body = <>
-                <p className={`text-xl font-bold tabular-nums sm:text-2xl ${s.tone ? (olive && s.tone === 'warn' ? 'text-[#E8B931]' : TONE[s.tone]) : ''} ${olive ? display.className : ''}`} style={olive ? undefined : { fontFamily: 'var(--font-baloo-2, system-ui, sans-serif)' }}>{s.value}</p>
+                <p className={`text-xl font-bold tabular-nums sm:text-2xl ${s.tone ? (olive && s.tone === 'warn' ? 'text-[var(--accent,#E8B931)]' : TONE[s.tone]) : ''} ${olive ? display.className : ''}`} style={olive ? undefined : { fontFamily: 'var(--font-baloo-2, system-ui, sans-serif)' }}>{s.value}</p>
                 <p className="text-[11px] uppercase tracking-[0.06em] text-[#F6F3EC]/55">{s.label}</p>
               </>
               return s.href
@@ -58,7 +58,7 @@ export default function PageHero({ title, subtitle, eyebrow, stats, actions, tab
         {tabs && tabs.length > 0 ? (
           <nav className="-mx-lg mt-md flex gap-0.5 overflow-x-auto px-lg" style={{ scrollbarWidth: 'none' }}>
             {tabs.map((t, i) => {
-              const cls = `whitespace-nowrap rounded-t-xl px-md py-sm text-sm ${t.active ? (olive ? 'bg-[#F3F0E6] font-bold text-[#23261A]' : 'bg-neutral-100 font-bold text-[#181614]') : 'text-[#F6F3EC]/65 hover:text-[#F6F3EC]'}`
+              const cls = `whitespace-nowrap rounded-t-xl px-md py-sm text-sm ${t.active ? (olive ? 'bg-[var(--ground,#F3F0E6)] font-bold text-[var(--ink,#23261A)]' : 'bg-neutral-100 font-bold text-[#181614]') : 'text-[#F6F3EC]/65 hover:text-[#F6F3EC]'}`
               const k = t.key ?? t.href ?? String(i)
               return t.href
                 ? <Link key={k} href={t.href} prefetch={false} className={cls}>{t.label}</Link>

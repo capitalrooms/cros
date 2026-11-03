@@ -232,6 +232,15 @@ button:disabled {
    neutrals on a cream ground, cards become paper, links olive — one look across all screens without touching what
    each screen does. The band at the top of each page is PageHero (olive); the rail and top bar are the dark ink. */
 .office {
+  /* the office palette — change these (and the --n-* greys below) to re-colour every office screen at once */
+  --band: #4A5320;        /* the header band, the open menu area */
+  --band-hover: #3B4219;
+  --accent: #E8B931;      /* badges, the panel's main button */
+  --ink: #23261A;         /* the menu rail, the side panel, text */
+  --ground: #F3F0E6;      /* page background */
+  --paper: #FFFDF6;       /* cards */
+  --muted: #6B6A55;
+  --line: #EDE8D6;
   --n-50: 250 248 241;
   --n-100: 243 240 230;
   --n-200: 226 221 201;
@@ -243,19 +252,19 @@ button:disabled {
   --n-800: 46 50 32;
   --n-900: 35 38 26;
   --n-950: 22 24 15;
-  --cr-ink: #23261A;
-  --cr-ivory: #F3F0E6;
+  --cr-ink: var(--ink);
+  --cr-ivory: var(--ground);
   --cr-line: #E2DDC9;
   --cr-muted: #6B6A55;
-  --cr-bar: #23261A;
-  color: #23261A;
+  --cr-bar: var(--ink);
+  color: var(--ink);
 }
-.office main .bg-white { background-color: #FFFDF6; }
-.office main .text-blue-600, .office main .text-blue-700 { color: #4A5320; }
-.office main .hover\:text-blue-800:hover, .office main .hover\:text-blue-900:hover { color: #23261A; }
-.office main .bg-blue-600, .office main .bg-blue-700 { background-color: #4A5320; }
-.office main .hover\:bg-blue-700:hover, .office main .hover\:bg-blue-800:hover { background-color: #3B4219; }
-.office main .border-blue-700 { border-color: #4A5320; }
-.office main .focus\:ring-blue-500:focus, .office main .focus\:border-blue-500:focus { --tw-ring-color: #4A5320; border-color: #4A5320; }
+.office main .bg-white { background-color: var(--paper); }
+.office main .text-blue-600, .office main .text-blue-700 { color: var(--band); }
+.office main .hover\:text-blue-800:hover, .office main .hover\:text-blue-900:hover { color: var(--ink); }
+.office main .bg-blue-600, .office main .bg-blue-700 { background-color: var(--band); }
+.office main .hover\:bg-blue-700:hover, .office main .hover\:bg-blue-800:hover { background-color: var(--band-hover); }
+.office main .border-blue-700 { border-color: var(--band); }
+.office main .focus\:ring-blue-500:focus, .office main .focus\:border-blue-500:focus { --tw-ring-color: var(--band); border-color: var(--band); }
 .office main .rounded-2xl.border.border-neutral-200 { border-color: transparent; box-shadow: 0 1px 0 rgba(35, 38, 26, 0.06); }
-.office :focus-visible:not([tabindex="-1"]) { outline: 2px solid #E8B931; outline-offset: 2px; }
+.office :focus-visible:not([tabindex="-1"]) { outline: 2px solid var(--accent); outline-offset: 2px; }
