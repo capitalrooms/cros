@@ -182,18 +182,19 @@ export default function InboxView({ embedded = false }: { embedded?: boolean }) 
       {!embedded && <PageHero title="Documents" tabs={documentTabs('inbox')} subtitle={<>Emailed in: Documents forwarded by email land here. Review the AI&apos;s suggestion and file each one, or assign it yourself. Nothing is filed until you confirm.</>} />}
 
       <main className={embedded ? '' : 'mx-auto max-w-6xl px-lg py-xl'}>
-        <div className="flex items-start justify-between gap-md">
+        {/* inside Capture: Capture's own "Choose photos or files" adds files, and only what's waiting is shown */}
+        {!embedded && <div className="flex items-start justify-between gap-md">
           <div>
           </div>
           <Link href="/admin/ai-upload" className="shrink-0 rounded-xl border border-neutral-300 bg-white px-md py-sm text-sm font-semibold hover:bg-neutral-50">
             ⬆ Upload
           </Link>
-        </div>
+        </div>}
 
         {flash && <div className="mt-lg rounded-xl bg-green-600 p-md text-sm font-semibold text-white">{flash}</div>}
 
         {/* ── Tabs ─────────────────────────────────────────────────────────── */}
-        <div className="mt-lg flex gap-xs rounded-2xl bg-neutral-200/60 p-xs w-fit">
+        {!embedded && <div className="mt-lg flex gap-xs rounded-2xl bg-neutral-200/60 p-xs w-fit">
           {(['new', 'filed', 'dismissed'] as const).map(t => {
             const count = docs.filter(d => d.status === t).length
             const active = tab === t
@@ -212,9 +213,9 @@ export default function InboxView({ embedded = false }: { embedded?: boolean }) 
               </button>
             )
           })}
-        </div>
+        </div>}
 
-        {docs.filter(d => d.status === tab).length === 0 ? (
+        {docs.filter(d => d.status === tab).length === 0 ? (embedded ? <p className="text-sm text-neutral-500">Nothing emailed in waiting.</p> :
           <div className="mt-lg rounded-2xl border border-dashed border-neutral-300 bg-white p-xl text-center text-sm text-neutral-500">
             {tab === 'new' ? 'Inbox is empty. Forward a document to your inbox address and it\'ll appear here.' : tab === 'filed' ? 'No filed documents yet.' : 'No dismissed documents.'}
           </div>
