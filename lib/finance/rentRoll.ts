@@ -8,10 +8,11 @@ import { statementMonth } from '@/lib/finance/statementMonth'
 const shiftDays = (d: string, n: number) => new Date(Date.parse(`${d}T12:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10)
 import { ledgerStart } from '@/lib/clientLedger'
 import { importedChargeIds } from '@/lib/finance/importedCharges'
+import { CROS_COLLECTS_RENT } from '@/lib/finance/mode'
 import { demoPropertyIds, inScope } from '@/lib/demoProperties'
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
 
-export type RoomStatus = 'paid' | 'part' | 'missing' | 'over' | 'no_charge' | 'collected_by_previous_agent'
+export type RoomStatus = 'paid' | 'part' | 'missing' | 'over' | 'no_charge' | 'collected_by_previous_agent' | 'awaiting_statement'
 export interface Receipt { number: string | null; date: string | null; amount: number; file: string | null; how: 'bank' | 'by hand' }
 export interface RollRoom {
   roomId: string | null; room: string; tenant: string; tenancyId: string | null; reference: string | null; chargeId: string | null; chargeNo: string | null
@@ -32,7 +33,7 @@ export interface RollProperty {
   allIn?: boolean
   payPart?: { reason: string | null; by: string | null } | null
 }
-export interface RentRoll { month: string; source: 'cros' | 'previous_agent'; takeover: string; properties: RollProperty[]; totals: { due: number; received: number; missing: number; ready: number } }
+export interface RentRoll { month: string; source: 'cros' | 'previous_agent' | 'mirror'; takeover: string; properties: RollProperty[]; totals: { due: number; received: number; missing: number; ready: number } }
 
 const r2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100
 const first = (s: unknown) => String(s || '').split('\n')[0]
@@ -50,7 +51,7 @@ export async function buildRentRoll(s: SupabaseClient, month: string, opts: { pr
   const [props, rooms, tens, statements] = await Promise.all([
     s.from('properties').select('id, name, property_code, landlord_id, letting_type, property_type').or('letting_type.is.null,letting_type.neq.let_only'),
     s.from('rooms').select('id, name, property_id, is_let_only'),
-    s.from('tenancies').select('id, room_id, property_id, start_date, end_date, rent_amount, payment_reference, people!person_id(salutation, first_name, last_name, full_name)')
+    s.from('tenancies').select('id, room_id, property_id, start_date, end_date, rent_amount, rent_due_day, payment_reference, people!person_id(salutation, first_name, last_name, full_name)')
       .lte('start_date', end).or(`end_date.is.null,end_date.gte.${start}`).is('let_cancelled_at', null),
     // a window either side: a statement belongs to its own month (lib/finance/statementMonth), which needn't be the month of its date
     s.from('landlord_statements').select('*').gte('statement_date', shiftDays(start, -45)).lte('statement_date', shiftDays(end, 45)).order('statement_date'),
@@ -66,6 +67,52 @@ export async function buildRentRoll(s: SupabaseClient, month: string, opts: { pr
   const tenancyFor = (roomId: string) => ((tens.data ?? []) as any[]).filter(t => t.room_id === roomId).sort((a, b) => String(b.start_date).localeCompare(String(a.start_date)))[0] ?? null
   const stmtsFor = (pid: string) => monthStatements.filter(st => st.property_id === pid)
     .map(st => ({ id: st.id, reference: st.statement_reference, date: st.statement_date, net: Number(st.net_to_landlord || 0), state: stateOf(st), source: st.source ?? 'import' }))
+
+  // ── Mirroring (Harry, 3 Nov 2026: "cros has not taken over it is mirroring our current system via importing
+  // statements so if the statements show the rent was received you can confirm the charge has been paid and only then"):
+  // every active tenancy's rent for the month — pro rata at its start and end — set against that same month's imported
+  // statement line for its room. Paid only when a statement shows it. Never client money: CROS doesn't hold it. ──
+  if (!CROS_COLLECTS_RENT && !opts.practice) {
+    const lines = await importedRentFor(s, month)
+    const refOf = new Map<string, string>()
+    if (lines.length) {
+      const { data: refs } = await s.from('landlord_statements').select('id, statement_reference').in('id', [...new Set(lines.map(l => l.statementId))])
+      for (const r of (refs ?? []) as any[]) refOf.set(r.id, r.statement_reference)
+    }
+    const num = (x: unknown) => { const m = String(x ?? '').match(/(\d+)/); return m ? Number(m[1]) : null }
+    const out: RollProperty[] = []
+    for (const p of properties) {
+      // what this month's statements show for each room: room tables and emailed-statement lines alike
+      const shown: { room: number | null; amount: number; ref: string; tenant: string; used?: boolean }[] = [
+        ...monthStatements.filter(st => st.property_id === p.id).flatMap(st => (Array.isArray(st.rooms) ? st.rooms : []).map((r: any) => ({ room: num(r.room_number), amount: r2(Number(r.rent_income || 0)), ref: st.statement_reference, tenant: String(r.tenant_name ?? '') }))),
+        ...lines.filter(l => l.propertyId === p.id).map(l => ({ room: num(l.room), amount: r2(l.amount), ref: refOf.get(l.statementId) ?? '', tenant: l.tenant })),
+      ]
+      const rollRooms: RollRoom[] = []
+      for (const room of roomsOf(p.id)) {
+        if (room.is_let_only) continue
+        const roomTens = ((tens.data ?? []) as any[]).filter(t => t.room_id === room.id).sort((a, b) => String(a.start_date).localeCompare(String(b.start_date)))
+        for (const t of roomTens) {
+          const due = expectedRent(t, month) ?? 0
+          if (due <= 0) continue
+          const n = whole(p) ? null : num(room.name)
+          // this tenant's line: their room (and, in a changeover month, their surname); a whole let takes the house's lines
+          const surname = String(t.people?.last_name ?? '').toLowerCase()
+          const mine = shown.filter(x => !x.used && (n == null || x.room === n) && (roomTens.length < 2 || !surname || x.tenant.toLowerCase().includes(surname) || !x.tenant))
+          mine.forEach(x => { x.used = true })
+          const received = r2(mine.reduce((a, x) => a + x.amount, 0)), diff = r2(received - due)
+          const status: RoomStatus = received <= 0 ? 'awaiting_statement' : Math.abs(diff) < 0.005 ? 'paid' : diff < 0 ? 'part' : 'over'
+          rollRooms.push({ roomId: room.id, room: room.name, tenant: who(t.people), tenancyId: t.id, reference: t.payment_reference ?? null, chargeId: null, chargeNo: null,
+            due: r2(due), received, difference: diff, status, receipts: [], paidOver: 0, statement: [...new Set(mine.map(x => x.ref).filter(Boolean))].join(', ') || null })
+        }
+      }
+      if (!rollRooms.length) continue
+      rollRooms.sort((a, b) => a.room.localeCompare(b.room, undefined, { numeric: true }))
+      const due = r2(rollRooms.reduce((t, r) => t + (r.due ?? 0), 0)), received = r2(rollRooms.reduce((t, r) => t + r.received, 0))
+      out.push({ id: p.id, name: first(p.name), code: p.property_code, landlord: landlordName.get(p.landlord_id) || '', rooms: rollRooms,
+        due, received, missing: r2(rollRooms.reduce((t, r) => t + Math.max(0, (r.due ?? 0) - r.received), 0)), readyForStatement: 0, statements: stmtsFor(p.id), allIn: false, payPart: null })
+    }
+    return { month, source: 'mirror', takeover, properties: out, totals: sum(out) }
+  }
 
   // ── Before CROS collected rent: what the previous agent's statements show ──
   if (start < takeover) {
