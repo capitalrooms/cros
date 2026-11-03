@@ -343,6 +343,9 @@ export default function BankImportPage() {
                       {(row as any).move_in && (
                         <p className="text-xs font-semibold text-blue-700 mt-xs">Move-in money (first rent + deposit, {row.charge_amount_due != null ? `£${Number(row.charge_amount_due).toFixed(2)} due` : ''}) — not rent alone. After the import, record it on the letting file: the rent goes on the first month, the deposit is held for the DPS.</p>
                       )}
+                      {(row as any).before_start && (
+                        <p className="text-xs font-semibold text-neutral-600 mt-xs">Paid before CROS took over the rent ({new Date((row as any).before_start + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}) — collected elsewhere, so not counted here.</p>
+                      )}
                       {(row as any).matched_by_name && (
                         <p className="text-xs font-semibold text-amber-700 mt-xs">Matched by name — the reference didn’t match ours, but only one current tenant fits. Check it’s them.</p>
                       )}
