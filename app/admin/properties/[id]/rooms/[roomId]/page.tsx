@@ -81,7 +81,7 @@ export default function RoomPage({ params }: { params: Promise<{ id: string; roo
   if (!o) return (
     <div className="min-h-screen bg-neutral-100">
       <AppBar left={<BackButton href="/admin/active-rooms" />} />
-      <div className="h-64 animate-pulse bg-[#4A5320]" />
+      <div className="h-64 animate-pulse bg-[var(--band,#4A5320)]" />
       <div className="mx-auto max-w-6xl space-y-md px-lg py-xl">{[0, 1, 2].map(i => <div key={i} className="h-32 animate-pulse rounded-2xl bg-white" />)}</div>
     </div>
   )
@@ -98,7 +98,7 @@ export default function RoomPage({ params }: { params: Promise<{ id: string; roo
       <AppBar left={<BackButton href="/admin/active-rooms" />} />
 
       {/* ── hero ─────────────────────────────────────────────────────────────────────────────── */}
-      <section className="bg-[#4A5320] text-[#F3F0E6]">
+      <section className="bg-[var(--band,#4A5320)] text-[var(--ground,#F3F0E6)]">
         <div className="mx-auto max-w-6xl px-lg pt-lg">
           <div className="flex flex-wrap items-end justify-between gap-md">
             <div className="flex min-w-0 flex-[1_1_420px] items-center gap-md md:items-end">
@@ -116,7 +116,7 @@ export default function RoomPage({ params }: { params: Promise<{ id: string; roo
               </div>
             </div>
             <div className="hidden flex-wrap gap-sm md:flex">
-              {cur && <button type="button" onClick={message} className="rounded-lg bg-[#E8B931] px-md py-sm text-sm font-black text-[#23261A]">Message {cur.tenant.name}</button>}
+              {cur && <button type="button" onClick={message} className="rounded-lg bg-[var(--accent,#E8B931)] px-md py-sm text-sm font-black text-[var(--ink,#23261A)]">Message {cur.tenant.name}</button>}
               {canReport && !letOnly && <button type="button" onClick={() => setArranging(true)} className="rounded-lg border border-[#F6F3EC]/25 px-md py-sm text-sm font-bold">Arrange works</button>}
               <Link href={`/lettings/listing/${roomId}?from=${encodeURIComponent(`/admin/properties/${propertyId}/rooms/${roomId}`)}`} className="rounded-lg border border-[#F6F3EC]/25 px-md py-sm text-sm font-bold">Marketing view</Link>
               <Link href={`/admin/properties/${propertyId}/rooms/${roomId}/edit`} className="rounded-lg border border-[#F6F3EC]/25 px-md py-sm text-sm font-bold">Edit room</Link>

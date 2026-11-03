@@ -206,7 +206,7 @@ export default function QuickNotifyModal({ propertyId, onClose, onSuccess, initi
     <div className="fixed inset-0 z-[1000] flex items-stretch justify-center bg-black/50 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] md:items-center md:pt-0 md:pb-0 md:p-lg" role="dialog" aria-modal="true" aria-label="Quick Notify">
       <div className="flex w-full flex-col overflow-hidden bg-neutral-50 shadow-2xl md:max-h-[92dvh] md:max-w-3xl md:rounded-2xl">
         {/* header: the house it's going to */}
-        <div className="flex items-start justify-between gap-md bg-[#23261A] px-lg py-md text-white">
+        <div className="flex items-start justify-between gap-md bg-[var(--ink,#23261A)] px-lg py-md text-white">
           <div className="min-w-0">
             <p className="text-xs font-bold uppercase tracking-wide text-neutral-400">Quick Notify</p>
             <p className="truncate text-lg font-bold">{house?.property.name ?? 'Loading…'}</p>
@@ -378,7 +378,7 @@ export default function QuickNotifyModal({ propertyId, onClose, onSuccess, initi
                 {previewAs === 'phone' || channels === 'push_only' ? (
                   <div className="mx-auto max-w-sm space-y-sm rounded-[28px] bg-neutral-800 p-md">
                     <div className="rounded-2xl bg-white/90 p-sm shadow">
-                      <div className="flex items-center gap-sm text-[11px] text-neutral-500"><span className="grid h-5 w-5 place-items-center rounded bg-[#23261A] text-[9px] font-bold text-white">CR</span>Capital Rooms · now</div>
+                      <div className="flex items-center gap-sm text-[11px] text-neutral-500"><span className="grid h-5 w-5 place-items-center rounded bg-[var(--ink,#23261A)] text-[9px] font-bold text-white">CR</span>Capital Rooms · now</div>
                       <p className="mt-xs text-sm font-bold text-neutral-900">{subject}</p>
                       <p className="line-clamp-2 text-xs text-neutral-700">{body}</p>
                     </div>
@@ -396,7 +396,7 @@ export default function QuickNotifyModal({ propertyId, onClose, onSuccess, initi
                       <p>Dear {firstName},</p>
                       <p className="font-bold">{subject}</p>
                       {body.split(/\n{2,}/).map((p, i) => <p key={i} className="whitespace-pre-line">{p}</p>)}
-                      <p className="inline-block rounded-lg bg-[#23261A] px-md py-xs text-xs font-bold text-white">View details</p>
+                      <p className="inline-block rounded-lg bg-[var(--ink,#23261A)] px-md py-xs text-xs font-bold text-white">View details</p>
                       <p className="text-xs text-neutral-500">— signed with your email signature, with the Capital Rooms footer</p>
                     </div>
                   </div>

@@ -84,7 +84,7 @@ function VoidTile({ v }: { v: NonNullable<DashboardData['voids']> }) {
   const top = [...w.byLandlord].sort((a, b) => b.rate - a.rate || b.lost - a.lost).slice(0, 5)
   const max = Math.max(1, ...top.map(l => l.rate))
   return (
-    <Tile title="Voids" href="/admin/voids" note={<span className="flex gap-1">{(['3', '6', '12'] as const).map(k => <button key={k} type="button" onClick={() => setM(k)} className={`h-[22px] rounded-md px-sm text-[11px] font-semibold ${m === k ? 'bg-[#23261A] text-[#F6F3EC]' : 'border border-[#E4E1DB] text-neutral-600'}`}>{k}m</button>)}</span>}
+    <Tile title="Voids" href="/admin/voids" note={<span className="flex gap-1">{(['3', '6', '12'] as const).map(k => <button key={k} type="button" onClick={() => setM(k)} className={`h-[22px] rounded-md px-sm text-[11px] font-semibold ${m === k ? 'bg-[var(--ink,#23261A)] text-[#F6F3EC]' : 'border border-[#E4E1DB] text-neutral-600'}`}>{k}m</button>)}</span>}
       foot={<>{w.fullyOnRecord} of {w.rooms} rooms on record for the whole period; the rest count from their first tenancy.{v.checks > 0 && <> <Warn>{v.checks} room{v.checks === 1 ? '' : 's'} to check.</Warn></>}</>}>
       <div className="grid gap-sm p-md text-[12px]">
         <div className="grid grid-cols-3 gap-sm">
@@ -131,7 +131,7 @@ export default function DashboardInfographic({ d, name }: { d: DashboardData; na
 
   return (
     <div>
-      <section className="bg-[#4A5320] text-[#F3F0E6]">
+      <section className="bg-[var(--band,#4A5320)] text-[var(--ground,#F3F0E6)]">
         <div className="mx-auto max-w-6xl px-lg pb-lg pt-lg">
           <div className="flex flex-wrap items-end justify-between gap-md">
             <div>
