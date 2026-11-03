@@ -138,7 +138,7 @@ function parseAmount(raw: string): number | null {
 //   008ROC-R1  8ROC-R1  208ROS/R5   (the older "-R<room>" style)
 // and normalise all of them to the stored form "208ROS05". Must stand alone as a token, and date-like
 // tokens ("23SEP26") are ignored so they're never mistaken for a reference.
-const REF_PATTERN = /(?:^|[^A-Z0-9])(?:CR[-\s]?)?(\d{1,3})[\s\-\/]?([A-Z]{2,4})[\s\-\/]?(?:R(?=[\s\-\/]?\d))?[\s\-\/]?(\d{1,2})(?=[^A-Z0-9]|$)/gi
+const REF_PATTERN = /(?:^|[^A-Z0-9])(?:CR[-\s]?)?(\d{1,3})[\s\-\/]?([A-Z]{2,4})[\s\-\/]?(?:R(?=[\s\-\/]?\d))?[\s\-\/]?(\d{1,2})(?=[^0-9]|$)/gi   // letters may follow the room (208ROS04LIEJ)
 const MONTH_TOKEN = /^(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|SEPT|OCT|NOV|DEC)$/
 
 export function refCandidates(description: string): string[] {

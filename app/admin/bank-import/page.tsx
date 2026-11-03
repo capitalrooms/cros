@@ -343,6 +343,9 @@ export default function BankImportPage() {
                       {(row as any).move_in && (
                         <p className="text-xs font-semibold text-blue-700 mt-xs">Move-in money (first rent + deposit, {row.charge_amount_due != null ? `£${Number(row.charge_amount_due).toFixed(2)} due` : ''}) — not rent alone. After the import, record it on the letting file: the rent goes on the first month, the deposit is held for the DPS.</p>
                       )}
+                      {(row as any).matched_by_name && (
+                        <p className="text-xs font-semibold text-amber-700 mt-xs">Matched by name — the reference didn’t match ours, but only one current tenant fits. Check it’s them.</p>
+                      )}
                       {(row as any).let_only && (
                         <p className="text-xs font-semibold text-blue-700 mt-xs">Let-only move-in money — not rent. After the import, record it on the letting file’s Money tab (Initial monies), where this line will be offered.</p>
                       )}
