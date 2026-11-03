@@ -75,7 +75,15 @@ export async function current(s: SupabaseClient, tenancyId: string) {
   const { data: rec } = await s.from('initial_monies').select('*, bank_transactions(txn_no, transaction_date, amount, description)').eq('tenancy_id', tenancyId).is('voided_at', null).maybeSingle()
   if (!rec) return null
   const { data: tr } = await s.from('office_transfers').select('id, txn_no, amount, transferred_on, reference').eq('initial_monies_id', (rec as any).id).is('voided_at', null).maybeSingle()
-  return { ...(rec as any), feeTransfer: tr ?? null }
+  // the landlord's statement (Harry, 3 Nov 2026 — step 3): sent with a "Signed & paid" or "New tenant report" landlord
+  // update, which attaches the lettings statement for a let-only let
+  const { data: lu } = await s.from('landlord_updates').select('created_at, sent_to').eq('tenancy_id', tenancyId).in('stage', ['signed_paid', 'summary'])
+    .gte('created_at', String((rec as any).created_at ?? '')).order('created_at', { ascending: false }).limit(1)
+  const statementSent = ((lu ?? []) as any[])[0] ? { at: (lu as any[])[0].created_at, to: (lu as any[])[0].sent_to } : null
+  const r = rec as any
+  // step 4: the let-only let's money is finished — received, landlord paid, statement sent, our fee moved
+  const closed = !!r.paid_on && !!statementSent && (Number(r.fee) <= 0 || !!tr)
+  return { ...r, feeTransfer: tr ?? null, statementSent, closed }
 }
 
 const isDate = (v: unknown) => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v)

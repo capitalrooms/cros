@@ -71,6 +71,20 @@ export default function InitialMonies({ tenancyId, onChanged }: { tenancyId: str
         <div><dt className={lbl}>Balance due from tenant</dt><dd className="font-bold tabular-nums">{gbp(e.balanceDue)}</dd></div>
       </dl>
 
+      {/* Harry's four steps for a let-only let (3 Nov 2026) — once all four are done nothing more is expected from the
+          tenant: from here they pay the landlord */}
+      <ol className="mt-sm grid gap-xs text-xs sm:grid-cols-4">
+        {([
+          ['Holding deposit received', Number(rec?.holding_amount ?? e.holding) > 0],
+          ['Deposit & rent received', !!rec],
+          ['Landlord statement sent & paid', !!rec?.paid_on && !!rec?.statementSent],
+          ['Finances closed', !!rec?.closed],
+        ] as [string, boolean][]).map(([t, ok], i) => (
+          <li key={t} className={`rounded-lg px-sm py-xs font-semibold ${ok ? 'bg-green-50 text-green-800' : 'bg-neutral-50 text-neutral-500'}`}>{ok ? '✓' : `${i + 1}`} · {t}</li>
+        ))}
+      </ol>
+      {rec?.closed && <p className="mt-sm rounded-lg bg-green-50 px-sm py-xs text-sm font-semibold text-green-800">Finances closed for this tenancy — the tenant now pays the landlord, nothing more is expected here.</p>}
+
       {!rec ? (
         <div className="mt-md space-y-md">
           <div>
@@ -121,6 +135,9 @@ export default function InitialMonies({ tenancyId, onChanged }: { tenancyId: str
             ? <Row done title={`Fee moved to the operations account ${gbp(rec.feeTransfer.amount)}`} detail={`${rec.feeTransfer.txn_no} · ${ukDay(rec.feeTransfer.transferred_on)}${rec.feeTransfer.reference ? ` · ref ${rec.feeTransfer.reference}` : ''}`} />
             : <Step title={`Move the fee ${gbp(rec.fee)} to the operations account`} hint="From the client account to the operations account." date={trfOn} setDate={setTrfOn} reference={trfRef} setReference={setTrfRef} busy={busy}
                 button="Record transfer" onGo={() => act({ action: 'transfer_fee', transferredOn: trfOn, reference: trfRef }, `Record ${gbp(rec.fee)} moved to the operations account on ${ukDay(trfOn)}?`)} />)}
+          {rec.statementSent
+            ? <Row done title="Statement sent to the landlord" detail={`${ukDay(String(rec.statementSent.at).slice(0, 10))}${rec.statementSent.to ? ` · ${rec.statementSent.to}` : ''}`} />
+            : <p className="rounded-lg bg-amber-50 px-sm py-xs text-sm text-amber-900">Send the landlord their statement: Landlord updates › “Signed &amp; paid” attaches it (deposit and rent received, less our fee).</p>}
           <div className="flex flex-wrap items-center gap-md border-t border-neutral-100 pt-sm">
             <button type="button" onClick={() => openSignedIn(`/api/lettings-statement/${tenancyId}`)} className="text-sm font-semibold text-blue-700 hover:underline">Lettings statement (PDF)</button>
             <span className="text-xs text-neutral-500">Send it to the landlord with “Signed &amp; paid” in Landlord updates.</span>
