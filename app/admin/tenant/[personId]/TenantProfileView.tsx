@@ -977,7 +977,8 @@ export function TenantProfileView({ personId, embedded = false }: { personId: st
             { id: 'history'         as const, label: 'Timeline' },
             { id: 'payments'        as const, label: `Payments${paymentRows.length ? ` (${paymentRows.length})` : ''}` },
           ]
-  const DUPLICATED = new Set(['tenancy', 'documents', 'payments'])
+  // inside a letting file it has its own Message tenant and Activity tabs, and safety checks belong to the house
+  const DUPLICATED = new Set(['tenancy', 'documents', 'payments', 'communications', 'safety', 'history'])
   const tabList = allTabs.filter(t => !embedded || !DUPLICATED.has(t.id))
 
   return (
@@ -999,7 +1000,7 @@ export function TenantProfileView({ personId, embedded = false }: { personId: st
                 className={`rounded-full px-md py-xs text-sm font-semibold ${activeTab === tab.id ? 'bg-neutral-900 text-white' : 'border border-neutral-300 bg-white text-neutral-700'}`}>{tab.label}</button>
             ))}
           </div>
-          <Link href={`/admin/tenant/${personId}?stay=1`} className="text-xs font-semibold text-blue-700 hover:underline">Open the full profile</Link>
+          <Link href={`/admin/tenant/${personId}?stay=1`} className="text-xs font-semibold text-blue-700 hover:underline">Every tenancy and message they’ve had</Link>
         </div>
       )}
 
@@ -1016,6 +1017,7 @@ export function TenantProfileView({ personId, embedded = false }: { personId: st
             candidateIdPhotoUrl={candidateIdPhotoUrl}
             onAcceptIdPhoto={handleAcceptIdPhoto}
             acceptingPhoto={acceptingPhoto}
+            compact={embedded}
           />
         </div>
 
