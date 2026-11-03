@@ -85,6 +85,10 @@ export async function POST(req: NextRequest) {
     if (!DATE.test(b.entryDate || '')) return NextResponse.json({ error: 'Pick the date.' }, { status: 400 })
     if (!isFinite(amount) || !amount) return NextResponse.json({ error: 'Enter the amount (use a minus for money out).' }, { status: 400 })
     if (!String(b.description || '').trim()) return NextResponse.json({ error: 'Say what it is for.' }, { status: 400 })
+    // contractors are only ever paid from the operations account (Harry, 3 Nov 2026), and deposits are recorded on the
+    // letting file (migration 258) — neither is a hand entry here
+    if (b.kind === 'expense_paid') return NextResponse.json({ error: 'Contractors are paid from the operations account, never the client account. Add the expense to the house; it’s repaid to the office in the payment run.' }, { status: 409 })
+    if (b.kind === 'deposit_in' || b.kind === 'deposit_out') return NextResponse.json({ error: 'Record a deposit on the tenant’s letting file (Money tab): received, then sent to the DPS.' }, { status: 409 })
     const { error } = await s.from('client_ledger_adjustments').insert({
       landlord_id: b.landlordId || null, property_id: b.propertyId || null, entry_date: b.entryDate, kind: b.kind || 'correction',
       description: String(b.description).trim(), amount: r2(amount), reference: String(b.reference || '').trim() || null, created_by: admin.personId,

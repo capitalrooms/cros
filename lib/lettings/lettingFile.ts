@@ -51,7 +51,7 @@ export function stageOf(t: { let_cancelled_at?: string | null; start_date?: stri
 export async function loadLettingFile(s: SupabaseClient, tenancyId: string) {
   const today = todayIso()
   const { data: t, error } = await s.from('tenancies')
-    .select('*, people!person_id(id, salutation, first_name, middle_name, last_name, full_name, email, phone, occupation, right_to_rent_until, applicant_id), co:people!co_tenant_id(id, salutation, first_name, last_name, full_name, email, phone), rooms(id, name, unit_code, status), properties(id, name, address, postcode, property_code, letting_type, landlord_id)')
+    .select('*, people!person_id(id, salutation, first_name, middle_name, last_name, full_name, email, phone, occupation, right_to_rent_until, applicant_id), co:people!co_tenant_id(id, salutation, first_name, last_name, full_name, email, phone), rooms(id, name, unit_code, status, is_let_only), properties(id, name, address, postcode, property_code, letting_type, landlord_id)')
     .eq('id', tenancyId).maybeSingle() as { data: any; error: any }
   if (error) return { error: error.message }
   if (!t) return { error: 'Tenancy not found' }

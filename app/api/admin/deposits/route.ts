@@ -6,6 +6,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { requireAdmin } from '@/lib/adminAuth'
 import { demoPropertyIds } from '@/lib/demoProperties'
+import { isLetOnly } from '@/lib/tenancy/depositHolder'
+import { logTenancyEvent } from '@/lib/lettings/incomingTenancy'
 
 export const dynamic = 'force-dynamic'
 
@@ -68,4 +70,44 @@ export async function PATCH(req: NextRequest) {
   const { error } = await svc().from('tenancies').update(update).eq('id', b.tenancyId)
   if (error) return NextResponse.json({ error: error.code === '42703' ? 'Run migration 189 in Supabase first.' : error.message }, { status: 500 })
   return NextResponse.json({ ok: true })
+}
+
+// POST — a managed tenancy's deposit through the client account (migration 258; Harry, 3 Nov 2026):
+//   { action: 'received', tenancyId, on, amount }               the deposit arrived in the client account
+//   { action: 'sent', tenancyId, on, amount, reference }        sent to the DPS to be protected
+// Let-only deposits never come here: they go to the landlord inside the initial monies. Each is recorded once; the
+// tenancy's activity keeps the trail.
+export async function POST(req: NextRequest) {
+  const admin = await requireAdmin(req)
+  if (!admin) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const b = await req.json().catch(() => ({}))
+  const s = svc()
+  const { data: t } = await s.from('tenancies').select('id, deposit_amount, deposit_held_by, deposit_received_on, deposit_received_amount, deposit_sent_on, rooms(is_let_only), properties(letting_type)').eq('id', String(b.tenancyId ?? '')).maybeSingle() as { data: any; error: any }
+  if (!t) return NextResponse.json({ error: 'Tenancy not found — or run migration 258 in Supabase first.' }, { status: 404 })
+  if (isLetOnly(t.properties?.letting_type, t.rooms?.is_let_only)) return NextResponse.json({ error: 'This is a let-only tenancy — its deposit goes to the landlord with the initial monies, not to the DPS.' }, { status: 409 })
+  const on = String(b.on ?? ''), amount = Math.round(Number(b.amount) * 100) / 100
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(on)) return NextResponse.json({ error: 'Enter the date.' }, { status: 400 })
+  if (!(amount > 0)) return NextResponse.json({ error: 'Enter the amount.' }, { status: 400 })
+  const pounds = (n: number) => `£${n.toFixed(2)}`
+  if (b.action === 'received') {
+    if (t.deposit_received_on) return NextResponse.json({ error: `Already recorded as received on ${t.deposit_received_on}.` }, { status: 409 })
+    const { error } = await s.from('tenancies').update({ deposit_received_on: on, deposit_received_amount: amount }).eq('id', t.id).is('deposit_received_on', null)
+    if (error) return NextResponse.json({ error: error.code === '42703' ? 'Run migration 258 in Supabase first.' : error.message }, { status: 500 })
+    await logTenancyEvent(s as any, t.id, 'deposit_received', `Deposit ${pounds(amount)} received into the client account on ${on}${Math.abs(amount - Number(t.deposit_amount || 0)) > 0.005 ? ` (the agreed deposit is ${pounds(Number(t.deposit_amount || 0))})` : ''}`, admin.email)
+    return NextResponse.json({ ok: true })
+  }
+  if (b.action === 'sent') {
+    if (!t.deposit_received_on) return NextResponse.json({ error: 'Record the deposit as received first.' }, { status: 409 })
+    if (t.deposit_sent_on) return NextResponse.json({ error: `Already recorded as sent to the DPS on ${t.deposit_sent_on}.` }, { status: 409 })
+    if (on < t.deposit_received_on) return NextResponse.json({ error: 'It can’t be sent before it was received.' }, { status: 400 })
+    if (amount > Number(t.deposit_received_amount) + 0.005) return NextResponse.json({ error: `Only ${pounds(Number(t.deposit_received_amount))} was received.` }, { status: 409 })
+    const reference = String(b.reference ?? '').trim()
+    if (!reference) return NextResponse.json({ error: 'Enter the payment reference you used with the DPS.' }, { status: 400 })
+    const { error } = await s.from('tenancies').update({ deposit_sent_on: on, deposit_sent_amount: amount, deposit_sent_reference: reference }).eq('id', t.id).is('deposit_sent_on', null)
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    const days = Math.round((Date.parse(on) - Date.parse(t.deposit_received_on)) / 86_400_000)
+    await logTenancyEvent(s as any, t.id, 'deposit_sent', `Deposit ${pounds(amount)} sent to the DPS on ${on} · ref ${reference}${days > 30 ? ` — ${days} days after it was received (the limit is 30)` : ''}`, admin.email)
+    return NextResponse.json({ ok: true, late: days > 30 })
+  }
+  return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
 }
