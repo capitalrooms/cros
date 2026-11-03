@@ -134,8 +134,11 @@ function RentRollScreen({ initialMonth, practice }: { initialMonth?: string; pra
         stats={roll ? [
           { label: prevAgent ? 'Rent collected' : 'Rent due', value: gbp(prevAgent ? roll.totals.received : roll.totals.due) },
           { label: 'Received', value: gbp(roll.totals.received), tone: 'good' },
-          { label: 'Missing', value: gbp(roll.totals.missing), tone: roll.totals.missing > 0 ? 'bad' : undefined },
-          { label: 'Ready to pay', value: gbp(roll.totals.ready), tone: 'warn' },
+          // mirroring: rent no statement shows yet isn't missing — the month's statements may simply not be in yet (3 Nov 2026)
+          roll.source === 'mirror'
+            ? { label: 'Not on a statement yet', value: gbp(roll.totals.missing), tone: undefined }
+            : { label: 'Missing', value: gbp(roll.totals.missing), tone: roll.totals.missing > 0 ? 'bad' : undefined },
+          ...(roll.source === 'mirror' ? [] : [{ label: 'Ready to pay', value: gbp(roll.totals.ready), tone: 'warn' as const }]),
         ] : undefined}
         tabs={financeTabs('rent-roll', month)}
       />
@@ -166,7 +169,7 @@ function RentRollScreen({ initialMonth, practice }: { initialMonth?: string; pra
               <table>
                 <thead><tr>
                   <th>Property</th><th className="hidden sm:table-cell">Rooms</th>
-                  {!prevAgent && <th className="text-right">Due</th>}<th className="text-right">Received</th>{!prevAgent && <th className="text-right">Missing</th>}
+                  {!prevAgent && <th className="text-right">Due</th>}<th className="text-right">Received</th>{!prevAgent && <th className="text-right">{roll?.source === 'mirror' ? 'Not shown yet' : 'Missing'}</th>}
                 </tr></thead>
                 <tbody>
                   {loading && <tr><td colSpan={5} className="text-center text-neutral-500">Loading…</td></tr>}
@@ -181,7 +184,7 @@ function RentRollScreen({ initialMonth, practice }: { initialMonth?: string; pra
                         <td className="hidden sm:table-cell whitespace-nowrap">{paidCount(p)}/{p.rooms.length} paid</td>
                         {!prevAgent && <td className="text-right">{gbp(p.due)}</td>}
                         <td className="text-right font-semibold">{gbp(p.received)}</td>
-                        {!prevAgent && <td className={`text-right ${p.missing > 0 ? (on ? 'text-[#F28B82]' : 'text-red-700 font-semibold') : 'text-neutral-400'}`}>{p.missing > 0 ? gbp(p.missing) : '—'}</td>}
+                        {!prevAgent && <td className={`text-right ${p.missing > 0 ? (roll?.source === 'mirror' ? (on ? 'text-[#F3F0E6]/80' : 'text-neutral-600') : on ? 'text-[#F28B82]' : 'text-red-700 font-semibold') : 'text-neutral-400'}`}>{p.missing > 0 ? gbp(p.missing) : '—'}</td>}
                       </tr>
                     )
                   })}
