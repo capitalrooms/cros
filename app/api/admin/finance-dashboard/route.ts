@@ -45,18 +45,23 @@ export async function GET(req: NextRequest) {
       .eq('properties.letting_type', 'let_only').gte('start_date', since).lte('start_date', until).is('let_cancelled_at', null)
     const demo = await demoPropertyIds(s)
     const loRows = ((lo ?? []) as any[]).filter(t => !demo.has(t.properties?.id))
-    const { data: ims } = loRows.length ? await s.from('initial_monies').select('tenancy_id, to_landlord, paid_on').in('tenancy_id', loRows.map(t => t.id)).is('voided_at', null) : { data: [] }
+    const { data: ims } = loRows.length ? await s.from('initial_monies').select('tenancy_id, to_landlord, paid_on, fee, id').in('tenancy_id', loRows.map(t => t.id)).is('voided_at', null) : { data: [] }
+    const { data: closedBits } = loRows.length ? await s.from('landlord_updates').select('tenancy_id').in('tenancy_id', loRows.map(t => t.id)).in('stage', ['signed_paid', 'summary']) : { data: [] }
+    const stmtSent = new Set(((closedBits ?? []) as any[]).map(r => r.tenancy_id))
+    const { data: trs } = (ims ?? []).length ? await s.from('office_transfers').select('initial_monies_id').in('initial_monies_id', (ims as any[]).map(i => i.id)).is('voided_at', null) : { data: [] }
+    const feeMoved = new Set(((trs ?? []) as any[]).map(r => r.initial_monies_id))
     const imBy = new Map(((ims ?? []) as any[]).map(r => [r.tenancy_id, r]))
     const llIds = [...new Set(loRows.map(t => t.properties?.landlord_id).filter(Boolean))]
     const { data: lls } = llIds.length ? await s.from('people').select('id, salutation, first_name, last_name, company').in('id', llIds) : { data: [] }
     const llName = new Map(((lls ?? []) as any[]).map(p => [p.id, [p.salutation, p.first_name, p.last_name].filter(Boolean).join(' ') || p.company || '']))
     const letOnly = loRows.map(t => {
       const im = imBy.get(t.id) as any
-      if (im?.paid_on) return null
+      // off the list only when finances are closed: landlord paid, statement sent, our fee moved
+      if (im?.paid_on && stmtSent.has(t.id) && (Number(im.fee) <= 0 || feeMoved.has(im.id))) return null
       const tenant = [t.people?.salutation, t.people?.first_name, t.people?.last_name].filter(Boolean).join(' ')
       return { tenancyId: t.id, name: first(t.properties?.name), landlord: llName.get(t.properties?.landlord_id) ?? '', tenant, start: t.start_date,
-        amount: im ? Number(im.to_landlord || 0) : round(Number(t.rent_amount || 0) + Number(t.deposit_amount || 0)), step: im ? 'pay' : 'record' }
-    }).filter(Boolean) as { tenancyId: string; name: string; landlord: string; tenant: string; start: string; amount: number; step: 'pay' | 'record' }[]
+        amount: im ? Number(im.to_landlord || 0) : round(Number(t.rent_amount || 0) + Number(t.deposit_amount || 0)), step: !im ? 'record' : !im.paid_on ? 'pay' : 'close' }
+    }).filter(Boolean) as { tenancyId: string; name: string; landlord: string; tenant: string; start: string; amount: number; step: 'pay' | 'record' | 'close' }[]
 
     // expenses not yet on a statement, per house
     const byHouse = new Map<string, { propertyId: string; house: string; count: number; total: number }>()

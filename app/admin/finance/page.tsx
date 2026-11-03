@@ -21,7 +21,7 @@ import { C, display, Pill, type Tone } from '@/app/components/financeLook'
 
 interface Dash {
   collectsRent: boolean
-  ready: { count: number; total: number; items: { id: string; name: string; landlord: string; amount: number; part: boolean }[]; letOnly: { tenancyId: string; name: string; landlord: string; tenant: string; start: string; amount: number; step: 'pay' | 'record' }[] }
+  ready: { count: number; total: number; items: { id: string; name: string; landlord: string; amount: number; part: boolean }[]; letOnly: { tenancyId: string; name: string; landlord: string; tenant: string; start: string; amount: number; step: 'pay' | 'record' | 'close' }[] }
   due: { count: number; total: number; waitingHouses: number; notRaised: number; items: { property: string; propertyId: string; room: string; tenant: string; tenancyId: string | null; owed: number; status: string; received: number; ends: string | null }[]; paid: number }
   expenses: { count: number; total: number; houses: { propertyId: string; house: string; count: number; total: number }[] }
   statements: { items: { id: string; house: string; landlord: string; reference: string; date: string; net: number; state: string }[] }
@@ -94,7 +94,7 @@ function FinanceHomeScreen({ initialMonth }: { initialMonth?: string }) {
                 <Row key={r.id} href={`/admin/statements/prepare?property=${r.id}&month=${month}`} left={r.name} sub={`${r.landlord}${r.part ? ' · paying part now' : ''}`} right={gbp(r.amount)} cta="Prepare" />
               ))}
               {d.ready.letOnly.map(l => (
-                <Row key={l.tenancyId} href={`/admin/lettings/${l.tenancyId}?tab=money`} left={l.name} sub={`Let only · ${l.landlord} · ${l.tenant} from ${short(l.start)}${l.step === 'record' ? ' · record the move-in money' : ''}`} right={gbp(l.amount)} cta={l.step === 'pay' ? 'Pay' : 'Record'} />
+                <Row key={l.tenancyId} href={`/admin/lettings/${l.tenancyId}?tab=money`} left={l.name} sub={`Let only · ${l.landlord} · ${l.tenant} from ${short(l.start)}${l.step === 'record' ? ' · record the move-in money' : l.step === 'close' ? ' · send the statement / move the fee to close' : ''}`} right={gbp(l.amount)} cta={l.step === 'pay' ? 'Pay' : l.step === 'close' ? 'Close' : 'Record'} />
               ))}
             </Tile>
 
