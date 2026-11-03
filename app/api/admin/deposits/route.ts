@@ -8,6 +8,10 @@ import { requireAdmin } from '@/lib/adminAuth'
 import { demoPropertyIds } from '@/lib/demoProperties'
 import { isLetOnly } from '@/lib/tenancy/depositHolder'
 import { logTenancyEvent } from '@/lib/lettings/incomingTenancy'
+import { managedMoveInReceipt } from '@/lib/finance/initialMonies'
+import { sendEmail } from '@/lib/sendEmail'
+import { messageHtml } from '@/lib/email/messageHtml'
+import { getElectedCommsLive } from '@/lib/comms'
 
 export const dynamic = 'force-dynamic'
 
@@ -110,4 +114,22 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, late: days > 30 })
   }
   return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
+}
+
+// PUT { tenancyId, preview? } — a managed let's move-in receipt (lib/finance/initialMonies managedMoveInReceipt):
+// previewed, then sent by the office; the send is noted on the letting file.
+export async function PUT(req: NextRequest) {
+  const admin = await requireAdmin(req)
+  if (!admin) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const b = await req.json().catch(() => ({}))
+  const s = svc()
+  const rc = await managedMoveInReceipt(s as any, String(b.tenancyId ?? ''))
+  if ('error' in rc) return NextResponse.json({ error: rc.error }, { status: 409 })
+  if (b.preview) return NextResponse.json(rc)
+  if (!rc.to) return NextResponse.json({ error: 'No email address for the tenant.' }, { status: 422 })
+  if (!(await getElectedCommsLive())) return NextResponse.json({ error: 'Messages you send are switched off in Settings. Nothing was sent.' }, { status: 409 })
+  const { ok, error } = await sendEmail(rc.to, rc.subject, messageHtml(rc.text), { req })
+  if (!ok) return NextResponse.json({ error: error ?? 'The email didn’t send' }, { status: 502 })
+  await logTenancyEvent(s as any, String(b.tenancyId), 'move_in_receipt', `Move-in receipt emailed to ${rc.to}`, admin.email)
+  return NextResponse.json({ ok: true, to: rc.to })
 }
