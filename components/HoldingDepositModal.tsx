@@ -6,6 +6,7 @@
 // Drafts and records come from /api/lettings/holding-deposit.
 
 import BodyPortal from '@/components/BodyPortal'
+import { RETAIN_GROUNDS } from '@/lib/lettings/holdingRetain'
 import { useEffect, useState } from 'react'
 import { adminFetch } from '@/lib/adminFetch'
 
@@ -19,6 +20,7 @@ interface HoldRecord {
   id: string; hold_no: string; amount: number; received_on: string; method: string; payer_name: string
   payer_reference: string | null; apply_to: 'deposit' | 'first_rent'; status: string; outcome_on: string | null
   outcome_reason: string | null; receipt_document_id: string | null; receipt_emailed_at: string | null
+  retain_ground?: string | null; notice_sent_at?: string | null; notice_sent_to?: string | null; refund_reference?: string | null
   receipt_emailed_to: string[] | null; recorded_by: string; recorded_at: string
 }
 
@@ -51,7 +53,8 @@ export default function HoldingDepositModal({ applicantId, onClose, onDone }: Pr
   const [receipt, setReceipt] = useState({ send: false, to: '' })
   const [landlord, setLandlord] = useState<{ send: boolean; to: string; subject: string; message: string; facts: { label: string; value: string }[] }>({ send: false, to: '', subject: '', message: '', facts: [] })
   const [housemates, setHousemates] = useState({ send: false, title: '', message: '' })
-  const [outcome, setOutcome] = useState<{ status: string; outcomeOn: string; reason: string } | null>(null)
+  const [outcome, setOutcome] = useState<{ status: string; outcomeOn: string; reason: string; ground?: string; refundReference?: string } | null>(null)
+  const [notice, setNotice] = useState<{ id: string; subject: string; text: string; to: string | null } | null>(null)
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
 
@@ -101,6 +104,23 @@ export default function HoldingDepositModal({ applicantId, onClose, onDone }: Pr
     } finally {
       setSending(false)
     }
+  }
+
+  async function previewNotice(rec: HoldRecord) {
+    setError('')
+    const res = await adminFetch('/api/lettings/holding-deposit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ applicantId, action: 'retain_notice', holdingId: rec.id, preview: true }) })
+    const d = await res.json().catch(() => ({}))
+    if (!res.ok) { setError(d.error ?? 'Could not make the letter'); return }
+    setNotice({ id: rec.id, subject: d.subject, text: d.text, to: d.to ?? null })
+  }
+
+  async function sendNotice(rec: HoldRecord) {
+    if (!notice || !window.confirm(`Send the written reasons to ${notice.to}?`)) return
+    setSending(true); setError('')
+    const res = await adminFetch('/api/lettings/holding-deposit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ applicantId, action: 'retain_notice', holdingId: rec.id }) })
+    const d = await res.json().catch(() => ({}))
+    if (!res.ok) setError(d.error ?? 'Could not send it'); else { setNotice(null); await load() }
+    setSending(false)
   }
 
   async function saveOutcome(rec: HoldRecord) {
@@ -164,7 +184,22 @@ export default function HoldingDepositModal({ applicantId, onClose, onDone }: Pr
                       {METHODS.find(m => m[0] === r.method)?.[1]}{r.payer_reference ? ` · ref ${r.payer_reference}` : ''} · from {r.payer_name} · towards the {r.apply_to === 'first_rent' ? 'first rent' : 'deposit'} · recorded by {r.recorded_by} {day(r.recorded_at)}
                       {r.receipt_emailed_at ? ` · receipt emailed ${day(r.receipt_emailed_at)}` : ''}
                     </p>
-                    {r.outcome_reason && <p className="text-xs text-neutral-600 mt-xs">{STATUS[r.status]} {r.outcome_on ? day(r.outcome_on) : ''}: {r.outcome_reason}</p>}
+                    {r.outcome_reason && <p className="text-xs text-neutral-600 mt-xs">{STATUS[r.status]} {r.outcome_on ? day(r.outcome_on) : ''}: {r.outcome_reason}{r.refund_reference ? ` · refund ref ${r.refund_reference}` : ''}</p>}
+                    {r.status === 'retained' && (r.notice_sent_at
+                      ? <p className="text-xs text-green-700 mt-xs">Written reasons sent {day(r.notice_sent_at.slice(0, 10))}{r.notice_sent_to ? ` to ${r.notice_sent_to}` : ''}</p>
+                      : <div className="mt-sm rounded-lg bg-amber-50 p-sm text-xs text-amber-900">
+                          <p className="font-semibold">The applicant must be told in writing why, within 7 days of deciding{r.outcome_on ? ` (by ${day(new Date(Date.parse(r.outcome_on) + 7 * 86_400_000).toISOString().slice(0, 10))})` : ''}.</p>
+                          {notice?.id === r.id ? (
+                            <div className="mt-xs space-y-xs">
+                              <p><b>To:</b> {notice.to ?? 'no email on file'} · <b>{notice.subject}</b></p>
+                              <pre className="whitespace-pre-wrap rounded bg-white p-sm font-sans text-neutral-800">{notice.text}</pre>
+                              <div className="flex gap-sm">
+                                <button type="button" onClick={() => setNotice(null)} className="rounded-lg border border-neutral-300 bg-white px-md py-xs font-semibold">Close</button>
+                                {notice.to && <button type="button" disabled={sending} onClick={() => sendNotice(r)} className="rounded-lg bg-neutral-900 px-md py-xs font-bold text-white disabled:opacity-40">{sending ? 'Sending…' : `Send to ${notice.to}`}</button>}
+                              </div>
+                            </div>
+                          ) : <button type="button" onClick={() => previewNotice(r)} className="mt-xs font-semibold underline">Preview the letter</button>}
+                        </div>)}
                     <div className="flex flex-wrap gap-md mt-sm">
                       {r.receipt_document_id && <button type="button" onClick={() => viewReceipt(r.receipt_document_id!)} className="text-xs font-semibold text-blue-600 hover:underline">View receipt</button>}
                       {r.status === 'held' && !outcome && <button type="button" onClick={() => setOutcome({ status: 'reversed', outcomeOn: today(), reason: '' })} className="text-xs font-semibold text-neutral-600 hover:underline">Reverse, refund or retain…</button>}
@@ -177,11 +212,18 @@ export default function HoldingDepositModal({ applicantId, onClose, onDone }: Pr
                           </select>
                           <input type="date" className={field} value={outcome.outcomeOn} max={today()} onChange={e => setOutcome(o => o && { ...o, outcomeOn: e.target.value })} />
                         </div>
+                        {outcome.status === 'retained' && (
+                          <select className={field} value={outcome.ground ?? ''} onChange={e => setOutcome(o => o && { ...o, ground: e.target.value })}>
+                            <option value="">The reason under the Tenant Fees Act…</option>
+                            {Object.entries(RETAIN_GROUNDS).map(([k, v]) => <option key={k} value={k}>{v.charAt(0).toUpperCase() + v.slice(1).replace(/^You /, 'They ').replace(/^you /, 'they ')}</option>)}
+                          </select>
+                        )}
+                        {outcome.status === 'refunded' && <input className={field} placeholder="Payment reference the refund went with" value={outcome.refundReference ?? ''} onChange={e => setOutcome(o => o && { ...o, refundReference: e.target.value })} />}
                         <input className={field} placeholder={OUTCOMES.find(o => o[0] === outcome.status)?.[2]} value={outcome.reason} onChange={e => setOutcome(o => o && { ...o, reason: e.target.value })} />
                         <p className="text-[11px] text-neutral-500">This is final — the record and the reason are kept. To correct a mistake, reverse it and record it again.</p>
                         <div className="flex gap-sm">
                           <button type="button" onClick={() => setOutcome(null)} className="rounded-lg border border-neutral-300 px-md py-xs text-xs font-semibold">Cancel</button>
-                          <button type="button" disabled={sending || !outcome.reason.trim()} onClick={() => saveOutcome(r)} className="rounded-lg bg-neutral-900 px-md py-xs text-xs font-bold text-white disabled:opacity-40">{sending ? 'Saving…' : 'Save'}</button>
+                          <button type="button" disabled={sending || !outcome.reason.trim() || (outcome.status === 'retained' && !outcome.ground) || (outcome.status === 'refunded' && !outcome.refundReference?.trim())} onClick={() => saveOutcome(r)} className="rounded-lg bg-neutral-900 px-md py-xs text-xs font-bold text-white disabled:opacity-40">{sending ? 'Saving…' : 'Save'}</button>
                         </div>
                       </div>
                     )}
