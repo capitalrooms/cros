@@ -6,6 +6,7 @@
 
 import Link from 'next/link'
 import type { ReactNode } from 'react'
+import { display } from '@/app/components/financeLook'
 
 export interface HeroStat { label: string; value: ReactNode; tone?: 'good' | 'warn' | 'info' | 'bad'; href?: string }
 /** A tab on the band's bottom edge: a link (href), or a button that switches the page's own view (onClick). */
@@ -13,16 +14,18 @@ export interface HeroTab { label: ReactNode; href?: string; onClick?: () => void
 
 const TONE: Record<string, string> = { good: 'text-[#6EAF8B]', warn: 'text-[#E8B06B]', info: 'text-[#8FB4F0]', bad: 'text-[#F28B82]' }
 
-export default function PageHero({ title, subtitle, eyebrow, stats, actions, tabs }: {
-  title: ReactNode; subtitle?: ReactNode; eyebrow?: ReactNode; stats?: HeroStat[]; actions?: ReactNode; tabs?: HeroTab[]
+// look 'olive' (3 Nov 2026): the Finance screens, in the Finance home's olive & mustard on cream (look C)
+export default function PageHero({ title, subtitle, eyebrow, stats, actions, tabs, look }: {
+  title: ReactNode; subtitle?: ReactNode; eyebrow?: ReactNode; stats?: HeroStat[]; actions?: ReactNode; tabs?: HeroTab[]; look?: 'olive'
 }) {
+  const olive = look === 'olive'
   return (
-    <section className="bg-[#181614] text-[#F6F3EC]">
+    <section className={olive ? 'bg-[#4A5320] text-[#F3F0E6]' : 'bg-[#181614] text-[#F6F3EC]'}>
       <div className="mx-auto max-w-6xl px-lg pt-lg">
         <div className="flex flex-wrap items-end justify-between gap-md">
           <div className="min-w-0">
             {eyebrow && <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#F6F3EC]/50">{eyebrow}</p>}
-            <h1 className="text-2xl font-extrabold leading-tight sm:text-[28px]" style={{ fontFamily: 'var(--font-baloo-2, system-ui, sans-serif)' }}>{title}</h1>
+            <h1 className={`text-2xl font-extrabold leading-tight sm:text-[28px] ${olive ? `${display.className} tracking-tight sm:text-[34px]` : ''}`} style={olive ? undefined : { fontFamily: 'var(--font-baloo-2, system-ui, sans-serif)' }}>{title}</h1>
             {subtitle && <p className="mt-0.5 text-sm text-[#F6F3EC]/60">{subtitle}</p>}
           </div>
           {actions && <div className="flex flex-wrap items-center gap-sm">{actions}</div>}
@@ -31,7 +34,7 @@ export default function PageHero({ title, subtitle, eyebrow, stats, actions, tab
           <div className={`mt-md grid gap-sm ${stats.length >= 4 ? 'grid-cols-2 sm:grid-cols-4' : stats.length === 3 ? 'grid-cols-3' : stats.length === 2 ? 'grid-cols-2' : 'grid-cols-1'}`}>
             {stats.map(s => {
               const body = <>
-                <p className={`text-xl font-bold tabular-nums sm:text-2xl ${s.tone ? TONE[s.tone] : ''}`} style={{ fontFamily: 'var(--font-baloo-2, system-ui, sans-serif)' }}>{s.value}</p>
+                <p className={`text-xl font-bold tabular-nums sm:text-2xl ${s.tone ? (olive && s.tone === 'warn' ? 'text-[#E8B931]' : TONE[s.tone]) : ''} ${olive ? display.className : ''}`} style={olive ? undefined : { fontFamily: 'var(--font-baloo-2, system-ui, sans-serif)' }}>{s.value}</p>
                 <p className="text-[11px] uppercase tracking-[0.06em] text-[#F6F3EC]/55">{s.label}</p>
               </>
               return s.href
@@ -43,7 +46,7 @@ export default function PageHero({ title, subtitle, eyebrow, stats, actions, tab
         {tabs && tabs.length > 0 ? (
           <nav className="-mx-lg mt-md flex gap-0.5 overflow-x-auto px-lg" style={{ scrollbarWidth: 'none' }}>
             {tabs.map((t, i) => {
-              const cls = `whitespace-nowrap rounded-t-xl px-md py-sm text-sm ${t.active ? 'bg-neutral-100 font-bold text-[#181614]' : 'text-[#F6F3EC]/65 hover:text-[#F6F3EC]'}`
+              const cls = `whitespace-nowrap rounded-t-xl px-md py-sm text-sm ${t.active ? (olive ? 'bg-[#F3F0E6] font-bold text-[#23261A]' : 'bg-neutral-100 font-bold text-[#181614]') : 'text-[#F6F3EC]/65 hover:text-[#F6F3EC]'}`
               const k = t.key ?? t.href ?? String(i)
               return t.href
                 ? <Link key={k} href={t.href} prefetch={false} className={cls}>{t.label}</Link>

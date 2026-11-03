@@ -79,7 +79,7 @@ export default function ReportsPage() {
   return (
     <div className="min-h-screen fin">
       <AppBar left={<BackButton href="/admin" label="Dashboard" />} title="Reports" />
-      <PageHero title="Reports" subtitle="Financial, property and tenancy reports" tabs={financeTabs('reports')} />
+      <PageHero look="olive" title="Reports" subtitle="Financial, property and tenancy reports" tabs={financeTabs('reports')} />
       <div className="max-w-6xl mx-auto px-lg py-xl space-y-xl">
         <Section title="Financial" items={FINANCIAL} />
         <Section title="Property management" items={PROPERTY} />

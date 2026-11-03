@@ -62,7 +62,7 @@ export default function RentChasePage() {
 
   const label = (id: string) => (rows ?? []).find(r => r.tenancyId === id)
   return (
-    <div className="min-h-screen bg-neutral-100">
+    <div className="min-h-screen fin">
       <AppBar left={<BackButton href="/admin/finance" />} title="Rent chase" />
       <div className="mx-auto max-w-6xl px-lg py-xl space-y-lg">
         <div>

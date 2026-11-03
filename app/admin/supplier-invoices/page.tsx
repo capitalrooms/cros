@@ -49,7 +49,7 @@ export default function SupplierInvoicesPage() {
   return (
     <div className="min-h-screen fin pb-3xl">
       <AppBar left={<BackButton href="/admin/finance" />} title="Expenses" />
-      <PageHero
+      <PageHero look="olive"
         eyebrow="Finance"
         title="Expenses"
         subtitle="Contractor & cleaner invoices: invoices made in CROS by your contractors and cleaners. Approve to add them to the property’s expenses — nothing reaches a landlord until you do."

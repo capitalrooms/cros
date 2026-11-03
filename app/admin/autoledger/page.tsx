@@ -75,7 +75,7 @@ export default function AutoLedgerPage() {
   return (
     <div className="min-h-screen fin pb-3xl">
       <AppBar left={<BackButton href="/admin/finance" />} title="Expenses" />
-      <PageHero title="Expenses" subtitle="AutoLedger: statements emailed to statements@ are read and their expense lines added" tabs={expenseTabs('autoledger')} />
+      <PageHero look="olive" title="Expenses" subtitle="AutoLedger: statements emailed to statements@ are read and their expense lines added" tabs={expenseTabs('autoledger')} />
       <main className="mx-auto max-w-6xl px-lg py-xl space-y-xl">
 
         {/* Header */}

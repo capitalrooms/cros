@@ -95,9 +95,9 @@ export default function BankCalendarPage() {
   const counts = days ? { full: days.filter(d => d.state === 'full').length, part: days.filter(d => d.state === 'part').length, gap: days.filter(d => d.state === 'gap').length } : null
 
   return (
-    <div className="min-h-screen bg-neutral-100">
+    <div className="min-h-screen fin">
       <AppBar left={<BackButton href="/admin/finance" />} title="Bank" />
-      <PageHero title="Bank" subtitle="Each day: whether the bank is imported, how many lines, and what they matched to" tabs={bankTabs('calendar')} />
+      <PageHero look="olive" title="Bank" subtitle="Each day: whether the bank is imported, how many lines, and what they matched to" tabs={bankTabs('calendar')} />
       <div className="mx-auto max-w-6xl px-lg py-xl space-y-lg">
         <div className="flex flex-wrap items-end justify-between gap-md">
           <p className="text-sm text-neutral-600">Client account · every day the bank imports have covered.</p>

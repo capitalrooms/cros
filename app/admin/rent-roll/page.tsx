@@ -120,7 +120,7 @@ function RentRollScreen({ initialMonth, practice }: { initialMonth?: string; pra
     <div className="min-h-screen fin">
       <AppBar left={<BackButton href="/admin" label="Dashboard" />} title="Rent roll" />
       {practice && <div className="border-b-4 border-amber-400 bg-amber-300 px-lg py-sm text-center text-sm font-bold text-amber-950">PRACTICE MODE — demo houses only. Nothing here is real money; every entry gets an X number (XRENT, XLS, XPAY…) and stays out of the real books.</div>}
-      <PageHero
+      <PageHero look="olive"
         eyebrow={practice ? 'PRACTICE · step 1 of 3 · monthly cycle' : 'Step 1 of 3 · monthly cycle'}
         title="Rent roll"
         subtitle={<>{monthLabel(month)} — what’s due, what’s in, what’s missing. Then prepare each property’s statement, then the payment run.</>}

@@ -70,7 +70,7 @@ export default function ArrearsPage() {
   return (
     <div className="min-h-screen fin">
       <AppBar left={<BackButton href="/admin/rent-charges" />} title="Arrears" />
-      <PageHero title="Arrears" subtitle="Rent overdue or part paid, by tenancy — “in arrears since” is the due date of the oldest unpaid rent"
+      <PageHero look="olive" title="Arrears" subtitle="Rent overdue or part paid, by tenancy — “in arrears since” is the due date of the oldest unpaid rent"
         stats={[
           { label: `Owed · ${totals.tenants} tenanc${totals.tenants === 1 ? 'y' : 'ies'}`, value: gbp(totals.owed), tone: totals.owed > 0 ? 'bad' : undefined },
           { label: '3+ months (Ground 8)', value: totals.legal, tone: totals.legal ? 'bad' : undefined },
