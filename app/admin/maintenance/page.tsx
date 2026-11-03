@@ -1172,7 +1172,7 @@ export default function MaintenanceDashboard() {
                 →
               </button>
             </div>
-            <Link href="/admin/calendar" className="text-sm font-medium text-neutral-700 hover:text-neutral-900">
+            <Link href="/admin/agency-diary" className="text-sm font-medium text-neutral-700 hover:text-neutral-900">
               View full calendar →
             </Link>
           </div>

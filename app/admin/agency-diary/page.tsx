@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase'
 import { getCurrentUser } from '@/lib/auth'
 import AppBar from '@/components/AppBar'
 import PageHero from '@/components/PageHero'
+import { diaryTabs } from '@/lib/diaryTabs'
 import BackButton from '@/app/components/BackButton'
 import Link from 'next/link'
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
@@ -264,16 +265,9 @@ export default function AgencyDiaryPage() {
   return (
     <div className="min-h-screen bg-neutral-100">
       <AppBar left={<BackButton href="/admin/appointments" />} />
-      <PageHero eyebrow="Management · Diary" title="Agency Diary" subtitle="All property visits, maintenance jobs, and appointments in one place" />
+      <PageHero title="Diary" subtitle="Everything: viewings, repairs, cleans and appointments in one place" tabs={diaryTabs('all')} />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
-        {/* Back Button */}
-        <Link
-          href={canBook ? '/admin' : '/lettings'}
-          className="inline-flex items-center gap-sm text-neutral-600 hover:text-neutral-900 font-medium mb-3xl transition-colors"
-        >
-          ← Back to Dashboard
-        </Link>
 
         {/* Header — Subtitle Perfectly Centered */}
 
