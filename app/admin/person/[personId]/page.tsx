@@ -13,6 +13,7 @@ import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
 import LineIcon from '@/components/LineIcon'
+import PageHero, { HeroButton } from '@/components/PageHero'
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface Person {
@@ -238,46 +239,14 @@ export default function PersonPage({ params }: { params: Promise<{ personId: str
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
-      {/* ── Dark header ── */}
-      <div className="bg-[#4A5320] text-[#F3F0E6]">
-        <AppBar left={<BackButton href="/admin/people" />} />
-        <div className="mx-auto max-w-6xl px-lg pb-0 pt-lg">
-          <div className="flex items-start justify-between gap-lg mb-lg">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-widest text-neutral-400 mb-xs">
-                {<LineIcon glyph={meta.emoji} />} {meta.label}
-              </p>
-              <h1 className="text-2xl font-extrabold text-white" style={{ fontFamily: 'var(--font-baloo-2, system-ui, sans-serif)' }}>{name}</h1>
-              <p className="text-sm text-neutral-400 mt-xs">{person.email}</p>
-            </div>
-            <div className="flex items-start gap-sm shrink-0">
-              <Link
-                href={`/admin/view-as/${person.id}`}
-                className="text-sm font-semibold text-amber-400 bg-amber-400/10 hover:bg-amber-400/20 border border-amber-400/30 px-md py-sm rounded-lg transition-colors"
-              >
-                View as
-              </Link>
-            </div>
-          </div>
-
-          {/* Tabs */}
-          <div className="flex gap-xl border-t border-neutral-700 pt-0">
-            {tabs.map(t => (
-              <button
-                key={t.key}
-                onClick={() => setActiveTab(t.key)}
-                className={`py-md text-sm font-semibold transition border-b-2 ${
-                  activeTab === t.key
-                    ? 'border-white text-white'
-                    : 'border-transparent text-neutral-400 hover:text-neutral-200'
-                }`}
-              >
-                {t.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
+      <AppBar left={<BackButton href="/admin/people" />} />
+      <PageHero
+        trail={[{ label: 'People', href: '/admin/people' }, { label: meta.label, href: '/admin/people?tab=office' }]}
+        title={name}
+        subtitle={person.email}
+        actions={<HeroButton href={`/admin/view-as/${person.id}`}>View as</HeroButton>}
+        tabs={tabs.length > 1 ? tabs.map(t => ({ key: t.key, label: t.label, active: activeTab === t.key, onClick: () => setActiveTab(t.key) })) : undefined}
+      />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
         {saveBanner && (
