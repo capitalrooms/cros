@@ -15,6 +15,7 @@ import { useRouter } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase'
 import AppBar from '@/components/AppBar'
+import { incomeTabs } from '@/lib/financeTabs'
 import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import Link from 'next/link'
@@ -392,7 +393,7 @@ export default function IncomeDashboard() {
   if (loading) {
     return (
       <div className="min-h-screen fin">
-        <AppBar left={<BackButton href="/admin" label="Dashboard" />} />
+        <AppBar left={<BackButton href="/admin/finance" />} title="Income" />
         <div className="p-xl text-sm text-neutral-400">Loading…</div>
       </div>
     )
@@ -400,8 +401,8 @@ export default function IncomeDashboard() {
 
   return (
     <div className="min-h-screen fin pb-3xl">
-      <AppBar left={<BackButton href="/admin" label="Dashboard" />} />
-      <PageHero eyebrow="Finance" title="Agency Fee Income" />
+      <AppBar left={<BackButton href="/admin/finance" />} title="Income" />
+      <PageHero title="Income" subtitle="What the agency earns: management and letting fees, from the landlord statements" tabs={incomeTabs('income')} />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
 

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import AppBar from '@/components/AppBar'
+import { incomeTabs } from '@/lib/financeTabs'
 import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 
@@ -29,8 +30,8 @@ export default function FeesReport() {
 
   return (
     <div className="min-h-screen fin">
-      <AppBar left={<BackButton href="/admin/reports" />} title="Fees Report" />
-      <PageHero eyebrow="Finance · Reports" title="Fees Report" subtitle="Management and letting fees raised in a date range." />
+      <AppBar left={<BackButton href="/admin/finance" />} title="Income" />
+      <PageHero title="Income" subtitle="Fees report: management and letting fees raised in a date range" tabs={incomeTabs('fees')} />
       <div className="max-w-6xl mx-auto px-lg py-xl space-y-lg">
 
         {/* Filters */}

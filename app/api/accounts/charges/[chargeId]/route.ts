@@ -1,46 +1,8 @@
-/**
- * PATCH /api/accounts/charges/:chargeId
- * Update the status, amount_received, received_date, and/or notes on a rent charge.
- */
+// PATCH /api/accounts/charges/[chargeId] — closed (3 Nov 2026 finance audit). It set a rent charge's status and amount
+// received directly, with no receipt number, no audit line and no double-payment check. Money in is recorded through
+// the bank import / Matching or the tenant's Money tab (lib/payments/apply), which number and log every payment.
+import { NextResponse } from 'next/server'
 
-import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-import { requireAdmin } from '@/lib/adminAuth'
-
-export const runtime = 'nodejs'
-export const dynamic = 'force-dynamic'
-
-export async function PATCH(
-  req: NextRequest,
-  { params: paramsPromise }: { params: Promise<{ chargeId: string }> }
-) {
-  if (!(await requireAdmin(req))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  const params = await paramsPromise
-  const service = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
-
-  const body = await req.json().catch(() => ({}))
-
-  const allowed = ['status', 'amount_received', 'received_date', 'notes']
-  const updates: Record<string, unknown> = {}
-  for (const key of allowed) {
-    if (key in body) updates[key] = body[key]
-  }
-
-  if (!Object.keys(updates).length) {
-    return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 })
-  }
-
-  const { error } = await service
-    .from('rent_charges')
-    .update(updates)
-    .eq('id', params.chargeId)
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
-  }
-
-  return NextResponse.json({ ok: true })
+export async function PATCH() {
+  return NextResponse.json({ error: 'This no longer records payments. Use Bank › Matching or the tenant’s Money tab, which give a receipt number and keep the trail.' }, { status: 410 })
 }
