@@ -170,7 +170,7 @@ export default function LandlordProfilePage({ params }: { params: Promise<{ pers
       }
 
       const { data: p } = await supabase.from('people').select('*').eq('id', personId).single()
-      if (!p) { router.push('/admin/landlords'); return }
+      if (!p) { router.push('/admin/people?tab=landlords'); return }
       setPerson(p)
       setNotes(p.landlord_notes || '')
       setContactForm({
@@ -298,7 +298,7 @@ export default function LandlordProfilePage({ params }: { params: Promise<{ pers
         : `Couldn't delete: ${error.message}`)
       return
     }
-    router.push('/admin/landlords')
+    router.push('/admin/people?tab=landlords')
   }
 
   /* ── Save contact ── */

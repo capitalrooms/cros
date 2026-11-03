@@ -91,7 +91,6 @@ const ZONES_AS_WRITTEN: Zone[] = [
       { emoji: '📅', label: 'Diary',         href: '/admin/appointments' },
       { emoji: '🔧', label: 'Maintenance',   href: '/admin/maintenance' },
       { emoji: '🗂️', label: 'Planner',       href: '/admin/planner' },
-      { emoji: '🤝', label: 'Shared planner', href: '/admin/planner/shared' },
     ],
   },
   {

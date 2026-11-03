@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import AppBar from '@/components/AppBar'
 import PageHero, { HeroButton } from '@/components/PageHero'
+import { plannerTabs } from '@/lib/plannerTabs'
 import BackButton from '@/app/components/BackButton'
 import { getCurrentUser } from '@/lib/auth'
 import { useRouter } from 'next/navigation'
@@ -461,8 +462,7 @@ export default function PlannerPage() {
       <style>{`@media (max-width: 767px) { .planner-root input, .planner-root textarea, .planner-root select { font-size: 16px !important; } }`}</style>
 
       <div className="flex-shrink-0">
-        <PageHero title="Planner" subtitle="Your boards — landlords and the workspace"
-          actions={<HeroButton href="/admin/planner/shared" primary>Shared planner</HeroButton>} />
+        <PageHero title="Planner" tabs={plannerTabs('mine')} subtitle="Your boards — landlords and the workspace" />
       </div>
 
       {/* ── Mobile top bar ── */}

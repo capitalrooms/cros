@@ -442,7 +442,7 @@ export default function PropertyTab({ property, onUpdate }: PropertyTabProps) {
               {landlords.length === 0 && (
                 <p className="text-xs text-neutral-400 mt-sm">
                   No landlord records yet.{' '}
-                  <a href="/admin/landlords" className="text-blue-600 underline">Create one first →</a>
+                  <a href="/admin/people?tab=landlords" className="text-blue-600 underline">Create one first →</a>
                 </p>
               )}
               {selectedLandlordId && (() => {

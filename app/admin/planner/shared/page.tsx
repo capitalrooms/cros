@@ -6,6 +6,7 @@
 import { use } from 'react'
 import AppBar from '@/components/AppBar'
 import PageHero from '@/components/PageHero'
+import { plannerTabs } from '@/lib/plannerTabs'
 import BackButton from '@/app/components/BackButton'
 import SharedPlanner from '@/components/SharedPlanner'
 import { one, type PageSearchParams } from '@/lib/pageSearchParams'
@@ -15,7 +16,7 @@ export default function SharedPlannerPage({ searchParams }: { searchParams: Page
   return (
     <div className="min-h-screen bg-neutral-100">
       <AppBar left={<BackButton href="/admin/planner" />} title="Shared planner" />
-      <PageHero title="Shared planner" subtitle="A board with each person — notes on properties, jobs to look at, photo ideas and links. They reply and tick things off in their app." />
+      <PageHero title="Planner" tabs={plannerTabs('shared')} subtitle="Shared with people: a board with each person — notes on properties, jobs to look at, photo ideas and links. They reply and tick things off in their app." />
       <div className="mx-auto max-w-6xl px-lg py-xl space-y-lg">
         <SharedPlanner mode="office" initialBoard={board} />
       </div>
