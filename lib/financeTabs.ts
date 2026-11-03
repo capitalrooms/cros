@@ -25,16 +25,16 @@ const BANK: [key: string, label: string, href: string][] = [
 export const bankTabs = (active: 'calendar' | 'import' | 'match'): HeroTab[] =>
   BANK.map(([key, label, href]) => ({ label, href, active: key === active }))
 
-// Expenses is one place too (3 Nov 2026): the expense list, invoices to upload and file (Capture), contractor and cleaner
-// invoices, the lines read off emailed statements (review), and the statements@ inbox (AutoLedger).
+// Expenses is one place too (3 Nov 2026): the expense list, contractor and cleaner invoices, the lines read off emailed statements (review), and the statements@ inbox (AutoLedger).
 const EXPENSES: [key: string, label: string, href: string][] = [
   ['log', 'Expenses', '/admin/expense-log'],
-  ['capture', 'Upload & file invoices', '/admin/capture'],
   ['contractor', 'Contractor invoices', '/admin/supplier-invoices'],
   ['review', 'Statement lines', '/admin/expense-review'],
   ['autoledger', 'AutoLedger', '/admin/autoledger'],
+  // Capture is the whole office's inbox (photos, post, invoices), so it keeps its own page — this just goes there
+  ['capture', 'Upload an invoice ↗', '/admin/capture'],
 ]
-export const expenseTabs = (active: 'log' | 'capture' | 'contractor' | 'review' | 'autoledger'): HeroTab[] =>
+export const expenseTabs = (active: 'log' | 'contractor' | 'review' | 'autoledger'): HeroTab[] =>
   EXPENSES.map(([key, label, href]) => ({ label, href, active: key === active }))
 
 export const financeTabs = (active: string, month?: string): HeroTab[] =>
