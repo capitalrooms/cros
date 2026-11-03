@@ -5,6 +5,7 @@
 import { use, useEffect, useState } from 'react'
 import AppBar from '@/components/AppBar'
 import PageHero from '@/components/PageHero'
+import { messageTabs } from '@/lib/messageTabs'
 import BackButton from '@/app/components/BackButton'
 import { adminFetch } from '@/lib/adminFetch'
 import { one, type PageSearchParams } from '@/lib/pageSearchParams'
@@ -57,7 +58,7 @@ export default function FeedbackPage({ searchParams }: { searchParams: PageSearc
   return (
     <div className="min-h-screen bg-neutral-100">
       <AppBar left={<BackButton href="/admin" />} />
-      <PageHero eyebrow="Comms" title="Tenant feedback" subtitle="What tenants scored each part of their house, and what they’d improve. Send the form from Quick Notify → Feedback." />
+      <PageHero title="Messages" tabs={messageTabs('feedback')} subtitle="Tenant feedback: what tenants scored each part of their house, and what they’d improve. Send the form from Quick Notify → Feedback." />
       <div className="mx-auto max-w-6xl px-lg py-xl space-y-lg">
         {error && <p className="rounded-xl border border-red-200 bg-red-50 p-md text-sm font-semibold text-red-800">{error}</p>}
         {houses === null ? <p className="text-sm text-neutral-400">Loading…</p>

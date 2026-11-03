@@ -190,12 +190,8 @@ const ZONES_AS_WRITTEN: Zone[] = [
       '/admin/feedback',
     ],
     subnav: [
-      { emoji: '📝', label: 'Acknowledgments',   href: '/admin/acknowledgment-notes' },
-      { emoji: '💬', label: 'All Messages',       href: '/admin/communications' },
+      { emoji: '💬', label: 'Messages',           href: '/admin/communications' },   // All · Send to a house · Acknowledgments · Feedback · Templates
       { emoji: '📄', label: 'Letters & Invoices', href: '/admin/document-generator' },
-      { emoji: '📢', label: 'Quick Notify',      href: '/admin/notify' },
-      { emoji: '✉️', label: 'Templates',         href: '/admin/message-templates' },
-      { emoji: '🗳️', label: 'Tenant feedback',   href: '/admin/feedback' },
     ],
   },
   {

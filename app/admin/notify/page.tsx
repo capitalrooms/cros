@@ -5,6 +5,7 @@ import { isOfficeRole } from '@/lib/access/areas'
 import { useRouter } from 'next/navigation'
 import AppBar from '@/components/AppBar'
 import PageHero from '@/components/PageHero'
+import { messageTabs } from '@/lib/messageTabs'
 import { blockAddress } from '@/lib/formatAddress'
 import BackButton from '@/app/components/BackButton'
 import { createClient } from '@/lib/supabase'
@@ -72,7 +73,7 @@ export default function QuickNotifyPage() {
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar left={<BackButton href="/admin" label="Dashboard" />} />
-      <PageHero title="Quick Notify" subtitle={<>Select a property to send messages to tenants, cleaners, or contractors</>} />
+      <PageHero title="Messages" subtitle={<>Send to a house: pick a property to message its tenants, cleaners or contractors</>} tabs={messageTabs('send')} />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
         <div className="space-y-2xl">
