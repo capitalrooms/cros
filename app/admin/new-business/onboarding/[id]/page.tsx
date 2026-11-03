@@ -9,6 +9,7 @@ import { FACT_LABELS, propertyDocLabel, type PropertyDoc } from '@/lib/landlordO
 import { onboardingName } from '@/lib/people'
 import LineIcon from '@/components/LineIcon'
 import AskForMissing from './AskForMissing'
+import TakeDetails from './TakeDetails'
 
 type Status = 'pass' | 'review' | 'fail'
 interface Check { area: string; label: string; status: Status; detail: string }
@@ -237,6 +238,7 @@ export default function OnboardingReviewPage({ params }: { params: Promise<{ id:
       {!submitted && (
         <div className="space-y-lg">
           <div className={card}><p className="text-sm text-neutral-600">The landlord hasn’t submitted their form yet. Their progress saves automatically — the checks run once they submit. Documents they’ve uploaded so far are below.</p></div>
+          <TakeDetails id={id} card={card} h2={h2} hasAgreement={hasSnapshot} />
           {documentCards}
         </div>
       )}
@@ -368,6 +370,7 @@ export default function OnboardingReviewPage({ params }: { params: Promise<{ id:
               <button onClick={saveDecision} disabled={!!busy} className="w-full rounded-xl bg-neutral-900 text-white py-sm text-sm font-semibold hover:bg-neutral-700 disabled:opacity-40">{busy === 'decision' ? 'Saving…' : 'Save decision'}</button>
             </div>
 
+            <TakeDetails id={id} card={card} h2={h2} hasAgreement={false} />
             <div className={card}>
               <h2 className={h2}>Management agreement</h2>
               {!hasSnapshot && <p className="text-sm text-neutral-600">This record was created without an agreement on file, so there is nothing to compare. Generate one from the Management Agreement page.</p>}

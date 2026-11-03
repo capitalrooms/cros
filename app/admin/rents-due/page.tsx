@@ -73,7 +73,7 @@ function RentsDue({ initialMonth }: { initialMonth?: string }) {
       <div className="mx-auto max-w-6xl px-lg py-xl">
         <PageHead eyebrow="Every active tenancy whose rent isn’t fully in" title="Rents due" right={
           <div className="flex flex-wrap items-center gap-sm">
-            <HeroMonthPicker month={month} onChange={go} />
+            <span className="inline-flex rounded-full bg-[#4A5320] px-sm py-[2px]"><HeroMonthPicker month={month} onChange={go} /></span>
             <Pill tone="mustard" href={`/admin/rent-chase${chosen.length ? `?only=${chosen.join(',')}` : ''}`}>{chosen.length ? `Chase ${chosen.length} selected` : 'Chase'}</Pill>
             <Pill tone="paper" second href="/admin/bank-import">Import bank CSV</Pill>
             {count('no_charge') > 0 && <Pill tone="paper" second href="/admin/rent-charges">Raise {count('no_charge')} rents</Pill>}
