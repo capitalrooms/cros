@@ -400,7 +400,7 @@ export default function LettingsPage() {
         </div>
 
         {/* Send Offer Form */}
-        <div className="mt-3xl">
+        <div id="send-offer" className="mt-3xl scroll-mt-lg">
           <SendOfferForm />
         </div>
       </main>

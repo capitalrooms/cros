@@ -67,7 +67,6 @@ const ZONES_AS_WRITTEN: Zone[] = [
       { emoji: '👤', label: 'Applicants',         href: '/admin/applicants' },
       { emoji: '🔑', label: 'Available Rooms',    href: '/admin/available-and-lettings' },
       { emoji: '📄', label: 'Bulk Agreements',    href: '/admin/bulk-tenancy-generator' },
-      { emoji: '📧', label: 'Invite to Apply',    href: '/admin/invite-to-apply' },
       { emoji: '📈', label: 'Rent Reviews',       href: '/admin/rent-increase' },
       { emoji: '🤝', label: 'Tenancies',          href: '/admin/tenancies' },
       { emoji: '📉', label: 'Voids',              href: '/admin/voids' },

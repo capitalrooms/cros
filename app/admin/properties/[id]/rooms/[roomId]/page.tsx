@@ -466,7 +466,7 @@ function Relet({ o, wide }: { o: RoomOverview; wide: boolean }) {
           <div className="flex flex-wrap gap-sm border-t border-neutral-100 pt-md">
             <Link href={`/lettings/listing/${o.room.id}`} className={btnLight}>Advertise {o.room.name}</Link>
             <Link href="/admin/agency-diary/book-appointment" className={btnLight}>Book a viewing</Link>
-            <Link href="/admin/invite-to-apply" className={btnLight}>Invite to apply</Link>
+            <Link href="/admin/available-and-lettings#send-offer" className={btnLight}>Send an offer</Link>
           </div>
         )}
         {o.viewings.length > 0 && <p className="text-[13px] text-neutral-600">Viewings booked: {o.viewings.map(v => `${full(v.date)}${v.slot ? ` ${String(v.slot).slice(0, 5)}` : ''} · ${v.name ?? 'visitor'}`).join(' · ')}</p>}
