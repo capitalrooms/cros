@@ -31,6 +31,8 @@ import { loadDepositContext, writeBios, landlordMessage, housemateMessage, holdi
 import { holdingDepositsFor, recordHoldingDeposit, fileHoldingReceipt, longDate, METHODS, type HoldingDeposit } from '@/lib/lettings/holdingReceipt'
 import { createIncomingTenancy, logTenancyEvent } from '@/lib/lettings/incomingTenancy'
 import { processGuideText, PROCESS_GUIDE_SIGNOFF } from '@/lib/lettings/processGuide'
+import { RETAIN_GROUNDS, retainLetter } from '@/lib/lettings/holdingRetain'
+import { getElectedCommsLive } from '@/lib/comms'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -109,12 +111,34 @@ export async function POST(req: NextRequest) {
     if (!['reversed', 'refunded', 'retained'].includes(status)) return NextResponse.json({ error: 'Unknown outcome' }, { status: 400 })
     if (!/^\d{4}-\d{2}-\d{2}$/.test(outcomeOn)) return NextResponse.json({ error: 'Enter the date' }, { status: 400 })
     if (!reason) return NextResponse.json({ error: 'Say why — it stays on the record' }, { status: 400 })
+    // Tenant Fees Act: kept only for one of four reasons; a refund says how it was paid back (migration 259)
+    const ground = String(b.ground ?? '')
+    if (status === 'retained' && !RETAIN_GROUNDS[ground]) return NextResponse.json({ error: 'Pick the reason under the Tenant Fees Act — a holding deposit can only be kept for one of these.' }, { status: 400 })
+    const refundRef = String(b.refundReference ?? '').trim().slice(0, 120)
+    if (status === 'refunded' && !refundRef) return NextResponse.json({ error: 'Enter the payment reference the refund went with.' }, { status: 400 })
     const { data, error } = await s.from('holding_deposits')
-      .update({ status, outcome_on: outcomeOn, outcome_reason: reason, outcome_by: caller.email, outcome_at: new Date().toISOString() })
+      .update({ status, outcome_on: outcomeOn, outcome_reason: reason, outcome_by: caller.email, outcome_at: new Date().toISOString(), ...(status === 'retained' ? { retain_ground: ground } : {}), ...(status === 'refunded' ? { refund_reference: refundRef } : {}) })
       .eq('id', b.holdingId).eq('applicant_id', ctx.applicant.id).eq('status', 'held').select('*')
     if (error) return NextResponse.json({ error: error.message }, { status: 400 })
     if (!data?.length) return NextResponse.json({ error: 'That holding deposit isn’t held any more' }, { status: 409 })
     return NextResponse.json({ record: data[0] })
+  }
+
+  // the written reasons for keeping a holding deposit — previewed, then sent by the office (never on its own)
+  if (b.action === 'retain_notice') {
+    const { data: h } = await s.from('holding_deposits').select('*').eq('id', b.holdingId).eq('applicant_id', ctx.applicant.id).maybeSingle() as { data: any }
+    if (!h || h.status !== 'retained') return NextResponse.json({ error: 'That holding deposit isn’t recorded as kept.' }, { status: 409 })
+    if (h.notice_sent_at) return NextResponse.json({ error: `Already sent on ${longDate(String(h.notice_sent_at).slice(0, 10))}.` }, { status: 409 })
+    const dear = (ctx.applicant as any).last_name ? dearName(ctx.applicant as any) : dearFromText(ctx.applicant.full_name || h.payer_name)
+    const letter = retainLetter({ dear, amount: Number(h.amount), holdNo: h.hold_no, receivedOn: longDate(h.received_on), place: oneLine([ctx.roomName, ctx.propertyName].filter(Boolean).join(', ')), ground: h.retain_ground ?? '', reason: h.outcome_reason ?? '', decidedOn: longDate(h.outcome_on) })
+    const to = ctx.applicant.email
+    if (b.preview) return NextResponse.json({ ...letter, to })
+    if (!to) return NextResponse.json({ error: 'No email address for the applicant — send the letter by post and note it on the record.' }, { status: 422 })
+    if (!(await getElectedCommsLive())) return NextResponse.json({ error: 'Messages you send are switched off in Settings. Nothing was sent.' }, { status: 409 })
+    const { ok, error } = await sendEmail(to, letter.subject, messageHtml(letter.text), { req })
+    if (!ok) return NextResponse.json({ error: error ?? 'The email didn’t send' }, { status: 502 })
+    await s.from('holding_deposits').update({ notice_sent_at: new Date().toISOString(), notice_sent_to: to }).eq('id', h.id)
+    return NextResponse.json({ ok: true, to })
   }
 
   if (b.action !== 'send') return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
