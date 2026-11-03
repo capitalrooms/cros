@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState, use } from 'react'
 import { one, type PageSearchParams } from '@/lib/pageSearchParams'
 import AppBar from '@/components/AppBar'
 import PageHero from '@/components/PageHero'
+import { newBusinessTabs } from '@/lib/newBusinessTabs'
 import { adminFetch } from '@/lib/adminFetch'
 import BackButton from '@/app/components/BackButton'
 import PostcodeAddressLookup from '@/app/components/PostcodeAddressLookup'
@@ -313,9 +314,9 @@ function ManagementAgreementForm({ query }: { query: Record<string, string | str
       <AppBar left={<BackButton href="/admin/new-business" />} />
 
       <PageHero
-        eyebrow="New business"
-        title="Management Agreement"
-        subtitle="Fill in the client and properties, then generate it on the letterhead. Every one you generate is saved below, to reopen and edit."
+        title="New Business"
+        tabs={newBusinessTabs('agreement')}
+        subtitle="Agreements: fill in the client and properties, then generate it on the letterhead. Every one you generate is saved below, to reopen and edit."
         stats={saved && saved.length ? [{ label: 'Saved agreements', value: saved.length }] : undefined}
       />
       <main className="mx-auto max-w-6xl px-lg py-xl">

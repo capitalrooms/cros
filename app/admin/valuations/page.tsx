@@ -9,6 +9,7 @@ import { getCurrentUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase'
 import AppBar from '@/components/AppBar'
 import PageHero from '@/components/PageHero'
+import { newBusinessTabs } from '@/lib/newBusinessTabs'
 import BackButton from '@/app/components/BackButton'
 import { ValuationData, ValuationType, PriceRow, RefurbItem } from '@/lib/valuations/ValuationDocument'
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
@@ -286,7 +287,7 @@ export default function ValuationsPage() {
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar left={<BackButton href="/admin/new-business" />} />
-      <PageHero title="Valuations" subtitle={<>Generate a Capital Rooms branded valuation letter. Fill in the form, preview, then export as PDF.</>} />
+      <PageHero title="New Business" tabs={newBusinessTabs('valuation')} subtitle={<>Valuations: generate a Capital Rooms branded valuation letter. Fill in the form, preview, then export as PDF.</>} />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
         <div className="mb-2xl">

@@ -4,6 +4,7 @@ import NameInput, { emptyName, type NameValue } from '@/app/components/NameInput
 import { useState, useEffect, useRef } from 'react'
 import AppBar from '@/components/AppBar'
 import PageHero from '@/components/PageHero'
+import { newBusinessTabs } from '@/lib/newBusinessTabs'
 import BackButton from '@/app/components/BackButton'
 import LineIcon from '@/components/LineIcon'
 
@@ -94,7 +95,7 @@ export default function AcquisitionEmailPage() {
   return (
     <div className="min-h-screen bg-neutral-100">
       <AppBar left={<BackButton href="/admin/new-business" />} />
-      <PageHero title="Introduction Email" subtitle={<>Personalised introduction email sent directly to a prospective landlord. The template is fixed — only the name, greeting, and headshot swap per send.</>} />
+      <PageHero title="New Business" tabs={newBusinessTabs('intro')} subtitle={<>Introduction email: personalised introduction email sent directly to a prospective landlord. The template is fixed — only the name, greeting, and headshot swap per send.</>} />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
         <div className="mb-xl">

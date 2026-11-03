@@ -37,7 +37,6 @@ const ZONES_AS_WRITTEN: Zone[] = [
     // covers the audit's figures, Compliance the certificate deadlines, and no task had ever been made. Pages still open by link.
     routes: ['/admin/active-rooms', '/admin/overview', '/admin/property-tasks', '/admin/properties/new'],
     subnav: [
-      { emoji: '➕', label: 'Add Property',    href: '/admin/properties/new' },
       { emoji: '🏠', label: 'All Properties',  href: '/admin/active-rooms' },
     ],
   },
@@ -195,9 +194,7 @@ const ZONES_AS_WRITTEN: Zone[] = [
     home: '/admin/website',
     routes: ['/admin/website'],
     subnav: [
-      { emoji: '📰', label: 'Advice posts', href: '/admin/website?tab=advice' },
-      { emoji: '📄', label: 'Documents',    href: '/admin/website?tab=documents' },
-      { emoji: '🛏', label: 'Rooms',        href: '/admin/website?tab=rooms' },
+      { emoji: '🌐', label: 'Website',      href: '/admin/website?tab=rooms' },   // Rooms · Advice posts · Documents tabs
     ],
   },
   {
@@ -206,12 +203,7 @@ const ZONES_AS_WRITTEN: Zone[] = [
     label: 'New Business',
     routes: ['/admin/new-business', '/admin/valuations'],
     subnav: [
-      { emoji: '📈', label: 'Overview',           href: '/admin/new-business' },
-      { emoji: '📝', label: 'Agreements',         href: '/admin/new-business/management-agreement' },
-      { emoji: '✉️', label: 'Introduction Email', href: '/admin/new-business/acquisition' },
-      { emoji: '➕', label: 'New Instruction',    href: '/admin/new-business/send-welcome' },
-      { emoji: '🔍', label: 'Onboarding & AML',   href: '/admin/new-business/onboarding' },
-      { emoji: '🏡', label: 'Valuations',         href: '/admin/valuations' },
+      { emoji: '📈', label: 'Pipeline',           href: '/admin/new-business' },   // Overview · Introduction · Valuations · Instruction · Onboarding & AML · Agreements
     ],
   },
 ]
