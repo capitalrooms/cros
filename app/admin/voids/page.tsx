@@ -8,6 +8,7 @@ import Link from 'next/link'
 import AppBar from '@/components/AppBar'
 import PageHero from '@/components/PageHero'
 import { propertyTabs } from '@/lib/lettingsTabs'
+import SubTabs from '@/app/components/SubTabs'
 import BackButton from '@/app/components/BackButton'
 
 type Win = 3 | 6 | 12
@@ -58,9 +59,9 @@ export default function VoidsPage() {
           { label: 'rent lost', value: gbp(sum.lost), tone: sum.lost ? 'bad' : undefined },
           { label: `days to re-let · average of ${data!.relets}`, value: data!.avgDaysToRelet ?? '—' },
         ] : undefined}
-        tabs={([3, 6, 12] as Win[]).map(m => ({ key: String(m), label: `${m} months`, active: win === m, onClick: () => setWin(m) }))}
       />
       <div className="mx-auto max-w-6xl space-y-md px-lg py-xl">
+        <SubTabs<string> tabs={[['3', '3 months'], ['6', '6 months'], ['12', '12 months']]} active={String(win)} onChange={k => setWin(Number(k) as Win)} />
         {error && <p className="text-sm text-red-700">{error}</p>}
         {!data && !error && <p className="text-sm text-neutral-500">Working out voids…</p>}
         {data && sum && (<>
