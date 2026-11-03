@@ -16,6 +16,7 @@ import BackButton from '@/app/components/BackButton'
 import { localISO } from '@/lib/dateUtils'
 import { jobPlace } from '@/lib/repairs/where'
 import BookingLinkPanel from './BookingLinkPanel'
+import { REPAIR_TARGETS, tierFor } from '@/lib/repairs/targets'
 import JobDetailsPanel from './JobDetailsPanel'
 import LineIcon from '@/components/LineIcon'
 
@@ -688,7 +689,7 @@ export default function MaintenanceDashboard() {
               <span className="shrink-0 text-[11px] text-neutral-400">{new Date(ticket.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })}</span>
             </span>
             <span className="mt-0.5 flex items-center gap-xs text-xs text-neutral-500">
-              {PRIORITY_MARK[ticket.priority] && <span className={`shrink-0 rounded px-1 text-[10px] font-bold uppercase ${PRIORITY_MARK[ticket.priority]}`}>{ticket.priority}</span>}
+              {PRIORITY_MARK[ticket.priority] && <span className={`shrink-0 rounded px-1 text-[10px] font-bold uppercase ${PRIORITY_MARK[ticket.priority]}`}>{REPAIR_TARGETS[tierFor(ticket)].label}</span>}
               <span className="truncate">{sub}</span>
             </span>
             {ticket.booked_date && <span className="mt-0.5 block text-xs font-semibold text-neutral-800">{formatBooking(ticket.booked_date, ticket.booked_slot)}</span>}
@@ -1256,7 +1257,7 @@ export default function MaintenanceDashboard() {
                                 : 'bg-neutral-100 text-neutral-600'
                           }`}
                         >
-                          {ticket.priority.toUpperCase()}
+                          {REPAIR_TARGETS[tierFor(ticket)].label}
                         </span>
                       </div>
                     ))}

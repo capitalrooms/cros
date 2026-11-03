@@ -536,7 +536,7 @@ export default function LandlordProfilePage({ params, searchParams }: { params: 
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar left={<BackButton href="/admin/people?tab=landlords" />} />
       <PageHero
-        eyebrow="People · Landlord"
+        trail={[{ label: 'People', href: '/admin/people' }, { label: 'Landlords', href: '/admin/people?tab=landlords' }]}
         title={landlordName}
         subtitle={[person.company && person.company !== landlordName ? person.company : null, person.email, person.phone].filter(Boolean).join(' · ') || undefined}
         tabs={TABS.map(tab => ({ key: tab.id, label: tab.label, active: activeTab === tab.id, onClick: () => setActiveTab(tab.id) }))}

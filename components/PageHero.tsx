@@ -15,8 +15,11 @@ export interface HeroTab { label: ReactNode; href?: string; onClick?: () => void
 const TONE: Record<string, string> = { good: 'text-[#6EAF8B]', warn: 'text-[#E8B06B]', info: 'text-[#8FB4F0]', bad: 'text-[#F28B82]' }
 
 // look 'olive' (3 Nov 2026): the Finance screens, in the Finance home's olive & mustard on cream (look C)
-export default function PageHero({ title, subtitle, eyebrow, stats, actions, tabs, look }: {
-  title: ReactNode; subtitle?: ReactNode; eyebrow?: ReactNode; stats?: HeroStat[]; actions?: ReactNode; tabs?: HeroTab[]; look?: 'olive'
+/** trail (rebuild A+B): where this record sits — e.g. Properties › 44 Claverton Street › Room 1 — each step a link back. */
+export interface TrailStep { label: ReactNode; href?: string }
+
+export default function PageHero({ title, subtitle, eyebrow, stats, actions, tabs, look, trail }: {
+  title: ReactNode; subtitle?: ReactNode; eyebrow?: ReactNode; stats?: HeroStat[]; actions?: ReactNode; tabs?: HeroTab[]; look?: 'olive'; trail?: TrailStep[]
 }) {
   // every band is olive since the rebuild (3 Nov 2026); look stays accepted so older calls still compile
   const olive = look === 'olive' || true
@@ -25,6 +28,14 @@ export default function PageHero({ title, subtitle, eyebrow, stats, actions, tab
       <div className="mx-auto max-w-6xl px-lg pt-lg">
         <div className="flex flex-wrap items-end justify-between gap-md">
           <div className="min-w-0">
+            {trail && trail.length > 0 && (
+              <nav aria-label="Where this is" className="mb-0.5 flex flex-wrap items-center gap-x-1.5 text-[13px] text-[#F3F0E6]/75">
+                {trail.map((t, i) => <span key={i} className="flex items-center gap-x-1.5">
+                  {i > 0 && <span aria-hidden="true" className="text-[#F3F0E6]/45">›</span>}
+                  {t.href ? <Link href={t.href} className="hover:text-[#F3F0E6] hover:underline underline-offset-2">{t.label}</Link> : <span>{t.label}</span>}
+                </span>)}
+              </nav>
+            )}
             {eyebrow && <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#F6F3EC]/50">{eyebrow}</p>}
             <h1 className={`text-2xl font-extrabold leading-tight sm:text-[28px] ${olive ? `${display.className} tracking-tight sm:text-[34px]` : ''}`} style={olive ? undefined : { fontFamily: 'var(--font-baloo-2, system-ui, sans-serif)' }}>{title}</h1>
             {subtitle && <p className="mt-0.5 text-sm text-[#F6F3EC]/60">{subtitle}</p>}

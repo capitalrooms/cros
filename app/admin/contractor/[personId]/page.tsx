@@ -274,7 +274,7 @@ export default function ContractorProfilePage({ params, searchParams }: { params
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar left={<BackButton href="/admin/people" />} />
-      <PageHero eyebrow={`People · ${roleLabel}`} title={displayName} subtitle={[person.company, person.email, person.phone].filter(Boolean).join(' · ') || undefined}
+      <PageHero trail={[{ label: 'People', href: '/admin/people' }, isCleaner ? { label: 'Cleaners', href: '/admin/people?tab=cleaners' } : { label: 'Contractors', href: '/admin/people?tab=contractors' }]} title={displayName} subtitle={[person.company, person.email, person.phone].filter(Boolean).join(' · ') || undefined}
         tabs={TABS.map(tab => ({ key: tab.id, label: tab.label, active: activeTab === tab.id, onClick: () => setActiveTab(tab.id) }))} />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
