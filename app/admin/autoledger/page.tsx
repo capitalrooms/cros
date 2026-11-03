@@ -11,6 +11,7 @@ import { getCurrentUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase'
 import AppBar from '@/components/AppBar'
 import PageHero from '@/components/PageHero'
+import { expenseTabs } from '@/lib/financeTabs'
 import BackButton from '@/app/components/BackButton'
 import Link from 'next/link'
 import LineIcon from '@/components/LineIcon'
@@ -64,7 +65,7 @@ export default function AutoLedgerPage() {
 
   if (loading) return (
     <div className="min-h-screen fin">
-      <AppBar left={<BackButton href="/admin/accounts" />} />
+      <AppBar left={<BackButton href="/admin/finance" />} title="Expenses" />
       <main className="mx-auto max-w-6xl px-lg py-xl">
         <div className="animate-pulse h-8 w-64 bg-neutral-300 rounded-lg" />
       </main>
@@ -73,8 +74,8 @@ export default function AutoLedgerPage() {
 
   return (
     <div className="min-h-screen fin pb-3xl">
-      <AppBar left={<BackButton href="/admin/accounts" />} />
-      <PageHero eyebrow="Finance" title="AutoLedger" />
+      <AppBar left={<BackButton href="/admin/finance" />} title="Expenses" />
+      <PageHero title="Expenses" subtitle="AutoLedger: statements emailed to statements@ are read and their expense lines added" tabs={expenseTabs('autoledger')} />
       <main className="mx-auto max-w-6xl px-lg py-xl space-y-xl">
 
         {/* Header */}

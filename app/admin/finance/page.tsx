@@ -143,7 +143,7 @@ const MORE = [
   ['Expenses report', '/admin/reports/expenses'], ['Finance health check', '/admin/finance-check'], ['Landlord income', '/admin/reports/landlord-income'],
   ['Making Tax Digital', '/admin/reports/mtd'], ['Rent analysis', '/admin/reports/rent-analysis'],
   ['Rent charges', '/admin/rent-charges'], ['Rent Chase', '/admin/rent-chase'], ['Rent demands', '/admin/reports/rent-demands'], ['Rent increase', '/admin/rent-increase'],
-  ['Rent Roll', '/admin/rent-roll'], ['Reports (all)', '/admin/reports'], ['Supplier invoices', '/admin/supplier-invoices'], ['Tax year', '/admin/reports/tax-year'],
+  ['Rent Roll', '/admin/rent-roll'], ['Reports (all)', '/admin/reports'], ['Tax year', '/admin/reports/tax-year'],
   ['Tenant balances', '/admin/reports/tenant-balances'], ['Utilities', '/admin/reports/utilities'], ['Voids', '/admin/reports/voids'],
 ].sort((a, b) => a[0].localeCompare(b[0]))
 
