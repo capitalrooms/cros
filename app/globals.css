@@ -206,7 +206,7 @@ button:disabled {
    white screens … study really nice looking software and spreadsheets"). Any page wrapped in `.fin` gets a soft grey
    ground and spreadsheet tables: compact rows, banded lines, small uppercase headings, figures right-aligned in
    even-width digits, a tinted totals row. One place — every finance page follows. ───────────────────────────────── */
-.fin { background-color: #F3F0E6; }   /* 3 Nov 2026: the Finance home's look C — cream ground, olive band (PageHero look="olive") */
+.fin { background-color: var(--ground, #F3F0E6); }   /* 3 Nov 2026: the Finance home's look C — cream ground, olive band (PageHero look="olive") */
 .fin table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
 .fin table thead th {
   background: #F7F4EA; color: #6B6A55; font-size: 10.5px; font-weight: 700; text-transform: uppercase;
@@ -232,30 +232,30 @@ button:disabled {
    neutrals on a cream ground, cards become paper, links olive — one look across all screens without touching what
    each screen does. The band at the top of each page is PageHero (olive); the rail and top bar are the dark ink. */
 .office {
-  /* the office palette — change these (and the --n-* greys below) to re-colour every office screen at once */
-  --band: #4A5320;        /* the header band, the open menu area */
-  --band-hover: #3B4219;
-  --accent: #E8B931;      /* badges, the panel's main button */
-  --ink: #23261A;         /* the menu rail, the side panel, text */
-  --ground: #F3F0E6;      /* page background */
-  --paper: #FFFDF6;       /* cards */
-  --muted: #6B6A55;
-  --line: #EDE8D6;
-  --n-50: 250 248 241;
-  --n-100: 243 240 230;
-  --n-200: 226 221 201;
-  --n-300: 207 201 178;
-  --n-400: 163 160 138;
-  --n-500: 107 106 85;
-  --n-600: 85 85 63;
-  --n-700: 67 70 48;
-  --n-800: 46 50 32;
-  --n-900: 35 38 26;
-  --n-950: 22 24 15;
+  /* the office palette: Forest and brand gold (Harry, 3 Nov 2026) — change these (and the --n-* greys below) to re-colour every office screen at once */
+  --band: #1F3B2E;        /* the header band, the open menu area */
+  --band-hover: #17301F;
+  --accent: #C4922A;      /* badges, the panel's main button */
+  --ink: #132219;         /* the menu rail, the side panel, text */
+  --ground: #F1F3EF;      /* page background */
+  --paper: #FFFFFF;       /* cards */
+  --muted: #5C6B62;
+  --line: #E3E8E2;
+  --n-50: 248 250 247;
+  --n-100: 241 243 239;
+  --n-200: 225 230 224;
+  --n-300: 203 211 204;
+  --n-400: 152 164 156;
+  --n-500: 92 107 98;
+  --n-600: 72 86 78;
+  --n-700: 52 66 58;
+  --n-800: 33 47 39;
+  --n-900: 19 34 25;
+  --n-950: 12 22 16;
   --cr-ink: var(--ink);
   --cr-ivory: var(--ground);
-  --cr-line: #E2DDC9;
-  --cr-muted: #6B6A55;
+  --cr-line: #E1E6E0;
+  --cr-muted: #5C6B62;
   --cr-bar: var(--ink);
   color: var(--ink);
 }
@@ -266,5 +266,5 @@ button:disabled {
 .office main .hover\:bg-blue-700:hover, .office main .hover\:bg-blue-800:hover { background-color: var(--band-hover); }
 .office main .border-blue-700 { border-color: var(--band); }
 .office main .focus\:ring-blue-500:focus, .office main .focus\:border-blue-500:focus { --tw-ring-color: var(--band); border-color: var(--band); }
-.office main .rounded-2xl.border.border-neutral-200 { border-color: transparent; box-shadow: 0 1px 0 rgba(35, 38, 26, 0.06); }
+.office main .rounded-2xl.border.border-neutral-200 { border-color: transparent; box-shadow: 0 1px 0 rgba(19, 34, 25, 0.07); }
 .office :focus-visible:not([tabindex="-1"]) { outline: 2px solid var(--accent); outline-offset: 2px; }
