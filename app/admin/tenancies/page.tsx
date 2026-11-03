@@ -383,6 +383,7 @@ export default function TenanciesManagementPage() {
                       )}
                     </span>
                     <span className="col-span-2 md:hidden text-xs text-neutral-500 truncate">{t.rooms?.name} · {String(t.properties?.name ?? '').split('\n')[0]} · £{Number(t.rent_amount || 0).toLocaleString('en-GB')} · {st.key === 'let_agreed' ? 'from' : 'since'} {shortDay(t.start_date)}</span>
+                    {st.key !== 'ended' && pairOf(t) && <span className="col-span-2 md:hidden text-xs font-semibold text-neutral-800">{t.end_date && st.key !== 'let_agreed' ? `Out ${shortDay(t.end_date)} · ` : ''}{pairOf(t)}</span>}
                   </li>
                 )
               })}
