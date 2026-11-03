@@ -32,6 +32,17 @@ export async function GET(req: NextRequest) {
   const failed = [people, props, rooms, jobs].find(r => r.error)
   if (failed) return NextResponse.json({ error: failed.error!.message }, { status: 500 })
 
+  // a payment reference (as on bank lines and statements, e.g. 095ROS01) finds the tenant(s) who pay with it (3 Nov 2026)
+  if (/\d/.test(q) && /[a-z]/i.test(q)) {
+    const { data: byRef } = await s.from('tenancies').select('person_id').ilike('payment_reference', like).limit(8)
+    const have = new Set((people.data ?? []).map((p: any) => p.id))
+    const more = [...new Set(((byRef ?? []) as any[]).map(t => t.person_id).filter((id: string) => id && !have.has(id)))]
+    if (more.length) {
+      const { data: extra } = await s.from('people').select('id, salutation, first_name, last_name, full_name, email, phone, role').in('id', more)
+      ;(people.data as any[] | null)?.push(...((extra ?? []) as any[]))
+    }
+  }
+
   // a tenant opens their letting file — the current tenancy, else the incoming one, else the latest
   const tenantIds = (people.data ?? []).filter((p: any) => p.role === 'tenant').map((p: any) => p.id)
   const { data: tens } = tenantIds.length
