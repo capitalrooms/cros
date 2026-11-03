@@ -32,7 +32,9 @@ export default function RentChasePage() {
       const d = await r.json().catch(() => ({}))
       if (!r.ok) { setError(d.error ?? 'Could not load'); return }
       setRows(d.rows); setChecked(d.checked)
-      setTick(Object.fromEntries(d.rows.map((x: Row) => [x.tenancyId, true])))
+      // ?only=id,id from Rents due ("Chase selected"): tick just those
+      const only = new URLSearchParams(window.location.search).get('only')?.split(',').filter(Boolean)
+      setTick(Object.fromEntries(d.rows.map((x: Row) => [x.tenancyId, !only?.length || only.includes(x.tenancyId)])))
       setAmount(Object.fromEntries(d.rows.map((x: Row) => [x.tenancyId, x.owed.toFixed(2)])))
     })
   }, [])
