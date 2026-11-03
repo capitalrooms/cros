@@ -92,7 +92,7 @@ export default function TenancyManagementPage() {
     // Fetch tenancies
     const { data: tenanciesData } = await supabase
       .from('tenancies')
-      .select('*, people!person_id(id, full_name, salutation, first_name, last_name, email, phone), rooms(id, name, status), properties(id, name, address)')
+      .select('*, people!person_id(id, full_name, salutation, first_name, last_name, email, phone), rooms(id, name, status), properties(id, name, address, is_demo)')
       .order('start_date', { ascending: false })
 
     // Active = no notice given yet, tenancy not ended
@@ -102,7 +102,7 @@ export default function TenancyManagementPage() {
     // on notice = notice recorded, or (for notices recorded before that date was kept) the room marked on notice with
     // a move-out date — the same rule as Tenancies. Someone let agreed to move in later isn't counted here.
     const isOnNotice = (t: any) => !!t.notice_received_date || (t.rooms?.status === 'on_notice' && !!t.end_date)
-    const current = (tenanciesData || []).filter((t: any) => t.start_date <= today && (!t.end_date || t.end_date >= today))
+    const current = (tenanciesData || []).filter((t: any) => !t.properties?.is_demo && t.start_date <= today && (!t.end_date || t.end_date >= today))   // practice houses stay out
     const active = current.filter((t: any) => !isOnNotice(t))
     const onNotice = current.filter(isOnNotice)
 
@@ -271,47 +271,9 @@ export default function TenancyManagementPage() {
           </div>
         )}
 
-        {/* Active Tenancies */}
-        <div className="mb-3xl">
-          <h2 className="text-xl font-bold text-neutral-900 mb-lg">
-            Active Tenancies ({activeTenancies.length})
-          </h2>
-
-          {activeTenancies.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-neutral-300 bg-white p-xl text-center">
-              <p className="text-sm text-neutral-500">No active tenancies</p>
-            </div>
-          ) : (
-            <div className="space-y-md">
-              {activeTenancies.map((tenancy) => (
-                <div key={tenancy.id} className="rounded-lg border border-neutral-200 bg-white p-md">
-                  <div className="flex items-start justify-between gap-md">
-                    <TenantCardBody
-                      name={displayName(tenancy.people)}
-                      email={tenancy.people?.email}
-                      roomName={tenancy.room?.name}
-                      propertyName={tenancy.property?.name}
-                      propertyAddress={tenancy.property?.address}
-                      rentAmount={tenancy.rent_amount}
-                      startDate={tenancy.start_date}
-                      endDate={tenancy.end_date}
-                      noticeReceivedDate={tenancy.notice_received_date}
-                    />
-                    <Link href={`/admin/lettings/${tenancy.id}?from=/admin/tenancy-management`} className="shrink-0 text-xs font-semibold text-blue-700 hover:underline">Letting file →</Link>
-                    <div className="shrink-0">
-                      <button
-                        onClick={() => handleSetOnNotice(tenancy)}
-                        className="rounded-lg bg-blue-600 px-lg py-md text-sm font-semibold text-white hover:bg-blue-700"
-                      >
-                        Set Notice
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+        {/* the full list of current tenancies lives on the Tenancies tab; notice is recorded from the letting file's
+            Notice & Rent tab — this tab is only the people leaving (3 Nov 2026 tidy-up) */}
+        <p className="mb-lg text-sm text-neutral-600">To record someone’s notice, open their letting file from the <Link href="/admin/tenancies" className="font-semibold text-blue-700 hover:underline">Tenancies</Link> tab › Notice &amp; Rent.</p>
 
         {/* On Notice Tenancies */}
         <div>
