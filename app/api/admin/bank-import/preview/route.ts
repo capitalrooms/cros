@@ -255,6 +255,13 @@ export async function POST(req: NextRequest) {
       continue
     }
 
+    // paid before CROS took over the rent (your records start): that month was collected elsewhere — it's never
+    // moved onto a CROS month (3 Nov 2026: a 15 October payment would have paid November)
+    if (txn.transaction_date < start) {
+      preview.push({ ...txn, tenant_person_id: tenancy.person_id, expected_ref: tenancy.payment_reference, property_id: tenancy.property_id, category: 'unmatched', before_start: start, rent_charge_id: null, charge_month: null, charge_status: null, charge_amount_due: null, tenancy_id: tenancy.tenancy_id, tenant_name: tenancy.tenant_name, room_name: tenancy.room_name, property_name: tenancy.property_name } as any)
+      continue
+    }
+
     // a managed tenant's move-in payment (first rent + deposit) around the start date: it's split on the letting file —
     // the rent onto the first month, the deposit held for the DPS — so it isn't put against rent here (3 Nov 2026)
     const mi = tenancy.move_in
