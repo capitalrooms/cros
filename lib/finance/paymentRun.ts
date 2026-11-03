@@ -95,7 +95,7 @@ export async function loadPaymentRun(s: SupabaseClient, month: string, opts: { p
   for (const st of sts) {
     const bank = bankFor(st)
     const key = `${st.landlord_id ?? 'none'}|${bank ? bank.sortCode + bank.accountNo : 'no-bank'}`
-    const g: RunPayment = groups.get(key) ?? { key, landlordId: st.landlord_id, landlord: nameOf.get(st.landlord_id) || 'No landlord', bank, statements: [], amount: 0, paid: true, paidDate: null, held: held.get(st.landlord_id ?? 'none') ?? null }
+    const g: RunPayment = groups.get(key) ?? { key, landlordId: st.landlord_id, landlord: nameOf.get(st.landlord_id) || 'No landlord', bank, statements: [], amount: 0, paid: true, paidDate: null, held: held.get(st.landlord_id ?? 'none') ?? 0 }   // nothing in the ledger = nothing held
     const rs = toRunStatement(st, propName)
     g.statements.push(rs)
     g.amount = r2(g.amount + rs.net)
@@ -130,7 +130,7 @@ export async function loadPaymentRun(s: SupabaseClient, month: string, opts: { p
     : { ok: false, message: 'The run doesn’t add up — contact support before paying anything' })
   const noBank = payments.filter(p => !p.bank)
   if (noBank.length && !practice) checks.push({ ok: false, message: `No bank details for ${noBank.map(p => p.landlord).join(', ')}` })
-  const over = payments.filter(p => !p.paid && p.held != null && p.amount > p.held + 0.005 && p.statements.some(x => (x.date ?? '') >= ledger.start))
+  const over = payments.filter(p => !p.paid && p.amount > (p.held ?? 0) + 0.005)
   if (over.length) checks.push({ ok: false, message: `Not enough held for ${over.map(p => `${p.landlord} (£${p.amount.toFixed(2)} to pay, £${(p.held ?? 0).toFixed(2)} held)`).join('; ')}` })
   for (const t of tfs) if (t.recorded && Math.round((t.recorded.amount - t.expected) * 100) !== 0) checks.push({ ok: false, message: `The ${t.kind} transfer (£${t.recorded.amount.toFixed(2)}) doesn’t match what’s due (£${t.expected.toFixed(2)})` })
 
