@@ -233,7 +233,7 @@ export default function LandlordProfilePage({ params }: { params: Promise<{ pers
 
       const propsMapped: LandlordProperty[] = (props || []).map((pp: any) => ({
         id: pp.id, name: pp.name || pp.address, address: pp.address,
-        managementFeePct: pp.management_fee_pct ?? null,
+        managementFeePct: pp.letting_type === 'let_only' ? null : pp.management_fee_pct ?? null,   // a let-only house has no management fee
       }))
       const latestOb = (records || [])[0] ?? null
       setCardData(fromPeople(p, propsMapped, latestOb))
