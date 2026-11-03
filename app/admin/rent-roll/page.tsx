@@ -145,7 +145,9 @@ function RentRollScreen({ initialMonth, practice }: { initialMonth?: string; pra
 
         <div className="mb-sm flex flex-wrap items-center justify-between gap-sm">
           <div className="inline-flex rounded-xl bg-white p-0.5 text-xs font-semibold">
-            {([['all', 'All properties'], ['ready', 'All in · ready to pay'], ['waiting', 'Part in · waiting'], ['none', 'No rent in yet']] as const).map(([k, l]) => {
+            {((roll?.source === 'mirror'
+              ? [['all', 'All properties'], ['ready', 'All on statements'], ['waiting', 'Some on statements'], ['none', 'None on a statement yet']]
+              : [['all', 'All properties'], ['ready', 'All in · ready to pay'], ['waiting', 'Part in · waiting'], ['none', 'No rent in yet']]) as [ 'all' | 'ready' | 'waiting' | 'none', string][]).map(([k, l]) => {
               const n = k === 'all' ? (roll?.properties.length ?? 0) : (roll?.properties ?? []).filter(p => pileOf(p) === k).length
               return <button key={k} onClick={() => setFilter(k)} className={`rounded-lg px-md py-xs ${filter === k ? 'bg-[#181614] text-white' : 'text-neutral-600'}`}>{l} · {n}</button>
             })}

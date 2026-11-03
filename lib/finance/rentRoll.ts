@@ -109,7 +109,7 @@ export async function buildRentRoll(s: SupabaseClient, month: string, opts: { pr
       rollRooms.sort((a, b) => a.room.localeCompare(b.room, undefined, { numeric: true }))
       const due = r2(rollRooms.reduce((t, r) => t + (r.due ?? 0), 0)), received = r2(rollRooms.reduce((t, r) => t + r.received, 0))
       out.push({ id: p.id, name: first(p.name), code: p.property_code, landlord: landlordName.get(p.landlord_id) || '', rooms: rollRooms,
-        due, received, missing: r2(rollRooms.reduce((t, r) => t + Math.max(0, (r.due ?? 0) - r.received), 0)), readyForStatement: 0, statements: stmtsFor(p.id), allIn: false, payPart: null })
+        due, received, missing: r2(rollRooms.reduce((t, r) => t + Math.max(0, (r.due ?? 0) - r.received), 0)), readyForStatement: 0, statements: stmtsFor(p.id), allIn: rollRooms.every(r => r.status === 'paid' || r.status === 'over'), payPart: null })   // readyForStatement 0: nothing is paid out from a mirror
     }
     return { month, source: 'mirror', takeover, properties: out, totals: sum(out) }
   }
