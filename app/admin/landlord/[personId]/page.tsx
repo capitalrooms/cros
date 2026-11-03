@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, use } from 'react'
+import { lettingFeeRule } from '@/lib/fees/lettingFee'
 import { isOfficeRole } from '@/lib/access/areas'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
@@ -202,7 +203,7 @@ export default function LandlordProfilePage({ params }: { params: Promise<{ pers
 
       // these don't depend on each other — fetched together, not one after another (16 Oct 2026)
       const [{ data: props }, { data: records }, { data: prefs }, { data: banks }] = await Promise.all([
-        supabase.from('properties').select('id, name, address, management_fee_pct, property_type, cc_emails, letting_type').eq('landlord_id', personId).order('name'),
+        supabase.from('properties').select('id, name, address, management_fee_pct, property_type, cc_emails, letting_type, letting_fee_pct, letting_fee_flat').eq('landlord_id', personId).order('name'),
         supabase.from('landlord_onboarding').select('*').eq('landlord_people_id', personId).order('created_at', { ascending: false }),
         supabase.from('landlord_notification_prefs').select('category, enabled').eq('person_id', personId),
         // bank details are encrypted at rest — the server opens them (lib/crypto/fieldCrypt)
@@ -599,7 +600,7 @@ export default function LandlordProfilePage({ params }: { params: Promise<{ pers
               <div className="px-xl py-lg space-y-md text-sm">
                 <Field label="Type" value={MGMT_TYPES.find(t => t.value === person.management_type)?.label} />
                 <Field label="Started" value={person.management_start_date ? fmt(person.management_start_date) : undefined} />
-                {properties.length > 0 && <Field label="Fee" value={properties[0].management_fee_pct ? `${properties[0].management_fee_pct}%` : undefined} />}
+                {properties.length > 0 && <Field label="Fee" value={feeLabel(properties[0], person) ?? undefined} />}
                 {person.management_fee_notes && <Field label="Notes" value={person.management_fee_notes} />}
               </div>
             </div>
@@ -1077,7 +1078,7 @@ export default function LandlordProfilePage({ params }: { params: Promise<{ pers
                         : properties.map(p => (
                           <div key={p.id} className="flex items-center justify-between text-sm">
                             <p className="text-neutral-700 truncate">{p.name || p.address}</p>
-                            <p className="font-semibold text-neutral-900 shrink-0 ml-md">{p.management_fee_pct ? `${p.management_fee_pct}%` : '—'}</p>
+                            <p className="font-semibold text-neutral-900 shrink-0 ml-md">{feeLabel(p, person) ?? '—'}</p>
                           </div>
                         ))
                       }
@@ -1116,7 +1117,7 @@ export default function LandlordProfilePage({ params }: { params: Promise<{ pers
                           {p.cc_emails && <p className="text-xs text-neutral-400 mt-xs">CC: {p.cc_emails}</p>}
                         </td>
                         <td className="px-xl py-md hidden sm:table-cell text-neutral-500 capitalize text-xs">{p.property_type || '—'}</td>
-                        <td className="px-xl py-md hidden md:table-cell text-right text-neutral-600">{p.management_fee_pct ? `${p.management_fee_pct}%` : '—'}</td>
+                        <td className="px-xl py-md hidden md:table-cell text-right text-neutral-600">{feeLabel(p, person) ?? '—'}</td>
                         <td className="px-xl py-md text-right">
                           <a href={`/admin/properties/${p.id}`} className="text-xs font-semibold text-blue-600 hover:underline">Open →</a>
                         </td>
@@ -1428,4 +1429,16 @@ export default function LandlordProfilePage({ params }: { params: Promise<{ pers
       </main>
     </div>
   )
+}
+
+// The fee that actually applies to a house (3 Nov 2026: a let-only house showed a leftover 12% management fee). Let only:
+// the letting fee — the house's own, else the client's (lib/fees/lettingFee). Managed: the management fee.
+function feeLabel(p: any, person: any): string | null {
+  if (p?.letting_type === 'let_only') {
+    const r = lettingFeeRule(p, person)
+    if (r.pct != null) return `${r.pct}% of first month${r.from === 'landlord' ? ' (client’s fee)' : ''}`
+    if (r.flat != null) return `£${r.flat} letting fee${r.from === 'landlord' ? ' (client’s fee)' : ''}`
+    return 'Letting fee not set'
+  }
+  return p?.management_fee_pct ? `${p.management_fee_pct}% management` : null
 }
