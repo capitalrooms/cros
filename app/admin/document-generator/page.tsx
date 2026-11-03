@@ -12,6 +12,7 @@ import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import { adminFetch } from '@/lib/adminFetch'
 import { dearFromText, formalName, landlordFormalNames } from '@/lib/people'
+import SendToLandlords from './SendToLandlords'
 import type { FormalLetter } from '@/lib/letters/formalLetter'
 import { invoiceNumberFor, type DocInvoice } from '@/lib/invoices/fromDocumentGenerator'
 import SavedDocuments from './SavedDocuments'
@@ -1000,6 +1001,7 @@ export default function DocumentGenerator() {
                   {sending ? 'Sending…' : 'Send email'}
                 </button>
               </div>
+              {docType === 'letter' && letter && gaps.length === 0 && <SendToLandlords letter={letter as any} subject={emailSubject} message={emailMessage} signer={signerBody()} />}
             </div>
           </div>
         )}
