@@ -35,7 +35,7 @@ export default function LeadsTab() {
         <Link href="/admin/applicants" className="shrink-0 text-xs font-semibold text-blue-700">All applicants →</Link>
       </div>
       <div className="grid grid-cols-2 gap-sm">
-        <Link href="/admin/invite-to-apply" className="rounded-xl border border-neutral-300 bg-white px-md py-sm text-center text-sm font-semibold text-neutral-800 active:bg-neutral-50">Invite to apply</Link>
+        <Link href="/admin/available-and-lettings#send-offer" className="rounded-xl border border-neutral-300 bg-white px-md py-sm text-center text-sm font-semibold text-neutral-800 active:bg-neutral-50">Send an offer</Link>
         <Link href="/admin/applicants?add=1" className="rounded-xl bg-neutral-900 px-md py-sm text-center text-sm font-semibold text-white active:bg-neutral-700">+ Add applicant</Link>
       </div>
       {error ? (

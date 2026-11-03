@@ -70,7 +70,7 @@ export default function LettingsOverviewPage() {
           { label: 'Rooms free now', value: c.availableNow, tone: c.availableNow ? 'good' : undefined, href: '/admin/available-and-lettings' },
         ] : []}
         actions={<>
-          <HeroButton href="/admin/invite-to-apply">Invite to apply</HeroButton>
+          <HeroButton href="/admin/available-and-lettings#send-offer">Send an offer</HeroButton>
           <HeroButton primary href="/admin/applicants?add=1">+ Add applicant</HeroButton>
         </>}
       />
@@ -103,7 +103,7 @@ export default function LettingsOverviewPage() {
                     {a.stage === 'no_tenancy' && <span className="mt-0.5 block text-xs font-semibold text-amber-800">Next: record the holding deposit to open the letting file →</span>}
                   </Link>
                 </li>
-              )) : <Empty>No applications in progress. <Link href="/admin/invite-to-apply" className="font-semibold text-blue-700 hover:underline">Invite someone to apply</Link>.</Empty>}
+              )) : <Empty>No applications in progress. <Link href="/admin/available-and-lettings#send-offer" className="font-semibold text-blue-700 hover:underline">Send someone an offer</Link>.</Empty>}
             </Column>
 
             <Column title="Let agreed" hint="Holding deposit in, moving in soon" count={data.letAgreed.length} href="/admin/tenancies" hrefLabel="Tenancies">
