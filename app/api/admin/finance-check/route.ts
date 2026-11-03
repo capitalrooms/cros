@@ -237,9 +237,13 @@ async function importedStatementCharges(s: ReturnType<typeof createServiceClient
   if (!ids.length) return [] as any[]
   const out: any[] = []
   for (let i = 0; i < ids.length; i += 200) {
-    const { data } = await s.from('rent_charges').select('id, charge_month, status, amount_due, amount_received, properties(name)').in('id', ids.slice(i, i + 200)).is('tenancy_id', null).eq('voided', false)
+    const { data } = await s.from('rent_charges').select('id, charge_month, status, amount_due, amount_received, bank_transaction_id, properties(name)').in('id', ids.slice(i, i + 200)).is('tenancy_id', null).eq('voided', false)
     out.push(...((data ?? []) as any[]))
   }
+  // never one with real bank money against it (3 Nov 2026 audit): that payment has to be moved first, by hand
+  const { data: banked } = out.length ? await s.from('payment_audit_log').select('rent_charge_id').in('rent_charge_id', out.map(c => c.id)).not('bank_transaction_id', 'is', null) : { data: [] }
+  const hasBank = new Set(((banked ?? []) as any[]).map(r => r.rent_charge_id))
+  for (let i = out.length - 1; i >= 0; i--) if (out[i].bank_transaction_id || hasBank.has(out[i].id)) out.splice(i, 1)
   return out.sort((a, b) => String(a.charge_month).localeCompare(String(b.charge_month)))
 }
 

@@ -107,6 +107,8 @@ export function tenantMessage(pos: Awaited<ReturnType<typeof rentPosition>>, ext
 }
 
 export async function tellTenant(s: SupabaseClient, tenancyId: string, o: { email: boolean; text: boolean; extra?: string; by: { personId: string; email: string }; req?: Request | null }) {
+  // statements-only mode: CROS doesn't hold the rent figures, so it doesn't tell a tenant what they owe (lib/finance/mode)
+  if (!(await import('@/lib/finance/mode')).CROS_COLLECTS_RENT) throw new Error('CROS is on statements only — rent is collected in your other system, so it doesn’t tell tenants what they owe. Nothing was sent.')
   const pos = await rentPosition(s, tenancyId)
   if (!(pos.owed > 0.005)) throw new Error('Nothing is owed — there’s nothing to tell them.')
   const p = pos.tenancy.people
