@@ -614,7 +614,7 @@ export function MoneyTab({ file }: { file: LettingFile }) {
               </tbody>
             </table>
           </div>
-        ) : <p className="text-sm text-neutral-500">{file.stage === 'let_agreed' ? 'Rent charges start from the move-in date.' : 'No rent charges recorded for this tenancy yet.'}</p>}
+        ) : <p className="text-sm text-neutral-500">{file.stage === 'let_agreed' ? 'Rent charges start from the move-in date.' : 'No rent charges in CROS for this tenancy. While CROS mirrors your statements, their rent shows on the Rent Roll against each month’s statement.'}</p>}
       </section>
 
       <section className={card}>
