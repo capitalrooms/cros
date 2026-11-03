@@ -933,28 +933,16 @@ function CompliancePageInner({ tab }: { tab?: string }) {
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar left={<BackButton href="/admin" label="Dashboard" />} />
-      <PageHero title="Compliance" subtitle={<>Certificates, safety checks, and compliance dashboard across all properties</>} />
+      <PageHero title="Compliance" subtitle={<>Certificates, safety checks and the certificate round, across every house</>}
+        tabs={[
+          { key: 'certificates', label: 'Certificates', active: activeTab === 'certificates', onClick: () => setActiveTab('certificates') },
+          { key: 'monthly-checks', label: <>Safety checks{issuesCount > 0 ? ` · ${issuesCount}` : ''}</>, active: activeTab === 'monthly-checks', onClick: () => setActiveTab('monthly-checks') },
+          { key: 'send', label: 'Send certificates', href: '/admin/compliance/send-certificates' },
+        ]} />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
         <div className="mb-2xl">
 
-          <div className="flex gap-sm border-b border-neutral-300">
-            <button
-              onClick={() => setActiveTab('certificates')}
-              className={`px-lg py-md font-semibold transition ${activeTab === 'certificates' ? 'border-b-2 border-neutral-900 text-neutral-900' : 'text-neutral-500 hover:text-neutral-700'}`}
-            >
-              Property Certificates
-            </button>
-            <button
-              onClick={() => setActiveTab('monthly-checks')}
-              className={`px-lg py-md font-semibold transition relative ${activeTab === 'monthly-checks' ? 'border-b-2 border-neutral-900 text-neutral-900' : 'text-neutral-500 hover:text-neutral-700'}`}
-            >
-              Monthly Checks
-              {issuesCount > 0 && (
-                <span className="ml-sm inline-block rounded-full bg-red-600 text-white px-sm py-0 text-xs font-bold">{issuesCount}</span>
-              )}
-            </button>
-          </div>
         </div>
 
         {/* PROPERTY CERTIFICATES TAB */}
