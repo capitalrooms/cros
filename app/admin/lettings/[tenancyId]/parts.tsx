@@ -668,13 +668,16 @@ function MonthByMonth({ file }: { file: LettingFile }) {
     return () => { off = true }
   }, [file.tenancy.id])
   const mirror = data?.months.some(m => m.source === 'mirror')
-  const total = (k: 'due' | 'received') => (data?.months ?? []).reduce((t, m) => t + Number(m[k] ?? 0), 0)
+  // a month still waiting for its statement isn't short — it's unknown; the totals cover the months a statement shows
+  const shown = (data?.months ?? []).filter(m => m.status !== 'awaiting_statement')
+  const waiting = (data?.months ?? []).filter(m => m.status === 'awaiting_statement').length
+  const total = (k: 'due' | 'received') => shown.reduce((t, m) => t + Number(m[k] ?? 0), 0)
   const diff = Math.round((total('received') - total('due')) * 100) / 100
   return (
     <section className={card}>
       <div className="flex flex-wrap items-baseline justify-between gap-sm mb-sm">
         <h2 className="text-lg font-bold">Month by month</h2>
-        {data && data.months.length > 0 && <span className="text-sm tabular-nums text-neutral-600">Due {gbp(total('due'))} · received {gbp(total('received'))}{Math.abs(diff) >= 0.005 && <b className={diff > 0 ? 'text-amber-800' : 'text-red-700'}> · {diff > 0 ? `${gbp(diff)} over` : `${gbp(-diff)} short`}</b>}</span>}
+        {data && shown.length > 0 && <span className="text-sm tabular-nums text-neutral-600">{waiting > 0 && <b className="text-neutral-800">{waiting} waiting for a statement · </b>}Due {gbp(total('due'))} · received {gbp(total('received'))}{Math.abs(diff) >= 0.005 && <b className={diff > 0 ? 'text-amber-800' : 'text-red-700'}> · {diff > 0 ? `${gbp(diff)} over` : `${gbp(-diff)} short`}</b>}</span>}
       </div>
       {error ? <p className="text-sm text-red-700">{error}</p>
       : !data ? <p className="text-sm text-neutral-500">Working out each month…</p>

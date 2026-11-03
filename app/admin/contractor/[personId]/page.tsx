@@ -9,6 +9,10 @@ import { getCurrentUser } from '@/lib/auth'
 import AppBar from '@/components/AppBar'
 import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
+import SidePanel, { PanelRow, PanelButton } from '@/app/components/SidePanel'
+import { useUrlTab } from '@/lib/useUrlTab'
+import { one, type PageSearchParams } from '@/lib/pageSearchParams'
+import { adminFetch } from '@/lib/adminFetch'
 import AddressField from '@/app/components/AddressField'
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -66,7 +70,12 @@ function gbp(n: any) { return n ? `£${Number(n).toLocaleString('en-GB', { minim
 
 // ── Page ─────────────────────────────────────────────────────────────────────
 
-export default function ContractorProfilePage({ params }: { params: Promise<{ personId: string }> }) {
+// one profile per contractor (rebuild, 3 Nov 2026): tabs on the band, kept in the address; their invoices on a Money tab
+const CONTRACTOR_TABS = ['overview', 'contact', 'qualifications', 'rates', 'jobs', 'money', 'notes'] as const
+type ContractorTab = typeof CONTRACTOR_TABS[number]
+
+export default function ContractorProfilePage({ params, searchParams }: { params: Promise<{ personId: string }>; searchParams: PageSearchParams }) {
+  const askedTab = one(use(searchParams).tab)
   const router       = useRouter()
   const { personId } = use(params)
   const supabase     = createClient()
@@ -74,7 +83,9 @@ export default function ContractorProfilePage({ params }: { params: Promise<{ pe
   const [person, setPerson]   = useState<any | null>(null)
   const [jobs, setJobs]       = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'overview' | 'contact' | 'qualifications' | 'rates' | 'jobs' | 'notes'>('overview')
+  const [activeTab, setActiveTab] = useUrlTab<ContractorTab>(askedTab, CONTRACTOR_TABS, 'overview')
+  const [invoices, setInvoices] = useState<any[] | null>(null)
+  const [openInvoice, setOpenInvoice] = useState<any | null>(null)
 
   // Edit contact
   const [editingContact, setEditingContact] = useState(false)
@@ -95,6 +106,18 @@ export default function ContractorProfilePage({ params }: { params: Promise<{ pe
   const [notes, setNotes]         = useState('')
   const [savingNotes, setSavingNotes] = useState(false)
   const [notesDirty, setNotesDirty]   = useState(false)
+
+  useEffect(() => {
+    if (activeTab !== 'money' || invoices !== null) return
+    adminFetch('/api/admin/supplier-invoices').then(r => r.ok ? r.json() : { invoices: [] })
+      .then(j => setInvoices((j.invoices ?? []).filter((i: any) => i.supplierId === personId))).catch(() => setInvoices([]))
+  }, [activeTab, invoices, personId])
+  async function openInvoicePdf(id: string) {
+    const win = window.open('', '_blank')
+    const r = await adminFetch(`/api/admin/supplier-invoices?pdf=${id}`)
+    if (!r.ok) { win?.close(); return }
+    const u = URL.createObjectURL(await r.blob()); if (win) win.location.href = u; else window.location.href = u
+  }
 
   useEffect(() => {
     async function init() {
@@ -243,18 +266,21 @@ export default function ContractorProfilePage({ params }: { params: Promise<{ pe
     { id: 'qualifications'  as const, label: 'Qualifications & insurance' },
     { id: 'rates'           as const, label: 'Rates' },
     { id: 'jobs'            as const, label: `Job history (${jobs.length})` },
+    { id: 'money'           as const, label: `Invoices${invoices ? ` (${invoices.length})` : ''}` },
     { id: 'notes'           as const, label: 'Internal notes' },
   ]
+  const gbp2 = (n: any) => `£${Number(n || 0).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar left={<BackButton href="/admin/people" />} />
-      <PageHero eyebrow={`People · ${roleLabel}`} title={displayName} subtitle={[person.company, person.email, person.phone].filter(Boolean).join(' · ') || undefined} />
+      <PageHero eyebrow={`People · ${roleLabel}`} title={displayName} subtitle={[person.company, person.email, person.phone].filter(Boolean).join(' · ') || undefined}
+        tabs={TABS.map(tab => ({ key: tab.id, label: tab.label, active: activeTab === tab.id, onClick: () => setActiveTab(tab.id) }))} />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
 
-        {/* Header */}
-        <div className="rounded-xl border border-neutral-200 bg-white px-xl py-lg mb-xl">
+        {/* Header — trades and warnings, on the Overview */}
+        {activeTab === 'overview' && <div className="rounded-xl border border-neutral-200 bg-white px-xl py-lg mb-xl">
           <div className="flex items-start justify-between gap-lg">
             <div>
               <p className="text-xs font-bold uppercase tracking-widest text-neutral-400 mb-xs">Trades</p>
@@ -277,19 +303,44 @@ export default function ContractorProfilePage({ params }: { params: Promise<{ pe
               )}
             </div>
           </div>
-        </div>
+        </div>}
 
-        {/* Tabs */}
-        <div className="flex gap-xs mb-xl border-b border-neutral-200 overflow-x-auto">
-          {TABS.map(tab => (
-            <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-              className={`shrink-0 px-lg py-md text-sm font-semibold transition whitespace-nowrap ${
-                activeTab === tab.id ? 'text-neutral-900 border-b-2 border-neutral-900' : 'text-neutral-400 hover:text-neutral-700'
-              }`}>
-              {tab.label}
-            </button>
-          ))}
-        </div>
+        {/* ══ INVOICES ══ */}
+        {activeTab === 'money' && (
+          <div className="rounded-2xl border border-neutral-200 bg-white overflow-x-auto mb-xl">
+            {invoices === null ? <p className="p-lg text-sm text-neutral-500">Loading…</p>
+            : invoices.length === 0 ? <p className="p-lg text-sm text-neutral-500">No invoices made in CROS by {displayName} yet. Invoices they email in go to Documents › Capture.</p>
+            : (
+              <table className="w-full text-sm">
+                <thead><tr className="text-left text-[11px] font-bold uppercase tracking-[0.06em] text-neutral-500 border-b border-neutral-200">
+                  <th className="px-lg py-sm">Invoice</th><th className="px-lg py-sm hidden sm:table-cell">Property</th><th className="px-lg py-sm text-right">Total</th><th className="px-lg py-sm text-right">Status</th>
+                </tr></thead>
+                <tbody>
+                  {invoices.map(i => (
+                    <tr key={i.id} onClick={() => setOpenInvoice(i)} className={`cursor-pointer border-t border-neutral-100 hover:bg-neutral-50 ${openInvoice?.id === i.id ? 'bg-neutral-100' : ''}`}>
+                      <td className="px-lg py-sm"><span className="block font-semibold">{i.number}</span><span className="text-xs text-neutral-500">{fmt(i.date)}</span></td>
+                      <td className="px-lg py-sm hidden sm:table-cell text-neutral-600">{i.property ?? '—'}</td>
+                      <td className="px-lg py-sm text-right tabular-nums font-semibold">{gbp2(i.total)}</td>
+                      <td className="px-lg py-sm text-right text-xs font-semibold capitalize">{i.status} ›</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        )}
+        <SidePanel open={!!openInvoice} onClose={() => setOpenInvoice(null)} eyebrow={openInvoice?.property ?? displayName} title={openInvoice?.number ?? ''}
+          footer={openInvoice && <div className="flex flex-wrap gap-sm"><PanelButton onClick={() => openInvoicePdf(openInvoice.id)}>Open the PDF</PanelButton><Link href="/admin/supplier-invoices" className="inline-flex items-center rounded-full bg-[#F3F0E6]/12 px-lg py-sm text-sm font-bold">All invoices</Link></div>}>
+          {openInvoice && <>
+            <PanelRow label="Dated" value={fmt(openInvoice.date)} />
+            {openInvoice.due && <PanelRow label="Due" value={fmt(openInvoice.due)} />}
+            {(openInvoice.lines ?? []).map((l: any, i: number) => <PanelRow key={i} label={l.description ?? l.label ?? 'Line'} value={gbp2(l.amount ?? l.total ?? (Number(l.qty || 1) * Number(l.unit_price || l.rate || 0)))} />)}
+            {Number(openInvoice.vat) > 0 && <PanelRow label="VAT" value={gbp2(openInvoice.vat)} />}
+            <PanelRow label="Total" value={gbp2(openInvoice.total)} tone="good" />
+            <PanelRow label="Status" value={<span className="capitalize">{openInvoice.status}</span>} tone={openInvoice.status === 'sent' ? 'warn' : undefined} />
+            {openInvoice.notes && <p className="mt-md text-[#F3F0E6]/75">{openInvoice.notes}</p>}
+          </>}
+        </SidePanel>
 
         {/* ══ OVERVIEW ══ */}
         {activeTab === 'overview' && (
