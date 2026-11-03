@@ -88,7 +88,7 @@ export const AREAS: Area[] = [
   // View as (seeing the apps as a real tenant, landlord or contractor).
   { key: 'settings', label: 'Settings', hint: 'Company details and logo, message switches, finance dates, removing a property',
     pages: ['/admin/settings'],
-    api: ['/api/admin/settings', '/api/admin/business-settings', '/api/admin/upload-brand-logo', '/api/admin/finance-dates', '/api/admin/property-remove', '/api/admin/seed-statements'] },
+    api: ['/api/admin/settings', '/api/admin/business-settings', '/api/admin/upload-brand-logo', '/api/admin/finance-dates', '/api/admin/property-remove'] },
 ]
 
 export const ALL_AREAS = AREAS.map(a => a.key)
