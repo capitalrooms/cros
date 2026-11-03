@@ -12,6 +12,9 @@ import { adminFetch } from '@/lib/adminFetch'
 import LandlordCorrespondence from './LandlordCorrespondence'
 import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
+import SidePanel, { PanelRow, PanelButton } from '@/app/components/SidePanel'
+import { useUrlTab } from '@/lib/useUrlTab'
+import { one, type PageSearchParams } from '@/lib/pageSearchParams'
 import LandlordCard, { fromPeople, LandlordCardData, LandlordProperty } from '@/app/components/LandlordCard'
 import { landlordName, looksLikeEntity } from '@/lib/people'
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
@@ -106,7 +109,14 @@ function inputCls(extra = '') {
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 
-export default function LandlordProfilePage({ params }: { params: Promise<{ personId: string }> }) {
+// one profile per landlord (rebuild, 3 Nov 2026): statements, client-account money and bank accounts are one Money tab;
+// old ?tab=bank / ?tab=statements links land there
+const LANDLORD_TABS = ['overview', 'contact', 'properties', 'money', 'agreement', 'aml', 'correspondence', 'notifications'] as const
+type LandlordTab = typeof LANDLORD_TABS[number]
+const OLD_TAB: Record<string, LandlordTab> = { bank: 'money', statements: 'money' }
+
+export default function LandlordProfilePage({ params, searchParams }: { params: Promise<{ personId: string }>; searchParams: PageSearchParams }) {
+  const askedTab = one(use(searchParams).tab)
   const router       = useRouter()
   const { personId } = use(params)
 
@@ -120,7 +130,10 @@ export default function LandlordProfilePage({ params }: { params: Promise<{ pers
   const [houseLinks, setHouseLinks]     = useState<Record<string, { id: string | null; last4: string }>>({})   // house → linked account (30 Oct 2026)
   const [linking, setLinking]           = useState('')
   const [loading, setLoading]           = useState(true)
-  const [activeTab, setActiveTab]       = useState<'overview' | 'contact' | 'bank' | 'agreement' | 'properties' | 'aml' | 'statements' | 'notifications' | 'correspondence'>('overview')
+  const [activeTab, setActiveTab]       = useUrlTab<LandlordTab>(OLD_TAB[askedTab ?? ''] ?? askedTab, LANDLORD_TABS, 'overview')
+  // the Money tab: what the client account holds for them (CROS's own records — imported statements stay out of it)
+  const [ledger, setLedger]             = useState<any[] | null>(null)
+  const [openStatement, setOpenStatement] = useState<any | null>(null)
   const [amlRequest, setAmlRequest]     = useState<{ busy?: boolean; ok?: boolean; text?: string } | null>(null)
 
   // AML tab state
@@ -162,6 +175,12 @@ export default function LandlordProfilePage({ params }: { params: Promise<{ pers
   const [togglingComms, setTogglingComms] = useState(false)
 
   const supabase = createClient()
+
+  useEffect(() => {
+    if (activeTab !== 'money' || ledger !== null) return
+    adminFetch(`/api/admin/client-money?landlordId=${personId}`).then(r => r.ok ? r.json() : { entries: [] })
+      .then(j => setLedger([...(j.entries ?? [])].reverse())).catch(() => setLedger([]))
+  }, [activeTab, ledger, personId])
 
   useEffect(() => {
     async function init() {
@@ -215,9 +234,9 @@ export default function LandlordProfilePage({ params }: { params: Promise<{ pers
 
       const { data: stmts } = await supabase
         .from('landlord_statements')
-        .select('id, statement_reference, statement_date, period_start, period_end, gross_rent, net_to_landlord, created_at, property_id, properties(name)')
+        .select('id, statement_reference, statement_date, period_start, period_end, gross_rent, management_fees, property_charges, net_to_landlord, amount_paid, paid_date, sent_at, created_at, property_id, properties(name)')
         .in('property_id', (props || []).map((pp: any) => pp.id))
-        .order('created_at', { ascending: false }).limit(12)
+        .order('statement_date', { ascending: false }).limit(120)
       setStatements(stmts || [])
 
       const prefsMap: Record<string, boolean> = {}
@@ -481,16 +500,34 @@ export default function LandlordProfilePage({ params }: { params: Promise<{ pers
     )
   }
 
-  const TABS = [
-    { id: 'overview'      as const, label: 'Overview' },
-    { id: 'contact'       as const, label: 'Contact & Identity' },
-    { id: 'bank'          as const, label: `Bank accounts (${bankAccounts.length})` },
-    { id: 'agreement'     as const, label: 'Management agreement' },
-    { id: 'properties'    as const, label: `Properties (${properties.length})` },
-    { id: 'aml'           as const, label: `AML & Compliance (${amlRecords.length})` },
-    { id: 'statements'    as const, label: `Statements (${statements.length})` },
-    { id: 'notifications' as const, label: 'Notifications' },
-    { id: 'correspondence' as const, label: 'Correspondence' },
+  const money = (n: any) => `£${Number(n || 0).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  const st = openStatement
+  const statementPanel = (
+    <SidePanel open={!!st} onClose={() => setOpenStatement(null)} eyebrow={st ? String(st.properties?.name || '').split('\n')[0] : ''}
+      title={st ? `${st.statement_reference || 'Statement'}` : ''}
+      footer={st && <div className="flex flex-wrap gap-sm"><PanelButton href={`/landlord/statement/${st.id}`}>Open the statement</PanelButton></div>}>
+      {st && <>
+        <PanelRow label="Dated" value={fmt(st.statement_date || st.created_at)} />
+        {st.period_start && <PanelRow label="Period" value={`${fmt(st.period_start)} – ${fmt(st.period_end)}`} />}
+        <PanelRow label="Rent" value={money(st.gross_rent)} />
+        {Number(st.management_fees) > 0 && <PanelRow label="Our fees" value={`−${money(st.management_fees)}`} />}
+        {Number(st.property_charges) > 0 && <PanelRow label="Expenses" value={`−${money(st.property_charges)}`} />}
+        <PanelRow label="To landlord" value={money(st.net_to_landlord)} tone="good" />
+        <PanelRow label="Paid" value={st.paid_date ? `${money(st.amount_paid)} on ${fmt(st.paid_date)}` : 'Not recorded as paid'} tone={st.paid_date ? undefined : 'warn'} />
+        <PanelRow label="Sent to them" value={st.sent_at ? fmt(st.sent_at) : 'Not sent from CROS'} />
+      </>}
+    </SidePanel>
+  )
+
+  const TABS: { id: LandlordTab; label: string }[] = [
+    { id: 'overview',       label: 'Summary' },
+    { id: 'contact',        label: 'Contact & identity' },
+    { id: 'properties',     label: `Properties (${properties.length})` },
+    { id: 'money',          label: 'Money' },
+    { id: 'agreement',      label: 'Management agreement' },
+    { id: 'aml',            label: `AML (${amlRecords.length})` },
+    { id: 'correspondence', label: 'Letters' },
+    { id: 'notifications',  label: 'Notifications' },
   ]
 
   const landlordName = [person.salutation, person.first_name, person.last_name].filter(Boolean).join(' ') || person.full_name || person.company || person.email || 'Landlord'
@@ -506,6 +543,7 @@ export default function LandlordProfilePage({ params }: { params: Promise<{ pers
       />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
+        {statementPanel}
 
         {/* Landlord card */}
         <div className="mb-xl">
@@ -610,7 +648,7 @@ export default function LandlordProfilePage({ params }: { params: Promise<{ pers
             <div className="rounded-xl border border-neutral-200 bg-white overflow-hidden">
               <div className="px-xl py-lg border-b border-neutral-100 flex items-center justify-between">
                 <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Bank accounts</p>
-                <button onClick={() => setActiveTab('bank')} className="text-xs font-semibold text-blue-600 hover:underline">Manage →</button>
+                <button onClick={() => setActiveTab('money')} className="text-xs font-semibold text-blue-600 hover:underline">Manage →</button>
               </div>
               <div className="px-xl py-lg">
                 {bankAccounts.length === 0 ? (
@@ -846,8 +884,78 @@ export default function LandlordProfilePage({ params }: { params: Promise<{ pers
           </div>
         )}
 
-        {/* ══ BANK ACCOUNTS ══ */}
-        {activeTab === 'bank' && (
+        {/* ══ MONEY — statements, the client account, bank accounts ══ */}
+        {activeTab === 'money' && (
+          <div className="space-y-lg mb-lg">
+            <section>
+              <div className="mb-sm flex items-baseline justify-between gap-md">
+                <h2 className="text-xs font-bold uppercase tracking-wider text-neutral-500">Statements</h2>
+                <span className="text-xs text-neutral-500">{statements.length ? `${statements.length} · newest first · click one to see it beside` : ''}</span>
+              </div>
+              <div className="rounded-2xl border border-neutral-200 bg-white overflow-x-auto">
+                {statements.length === 0 ? (
+                  <p className="p-xl text-center text-sm text-neutral-500">No statements yet.</p>
+                ) : (
+                  <table className="w-full text-sm border-collapse">
+                    <thead>
+                      <tr className="text-left text-[11px] font-bold uppercase tracking-[0.06em] text-neutral-500 border-b border-neutral-200">
+                        <th className="px-lg py-sm">Statement</th>
+                        <th className="px-lg py-sm hidden sm:table-cell">Property</th>
+                        <th className="px-lg py-sm text-right hidden sm:table-cell">Rent</th>
+                        <th className="px-lg py-sm text-right">To landlord</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {statements.map(st => (
+                        <tr key={st.id} onClick={() => setOpenStatement(st)}
+                          className={`border-t border-neutral-100 cursor-pointer hover:bg-neutral-50 ${openStatement?.id === st.id ? 'bg-neutral-100' : ''}`}>
+                          <td className="px-lg py-sm"><span className="block font-semibold text-neutral-900">{st.statement_reference || 'Statement'}</span><span className="text-xs text-neutral-500">{fmt(st.statement_date || st.created_at)}</span></td>
+                          <td className="px-lg py-sm hidden sm:table-cell text-neutral-600">{String(st.properties?.name || '—').split('\n')[0]}</td>
+                          <td className="px-lg py-sm text-right tabular-nums hidden sm:table-cell text-neutral-600">{money(st.gross_rent)}</td>
+                          <td className="px-lg py-sm text-right tabular-nums font-semibold text-neutral-900">{money(st.net_to_landlord)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </section>
+
+            <section>
+              <div className="mb-sm flex items-baseline justify-between gap-md">
+                <h2 className="text-xs font-bold uppercase tracking-wider text-neutral-500">Client account</h2>
+                <Link href="/admin/client-money" className="text-xs font-semibold text-blue-700 hover:underline">All landlords</Link>
+              </div>
+              <div className="rounded-2xl border border-neutral-200 bg-white overflow-x-auto">
+                {ledger === null ? <p className="p-lg text-sm text-neutral-500">Loading…</p>
+                : ledger.length === 0 ? <p className="p-lg text-sm text-neutral-500">Nothing held for them yet. Rent from imported statements isn’t counted here: CROS only records money it has actually handled.</p>
+                : (
+                  <table className="w-full text-sm border-collapse">
+                    <thead>
+                      <tr className="text-left text-[11px] font-bold uppercase tracking-[0.06em] text-neutral-500 border-b border-neutral-200">
+                        <th className="px-lg py-sm">Date</th><th className="px-lg py-sm">What</th><th className="px-lg py-sm text-right">In / out</th><th className="px-lg py-sm text-right">Held</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {ledger.map((e, i) => (
+                        <tr key={i} className="border-t border-neutral-100">
+                          <td className="px-lg py-sm whitespace-nowrap text-neutral-600 tabular-nums">{fmt(e.date)}</td>
+                          <td className="px-lg py-sm">{e.description}{e.reference ? <span className="text-neutral-500"> · {e.reference}</span> : null}</td>
+                          <td className={`px-lg py-sm text-right tabular-nums ${e.amount < 0 ? 'text-neutral-900' : 'text-green-800'}`}>{e.amount < 0 ? `−${money(-e.amount)}` : money(e.amount)}</td>
+                          <td className="px-lg py-sm text-right tabular-nums font-semibold">{money(e.balance)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </section>
+            <h2 className="text-xs font-bold uppercase tracking-wider text-neutral-500">Bank accounts</h2>
+          </div>
+        )}
+
+        {/* ══ BANK ACCOUNTS (in Money) ══ */}
+        {activeTab === 'money' && (
           <div className="space-y-lg">
             <div className="flex items-center justify-between">
               <div>
@@ -1366,37 +1474,6 @@ export default function LandlordProfilePage({ params }: { params: Promise<{ pers
                   )
                 })}
               </div>
-            )}
-          </div>
-        )}
-
-        {/* ══ STATEMENTS ══ */}
-        {activeTab === 'statements' && (
-          <div className="rounded-xl border border-neutral-200 bg-white overflow-hidden">
-            {statements.length === 0 ? (
-              <div className="p-xl text-center text-neutral-400 text-sm">No statements yet.</div>
-            ) : (
-              <table className="w-full text-sm border-collapse">
-                <thead>
-                  <tr className="bg-neutral-50 text-left text-xs font-semibold uppercase tracking-wider text-neutral-400 border-b border-neutral-100">
-                    <th className="px-xl py-sm">Period</th>
-                    <th className="px-xl py-sm hidden sm:table-cell">Property</th>
-                    <th className="px-xl py-sm text-right">Gross rent</th>
-                    <th className="px-xl py-sm text-right">Net to landlord</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {statements.map(s => (
-                    <tr key={s.id} className="border-t border-neutral-100 hover:bg-neutral-50 transition cursor-pointer"
-                      onClick={() => window.open(`/landlord/statement/${s.id}`, '_blank')}>
-                      <td className="px-xl py-md font-semibold text-neutral-900">{s.statement_reference || (s.period_start ? `${fmt(s.period_start)} – ${fmt(s.period_end)}` : fmt(s.statement_date || s.created_at))}</td>
-                      <td className="px-xl py-md hidden sm:table-cell text-neutral-500">{(s as any).properties?.name || '—'}</td>
-                      <td className="px-xl py-md text-right text-neutral-600">£{Number(s.gross_rent || 0).toLocaleString()}</td>
-                      <td className="px-xl py-md text-right font-semibold text-neutral-900">£{Number(s.net_to_landlord || 0).toLocaleString()}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
             )}
           </div>
         )}
