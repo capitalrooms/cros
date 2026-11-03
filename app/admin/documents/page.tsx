@@ -1,619 +1,109 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
-import { isOfficeRole } from '@/lib/access/areas'
-import { openStoredFile } from '@/lib/files/openFile'
-import { useRouter } from 'next/navigation'
+// Documents › Library (rebuild, 3 Nov 2026): every filed document across every house — certificates, agreements,
+// letters and more — in one searchable list; open one and it shows beside the list. Before this the Library tab was the
+// old document scanner (upload / emailed in / waiting to confirm), which repeated Capture and listed nothing filed. The
+// scanner lives on at /admin/documents/scanner for the documents still waiting to be confirmed there.
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { getCurrentUser } from '@/lib/auth'
-import { createClient } from '@/lib/supabase'
 import AppBar from '@/components/AppBar'
 import PageHero from '@/components/PageHero'
-import { documentTabs } from '@/lib/documentTabs'
 import BackButton from '@/app/components/BackButton'
-import DocReview, { AIResult, TYPE_LABELS } from '@/app/components/DocReview'
+import DocViewDrawer from '@/components/DocViewDrawer'
+import SubTabs from '@/app/components/SubTabs'
+import { createClient } from '@/lib/supabase'
+import { documentTabs } from '@/lib/documentTabs'
+import { docTypeLabel, fullDatesIn } from '@/lib/documents/types'
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
-import LineIcon from '@/components/LineIcon'
-const BLANK: AIResult = {
-  doc_type: 'other', confidence: 0, summary: '', issue_date: '', expiry_date: '', provider: '',
-  policy_number: '', property_address: '', person_name: '', person_phone: '', person_email: '',
-  occupation: '', annual_income: '', previous_address: '', tenancy_start: '', tenancy_end: '', monthly_rent: '',
-}
 
-type Tab = 'upload' | 'inbox' | 'pending'
+interface Doc { id: string; property_id: string | null; file_name: string; document_type: string | null; description: string | null; storage_url: string; uploaded_at: string; visible_to_tenants: boolean | null }
+type Shown = 'all' | 'certificates' | 'tenancy' | 'other'
 
-interface DocumentPending {
-  id: string
-  document_type: string
-  confidence: number
-  summary: string
-  status: string
-  property_id: string | null
-  property_address_extracted: string
-  extracted_data: any
-  created_at: string
-}
+const CERT = /gas|eicr|electr|epc|fire|pat|legionella|hmo|licen|alarm|emergency_light|asbestos|certificate/i
+const TENANCY = /tenan|agreement|reference|right_to_rent|id_|passport|deposit|inventory|check_in|check_out|notice/i
+const groupOf = (t: string | null): Exclude<Shown, 'all'> => CERT.test(t ?? '') ? 'certificates' : TENANCY.test(t ?? '') ? 'tenancy' : 'other'
+const firstLine = (s: string | null | undefined) => String(s ?? '').split('\n')[0]
+const day = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/London' })
 
-export default function DocumentsPage() {
-  const router = useRouter()
-  const supabase = createClient()
+export default function DocumentLibraryPage() {
+  const [docs, setDocs] = useState<Doc[] | null>(null)
+  const [houses, setHouses] = useState<{ id: string; name: string }[]>([])
+  const [waiting, setWaiting] = useState(0)
+  const [q, setQ] = useState('')
+  const [house, setHouse] = useState('')
+  const [shown, setShown] = useState<Shown>('all')
+  const [open, setOpen] = useState<Doc | null>(null)
+  const [error, setError] = useState('')
 
-  // Shared state
-  const [loading, setLoading] = useState(true)
-  const [properties, setProperties] = useState<any[]>([])
-  const [people, setPeople] = useState<any[]>([])
-  const [tenancies, setTenancies] = useState<any[]>([])
-  const [activeTab, setActiveTab] = useState<Tab>('upload')
-
-  // Upload tab state
-  const [busy, setBusy] = useState(false)
-  const [busyLabel, setBusyLabel] = useState('')
-  const [uploadError, setUploadError] = useState('')
-  const [uploadResults, setUploadResults] = useState<Array<{ result: AIResult; file: File }>>([])
-  const [uploadApplied, setUploadApplied] = useState('')
-  const [dragOver, setDragOver] = useState(false)
-  const inputRef = useRef<HTMLInputElement>(null)
-
-  // Inbox tab state
-  const [inboxDocs, setInboxDocs] = useState<any[]>([])
-  const [inboxOpenId, setInboxOpenId] = useState<string | null>(null)
-  const [inboxFlash, setInboxFlash] = useState('')
-  const [rescanning, setRescanning] = useState<string | null>(null)
-
-  // Pending tab state
-  const [pendingDocs, setPendingDocs] = useState<DocumentPending[]>([])
-  const [pendingSelected, setPendingSelected] = useState<DocumentPending | null>(null)
-  const [pendingPropertyId, setPendingPropertyId] = useState<string | null>(null)
-  const [pendingFiling, setPendingFiling] = useState(false)
-
-  // Initialize data
   useEffect(() => {
-    async function init() {
-      const data = await getCurrentUser()
-      if (!data || !isOfficeRole(data.assignment?.role)) {
-        router.push('/login')
-        return
-      }
-      const { data: props } = await supabase.from('properties').select('id, name, address').order('name')
-      const { data: ppl } = await supabase.from('people').select('id, full_name, salutation, first_name, last_name, email').eq('role', 'tenant').order('full_name')
-      const { data: tens } = await supabase
-        .from('tenancies')
-        .select('id, start_date, end_date, people!person_id(full_name, salutation, first_name, last_name), rooms(id, name, property_id, properties(id, name))')
-        .order('start_date', { ascending: false })
-      setProperties(sortPropertiesNumerically(props || []))
-      setPeople(ppl || [])
-      setTenancies((tens as any) || [])
-
-      // Load inbox and pending docs
-      await loadInboxDocs()
-      await loadPendingDocs()
-
-      setLoading(false)
-    }
-    init()
-  }, [router])
-
-  // ==========================================================================
-  // UPLOAD TAB
-  // ==========================================================================
-
-  const DIRECT_UPLOAD_LIMIT = 4 * 1024 * 1024 // 4 MB
-
-  async function presignAndUpload(file: File): Promise<string> {
-    const presignRes = await fetch('/api/storage/presign-upload', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fileName: file.name, mimeType: file.type || 'application/pdf' }),
+    const sb = createClient()
+    Promise.all([
+      sb.from('property_documents').select('id, property_id, file_name, document_type, description, storage_url, uploaded_at, visible_to_tenants').order('uploaded_at', { ascending: false }).limit(2000),
+      sb.from('properties').select('id, name, address'),
+      sb.from('documents_pending').select('id', { count: 'exact', head: true }),
+    ]).then(([d, p, w]) => {
+      if (d.error) setError(d.error.message)
+      setDocs((d.data ?? []) as Doc[])
+      setHouses(sortPropertiesNumerically((p.data ?? []) as any[]).map((x: any) => ({ id: x.id, name: firstLine(x.name || x.address) })))
+      setWaiting(w.count ?? 0)
     })
-    if (!presignRes.ok) {
-      const err = await presignRes.json().catch(() => ({}))
-      throw new Error(`Presign failed: ${err.error || presignRes.status}`)
-    }
-    const { token, path, publicUrl } = await presignRes.json()
+  }, [])
 
-    const { error: upErr } = await supabase.storage
-      .from('property-documents')
-      .uploadToSignedUrl(path, token, file, { contentType: file.type || 'application/pdf' })
-
-    if (upErr) throw new Error(`Storage upload failed: ${upErr.message}`)
-    return publicUrl
-  }
-
-  async function handleFiles(files: FileList | null) {
-    if (!files || files.length === 0) return
-    setBusy(true)
-    setBusyLabel(`Scanning ${files.length} file${files.length > 1 ? 's' : ''}…`)
-    setUploadError('')
-    setUploadResults([])
-    setUploadApplied('')
-
-    const analyzed: AIResult[] = []
-    const errors: string[] = []
-
-    try {
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i]
-        setBusyLabel(`Reading ${i + 1} of ${files.length}: ${file.name}`)
-        try {
-          const body = new FormData()
-
-          if (file.size > DIRECT_UPLOAD_LIMIT) {
-            setBusyLabel(`${file.name} is large — uploading to storage (${(file.size / 1024 / 1024).toFixed(1)} MB)…`)
-            const signedUrl = await presignAndUpload(file)
-            body.append('storage_url', signedUrl)
-            body.append('mime_type', file.type || 'application/pdf')
-          } else {
-            body.append('file', file)
-          }
-
-          const res = await fetch('/api/ai/classify-document', { method: 'POST', body })
-          let json: any
-          try {
-            json = await res.json()
-          } catch {
-            throw new Error(
-              res.status === 413
-                ? 'File is too large even for storage upload — please compress the PDF and try again'
-                : `Server returned ${res.status} (no details)`
-            )
-          }
-          if (!res.ok) {
-            errors.push(`${file.name}: ${json.error || 'Failed to read'}`)
-          } else {
-            analyzed.push({ result: json.result as AIResult, file })
-          }
-        } catch (err) {
-          errors.push(`${file.name}: ${err instanceof Error ? err.message : 'Error'}`)
-        }
-      }
-
-      if (analyzed.length === 0 && errors.length > 0) {
-        setUploadError(errors.join('\n'))
-      } else {
-        setUploadResults(analyzed)
-        if (errors.length > 0) {
-          setUploadError(`Scanned ${analyzed.length} file(s)\n\nIssues:\n${errors.join('\n')}`)
-        }
-      }
-    } catch (err) {
-      setUploadError(err instanceof Error ? err.message : 'Something went wrong')
-    } finally {
-      setBusy(false)
-      setBusyLabel('')
-    }
-  }
-
-  // ==========================================================================
-  // INBOX TAB
-  // ==========================================================================
-
-  async function loadInboxDocs() {
-    const { data } = await supabase
-      .from('inbox_documents')
-      .select('*')
-      .eq('status', 'new')
-      .order('created_at', { ascending: false })
-    setInboxDocs(data || [])
-  }
-
-  function fileUrl(path: string) {
-    return supabase.storage.from('inbox-docs').getPublicUrl(path).data.publicUrl
-  }
-
-  async function markInboxFiled(id: string, msg: string) {
-    await supabase.from('inbox_documents').update({ status: 'filed' }).eq('id', id)
-    setInboxOpenId(null)
-    setInboxFlash('' + msg)
-    await loadInboxDocs()
-  }
-
-  async function dismissInboxDoc(id: string) {
-    await supabase.from('inbox_documents').update({ status: 'dismissed' }).eq('id', id)
-    setInboxOpenId(null)
-    await loadInboxDocs()
-  }
-
-  async function rescanInboxDoc(id: string) {
-    setRescanning(id)
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      const headers: Record<string, string> = {}
-      if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`
-      const res = await fetch(`/api/inbox/rescan/${id}`, { method: 'POST', headers })
-      const json = await res.json()
-      if (!res.ok) throw new Error(json.error || 'Rescan failed')
-      setInboxFlash('Rescan complete — document updated')
-      await loadInboxDocs()
-    } catch (e: any) {
-      setInboxFlash('Rescan failed: ' + e.message)
-    } finally {
-      setRescanning(null)
-    }
-  }
-
-  // ==========================================================================
-  // PENDING TAB
-  // ==========================================================================
-
-  async function loadPendingDocs() {
-    const { data: docsData } = await supabase
-      .from('documents_pending')
-      .select('*')
-      .eq('status', 'pending_review')
-      .order('created_at', { ascending: false })
-    setPendingDocs(docsData || [])
-  }
-
-  async function handlePendingFile(doc: DocumentPending) {
-    if (!pendingPropertyId) {
-      alert('Please select a property')
-      return
-    }
-
-    setPendingFiling(true)
-    try {
-      const { error } = await supabase
-        .from('documents_pending')
-        .update({ property_id: pendingPropertyId, status: 'property_matched' })
-        .eq('id', doc.id)
-
-      if (error) throw error
-
-      await supabase
-        .from('documents_pending')
-        .update({ status: 'filed', filed_at: new Date().toISOString() })
-        .eq('id', doc.id)
-
-      setInboxFlash('Document filed!')
-      setPendingSelected(null)
-      setPendingPropertyId(null)
-      await loadPendingDocs()
-    } catch (err: any) {
-      setInboxFlash('' + err.message)
-    } finally {
-      setPendingFiling(false)
-    }
-  }
-
-  // Badge count
-  const badgeCount = (inboxDocs?.length || 0) + (pendingDocs?.length || 0)
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-neutral-100">
-        <AppBar left={<BackButton href="/admin/compliance" />} />
-        <p className="p-xl text-sm text-neutral-400">Loading…</p>
-      </div>
-    )
-  }
+  const houseName = useMemo(() => new Map(houses.map(h => [h.id, h.name])), [houses])
+  const needle = q.trim().toLowerCase()
+  const list = (docs ?? []).filter(d =>
+    (!house || d.property_id === house) && (shown === 'all' || groupOf(d.document_type) === shown) &&
+    (!needle || [d.file_name, docTypeLabel(d.document_type), d.description, houseName.get(d.property_id ?? '')].some(v => String(v ?? '').toLowerCase().includes(needle))))
+  const count = (g: Shown) => (docs ?? []).filter(d => (!house || d.property_id === house) && (g === 'all' || groupOf(d.document_type) === g)).length
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
-      <AppBar left={<BackButton href="/admin" label="Dashboard" />} />
-      <PageHero title="Documents" subtitle="Library: every filed document — certificates, contracts, tenancy agreements and more" tabs={documentTabs('library')} />
-
-      <main className="mx-auto max-w-6xl px-lg py-xl">
-        <div className="mb-2xl">
-          <div className="flex items-center justify-between mb-lg">
-            <div>
-            </div>
-            {badgeCount > 0 && (
-              <div className="rounded-full bg-red-600 text-white px-md py-sm text-sm font-bold">
-                {badgeCount} pending
-              </div>
-            )}
-          </div>
-
-          {/* Tab buttons */}
-          <div className="flex flex-wrap gap-sm">
-            <button
-              onClick={() => setActiveTab('upload')}
-              className={`px-md py-xs text-sm font-semibold transition ${
-                activeTab === 'upload'
-                  ? 'rounded-full bg-neutral-900 text-white'
-                  : 'rounded-full bg-white text-neutral-700 ring-1 ring-neutral-200 hover:bg-neutral-50'
-              }`}
-            >
-              ⬆ Upload
-            </button>
-            <button
-              onClick={() => setActiveTab('inbox')}
-              className={`px-md py-xs text-sm font-semibold transition relative ${
-                activeTab === 'inbox'
-                  ? 'rounded-full bg-neutral-900 text-white'
-                  : 'rounded-full bg-white text-neutral-700 ring-1 ring-neutral-200 hover:bg-neutral-50'
-              }`}
-            >
-              Inbox
-              {(inboxDocs?.length || 0) > 0 && (
-                <span className="ml-sm inline-block rounded-full bg-neutral-900 text-white px-sm py-0 text-xs font-bold">
-                  {inboxDocs.length}
-                </span>
-              )}
-            </button>
-            <button
-              onClick={() => setActiveTab('pending')}
-              className={`px-md py-xs text-sm font-semibold transition relative ${
-                activeTab === 'pending'
-                  ? 'rounded-full bg-neutral-900 text-white'
-                  : 'rounded-full bg-white text-neutral-700 ring-1 ring-neutral-200 hover:bg-neutral-50'
-              }`}
-            >
-              Pending Review
-              {(pendingDocs?.length || 0) > 0 && (
-                <span className="ml-sm inline-block rounded-full bg-neutral-900 text-white px-sm py-0 text-xs font-bold">
-                  {pendingDocs.length}
-                </span>
-              )}
-            </button>
-          </div>
+      <AppBar left={<BackButton href="/admin" />} title="Documents" />
+      <PageHero title="Documents" subtitle="Library: every filed document, across every house" tabs={documentTabs('library')} />
+      <main className="mx-auto max-w-6xl px-lg py-xl space-y-md">
+        {waiting > 0 && (
+          <Link href="/admin/documents/scanner" className="flex items-center justify-between gap-md rounded-2xl bg-[#E8B931] px-lg py-sm text-sm font-semibold text-[#23261A]">
+            <span>{waiting} read by the document scanner and waiting for you to confirm</span><span aria-hidden="true">›</span>
+          </Link>
+        )}
+        <div className="flex flex-wrap items-center gap-sm">
+          <input type="search" value={q} onChange={e => setQ(e.target.value)} placeholder="Search by file, type, house or note…"
+            className="min-w-[220px] flex-1 rounded-xl border border-neutral-200 bg-white px-md py-sm text-sm" />
+          <select value={house} onChange={e => setHouse(e.target.value)} aria-label="House" className="rounded-xl border border-neutral-200 bg-white px-md py-sm text-sm">
+            <option value="">Every house</option>
+            {houses.map(h => <option key={h.id} value={h.id}>{h.name}</option>)}
+          </select>
         </div>
+        <SubTabs<Shown> tabs={[['all', `All · ${count('all')}`], ['certificates', `Certificates · ${count('certificates')}`], ['tenancy', `Tenancy papers · ${count('tenancy')}`], ['other', `Other · ${count('other')}`]]} active={shown} onChange={setShown} />
 
-        {/* UPLOAD TAB */}
-        {activeTab === 'upload' && (
-          <div>
-            <div className="mb-lg">
-              <h2 className="text-xl font-bold text-neutral-900 mb-sm">Upload documents for AI processing</h2>
-              <p className="text-sm text-neutral-600">
-                Drop in certificates, tenancy agreements, evacuation plans, contact sheets, utility bills — any property document. The AI reads them, tells you what they are, and you file once you confirm.
-              </p>
-            </div>
-
-            {uploadError && (
-              <div className="mt-lg whitespace-pre-wrap rounded-xl border-2 border-neutral-900 bg-white p-md text-sm text-neutral-900">{uploadError}</div>
-            )}
-            {uploadApplied && (
-              <div className="mt-lg rounded-xl bg-green-600 p-md text-sm font-semibold text-white">{uploadApplied}</div>
-            )}
-
-            {uploadResults.length === 0 && (
-              <label
-                className={`mt-lg flex cursor-pointer flex-col items-center gap-md rounded-2xl border-2 border-dashed bg-white p-xl text-center transition-colors ${
-                  dragOver ? 'border-neutral-900 bg-neutral-50' : 'border-neutral-300 hover:border-neutral-500'
-                }`}
-                onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
-                onDragLeave={() => setDragOver(false)}
-                onDrop={(e) => { e.preventDefault(); setDragOver(false); handleFiles(e.dataTransfer.files) }}
-              >
-                <input
-                  ref={inputRef}
-                  type="file"
-                  accept="image/*,application/pdf"
-                  multiple
-                  className="hidden"
-                  onChange={(e) => handleFiles(e.target.files)}
-                  disabled={busy}
-                />
-                <p className="text-4xl">{<LineIcon glyph={busy ? '⏳' : '📄'} />}</p>
-                {busy ? (
-                  <>
-                    <p className="font-bold text-neutral-900">{busyLabel}</p>
-                    <p className="text-xs text-neutral-500">Please wait…</p>
-                  </>
-                ) : (
-                  <>
-                    <p className="font-bold text-neutral-900">Drop files here, or click to select</p>
-                    <p className="text-xs text-neutral-500">PDFs, photos or scans (JPG, PNG) — multiple files at once</p>
-                  </>
-                )}
-              </label>
-            )}
-
-            {uploadResults.length > 0 && (
-              <div className="mt-lg space-y-lg">
-                <div className="flex items-center justify-between">
-                  <p className="text-sm font-semibold text-neutral-700">
-                    {uploadResults.length} document{uploadResults.length > 1 ? 's' : ''} identified
-                  </p>
-                  <button
-                    onClick={() => { setUploadResults([]); setUploadError(''); setUploadApplied('') }}
-                    className="rounded-lg border border-neutral-300 bg-white px-md py-sm text-sm font-semibold hover:bg-neutral-50"
-                  >
-                    Upload more
-                  </button>
-                </div>
-                {uploadResults.map(({ result, file }, i) => (
-                  <DocReview
-                    key={i}
-                    initial={result}
-                    file={file}
-                    properties={properties}
-                    people={people}
-                    tenancies={tenancies}
-                    onApplied={(msg) => {
-                      setUploadApplied(msg)
-                      setUploadResults(prev => prev.filter((_, idx) => idx !== i))
-                    }}
-                    onCancel={() => setUploadResults(prev => prev.filter((_, idx) => idx !== i))}
-                  />
+        {error && <p className="rounded-xl border border-red-200 bg-red-50 px-lg py-sm text-sm text-red-800">{error}</p>}
+        <div className="rounded-2xl border border-neutral-200 bg-white overflow-x-auto">
+          {docs === null ? <p className="p-lg text-sm text-neutral-500">Loading the library…</p>
+          : list.length === 0 ? <p className="p-lg text-sm text-neutral-500">{q || house || shown !== 'all' ? 'Nothing matches.' : 'Nothing filed yet. Capture files what comes in.'}</p>
+          : (
+            <table className="w-full text-sm">
+              <thead><tr className="border-b border-neutral-200 text-left text-[11px] font-bold uppercase tracking-[0.06em] text-neutral-500">
+                <th className="px-lg py-sm">Document</th><th className="px-lg py-sm hidden md:table-cell">House</th><th className="px-lg py-sm hidden sm:table-cell">Filed</th>
+              </tr></thead>
+              <tbody>
+                {list.slice(0, 400).map(d => (
+                  <tr key={d.id} onClick={() => setOpen(d)} className={`cursor-pointer border-t border-neutral-100 hover:bg-neutral-50 ${open?.id === d.id ? 'bg-neutral-100' : ''}`}>
+                    <td className="px-lg py-sm min-w-0">
+                      <span className="block font-semibold text-neutral-900 break-all">{d.file_name}</span>
+                      <span className="text-xs text-neutral-500">{docTypeLabel(d.document_type)}{d.description ? ` · ${fullDatesIn(d.description).slice(0, 90)}` : ''}{d.visible_to_tenants ? ' · tenants can see it' : ''}</span>
+                      <span className="block text-xs text-neutral-500 md:hidden">{houseName.get(d.property_id ?? '') ?? ''}</span>
+                    </td>
+                    <td className="px-lg py-sm hidden md:table-cell text-neutral-700">{d.property_id ? <Link href={`/admin/properties/${d.property_id}?tab=documents`} onClick={e => e.stopPropagation()} className="hover:underline">{houseName.get(d.property_id) ?? '—'}</Link> : '—'}</td>
+                    <td className="px-lg py-sm hidden sm:table-cell whitespace-nowrap text-neutral-600 tabular-nums">{day(d.uploaded_at)}</td>
+                  </tr>
                 ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* INBOX TAB */}
-        {activeTab === 'inbox' && (
-          <div>
-            <div className="mb-lg">
-              <h2 className="text-xl font-bold text-neutral-900 mb-sm">Documents received by email</h2>
-              <p className="text-sm text-neutral-600">
-                Documents forwarded to your inbox address land here. Review the AI's suggestion and file each one, or
-                assign it yourself. Nothing is filed until you confirm.
-              </p>
-            </div>
-
-            {inboxFlash && <div className="mt-lg rounded-xl bg-green-600 p-md text-sm font-semibold text-white">{inboxFlash}</div>}
-
-            {inboxDocs.length === 0 ? (
-              <div className="mt-lg rounded-2xl border border-dashed border-neutral-300 bg-white p-xl text-center text-sm text-neutral-500">
-                Inbox is empty. Forward a document to your inbox address and it'll appear here.
-              </div>
-            ) : (
-              <div className="mt-lg space-y-md">
-                {inboxDocs.map((d) => {
-                  const ai = (d.ai_result || null) as AIResult | null
-                  const label = ai ? TYPE_LABELS[ai.doc_type] || 'Document' : 'Unread document'
-                  const isOpen = inboxOpenId === d.id
-                  return (
-                    <div key={d.id} className="rounded-2xl border border-neutral-200 bg-white">
-                      <button
-                        onClick={() => setInboxOpenId(isOpen ? null : d.id)}
-                        className="flex w-full items-center justify-between gap-md p-md text-left"
-                      >
-                        <div className="min-w-0">
-                          <p className="truncate font-bold text-neutral-900">
-                            {label}
-                            {ai && ai.confidence ? (
-                              <span className="ml-sm text-xs font-normal text-neutral-400">{Math.round(ai.confidence * 100)}%</span>
-                            ) : null}
-                          </p>
-                          <p className="truncate text-xs text-neutral-500">
-                            {ai?.summary || d.subject || d.filename}
-                            {d.from_email ? ` · from ${d.from_email}` : ''}
-                          </p>
-                        </div>
-                        <span className="shrink-0 text-neutral-400">{isOpen ? '▲' : '▼'}</span>
-                      </button>
-
-                      {isOpen && (
-                        <div className="border-t border-neutral-200 p-md">
-                          <div className="mb-md flex items-center gap-md text-sm flex-wrap">
-                            <a href="#" onClick={e => { e.preventDefault(); openStoredFile({ bucket: 'inbox-docs', path: d.storage_path }) }} className="font-semibold text-neutral-900 underline">
-                              View original ({d.filename})
-                            </a>
-                            <button
-                              onClick={() => rescanInboxDoc(d.id)}
-                              disabled={rescanning === d.id}
-                              className="text-xs font-semibold text-blue-700 border border-blue-200 rounded-lg px-sm py-xs hover:bg-blue-50 disabled:opacity-50"
-                            >
-                              {rescanning === d.id ? 'Rescanning…' : 'Rescan'}
-                            </button>
-                            <button onClick={() => dismissInboxDoc(d.id)} className="text-xs text-neutral-400 hover:text-red-600 ml-auto">
-                              Dismiss
-                            </button>
-                          </div>
-                          {d.ai_error && !ai && (
-                            <p className="mb-md rounded-lg bg-amber-50 border border-amber-200 p-sm text-xs text-amber-800">
-                              AI couldn't read this ({d.ai_error}). Try Rescan above, or pick the type manually below.
-                            </p>
-                          )}
-                          <DocReview
-                            initial={ai || BLANK}
-                            properties={properties}
-                            people={people}
-                            tenancies={tenancies}
-                            onApplied={(msg) => markInboxFiled(d.id, msg)}
-                            onCancel={() => setInboxOpenId(null)}
-                          />
-                        </div>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* PENDING REVIEW TAB */}
-        {activeTab === 'pending' && (
-          <div>
-            <div className="mb-lg">
-              <h2 className="text-xl font-bold text-neutral-900 mb-sm">Extracted data awaiting approval</h2>
-              <p className="text-sm text-neutral-600">
-                The AI has read these documents. Review, confirm the property, and file into the system.
-              </p>
-            </div>
-
-            {pendingDocs.length === 0 ? (
-              <div className="rounded-2xl border-2 border-neutral-200 bg-white p-2xl text-center">
-                <p className="text-neutral-600">No documents awaiting review.</p>
-                <button
-                  onClick={() => setActiveTab('upload')}
-                  className="mt-md inline-block text-sm font-bold text-blue-600 hover:text-blue-800"
-                >
-                  ↑ Upload a document
-                </button>
-              </div>
-            ) : (
-              <div className="grid grid-cols-3 gap-lg">
-                {/* List */}
-                <div className="col-span-1 space-y-sm max-h-[600px] overflow-y-auto">
-                  {pendingDocs.map((doc) => (
-                    <button
-                      key={doc.id}
-                      onClick={() => { setPendingSelected(doc); setPendingPropertyId(doc.property_id); }}
-                      className={`w-full text-left rounded-lg border-2 p-md transition ${
-                        pendingSelected?.id === doc.id
-                          ? 'border-blue-500 bg-blue-50'
-                          : 'border-neutral-200 bg-white hover:border-neutral-300'
-                      }`}
-                    >
-                      <div className="text-xs font-bold text-neutral-500 uppercase">{doc.document_type}</div>
-                      <div className="mt-xs text-sm font-semibold text-neutral-900">{doc.summary || '(no summary)'}</div>
-                      <div className="mt-sm flex items-center gap-sm text-xs text-neutral-600">
-                        <span>{doc.property_address_extracted || 'No address'}</span>
-                        <span className="ml-auto">{(doc.confidence * 100).toFixed(0)}%</span>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-
-                {/* Detail */}
-                {pendingSelected && (
-                  <div className="col-span-2 rounded-2xl border-2 border-neutral-200 bg-white p-lg">
-                    <h2 className="text-xl font-bold text-neutral-900 mb-md">{pendingSelected.document_type.toUpperCase()}</h2>
-                    <p className="text-sm text-neutral-600 mb-lg">{pendingSelected.summary}</p>
-
-                    {/* Property selector */}
-                    <div className="mb-lg">
-                      <label className="block text-sm font-bold text-neutral-700 mb-sm">Confirm property:</label>
-                      <select
-                        value={pendingPropertyId || ''}
-                        onChange={(e) => setPendingPropertyId(e.target.value || null)}
-                        className="w-full rounded border-2 border-neutral-300 px-md py-sm text-sm"
-                      >
-                        <option value="">— Select a property —</option>
-                        {properties.map((p) => (
-                          <option key={p.id} value={p.id}>
-                            {p.name} ({p.address})
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {/* Extracted fields */}
-                    <div className="mb-lg max-h-[300px] overflow-y-auto bg-neutral-50 rounded p-md">
-                      <h3 className="text-xs font-bold text-neutral-600 uppercase mb-sm">Extracted Data</h3>
-                      <pre className="text-xs text-neutral-700 whitespace-pre-wrap break-words">
-                        {JSON.stringify(pendingSelected.extracted_data, null, 2)}
-                      </pre>
-                    </div>
-
-                    {/* Actions */}
-                    <div className="flex gap-md">
-                      <button
-                        onClick={() => handlePendingFile(pendingSelected)}
-                        disabled={!pendingPropertyId || pendingFiling}
-                        className="flex-1 rounded bg-green-600 px-lg py-md text-white font-bold hover:bg-green-700 disabled:opacity-50"
-                      >
-                        {pendingFiling ? 'Filing...' : 'File Document'}
-                      </button>
-                      <button
-                        onClick={() => setPendingSelected(null)}
-                        className="rounded border-2 border-neutral-300 px-lg py-md font-bold hover:bg-neutral-50"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        )}
+              </tbody>
+            </table>
+          )}
+          {list.length > 400 && <p className="border-t border-neutral-100 px-lg py-sm text-xs text-neutral-500">Showing the newest 400 of {list.length}. Search or pick a house to narrow it.</p>}
+        </div>
       </main>
+      {open && <DocViewDrawer title={houseName.get(open.property_id ?? '') ?? 'Document'} subtitle={docTypeLabel(open.document_type)} fileName={open.file_name} storageUrl={open.storage_url} onClose={() => setOpen(null)} />}
     </div>
   )
 }
