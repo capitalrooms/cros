@@ -85,7 +85,10 @@ export async function GET(req: NextRequest) {
 
     // expenses not yet on a statement, per house
     const byHouse = new Map<string, { propertyId: string; house: string; count: number; total: number }>()
-    for (const e of (exps ?? []) as any[]) {
+    // practice houses' expenses (XEXP…) are never in the real figures (3 Nov 2026 audit: 4 practice expenses showed)
+    const demoIds = await demoPropertyIds(s)
+    const realExps = ((exps ?? []) as any[]).filter(e => !demoIds.has(e.property_id))
+    for (const e of realExps) {
       const k = e.property_id ?? 'none'
       const h = byHouse.get(k) ?? { propertyId: e.property_id, house: first(e.properties?.name) || 'No property', count: 0, total: 0 }
       h.count++; h.total = Math.round((h.total + Number(e.amount || 0)) * 100) / 100
@@ -94,7 +97,7 @@ export async function GET(req: NextRequest) {
 
     // the last statement each house had
     const lastBy = new Map<string, any>()
-    for (const st of (stmts ?? []) as any[]) if (st.property_id && !lastBy.has(st.property_id)) lastBy.set(st.property_id, st)
+    for (const st of (stmts ?? []) as any[]) if (st.property_id && !demoIds.has(st.property_id) && !lastBy.has(st.property_id)) lastBy.set(st.property_id, st)
     const last = [...lastBy.values()].map(st => {
       const p = st.people
       return { id: st.id, house: first(st.properties?.name), landlord: p ? ([p.salutation, p.first_name, p.last_name].filter(Boolean).join(' ') || p.full_name || p.company) : '', reference: st.statement_reference, date: st.statement_date, net: Number(st.net_to_landlord ?? 0), state: st.paid_date ? 'paid' : st.approved_at ? 'approved' : 'draft' }
@@ -111,7 +114,7 @@ export async function GET(req: NextRequest) {
       month, collectsRent: CROS_COLLECTS_RENT,
       ready: { count: ready.length + letOnly.length, total: round(ready.reduce((n, r) => n + r.amount, 0) + letOnly.filter(l => l.step === 'pay').reduce((n, l) => n + l.amount, 0)), items: ready, letOnly },
       due: { count: due.length, total: round(due.reduce((n, r) => n + r.owed, 0)), items: due, waitingHouses: ps.filter(p => !p.allIn && !p.payPart && p.received > 0.005).length, notRaised: due.filter(r => r.status === 'no_charge').length, paid: ps.reduce((n, p) => n + p.rooms.filter(r => r.status === 'paid' || r.status === 'over').length, 0) },
-      expenses: { count: (exps ?? []).length, total: round(((exps ?? []) as any[]).reduce((n, e) => n + Number(e.amount || 0), 0)), houses: [...byHouse.values()].sort((a, b) => b.total - a.total) },
+      expenses: { count: realExps.length, total: round(realExps.reduce((n, e) => n + Number(e.amount || 0), 0)), houses: [...byHouse.values()].sort((a, b) => b.total - a.total) },
       statements: { items: last },
       imports: { last: lastImport ? { at: lastImport.imported_at, from: lastImport.period_from, to: lastImport.period_to, file: lastImport.filename } : null, coveredTo, daysBehind },
       client: position ? { held: position.cashbook.total, agrees: position.agrees } : null,
