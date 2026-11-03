@@ -66,6 +66,7 @@ export async function previewEndDate(s: SupabaseClient, tenancyId: string, newEn
     }
     if (months.some(x => x.withLandlord > 0)) warnings.push('Some of the overpayment has already been paid to the landlord — it would need to come back from them (shown on their next statement).')
     if (months.some(x => !x.chargeId && x.dueAfter > 0)) warnings.push('Some months have no rent charge raised yet — they’re raised on the 1st (or from Rent charges), at the amount shown.')
+    if (!(await import('@/lib/finance/mode')).CROS_COLLECTS_RENT) warnings.push('CROS is on statements only — “received” is only what has been recorded here. Rent collected in your other system won’t show, so check any refund there too.')
   } else warnings.push('Let only — the tenant pays the landlord, so there is no rent here to adjust.')
 
   const sum = (k: keyof EndDateMonth) => r2(months.reduce((n, x) => n + Number(x[k] || 0), 0))
