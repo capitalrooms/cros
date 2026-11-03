@@ -8,6 +8,7 @@ import { getCurrentUser } from '@/lib/auth'
 import { useRouter } from 'next/navigation'
 import AppBar from '@/components/AppBar'
 import PageHero from '@/components/PageHero'
+import { diaryTabs } from '@/lib/diaryTabs'
 import BackButton from '@/app/components/BackButton'
 import Link from 'next/link'
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
@@ -266,7 +267,7 @@ export default function AppointmentsPage() {
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar left={<BackButton href="/admin" label="Dashboard" />} />
-      <PageHero title="Diary" subtitle={<>Drag appointments to reschedule. Click a time slot to book a new visit.</>} />
+      <PageHero title="Diary" subtitle={<>Week: drag appointments to reschedule. Click a time slot to book a new visit.</>} tabs={diaryTabs('week')} />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
         {/* Week navigation */}
