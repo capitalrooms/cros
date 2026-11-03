@@ -305,23 +305,23 @@ export default function DocumentsPage() {
           </div>
 
           {/* Tab buttons */}
-          <div className="flex gap-sm border-b border-neutral-300">
+          <div className="flex flex-wrap gap-sm">
             <button
               onClick={() => setActiveTab('upload')}
-              className={`px-lg py-md font-semibold transition ${
+              className={`px-md py-xs text-sm font-semibold transition ${
                 activeTab === 'upload'
-                  ? 'border-b-2 border-neutral-900 text-neutral-900'
-                  : 'text-neutral-500 hover:text-neutral-700'
+                  ? 'rounded-full bg-neutral-900 text-white'
+                  : 'rounded-full bg-white text-neutral-700 ring-1 ring-neutral-200 hover:bg-neutral-50'
               }`}
             >
               ⬆ Upload
             </button>
             <button
               onClick={() => setActiveTab('inbox')}
-              className={`px-lg py-md font-semibold transition relative ${
+              className={`px-md py-xs text-sm font-semibold transition relative ${
                 activeTab === 'inbox'
-                  ? 'border-b-2 border-neutral-900 text-neutral-900'
-                  : 'text-neutral-500 hover:text-neutral-700'
+                  ? 'rounded-full bg-neutral-900 text-white'
+                  : 'rounded-full bg-white text-neutral-700 ring-1 ring-neutral-200 hover:bg-neutral-50'
               }`}
             >
               Inbox
@@ -333,10 +333,10 @@ export default function DocumentsPage() {
             </button>
             <button
               onClick={() => setActiveTab('pending')}
-              className={`px-lg py-md font-semibold transition relative ${
+              className={`px-md py-xs text-sm font-semibold transition relative ${
                 activeTab === 'pending'
-                  ? 'border-b-2 border-neutral-900 text-neutral-900'
-                  : 'text-neutral-500 hover:text-neutral-700'
+                  ? 'rounded-full bg-neutral-900 text-white'
+                  : 'rounded-full bg-white text-neutral-700 ring-1 ring-neutral-200 hover:bg-neutral-50'
               }`}
             >
               Pending Review
