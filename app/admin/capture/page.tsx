@@ -9,6 +9,8 @@
 import { use, useCallback, useEffect, useRef, useState } from 'react'
 import AppBar from '@/components/AppBar'
 import PageHero, { HeroButton } from '@/components/PageHero'
+import SubTabs from '@/app/components/SubTabs'
+import { documentTabs } from '@/lib/documentTabs'
 import BackButton from '@/app/components/BackButton'
 import { adminFetch } from '@/lib/adminFetch'
 import { createClient } from '@/lib/supabase'
@@ -80,22 +82,22 @@ function Capture({ initialTab }: { initialTab: Tab }) {
   const items: any[] = data?.items ?? []
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
-      <AppBar left={<BackButton href="/admin" label="Dashboard" />} title="Capture" />
+      <AppBar left={<BackButton href="/admin" label="Dashboard" />} title="Documents" />
       <PageHero
-        eyebrow="Documents"
-        title="Capture"
-        subtitle="Photos, paperwork and emailed invoices in one list: check what CROS thinks each is, and file it. Nothing becomes an expense until you file it here."
+        title="Documents"
+        subtitle="Capture: photos, paperwork and emailed invoices in one list: check what CROS thinks each is, and file it. Nothing becomes an expense until you file it here."
         stats={[{ label: 'To file', value: items.length, tone: items.length ? 'warn' : undefined }, { label: 'Emailed invoices waiting', value: items.filter((i: any) => i.source === 'email').length }, { label: 'Company expenses', value: (data?.company ?? []).filter((c: any) => c.amount && !c.voided_at).length }]}
         actions={<>
           <HeroButton primary onClick={() => camRef.current?.click()}>Take a photo</HeroButton>
           <HeroButton onClick={() => pickRef.current?.click()}>Choose photos or files</HeroButton>
         </>}
-        tabs={([['inbox', `To file${items.length ? ` · ${items.length}` : ''}`], ['company', 'Company post & expenses'], ['iphone', 'Email & iPhone']] as [Tab, string][]).map(([k, l]) => ({ key: k, label: l, active: tab === k, onClick: () => setTab(k) }))}
+        tabs={documentTabs('capture')}
       />
       <input ref={camRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={e => { addFiles(e.target.files); e.target.value = '' }} />
       <input ref={pickRef} type="file" accept="image/*,application/pdf" multiple className="hidden" onChange={e => { addFiles(e.target.files); e.target.value = '' }} />
 
       <div className="mx-auto max-w-6xl px-lg py-xl space-y-md">
+        <SubTabs<Tab> tabs={[['inbox', `To file${items.length ? ` · ${items.length}` : ''}`], ['company', 'Company post & expenses'], ['iphone', 'Email & iPhone']]} active={tab} onChange={setTab} />
         {err && <p className="rounded-xl border border-red-200 bg-red-50 px-lg py-sm text-sm text-red-800">{err}</p>}
         {data?.setupNeeded && <p className="rounded-xl border border-amber-200 bg-amber-50 px-lg py-sm text-sm text-amber-900">Run migration 204 in Supabase to switch Capture on.</p>}
         {uploading.length > 0 && <p className="rounded-xl bg-white px-lg py-sm text-sm text-neutral-600">Uploading and taking a quick look: {uploading.join(', ')}…</p>}

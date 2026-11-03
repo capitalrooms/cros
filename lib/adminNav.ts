@@ -112,10 +112,8 @@ const ZONES_AS_WRITTEN: Zone[] = [
       '/admin/documents',
     ],
     subnav: [
-      { emoji: '🤖', label: 'AI Doc Scanner',    href: '/admin/ai-upload' },
-      { emoji: '📷', label: 'Capture',           href: '/admin/capture' },
+      { emoji: '📄', label: 'Documents',         href: '/admin/capture' },   // Capture · Scan & file · Emailed in · Library (3 Nov 2026)
       { emoji: '📜', label: 'Certificates',      href: '/admin/compliance?tab=certificates' },
-      { emoji: '📥', label: 'Doc Inbox',         href: '/admin/inbox' },
       { emoji: '📖', label: 'Inspection Logs',   href: '/admin/compliance-logs' },
       { emoji: '🛡', label: 'Safety Checks',     href: '/admin/compliance?tab=monthly-checks' },
       { emoji: '🔐', label: 'SAR Log',           href: '/admin/sar' },
