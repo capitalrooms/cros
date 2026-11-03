@@ -619,6 +619,7 @@ export function MoneyTab({ file }: { file: LettingFile }) {
           <div><dt className={label}>Amount</dt><dd>{gbp(t.deposit_amount)}{t.deposit_no ? ` · ${t.deposit_no}` : ''}</dd></div>
           <div><dt className={label}>Protected</dt><dd>{t.deposit_protected_at ? `${day(t.deposit_protected_at)} · ${t.deposit_scheme ?? ''} ${t.deposit_scheme_ref ?? ''}` : t.deposit_protection_assumed ? 'Taken as protected (before CROS)' : 'Not yet'}</dd></div>
           <div><dt className={label}>Prescribed info</dt><dd>{t.prescribed_info_served_at ? day(t.prescribed_info_served_at) : 'Not yet'}</dd></div>
+          <DepositMoney file={file} />
           {file.depositReturn && <div className="col-span-2 sm:col-span-3"><dt className={label}>Return</dt><dd>{file.depositReturn.txn_no} · {file.depositReturn.status} · to tenant {gbp(file.depositReturn.to_tenant)}, to landlord {gbp(file.depositReturn.to_landlord)}{file.depositReturn.returned_on ? ` · returned ${day(file.depositReturn.returned_on)}` : ''}</dd></div>}
         </dl>
       </section>
@@ -856,5 +857,47 @@ export function ActivityTab({ file }: { file: LettingFile }) {
         </ol>
       ) : <p className="text-sm text-neutral-500">Nothing recorded yet.</p>}
     </section>
+  )
+}
+
+// The deposit through the client account (migration 258; Harry, 3 Nov 2026): received, then — for a managed let — sent
+// to the DPS to be protected. A let-only deposit goes to the landlord with the initial monies instead.
+function DepositMoney({ file }: { file: LettingFile }) {
+  const t: any = file.tenancy
+  const letOnly = file.property.lettingType === 'let_only' || !!t.rooms?.is_let_only
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
+  const [on, setOn] = useState(today)
+  const [amount, setAmount] = useState(String(t.deposit_received_amount ?? t.deposit_amount ?? ''))
+  const [ref, setRef] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+  if (letOnly) return <div className="col-span-2 sm:col-span-3 text-xs text-neutral-500">Let only — the deposit goes to the landlord with the initial monies, who protects it.</div>
+  if (!(Number(t.deposit_amount) > 0)) return null
+  const go = async (action: 'received' | 'sent') => {
+    const what = action === 'received' ? `Record £${Number(amount).toFixed(2)} deposit received into the client account on ${on}?` : `Record £${Number(amount).toFixed(2)} sent to the DPS on ${on}, reference ${ref}?`
+    if (!window.confirm(what)) return
+    setBusy(true); setErr('')
+    const r = await adminFetch('/api/admin/deposits', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, tenancyId: t.id, on, amount: Number(amount), reference: ref }) })
+    const j = await r.json().catch(() => ({}))
+    setBusy(false)
+    if (!r.ok) setErr(j.error ?? 'Could not save'); else window.dispatchEvent(new Event('letting-file-changed'))
+  }
+  const daysHeld = t.deposit_received_on && !t.deposit_sent_on ? Math.round((Date.parse(today) - Date.parse(t.deposit_received_on)) / 86_400_000) : 0
+  const field = 'rounded-lg border border-neutral-300 px-sm py-xs text-sm'
+  return (
+    <div className="col-span-2 sm:col-span-3 space-y-xs border-t border-neutral-100 pt-sm">
+      <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Client account</p>
+      {t.deposit_received_on
+        ? <p className="text-sm">✓ Received £{Number(t.deposit_received_amount).toFixed(2)} on {t.deposit_received_on}</p>
+        : <div className="flex flex-wrap items-center gap-sm text-sm">Received <input type="date" value={on} onChange={e => setOn(e.target.value)} className={field} /> £<input value={amount} onChange={e => setAmount(e.target.value)} className={`${field} w-24`} inputMode="decimal" />
+            <button type="button" disabled={busy} onClick={() => go('received')} className="rounded-lg bg-neutral-900 px-md py-xs text-sm font-semibold text-white disabled:opacity-40">Record received</button></div>}
+      {t.deposit_received_on && (t.deposit_sent_on
+        ? <p className="text-sm">✓ Sent to the DPS £{Number(t.deposit_sent_amount).toFixed(2)} on {t.deposit_sent_on} · ref {t.deposit_sent_reference}</p>
+        : <div className="flex flex-wrap items-center gap-sm text-sm">Sent to the DPS <input type="date" value={on} onChange={e => setOn(e.target.value)} className={field} /> £<input value={amount} onChange={e => setAmount(e.target.value)} className={`${field} w-24`} inputMode="decimal" />
+            <input value={ref} onChange={e => setRef(e.target.value)} placeholder="Payment reference" className={field} />
+            <button type="button" disabled={busy || !ref.trim()} onClick={() => go('sent')} className="rounded-lg bg-neutral-900 px-md py-xs text-sm font-semibold text-white disabled:opacity-40">Record sent</button>
+            {daysHeld > 0 && <span className={`text-xs font-semibold ${daysHeld > 30 ? 'text-red-700' : daysHeld > 20 ? 'text-amber-700' : 'text-neutral-500'}`}>held {daysHeld} day{daysHeld === 1 ? '' : 's'} — send within 30</span>}</div>)}
+      {err && <p className="text-xs text-red-700">{err}</p>}
+    </div>
   )
 }

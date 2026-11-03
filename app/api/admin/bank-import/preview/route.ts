@@ -118,6 +118,7 @@ export async function POST(req: NextRequest) {
       payment_reference,
       room_id,
       person_id,
+      start_date, rent_amount, deposit_amount, move_in_monies_received_at,
       rooms ( id, name, is_let_only, properties ( id, name, address, letting_type ) ),
       people!person_id ( salutation, first_name, last_name, full_name )
     `)
@@ -135,6 +136,7 @@ export async function POST(req: NextRequest) {
     property_name: string | null
     tenant_name: string | null
     let_only: boolean
+    move_in: { due: number; rent: number; start: string } | null
   }
   const tenancyByRef = new Map<string, TenancyInfo>()
   for (const t of (tenancies || []) as any[]) {
@@ -148,6 +150,8 @@ export async function POST(req: NextRequest) {
       property_id: t.rooms?.properties?.id ?? null,
       room_name: t.rooms?.name ?? null,
       let_only: !!t.rooms?.is_let_only || t.rooms?.properties?.letting_type === 'let_only',
+      // move-in money not yet recorded: the first payment is rent AND deposit together, not rent alone
+      move_in: !t.move_in_monies_received_at && t.start_date && Number(t.deposit_amount) > 0 ? { due: Number(t.rent_amount || 0) + Number(t.deposit_amount || 0), rent: Number(t.rent_amount || 0), start: t.start_date } : null,
       property_name: t.rooms?.properties?.name || t.rooms?.properties?.address || null,
       tenant_name: t.people
         ? [t.people.salutation, t.people.first_name, t.people.last_name].filter(Boolean).join(' ') || t.people.full_name || null
@@ -231,6 +235,14 @@ export async function POST(req: NextRequest) {
     // deposit — recorded on the letting file as initial monies. It is never monthly rent, so no charge is raised for it.
     if (tenancy.let_only) {
       preview.push({ ...txn, tenant_person_id: tenancy.person_id, expected_ref: tenancy.payment_reference, property_id: tenancy.property_id, category: 'unmatched', let_only: true, rent_charge_id: null, charge_month: null, charge_status: null, charge_amount_due: null, tenancy_id: tenancy.tenancy_id, tenant_name: tenancy.tenant_name, room_name: tenancy.room_name, property_name: tenancy.property_name } as any)
+      continue
+    }
+
+    // a managed tenant's move-in payment (first rent + deposit) around the start date: it's split on the letting file —
+    // the rent onto the first month, the deposit held for the DPS — so it isn't put against rent here (3 Nov 2026)
+    const mi = tenancy.move_in
+    if (mi && Number(txn.amount) > mi.rent + 0.005 && Math.abs(Date.parse(txn.transaction_date) - Date.parse(mi.start)) < 45 * 86_400_000) {
+      preview.push({ ...txn, tenant_person_id: tenancy.person_id, expected_ref: tenancy.payment_reference, property_id: tenancy.property_id, category: 'unmatched', move_in: true, rent_charge_id: null, charge_month: null, charge_status: null, charge_amount_due: mi.due, tenancy_id: tenancy.tenancy_id, tenant_name: tenancy.tenant_name, room_name: tenancy.room_name, property_name: tenancy.property_name } as any)
       continue
     }
 

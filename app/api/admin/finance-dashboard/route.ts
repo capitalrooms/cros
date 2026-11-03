@@ -74,6 +74,9 @@ export async function GET(req: NextRequest) {
     const day15 = new Date(Date.now() - 15 * 86_400_000).toISOString().slice(0, 10)
     const holdingPastDeadline = ((hds ?? []) as any[]).filter(h => h.received_on && h.received_on < day15 && !h.tenancies?.agreement_signed_at && !(h.tenancies?.start_date && h.tenancies.start_date <= todayL) && !demo.has(h.tenancies?.properties?.id))
       .map(h => ({ tenancyId: h.tenancy_id as string | null, number: h.hold_no as string, amount: Number(h.amount), house: first(h.tenancies?.properties?.name), tenant: [h.tenancies?.people?.salutation, h.tenancies?.people?.first_name, h.tenancies?.people?.last_name].filter(Boolean).join(' '), received: h.received_on as string }))
+    // managed deposits received but not yet sent to the DPS (migration 258) — 30 days from receiving to protect
+    const { data: dq } = await s.from('tenancies').select('id, property_id, deposit_received_on, deposit_received_amount, properties(name), people!person_id(salutation, first_name, last_name)').not('deposit_received_on', 'is', null).is('deposit_sent_on', null)
+    const depositsToDps = ((dq ?? []) as any[]).filter(t => !demo.has(t.property_id)).map(t => ({ tenancyId: t.id as string, amount: Number(t.deposit_received_amount), house: first(t.properties?.name), tenant: [t.people?.salutation, t.people?.first_name, t.people?.last_name].filter(Boolean).join(' '), received: t.deposit_received_on as string, days: Math.round((Date.parse(todayL) - Date.parse(t.deposit_received_on)) / 86_400_000) }))
     const { data: deps } = await s.from('tenancies').select('id, deposit_amount, deposit_held_by, end_date, let_cancelled_at, property_id').gt('deposit_amount', 0).is('let_cancelled_at', null).is('deposit_held_by', null).or(`end_date.is.null,end_date.gte.${todayL}`)
     const depositHolderMissing = ((deps ?? []) as any[]).filter(t => !demo.has(t.property_id)).length
 
@@ -109,7 +112,7 @@ export async function GET(req: NextRequest) {
       statements: { items: last },
       imports: { last: lastImport ? { at: lastImport.imported_at, from: lastImport.period_from, to: lastImport.period_to, file: lastImport.filename } : null, coveredTo, daysBehind },
       client: position ? { held: position.cashbook.total, agrees: position.agrees } : null,
-      holdingToApply, holdingPastDeadline, depositHolderMissing,
+      holdingToApply, holdingPastDeadline, depositHolderMissing, depositsToDps,
     })
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : 'Could not load' }, { status: 500 })
