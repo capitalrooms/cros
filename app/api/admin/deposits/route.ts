@@ -17,7 +17,7 @@ export const dynamic = 'force-dynamic'
 
 const svc = () => createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { persistSession: false } })
 const r2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100
-const BASE = 'id, start_date, end_date, rent_amount, deposit_amount, deposit_held_by, deposit_scheme_ref, property_id, rooms(name), properties(name), people!person_id(salutation, first_name, last_name, full_name)'
+const BASE = 'id, start_date, end_date, rent_amount, deposit_amount, deposit_held_by, deposit_scheme_ref, property_id, rooms(name, is_let_only), properties(name, letting_type), people!person_id(salutation, first_name, last_name, full_name)'
 const NEW_COLS = ', deposit_scheme, deposit_protected_at, prescribed_info_served_at, deposit_protection_assumed'
 
 export async function GET(req: NextRequest) {
@@ -43,7 +43,9 @@ export async function GET(req: NextRequest) {
     const deadline = t.start_date ? new Date(Date.parse(t.start_date) + 30 * 86_400_000).toISOString().slice(0, 10) : null
     const protectedAt = t.deposit_protected_at ?? null
     const hasDeposit = Number(t.deposit_amount || 0) > 0
-    const status = !hasDeposit ? 'no_deposit'
+    // let only: the landlord holds and protects the deposit — not ours to protect (3 Nov 2026 audit)
+    const landlords = t.properties?.letting_type === 'let_only' || !!t.rooms?.is_let_only
+    const status = landlords ? 'landlord' : !hasDeposit ? 'no_deposit'
       : (protectedAt || t.deposit_scheme_ref || t.deposit_protection_assumed) ? 'protected'   // assumed = began before CROS records
       : deadline && today > deadline ? 'overdue' : 'due'
     return {
@@ -55,7 +57,7 @@ export async function GET(req: NextRequest) {
       deadline, status,
     }
   })
-  const order: Record<string, number> = { overdue: 0, due: 1, no_deposit: 2, protected: 3 }
+  const order: Record<string, number> = { overdue: 0, due: 1, no_deposit: 2, protected: 3, landlord: 4 }
   rows.sort((a, b) => order[a.status] - order[b.status])
   return NextResponse.json({ rows, ready, setupNeeded: ready ? null : 'Run migration 189 in Supabase to record protection and prescribed-information dates.' })
 }

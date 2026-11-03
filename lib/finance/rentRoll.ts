@@ -107,7 +107,9 @@ export async function buildRentRoll(s: SupabaseClient, month: string, opts: { pr
   ])
   // a previous agent's rent (from an imported statement) is never rent CROS received (lib/finance/importedCharges)
   const imported = await importedChargeIds(s, [...((monthCharges.data ?? []) as any[]), ...((openCharges.data ?? []) as any[])].map(c => c.id))
-  for (const c of (monthCharges.data ?? []) as any[]) if (imported.has(c.id)) c.amount_received = 0
+  // …and not CROS's own charge either: left out altogether, so it shows neither as due nor as missing (3 Nov 2026 audit:
+  // Redstart's imported November showed £4,120 due and missing)
+  if (monthCharges.data) (monthCharges as any).data = (monthCharges.data as any[]).filter(c => !imported.has(c.id))
   if (openCharges.data) (openCharges as any).data = (openCharges.data as any[]).filter(c => !imported.has(c.id))
   const charges = ((monthCharges.data ?? []) as any[]).filter(c => !c.voided)
   const chargeIds = charges.map(c => c.id)
