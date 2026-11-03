@@ -120,7 +120,7 @@ export async function POST(req: NextRequest) {
       payment_reference,
       room_id,
       person_id,
-      start_date, end_date, rent_amount, deposit_amount, move_in_monies_received_at,
+      start_date, end_date, rent_amount, rent_due_day, deposit_amount, move_in_monies_received_at,
       rooms ( id, name, is_let_only, properties ( id, name, address, letting_type ) ),
       people!person_id ( salutation, first_name, last_name, full_name )
     `)
@@ -139,7 +139,7 @@ export async function POST(req: NextRequest) {
     tenant_name: string | null
     let_only: boolean
     move_in: { due: number; rent: number; start: string } | null
-    start: string | null; end: string | null; names: string[]
+    start: string | null; end: string | null; names: string[]; dueDay: number
   }
   // a room's reference is shared by its tenants over time (changeovers), so a reference can mean several tenancies —
   // the payer's name decides, then whoever had the room on the payment date (3 Nov 2026: Demko paid with 075CRR05 and
@@ -163,7 +163,7 @@ export async function POST(req: NextRequest) {
       tenant_name: t.people
         ? [t.people.salutation, t.people.first_name, t.people.last_name].filter(Boolean).join(' ') || t.people.full_name || null
         : null,
-      start: t.start_date ?? null, end: t.end_date ?? null,
+      start: t.start_date ?? null, end: t.end_date ?? null, dueDay: Number(t.rent_due_day) || 1,
       names: [t.people?.last_name, t.people?.first_name].map((x: any) => String(x ?? '').toUpperCase().trim()).filter((x: string) => x.length >= 3),
     })
   }
@@ -257,7 +257,17 @@ export async function POST(req: NextRequest) {
 
     // paid before CROS took over the rent (your records start): that month was collected elsewhere — it's never
     // moved onto a CROS month (3 Nov 2026: a 15 October payment would have paid November)
+    // …unless it's the first CROS month's rent paid a few days early (Harry: "some of the rents for november could be
+    // paid in late october"): the tenant's next due date is in a CROS month and at most 10 days away
     if (txn.transaction_date < start) {
+      const d = txn.transaction_date, [y, m, dd] = d.split('-').map(Number)
+      const dueThis = new Date(Date.UTC(y, m - 1, Math.min(tenancy.dueDay, new Date(Date.UTC(y, m, 0)).getUTCDate()))).toISOString().slice(0, 10)
+      const nextDue = dueThis >= d ? dueThis : new Date(Date.UTC(y, m, Math.min(tenancy.dueDay, new Date(Date.UTC(y, m + 1, 0)).getUTCDate()))).toISOString().slice(0, 10)
+      if (nextDue >= start && Date.parse(nextDue) - Date.parse(d) <= 10 * 86_400_000) {
+        (txn as any).paid_early_for = nextDue.slice(0, 7) + '-01'
+      }
+    }
+    if (txn.transaction_date < start && !(txn as any).paid_early_for) {
       preview.push({ ...txn, tenant_person_id: tenancy.person_id, expected_ref: tenancy.payment_reference, property_id: tenancy.property_id, category: 'unmatched', before_start: start, rent_charge_id: null, charge_month: null, charge_status: null, charge_amount_due: null, tenancy_id: tenancy.tenancy_id, tenant_name: tenancy.tenant_name, room_name: tenancy.room_name, property_name: tenancy.property_name } as any)
       continue
     }
@@ -270,13 +280,14 @@ export async function POST(req: NextRequest) {
       continue
     }
 
-    const charge = findBestCharge(tenancy, txn.transaction_date)
+    const payDate = (txn as any).paid_early_for ?? txn.transaction_date   // the bank date is kept; only the month it pays changes
+    const charge = findBestCharge(tenancy, payDate)
     const TENANCY_EXTRA = { tenant_person_id: tenancy.person_id, expected_ref: tenancy.payment_reference, property_id: tenancy.property_id }
 
     if (!charge) {
       // Tenancy found but that month's rent hasn't been raised yet: still a match — the charge is raised for this
       // tenancy when the import is confirmed, and the payment recorded against it.
-      const txnMonth = `${txn.transaction_date.slice(0, 7)}-01`
+      const txnMonth = `${payDate.slice(0, 7)}-01`
       const raiseMonth = txnMonth < start ? start : txnMonth   // paid before CROS took over → that's the first CROS month
       preview.push({ ...txn, ...TENANCY_EXTRA, category: 'matched', raise_charge_month: raiseMonth, rent_charge_id: null, charge_month: raiseMonth, charge_status: 'to be raised', charge_amount_due: null, tenancy_id: tenancy.tenancy_id, tenant_name: tenancy.tenant_name, room_name: tenancy.room_name, property_name: tenancy.property_name } as any)
       continue
