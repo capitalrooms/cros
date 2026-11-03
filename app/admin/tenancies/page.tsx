@@ -108,12 +108,13 @@ export default function TenanciesManagementPage() {
       supabase.from('properties').select('id, name, address').order('name'),
       supabase.from('rooms').select('id, name, property_id, status').order('name'),
       supabase.from('tenancies').select(
-        '*, people!person_id(id, full_name, salutation, first_name, last_name, email, phone), rooms(id, name, status), properties(id, name, address)'
+        '*, people!person_id(id, full_name, salutation, first_name, last_name, email, phone), rooms(id, name, status), properties(id, name, address, is_demo)'
       ).order('start_date', { ascending: false }),
     ]);
     setProperties(sortPropertiesNumerically(propsData || []));
     setRooms(roomsData || []);
-    setTenancies((tenData as Tenancy[]) || []);
+    // practice houses (is_demo) stay out of the real list (3 Nov 2026)
+    setTenancies(((tenData as any[]) || []).filter(t => !t.properties?.is_demo) as Tenancy[]);
     setLoading(false);
   }
 

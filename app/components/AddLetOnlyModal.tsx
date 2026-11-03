@@ -14,6 +14,7 @@
  */
 
 import { postcodesIn } from '@/lib/councils/london'
+import { buildPaymentRef } from '@/lib/tenancy/paymentRef'
 import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
 import AddressField from './AddressField'
@@ -278,7 +279,7 @@ export default function AddLetOnlyModal({ onClose, onSave, createdByPersonId, in
         const { data: saved, error: rErr } = same
           ? await supabase.from('rooms').update(fields).eq('id', same.id).select('id').single()
           : await supabase.from('rooms').insert({ ...fields, property_id: property.id, name: r.room_name.trim(),
-              unit_code: property.property_code && n ? `${property.property_code}${String(n).padStart(2, '0')}` : null }).select('id').single()
+              unit_code: n ? buildPaymentRef(property.name ?? property.address ?? '', n) : null /* the room code is its payment reference (3 Nov 2026) */ }).select('id').single()
         if (rErr) throw new Error(rErr.message)
         if (saved?.id) roomIds.push(saved.id)
       }

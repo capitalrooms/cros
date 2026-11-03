@@ -183,13 +183,14 @@ export default function ApplicantsPage() {
 
     const [{ data: aData }, { data: pData }, { data: rData }] = await Promise.all([
       sb.from('applicants')
-        .select('*, rooms(name, current_asking_rent), properties(name, address), viewings(viewing_date, viewing_slot)')
+        .select('*, rooms(name, current_asking_rent), properties(name, address, is_demo), viewings(viewing_date, viewing_slot)')
         .order('created_at', { ascending: false }),
       sb.from('properties').select('id, name, address, postcode, letting_type').order('name'),
       sb.from('rooms').select('id, name, property_id').order('name'),
     ])
 
-    setApplicants((aData || []) as Applicant[])
+    // practice houses (is_demo) stay out of the real list (3 Nov 2026)
+    setApplicants(((aData || []) as any[]).filter(a => !a.properties?.is_demo) as Applicant[])
     const letAgreed = (aData || []).filter((a: any) => a.pipeline_stage === 'converted').map((a: any) => a.id)
     if (letAgreed.length) {
       const { data: ts } = await sb.from('tenancies').select('id, applicant_id').in('applicant_id', letAgreed).is('let_cancelled_at', null)

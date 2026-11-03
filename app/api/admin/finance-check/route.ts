@@ -83,6 +83,7 @@ export async function GET(req: NextRequest) {
   const unbilled = tens.filter(t => !charged.has(t.room_id))
   const noDeposit = tens.filter(t => Number(t.deposit_amount || 0) > 0 && !t.deposit_scheme_ref)
   const holderFix = await depositHolderFixes(s)
+  const codeFix = await roomCodeFixes(s)
   const lastRec = recs.data?.[0]?.as_at ?? null
   const recDue = !lastRec || (Date.parse(today) - Date.parse(lastRec)) / 86_400_000 > 35
 
@@ -128,6 +129,10 @@ export async function GET(req: NextRequest) {
       items: noLandlord.map((p: any) => ({ label: String(p.name || '').split('\n')[0], href: `/admin/properties/${p.id}` })) },
     { key: 'bank', title: 'Landlords without bank details', ok: !noBank.length, count: noBank.length, detail: 'Needed for the payout run on the 5th.',
       items: noBank.map(id => ({ label: lname(id), href: `/admin/landlord/${id}` })) },
+    { key: 'room_codes', title: 'Room codes that don’t match the payment reference', ok: !codeFix.length, count: codeFix.length,
+      detail: 'One code per room: the payment reference the tenant pays with is the master, and the room’s code follows it. Where a house’s tenants actually pay with the room code instead (their bank lines show it), correct their payment reference first (letting file › Terms › Correct it) — then this fix follows that.',
+      items: codeFix.slice(0, 60).map(x => ({ label: `${x.house} · ${x.room}: room ${x.unit ?? '—'} → ${x.ref}${x.bankUsesUnit ? ' — ⚠ check which one the tenant pays with; if it’s the room code, correct the payment reference (Terms › Correct it)' : ''}` })),
+      fix: { action: 'room_codes', label: `Set ${codeFix.filter(x => !x.bankUsesUnit).length}` } },
     { key: 'deposit_holder', title: 'Tenancies with no deposit holder set at setup', ok: !holderFix.length, count: holderFix.length,
       detail: 'Who holds the deposit is decided when a tenancy is set up: the landlord for a let-only let, Capital Rooms for a managed one. New tenancies get it automatically (migration 257). These older ones were set up without it, or a let-only one says Capital Rooms.',
       items: holderFix.slice(0, 60).map(t => ({ label: `${who(t)} · ${where(t)} · ${t.deposit_held_by ?? 'not set'} → ${t.to}` })),
@@ -171,6 +176,14 @@ export async function POST(req: NextRequest) {
       } catch (e) { failed.push(`${d.file_name}: ${e instanceof Error ? e.message : 'failed'}`) }
     }
     return NextResponse.json({ ok: !failed.length, filled: moved, message: `Moved ${moved} document${moved === 1 ? '' : 's'} into their properties.${failed.length ? ' Not moved: ' + failed.join('; ') : ''}` })
+  }
+  if (b.action === 'room_codes') {
+    let done = 0
+    for (const x of (await roomCodeFixes(s)).filter(x => !x.bankUsesUnit)) {
+      const { error } = await s.from('rooms').update({ unit_code: x.ref }).eq('id', x.roomId)
+      if (!error) { done++; await logAudit({ userId: admin.personId, action: 'room_code_set', table: 'rooms', recordId: x.roomId, details: JSON.stringify({ from: x.unit, to: x.ref }) }).catch(() => null) }
+    }
+    return NextResponse.json({ ok: true, filled: done, message: `${done} room code${done === 1 ? '' : 's'} now match the payment reference.` })
   }
   if (b.action === 'set_deposit_holders') {
     let done = 0
@@ -274,4 +287,21 @@ async function depositHolderFixes(s: ReturnType<typeof createServiceClient>) {
   const demo = await demoPropertyIds(s)
   return ((data ?? []) as any[]).filter(t => !demo.has(t.property_id)).map(t => ({ ...t, to: depositHolderFor(t.properties?.letting_type, t.rooms?.is_let_only) }))
     .filter(t => !t.deposit_held_by || (t.to === 'landlord' && t.deposit_held_by !== 'landlord'))
+}
+
+/** Rooms whose code differs from their current tenant's payment reference (the master, 3 Nov 2026). bankUsesUnit: an
+ *  imported bank line carries the room code but never the payment reference — the tenant pays with the room code, so
+ *  the payment reference is the one to correct (e.g. St George's Mews: tenants pay 001SGM0x, CROS made 001STG0x). */
+async function roomCodeFixes(s: ReturnType<typeof createServiceClient>) {
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
+  const { data } = await s.from('tenancies').select('payment_reference, start_date, room_id, property_id, rooms(id, name, unit_code), properties(name)')
+    .is('let_cancelled_at', null).not('payment_reference', 'is', null).lte('start_date', today).or(`end_date.is.null,end_date.gte.${today}`)
+  const demo = await demoPropertyIds(s)
+  const rows = ((data ?? []) as any[]).filter(t => !demo.has(t.property_id) && t.rooms?.id && String(t.rooms.unit_code ?? '').toUpperCase() !== String(t.payment_reference).toUpperCase())
+  const { data: lines } = await s.from('bank_transactions').select('description').limit(5000)
+  const text = ((lines ?? []) as any[]).map(l => String(l.description ?? '').toUpperCase()).join('\n')
+  return rows.map(t => {
+    const unit = t.rooms.unit_code ? String(t.rooms.unit_code).toUpperCase() : null, ref = String(t.payment_reference).toUpperCase()
+    return { roomId: t.rooms.id as string, room: t.rooms.name as string, house: String(t.properties?.name ?? '').split('\n')[0], unit, ref, bankUsesUnit: (!!unit && unit.length >= 6 && text.includes(unit) && !text.includes(ref)) || (!!unit && /^\d{3}[A-Z]{3}\d{2}$/.test(unit)) }   // a full-pattern room code may be what they pay with: never overwritten automatically
+  })
 }
