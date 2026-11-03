@@ -33,9 +33,9 @@ export async function GET(req: NextRequest) {
     const ready = ps.filter(p => (p.allIn || p.payPart) && p.readyForStatement > 0.005)
       .map(p => ({ id: p.id, name: p.name, landlord: p.landlord, amount: p.readyForStatement, part: !p.allIn }))
     // an active tenancy means rent is due, even when this month's charge was never raised
-    const due = ps.flatMap(p => p.rooms.filter(r => r.status === 'missing' || r.status === 'part' || r.status === 'no_charge')
+    const due = ps.flatMap(p => p.rooms.filter(r => r.status === 'missing' || r.status === 'part' || r.status === 'no_charge' || r.status === 'awaiting_statement')
       .map(r => ({ property: p.name, propertyId: p.id, room: r.room, tenant: r.tenant, tenancyId: r.tenancyId, status: r.status, received: r.received, ends: r.ends ?? null,
-        owed: r.status === 'no_charge' ? (r.expected ?? 0) : Math.max(0, (r.due ?? 0) - r.received) })))
+        owed: r.status === 'no_charge' ? (r.expected ?? 0) : r.status === 'awaiting_statement' ? (r.due ?? 0) : Math.max(0, (r.due ?? 0) - r.received) })))
 
     // let-only lets (3 Nov 2026, Harry: "it should work this out from properties due to pay including let fee only
     // landlords"): a let-only tenancy that started in the last four months, or starts in the next month, owes its

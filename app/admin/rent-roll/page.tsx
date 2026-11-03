@@ -34,6 +34,7 @@ const STATUS: Record<RollRoom['status'], { label: string; cls: string }> = {
   over: { label: 'Paid more', cls: 'bg-blue-100 text-blue-800' },
   no_charge: { label: 'No charge raised', cls: 'bg-neutral-200 text-neutral-700' },
   collected_by_previous_agent: { label: 'Imported — before go-live', cls: 'bg-neutral-100 text-neutral-600' },
+  awaiting_statement: { label: 'Not on a statement yet', cls: 'bg-amber-50 text-amber-800' },
 }
 
 // which pile a house is in this month: all rent in (ready to pay), some in (waiting), none in yet

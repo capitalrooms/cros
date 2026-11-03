@@ -20,11 +20,11 @@ import BackButton from '@/app/components/BackButton'
 import { C, display, PageHead, Pill } from '@/app/components/financeLook'
 
 interface Item { property: string; propertyId: string; room: string; tenant: string; tenancyId: string | null; owed: number; status: string; received: number; ends: string | null }
-type Filter = 'missing' | 'part' | 'no_charge'
+type Filter = 'missing' | 'part' | 'no_charge' | 'awaiting_statement'
 
 const gbp = (n: number) => '£' + n.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const full = (d: string) => new Date(`${d}T12:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
-const LABEL: Record<Filter, string> = { missing: 'Nothing in', part: 'Part paid', no_charge: 'Not raised' }
+const LABEL: Record<Filter, string> = { missing: 'Nothing in', part: 'Part paid', no_charge: 'Not raised', awaiting_statement: 'Not on a statement yet' }
 
 export default function RentsDuePage({ searchParams }: { searchParams: PageSearchParams }) {
   return <RentsDue initialMonth={one(use(searchParams).month)} />
@@ -64,6 +64,7 @@ function RentsDue({ initialMonth }: { initialMonth?: string }) {
   const note = (i: Item) => {
     const end = i.ends && i.ends.slice(0, 7) === month ? ` · ends ${full(i.ends)}, pro rata` : ''
     if (i.status === 'no_charge') return `No rent raised yet${end}`
+    if (i.status === 'awaiting_statement') return `Not on this month’s statement yet${end}`
     if (i.status === 'part') return `Part paid ${gbp(i.received)}${end}`
     return `Nothing in yet${end}`
   }
@@ -85,7 +86,7 @@ function RentsDue({ initialMonth }: { initialMonth?: string }) {
 
         <div className="mb-lg flex flex-wrap gap-sm text-sm font-semibold">
           <button type="button" onClick={() => setFilter(null)} className={`rounded-full px-md py-xs ${!filter ? 'bg-[#E8B931]' : 'bg-[#FFFDF6]'}`}>All {items?.length ?? ''}</button>
-          {(['missing', 'part', 'no_charge'] as Filter[]).map(f => (
+          {((collects ? ['missing', 'part', 'no_charge'] : ['awaiting_statement', 'part']) as Filter[]).map(f => (
             <button key={f} type="button" onClick={() => setFilter(f)} className={`rounded-full px-md py-xs ${filter === f ? 'bg-[#E8B931]' : 'bg-[#FFFDF6]'}`}>{LABEL[f]} {items ? count(f) : ''}</button>
           ))}
           <Link href={`/admin/rent-roll?month=${month}`} className="rounded-full bg-[#FFFDF6] px-md py-xs">Paid {paid} ›</Link>
