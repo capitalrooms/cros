@@ -201,5 +201,12 @@ export async function GET(req: Request) {
 
   // tenant messages the office set to go again today (migration 256; lib/tenancy/quickMessages)
   const scheduled = await import('@/lib/tenancy/quickMessages').then(m => m.sendScheduledMessages(supabase as any)).catch(() => 0)
-  return NextResponse.json({ ok: true, nudged, certAlerts, cleaningAlert, scheduled })
+  // Safety net (3 Nov 2026): November's rents were never raised — the 1st-of-month job didn't run. Every morning make
+  // sure this month's charges exist. Idempotent: anything already raised is skipped, so on a normal month it adds nothing.
+  const now = new Date()
+  const charges = await import('@/lib/rentCharges/generate')
+    .then(m => m.generateMonthCharges(supabase as any, `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}-01`))
+    .catch(e => ({ error: e instanceof Error ? e.message : 'failed' }))
+  if ('created' in charges && charges.created) console.warn('[nudge] raised rent charges the monthly job missed:', JSON.stringify(charges))
+  return NextResponse.json({ ok: true, nudged, certAlerts, cleaningAlert, scheduled, charges })
 }
