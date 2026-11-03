@@ -375,9 +375,11 @@ const TERM_FIELDS: { key: string; label: string; kind: 'date' | 'money' | 'int' 
   { key: 'deposit_amount', label: 'Deposit', kind: 'money', beforeMoveIn: true },
   { key: 'payment_reference', label: 'Payment reference', kind: 'text', beforeMoveIn: true },
   { key: 'agreement_type', label: 'Agreement type', kind: 'agreement', beforeMoveIn: true },
-  { key: 'notice_period_months', label: 'Notice period (months)', kind: 'int', beforeMoveIn: false },
-  { key: 'special_clauses', label: 'Special clauses', kind: 'long', beforeMoveIn: false },
-  { key: 'permitted_occupiers', label: 'Permitted occupiers', kind: 'text', beforeMoveIn: false },
+  // these are part of the signed agreement: set before move-in, fixed after (3 Nov 2026 — no adding clauses to a
+  // tenancy signed months ago); only the office notes stay editable
+  { key: 'notice_period_months', label: 'Notice period (months)', kind: 'int', beforeMoveIn: true },
+  { key: 'special_clauses', label: 'Special clauses', kind: 'long', beforeMoveIn: true },
+  { key: 'permitted_occupiers', label: 'Permitted occupiers', kind: 'text', beforeMoveIn: true },
   { key: 'office_notes', label: 'Office notes (not shown to the tenant)', kind: 'long', beforeMoveIn: false },
 ]
 const AGREEMENT_TYPES: [string, string][] = [['assured_periodic', 'Assured periodic'], ['company_let', 'Company let'], ['licence', 'Licence'], ['room_licence', 'Room licence']]
@@ -407,7 +409,6 @@ export function TermsTab({ file, patch }: { file: LettingFile; patch: Patch }) {
     return String(v)
   }
   const fixed: [string, string][] = [
-    ['Tenancy end date', t.end_date ? day(t.end_date) : 'Periodic — no end date'],
     ['Letting fee', t.letting_fee_charged == null ? 'Property’s usual fee' : Number(t.letting_fee_charged) === 0 ? 'No fee' : gbp(t.letting_fee_charged)],
     ['Management fee', t.management_fee_type ? `${t.management_fee_type === 'fixed' ? gbp(t.management_fee_fixed) : `${t.management_fee_pct}%`} (this tenancy)` : 'Property’s usual fee'],
     ['Deposit number', t.deposit_no ?? '—'],
@@ -425,9 +426,9 @@ export function TermsTab({ file, patch }: { file: LettingFile; patch: Patch }) {
     <section className={`${card} space-y-md`}>
       <div className="flex items-center justify-between gap-sm">
         <h2 className="text-lg font-bold">Terms</h2>
-        {!edit && file.stage !== 'fell_through' && <button type="button" onClick={start} className={btn}>Edit</button>}
+        {!edit && file.stage !== 'fell_through' && <button type="button" onClick={start} className={btn}>{beforeMoveIn ? 'Edit' : 'Edit office notes'}</button>}
       </div>
-      {!beforeMoveIn && <p className="text-xs text-neutral-500">Rent, dates and deposit are fixed once the tenancy has started — change the rent with a rent review. A wrong payment reference can be corrected, with the reason recorded.</p>}
+      {!beforeMoveIn && <p className="text-xs text-neutral-500">The terms are what was signed, so they’re fixed once the tenancy has started — change the rent with a rent review, and the end date below (it shows what that means for the rent first). A wrong payment reference can be corrected, with the reason recorded.</p>}
       {err && <p className="text-sm text-red-700">{err}</p>}
       <dl className="grid grid-cols-1 gap-x-lg gap-y-sm sm:grid-cols-2">
         {TERM_FIELDS.map(f => {
@@ -454,6 +455,7 @@ export function TermsTab({ file, patch }: { file: LettingFile; patch: Patch }) {
             </div>
           )
         })}
+        <div className="sm:col-span-2"><dt className={label}>Tenancy end date</dt><dd className="mt-0.5 text-sm text-neutral-900"><EndDateChange file={file} /></dd></div>
         {fixed.map(([k, v]) => (
           <div key={k}><dt className={label}>{k}</dt><dd className="mt-0.5 text-sm text-neutral-900">{v}</dd></div>
         ))}
@@ -920,6 +922,64 @@ function DepositMoney({ file }: { file: LettingFile }) {
             if (!r.ok) setErr(j.error ?? 'Could not make the receipt'); else setRcpt(j)
           }} className="text-sm font-semibold text-blue-700 hover:underline">Move-in receipt for the tenant</button>)}
       {err && <p className="text-xs text-red-700">{err}</p>}
+    </div>
+  )
+}
+
+// Change the end date (lib/tenancy/endDate): pick a date, see what it means month by month — the final month pro rata,
+// months no longer due, anything overpaid, how much can be refunded and how much is already with the landlord, and
+// whether it runs into the next tenant — then save it with a reason. A refund is then recorded on the Money tab.
+function EndDateChange({ file }: { file: LettingFile }) {
+  const t: any = file.tenancy
+  const [open, setOpen] = useState(false)
+  const [date, setDate] = useState<string>(t.end_date ?? '')
+  const [pv, setPv] = useState<any>(null)
+  const [reason, setReason] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+  const call = async (preview: boolean) => {
+    setBusy(true); setErr('')
+    const r = await adminFetch(`/api/admin/lettings/${t.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'end_date', endDate: date || null, preview, reason }) })
+    const j = await r.json().catch(() => ({}))
+    setBusy(false)
+    if (!r.ok) { setErr(j.error ?? 'Could not work it out'); return }
+    if (preview) setPv(j); else { setOpen(false); setPv(null); window.dispatchEvent(new Event('letting-file-changed')) }
+  }
+  const mon = (m: string) => new Date(m + 'T12:00:00').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
+  if (!open) return <span>{t.end_date ? day(t.end_date) : 'Periodic — no end date'} {file.stage !== 'fell_through' && <button type="button" onClick={() => setOpen(true)} className="ml-sm text-xs font-semibold text-blue-700 hover:underline">Change end date</button>}</span>
+  return (
+    <div className="mt-xs space-y-sm rounded-xl border border-neutral-200 p-md">
+      <div className="flex flex-wrap items-end gap-sm">
+        <label className="text-xs font-semibold text-neutral-600">New end date<br /><input type="date" className={input} value={date} onChange={e => { setDate(e.target.value); setPv(null) }} /></label>
+        <button type="button" className={btn} onClick={() => { setDate(''); setPv(null) }}>No end date</button>
+        <button type="button" disabled={busy} className={btnDark} onClick={() => call(true)}>{busy && !pv ? 'Working it out…' : 'See what this means'}</button>
+        <button type="button" className="text-sm text-neutral-600" onClick={() => { setOpen(false); setPv(null); setDate(t.end_date ?? '') }}>Cancel</button>
+      </div>
+      {err && <p className="text-sm text-red-700">{err}</p>}
+      {pv && (
+        <div className="space-y-sm text-sm">
+          {pv.problems.map((x: string) => <p key={x} className="rounded-lg bg-red-50 px-sm py-xs text-red-800">✕ {x}</p>)}
+          {pv.warnings.map((x: string) => <p key={x} className="rounded-lg bg-amber-50 px-sm py-xs text-amber-900">{x}</p>)}
+          {pv.nextTenant && !pv.problems.length && <p className="text-xs text-neutral-600">Next in this room: {pv.nextTenant.name} from {day(pv.nextTenant.start)}.</p>}
+          {pv.months.length > 0 && (
+            <div className="overflow-x-auto"><table className="w-full text-xs">
+              <thead><tr className="text-left text-neutral-500"><th className="py-xs">Month</th><th className="text-right">Was due</th><th className="text-right">Now due</th><th className="text-right">Received</th><th className="text-right">Paid to landlord</th><th className="text-right">Overpaid</th><th className="text-right">Still owed</th></tr></thead>
+              <tbody>{pv.months.map((m: any) => (
+                <tr key={m.month} className="border-t border-neutral-100"><td className="py-xs">{mon(m.month)}{m.note ? <span className="block text-[11px] text-neutral-500">{m.note}</span> : null}</td>
+                  <td className="text-right tabular-nums">{gbp(m.dueBefore)}</td><td className="text-right font-semibold tabular-nums">{gbp(m.dueAfter)}</td><td className="text-right tabular-nums">{gbp(m.received)}</td><td className="text-right tabular-nums">{gbp(m.remitted)}</td>
+                  <td className="text-right tabular-nums">{m.over > 0 ? gbp(m.over) : '—'}</td><td className="text-right tabular-nums">{m.stillOwed > 0 ? gbp(m.stillOwed) : '—'}</td></tr>
+              ))}</tbody>
+            </table></div>
+          )}
+          {pv.totals.over > 0 && <p className="rounded-lg bg-blue-50 px-sm py-xs text-blue-900">Overpaid {gbp(pv.totals.over)}: {gbp(pv.totals.refundable)} can be refunded from the client account{pv.totals.withLandlord > 0 ? `, ${gbp(pv.totals.withLandlord)} has already gone to the landlord and needs to come back from them` : ''}. After saving, record the refund on the Money tab.</p>}
+          {!pv.problems.length && (
+            <div className="flex flex-wrap items-end gap-sm">
+              <label className="text-xs font-semibold text-neutral-600">Why it’s changing<br /><input className={`${input} w-80 max-w-full`} value={reason} onChange={e => setReason(e.target.value)} placeholder="e.g. moved out early, agreed with the landlord" /></label>
+              <button type="button" disabled={busy || !reason.trim()} className={btnDark} onClick={() => { if (window.confirm(`Change the end date to ${date ? day(date) : 'none'} and adjust the rent as shown?`)) call(false) }}>Save the new end date</button>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

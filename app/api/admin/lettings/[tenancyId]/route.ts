@@ -44,9 +44,9 @@ const TERMS: Record<string, { label: string; beforeMoveIn: boolean; kind: 'date'
   deposit_amount: { label: 'Deposit', beforeMoveIn: true, kind: 'money' },
   payment_reference: { label: 'Payment reference', beforeMoveIn: true, kind: 'text' },
   agreement_type: { label: 'Agreement type', beforeMoveIn: true, kind: 'text' },
-  notice_period_months: { label: 'Notice period (months)', beforeMoveIn: false, kind: 'int' },
-  special_clauses: { label: 'Special clauses', beforeMoveIn: false, kind: 'text' },
-  permitted_occupiers: { label: 'Permitted occupiers', beforeMoveIn: false, kind: 'text' },
+  notice_period_months: { label: 'Notice period (months)', beforeMoveIn: true, kind: 'int' },   // part of the signed agreement (3 Nov 2026)
+  special_clauses: { label: 'Special clauses', beforeMoveIn: true, kind: 'text' },
+  permitted_occupiers: { label: 'Permitted occupiers', beforeMoveIn: true, kind: 'text' },
   office_notes: { label: 'Office notes', beforeMoveIn: false, kind: 'text' },
 }
 
