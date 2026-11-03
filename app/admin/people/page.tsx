@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase'
 import { getCurrentUser } from '@/lib/auth'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import LandlordAddresses from './LandlordAddresses'
 import AppBar from '@/components/AppBar'
 import PageHero, { HeroButton } from '@/components/PageHero'
 import { adminFetch } from '@/lib/adminFetch'
@@ -1022,6 +1023,7 @@ export default function PeopleManagement({ searchParams }: { searchParams: PageS
             extra: <span className={`hidden sm:inline-block rounded-full px-sm py-0.5 text-[11px] font-semibold ${p.landlord_comms_enabled ? 'bg-green-50 text-green-800' : 'bg-neutral-100 text-neutral-500'}`} title="Landlord emails">{p.landlord_comms_enabled ? 'Comms on' : 'Comms off'}</span>,
           })), 'No landlords yet.')
         )}
+        {activeTab === 'landlords' && <div className="mt-md"><LandlordAddresses /></div>}
         {activeTab === 'landlords' && <p className="text-xs text-neutral-500">Statements are in <Link href="/admin/statements" className="font-semibold text-blue-700 hover:underline">Finance › Statements</Link>.</p>}
 
         {activeTab === 'office' && List(office.filter(p => match(p)).map(p => {
