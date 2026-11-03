@@ -17,7 +17,10 @@ import PdfView from '@/components/PdfView'
 import { createClient } from '@/lib/supabase'
 import { adminFetch } from '@/lib/adminFetch'
 import { dearName, landlordFormalNames } from '@/lib/people'
-import { CLOSINGS, type FormalLetter } from '@/lib/letters/formalLetter'
+import type { FormalLetter } from '@/lib/letters/formalLetter'
+
+// the sign-offs the letterhead accepts (lib/letters/formalLetter CLOSINGS — that file also renders PDFs, server only)
+const CLOSINGS: readonly string[] = ['Yours sincerely', 'Yours faithfully', 'Kind regards', 'With best wishes']
 
 interface LL { id: string; name: string; dear: string; email: string | null; address: string | null; cc: string[]; properties: number }
 type Status = { state: 'sending' | 'sent' | 'failed' | 'skipped'; text: string }
