@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import AppBar from '@/components/AppBar'
 import PageHero, { HeroButton } from '@/components/PageHero'
+import { tenancyTabs } from '@/lib/lettingsTabs'
 import BackButton from '@/app/components/BackButton'
 import { adminFetch } from '@/lib/adminFetch'
 
@@ -35,8 +36,9 @@ export default function RentReviewsPage() {
     <div className="min-h-screen bg-neutral-100">
       <AppBar left={<BackButton href="/admin" label="Dashboard" />} title="Rent Reviews" />
       <PageHero
-        title="Rent Reviews"
-        subtitle="A Section 13 increase can take effect once a year — tenancies unchanged for 12 months or more are due"
+        title="Tenancies"
+        tabs={tenancyTabs('reviews')}
+        subtitle="Rent reviews: a Section 13 increase can take effect once a year — tenancies unchanged for 12 months or more are due"
         stats={rows ? [
           { label: 'Due a review', value: rows.filter(due).length, tone: 'warn' },
           { label: 'Increase pending', value: rows.filter(r => r.pending).length, tone: 'info' },

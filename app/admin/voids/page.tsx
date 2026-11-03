@@ -7,6 +7,7 @@ import { Fragment, useEffect, useState } from 'react'
 import Link from 'next/link'
 import AppBar from '@/components/AppBar'
 import PageHero from '@/components/PageHero'
+import { propertyTabs } from '@/lib/lettingsTabs'
 import BackButton from '@/app/components/BackButton'
 
 type Win = 3 | 6 | 12
@@ -48,8 +49,9 @@ export default function VoidsPage() {
     <div className="min-h-screen bg-neutral-100">
       <AppBar left={<BackButton href="/admin/lettings" />} title="Voids" />
       <PageHero
-        title="Voids"
-        subtitle="How long rooms sat empty. Each room is counted from when CROS first has a record for it; earlier history isn't on file yet."
+        title="All Properties"
+        tabs={propertyTabs('voids')}
+        subtitle="Voids: how long rooms sat empty. Each room is counted from when CROS first has a record for it; earlier history isn't on file yet."
         stats={sum ? [
           { label: `void rate · last ${win} months`, value: `${sum.rate}%`, tone: sum.rate > 5 ? 'bad' : sum.rate > 2 ? 'warn' : 'good' },
           { label: 'empty room-days', value: sum.emptyDays.toLocaleString('en-GB') },
