@@ -3,10 +3,12 @@
 // POST { action: 'fill_refs' }          give every current tenancy without one its payment reference
 //                                       (house number + street letters + room, e.g. 208ROS05)
 import { endDatesToSort, makeRolling } from '@/lib/tenancy/rolling'
+import { depositHolderFor } from '@/lib/tenancy/depositHolder'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { requireAdmin } from '@/lib/adminAuth'
 import { demoPropertyIds } from '@/lib/demoProperties'
+import { logAudit } from '@/lib/auditLog'
 import { buildPaymentRef } from '@/lib/tenancy/paymentRef'
 import { loadLedger, landlordBalances, ledgerStart } from '@/lib/clientLedger'
 import { syncRoomStatuses } from '@/lib/rooms/syncStatus'
@@ -79,6 +81,7 @@ export async function GET(req: NextRequest) {
   const noBank = [...new Set(realProps.map((p: any) => p.landlord_id).filter(Boolean))].filter(id => !withBank.has(id))
   const unbilled = tens.filter(t => !charged.has(t.room_id))
   const noDeposit = tens.filter(t => Number(t.deposit_amount || 0) > 0 && !t.deposit_scheme_ref)
+  const holderFix = await depositHolderFixes(s)
   const lastRec = recs.data?.[0]?.as_at ?? null
   const recDue = !lastRec || (Date.parse(today) - Date.parse(lastRec)) / 86_400_000 > 35
 
@@ -122,6 +125,10 @@ export async function GET(req: NextRequest) {
       items: noLandlord.map((p: any) => ({ label: String(p.name || '').split('\n')[0], href: `/admin/properties/${p.id}` })) },
     { key: 'bank', title: 'Landlords without bank details', ok: !noBank.length, count: noBank.length, detail: 'Needed for the payout run on the 5th.',
       items: noBank.map(id => ({ label: lname(id), href: `/admin/landlord/${id}` })) },
+    { key: 'deposit_holder', title: 'Tenancies with no deposit holder set at setup', ok: !holderFix.length, count: holderFix.length,
+      detail: 'Who holds the deposit is decided when a tenancy is set up: the landlord for a let-only let, Capital Rooms for a managed one. New tenancies get it automatically (migration 257). These older ones were set up without it, or a let-only one says Capital Rooms.',
+      items: holderFix.slice(0, 60).map(t => ({ label: `${who(t)} · ${where(t)} · ${t.deposit_held_by ?? 'not set'} → ${t.to}` })),
+      fix: { action: 'set_deposit_holders', label: `Set ${holderFix.length}` } },
     { key: 'deposits', title: 'Deposits without a protection reference', ok: !noDeposit.length, count: noDeposit.length, detail: 'Deposits must be protected within 30 days of the tenancy starting.',
       items: noDeposit.slice(0, 50).map(t => ({ label: `${who(t)} · ${where(t)}` })), fix: { href: '/admin/deposits', label: 'Open deposits' } },
     { key: 'negative', title: 'Client ledgers below zero', ok: !negative.length, count: negative.length, detail: 'A landlord’s balance must never go below zero.',
@@ -161,6 +168,14 @@ export async function POST(req: NextRequest) {
       } catch (e) { failed.push(`${d.file_name}: ${e instanceof Error ? e.message : 'failed'}`) }
     }
     return NextResponse.json({ ok: !failed.length, filled: moved, message: `Moved ${moved} document${moved === 1 ? '' : 's'} into their properties.${failed.length ? ' Not moved: ' + failed.join('; ') : ''}` })
+  }
+  if (b.action === 'set_deposit_holders') {
+    let done = 0
+    for (const t of await depositHolderFixes(s)) {
+      const { error } = await s.from('tenancies').update({ deposit_held_by: t.to }).eq('id', t.id)
+      if (!error) { done++; await logAudit({ userId: admin.personId, action: 'deposit_holder_set', table: 'tenancies', recordId: t.id, details: JSON.stringify({ from: t.deposit_held_by, to: t.to }) }).catch(() => null) }
+    }
+    return NextResponse.json({ ok: true, filled: done, message: `Set who holds the deposit on ${done} tenanc${done === 1 ? 'y' : 'ies'}.` })
   }
   if (b.action === 'void_pre_ledger') {
     const start = await ledgerStart(s)
@@ -247,3 +262,13 @@ async function importedStatementCharges(s: ReturnType<typeof createServiceClient
   return out.sort((a, b) => String(a.charge_month).localeCompare(String(b.charge_month)))
 }
 
+
+/** Current tenancies with a deposit whose holder is missing, or let-only ones marked as held by us (lib/tenancy/depositHolder). */
+async function depositHolderFixes(s: ReturnType<typeof createServiceClient>) {
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
+  const { data } = await s.from('tenancies').select('id, deposit_held_by, deposit_amount, property_id, rooms(name, is_let_only), properties(name, letting_type), people!person_id(salutation, first_name, last_name, full_name)')
+    .gt('deposit_amount', 0).is('let_cancelled_at', null).or(`end_date.is.null,end_date.gte.${today}`)
+  const demo = await demoPropertyIds(s)
+  return ((data ?? []) as any[]).filter(t => !demo.has(t.property_id)).map(t => ({ ...t, to: depositHolderFor(t.properties?.letting_type, t.rooms?.is_let_only) }))
+    .filter(t => !t.deposit_held_by || (t.to === 'landlord' && t.deposit_held_by !== 'landlord'))
+}
