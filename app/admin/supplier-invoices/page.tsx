@@ -7,6 +7,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import AppBar from '@/components/AppBar'
 import PageHero from '@/components/PageHero'
+import SubTabs from '@/app/components/SubTabs'
+import { expenseTabs } from '@/lib/financeTabs'
 import BackButton from '@/app/components/BackButton'
 import { adminFetch } from '@/lib/adminFetch'
 
@@ -46,15 +48,16 @@ export default function SupplierInvoicesPage() {
   const shown = tab === 'open' ? open : invs
   return (
     <div className="min-h-screen fin pb-3xl">
-      <AppBar left={<BackButton href="/admin/finance" />} title="Contractor & cleaner invoices" />
+      <AppBar left={<BackButton href="/admin/finance" />} title="Expenses" />
       <PageHero
         eyebrow="Finance"
-        title="Contractor & cleaner invoices"
-        subtitle="Invoices made in CROS by your contractors and cleaners. Approve to add them to the property’s expenses — nothing reaches a landlord until you do."
+        title="Expenses"
+        subtitle="Contractor & cleaner invoices: invoices made in CROS by your contractors and cleaners. Approve to add them to the property’s expenses — nothing reaches a landlord until you do."
         stats={[{ label: 'To approve', value: open.length, tone: open.length ? 'warn' : undefined }, { label: 'To approve (£)', value: gbp(open.reduce((t, i) => t + Number(i.total), 0)) }, { label: 'Approved, not paid', value: invs.filter(i => i.status === 'approved').length }]}
-        tabs={([['open', `To approve · ${open.length}`], ['all', 'All'], ['settings', 'Who can invoice']] as [Tab, string][]).map(([k, l]) => ({ key: k, label: l, active: tab === k, onClick: () => setTab(k) }))}
+        tabs={expenseTabs('contractor')}
       />
       <div className="mx-auto max-w-6xl px-lg py-xl space-y-md">
+        <SubTabs<Tab> tabs={[['open', `To approve · ${open.length}`], ['all', 'All'], ['settings', 'Who can invoice']]} active={tab} onChange={setTab} />
         {err && <p className="rounded-xl border border-red-200 bg-red-50 px-lg py-sm text-sm text-red-800">{err}</p>}
         {data?.setupNeeded && <p className="rounded-xl border border-amber-200 bg-amber-50 px-lg py-sm text-sm text-amber-900">Run migration 205 in Supabase to switch invoicing on.</p>}
         {!data && !err && <p className="text-sm text-neutral-500">Loading…</p>}
