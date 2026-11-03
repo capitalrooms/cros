@@ -68,6 +68,8 @@ const ZONES_AS_WRITTEN: Zone[] = [
       { emoji: '🔑', label: 'Available Rooms',    href: '/admin/available-and-lettings' },
       { emoji: '📄', label: 'Bulk Agreements',    href: '/admin/bulk-tenancy-generator' },
       { emoji: '📧', label: 'Invite to Apply',    href: '/admin/invite-to-apply' },
+      // tenants send these from their app; the screen had no way in (3 Nov 2026 audit)
+      { emoji: '🚪', label: 'Move-out Requests',  href: '/admin/early-move-out' },
       { emoji: '🔔', label: 'On Notice',          href: '/admin/tenancy-management' },
       { emoji: '📈', label: 'Rent Reviews',       href: '/admin/rent-increase' },
       { emoji: '🤝', label: 'Tenancies',          href: '/admin/tenancies' },
