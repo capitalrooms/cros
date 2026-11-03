@@ -55,7 +55,7 @@ export default function CertificateRound() {
   return (
     <div className="min-h-screen bg-neutral-100">
       <AppBar left={<BackButton href="/admin/compliance" />} title="Certificate round" />
-      <PageHero title="Send Certificates" subtitle={<>Every house, with the certificates uploaded since the date below. Each tenant gets their own email for their house, with a link to each certificate and when it’s next due.</>} />
+      <PageHero title="Compliance" tabs={[{ label: 'Certificates', href: '/admin/compliance?tab=certificates' }, { label: 'Safety checks', href: '/admin/compliance?tab=monthly-checks' }, { label: 'Send certificates', href: '/admin/compliance/send-certificates', active: true }]} subtitle={<>Send certificates: every house, with the certificates uploaded since the date below. Each tenant gets their own email for their house, with a link to each certificate and when it’s next due.</>} />
       <div className="mx-auto max-w-6xl px-lg py-xl space-y-lg">
         <div>
         </div>
