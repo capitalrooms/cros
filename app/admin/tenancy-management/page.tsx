@@ -9,6 +9,7 @@ import { getCurrentUser } from '@/lib/auth'
 import { useRouter } from 'next/navigation'
 import AppBar from '@/components/AppBar'
 import PageHero, { HeroButton } from '@/components/PageHero'
+import { tenancyTabs } from '@/lib/lettingsTabs'
 import BackButton from '@/app/components/BackButton'
 import Link from 'next/link'
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
@@ -242,10 +243,10 @@ export default function TenancyManagementPage() {
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
-      <AppBar left={<BackButton href="/admin" label="Dashboard" />} />
+      <AppBar left={<BackButton href="/admin/lettings" />} title="Tenancies" />
       <PageHero
-        title="On Notice"
-        subtitle="Tenants who are leaving, their move-out dates, rescind requests and check-out cleans"
+        title="Tenancies"
+        subtitle="On notice: tenants who are leaving, their move-out dates, requests to stay and check-out cleans"
         stats={[
           { label: 'On notice', value: onNoticeTenancies.length, tone: 'warn' },
           { label: 'Moving out in 14 days', value: onNoticeTenancies.filter((t: any) => t.end_date && t.end_date <= new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10)).length, tone: 'bad' },
@@ -253,6 +254,7 @@ export default function TenancyManagementPage() {
           { label: 'Active tenancies', value: activeTenancies.length },
         ]}
         actions={<HeroButton href="/admin/cleaner-jobs">Cleaner jobs</HeroButton>}
+        tabs={tenancyTabs('notice')}
       />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">

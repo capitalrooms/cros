@@ -9,6 +9,8 @@ import AppBar from '@/components/AppBar'
 import NameInput from '@/app/components/NameInput'
 import { nameFields } from '@/lib/people'
 import PageHero, { HeroButton } from '@/components/PageHero'
+import SubTabs from '@/app/components/SubTabs'
+import { tenancyTabs } from '@/lib/lettingsTabs'
 import BackButton from '@/app/components/BackButton'
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading';
 import { sortPropertiesNumerically, houseNumber } from '@/lib/sortProperties';
@@ -293,7 +295,7 @@ export default function TenanciesManagementPage() {
           toast.type === 'error' ? 'bg-red-600 text-white' : 'bg-neutral-900 text-white'
         }`}>{toast.msg}</div>
       )}
-      <AppBar left={<BackButton href="/admin" label="Dashboard" />} />
+      <AppBar left={<BackButton href="/admin/lettings" />} title="Tenancies" />
       <PageHero
         eyebrow="Lettings"
         title="Tenancies"
@@ -305,11 +307,11 @@ export default function TenanciesManagementPage() {
           { label: 'Ended', value: past.length },
         ]}
         actions={<HeroButton primary onClick={() => setShowAdd(true)}>+ New tenancy</HeroButton>}
-        tabs={([['all', `All current · ${current.length}`], ['let_agreed', `Let agreed · ${letAgreed.length}`], ['live', `Live · ${liveList.length}`], ['notice', `On notice · ${onNoticeList.length}`], ['ended', `Ended · ${past.length}`]] as const)
-          .map(([k, label]) => ({ key: k, label, active: view === k, onClick: () => { setView(k); setMenu(null) } }))}
+        tabs={tenancyTabs('list')}
       />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
+        <div className="mb-md"><SubTabs<'all' | 'let_agreed' | 'live' | 'notice' | 'ended'> tabs={[['all', `All current · ${current.length}`], ['let_agreed', `Let agreed · ${letAgreed.length}`], ['live', `Live · ${liveList.length}`], ['notice', `On notice · ${onNoticeList.length}`], ['ended', `Ended · ${past.length}`]]} active={view} onChange={k => { setView(k); setMenu(null) }} /></div>
         <div className="mb-md">
           <input type="search" value={q} onChange={e => setQ(e.target.value)} placeholder="Search by tenant, email, room or property…"
             className="w-full rounded-xl border border-neutral-200 bg-white px-md py-sm text-sm" />
