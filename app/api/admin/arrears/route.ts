@@ -10,6 +10,7 @@ import { createClient } from '@supabase/supabase-js'
 import { requireAdmin } from '@/lib/adminAuth'
 import { demoPropertyIds } from '@/lib/demoProperties'
 import { ledgerStart } from '@/lib/clientLedger'
+import { importedChargeIds } from '@/lib/finance/importedCharges'
 
 export const dynamic = 'force-dynamic'
 
@@ -58,7 +59,9 @@ export async function GET(req: NextRequest) {
     .in('status', ['overdue', 'partial']).gte('charge_month', await ledgerStart(s)).order('charge_month')
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   const demo = await demoPropertyIds(s)
-  const open = (charges ?? []).filter((c: any) => !c.voided && !demo.has(c.property_id) && Number(c.amount_due) > Number(c.amount_received || 0))
+  // a charge from a previous agent's imported statement isn't money owed to us (lib/finance/importedCharges)
+  const imported = await importedChargeIds(s, (charges ?? []).map((c: any) => c.id))
+  const open = (charges ?? []).filter((c: any) => !c.voided && !demo.has(c.property_id) && !imported.has(c.id) && Number(c.amount_due) > Number(c.amount_received || 0))
 
   const roomIds = [...new Set(open.map((c: any) => c.room_id).filter(Boolean))]
   const { data: tenancies } = roomIds.length
