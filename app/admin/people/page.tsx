@@ -580,7 +580,7 @@ export default function PeopleManagement({ searchParams }: { searchParams: PageS
           { label: 'Landlords', value: landlords.length },
         ]}
         actions={activeTab === 'tenants' ? <HeroButton primary onClick={() => startAdd('tenant')}>+ Register tenant</HeroButton>
-          : activeTab === 'landlords' ? <HeroButton primary onClick={() => { setShowAddLandlord(v => !v); setShowAddPerson(false) }}>+ Add landlord</HeroButton>
+          : activeTab === 'landlords' ? <><HeroButton href="/admin/document-generator/landlords">Letter to several landlords</HeroButton><HeroButton primary onClick={() => { setShowAddLandlord(v => !v); setShowAddPerson(false) }}>+ Add landlord</HeroButton></>
           : <HeroButton primary onClick={() => startAdd(activeTab === 'contractors' ? 'contractor' : activeTab === 'cleaners' ? 'cleaner' : 'lettings')}>+ Add {activeTab === 'contractors' ? 'contractor' : activeTab === 'cleaners' ? 'cleaner' : 'office member'}</HeroButton>}
         tabs={(['tenants', 'contractors', 'cleaners', 'landlords', 'office'] as Tab[]).map(t => ({ key: t, label: `${LABEL[t]} · ${counts[t]}`, active: activeTab === t, onClick: () => { setActiveTab(t); setShowAddPerson(false); setShowAddLandlord(false); setMenu(null); window.history.replaceState(null, '', `/admin/people?tab=${t}`) } }))}
       />

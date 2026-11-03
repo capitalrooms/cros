@@ -9,11 +9,10 @@ import PdfView from '@/components/PdfView'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import AppBar from '@/components/AppBar'
-import PageHero from '@/components/PageHero'
+import PageHero, { HeroButton } from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import { adminFetch } from '@/lib/adminFetch'
 import { dearFromText, formalName, landlordFormalNames } from '@/lib/people'
-import SendToLandlords from './SendToLandlords'
 import type { FormalLetter } from '@/lib/letters/formalLetter'
 import { invoiceNumberFor, type DocInvoice } from '@/lib/invoices/fromDocumentGenerator'
 import SavedDocuments from './SavedDocuments'
@@ -621,7 +620,7 @@ export default function DocumentGenerator() {
   return (
     <div className="min-h-screen bg-neutral-100">
       <AppBar left={<BackButton href={tenancyId ? `/admin/lettings/${tenancyId}?tab=letters` : '/admin/communications'} />} title="Letters & Invoices" />
-      <PageHero title="Letters & Invoices" subtitle="Write a letter or an invoice in plain words — it comes out on the letterhead, ready to check, download or email" />
+      <PageHero title="Letters & Invoices" subtitle="Write a letter or an invoice in plain words — it comes out on the letterhead, ready to check, download or email" actions={<HeroButton primary href="/admin/document-generator/landlords">Letter to several landlords</HeroButton>} />
       <div className="mx-auto max-w-6xl px-lg py-xl">
 
         {tenancyId && (
@@ -1002,7 +1001,7 @@ export default function DocumentGenerator() {
                   {sending ? 'Sending…' : 'Send email'}
                 </button>
               </div>
-              {docType === 'letter' && letter && gaps.length === 0 && <SendToLandlords letter={letter as any} subject={emailSubject} message={emailMessage} signer={signerBody()} />}
+              {docType === 'letter' && <Link href="/admin/document-generator/landlords" className="text-sm font-semibold text-blue-700 hover:underline">Sending this to several landlords? Use Letter to several landlords</Link>}
             </div>
           </div>
         )}
