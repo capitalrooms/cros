@@ -19,6 +19,7 @@
  * Administrators only.
  */
 import crypto from 'node:crypto'
+import { classifyDocument } from '@/lib/ai-classify'
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/adminAuth'
 import { createServiceClient } from '@/lib/supabase'
@@ -138,6 +139,23 @@ export async function POST(req: NextRequest) {
 
   if (b.action === 'discard') { await s.from('capture_items').update({ status: 'discarded' }).eq('id', item.id); return NextResponse.json({ ok: true }) }
   if (b.action === 'handed_to_scanner') { await done('certificate', 'ai-upload'); return NextResponse.json({ ok: true }) }
+  // a certificate or other paperwork is read and filed in the same list as emailed-in documents (3 Nov 2026: "can't
+  // capture just take all into it") — the file joins that list, read by AI, and is filed from there in Capture
+  if (b.action === 'to_documents') {
+    const { data: file, error: dErr } = await s.storage.from(BUCKET).download(item.file_path)
+    if (dErr || !file) return NextResponse.json({ error: 'Couldn’t open the file' }, { status: 500 })
+    const bytes = Buffer.from(await file.arrayBuffer())
+    const mime = item.mime || (String(item.file_name).toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'image/jpeg')
+    const path = `capture/${item.id}-${String(item.file_name || 'document').replace(/[^\w.\-]+/g, '_')}`
+    const { error: uErr } = await s.storage.from('inbox-docs').upload(path, bytes, { contentType: mime, upsert: true })
+    if (uErr) return NextResponse.json({ error: uErr.message }, { status: 500 })
+    let ai_result: any = null, ai_error: string | null = null
+    try { ai_result = await classifyDocument(bytes, mime) } catch (e: any) { ai_error = e?.message || 'Couldn’t read it' }
+    const { error: iErr } = await s.from('inbox_documents').insert({ subject: 'From Capture', filename: item.file_name, storage_path: path, mime, ai_result, ai_error, status: 'new' })
+    if (iErr) return NextResponse.json({ error: iErr.message }, { status: 500 })
+    await done(b.kind ? String(b.kind) : 'certificate', 'documents')
+    return NextResponse.json({ ok: true })
+  }
 
   // ── quick look (cheap): a small copy from the phone, or the file itself when small ──
   if (b.action === 'look') {
