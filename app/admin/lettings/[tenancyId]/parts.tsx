@@ -591,7 +591,7 @@ export function MoneyTab({ file }: { file: LettingFile }) {
       {/* a let-only let's money before move-in: received, fee, landlord paid (migration 231) */}
       {letOnlyFile && <InitialMonies tenancyId={t.id} onChanged={() => window.dispatchEvent(new Event('letting-file-changed'))} />}
       {/* month by month — the same rows as the Rent Roll (rebuild, 3 Nov 2026) */}
-      {!letOnlyFile && file.stage !== 'let_agreed' && file.stage !== 'fell_through' && <MonthByMonth file={file} />}
+      {!letOnlyFile && file.stage !== 'let_agreed' && file.stage !== 'fell_through' && <MonthByMonth tenancyId={t.id} rent={t.rent_amount} who={`${file.tenant.name} · ${[file.room.name, file.property.name].filter(Boolean).join(', ')}`} />}
       {/* let only: the tenant pays the landlord after move-in, so there is no rent account here (3 Nov 2026 audit);
           while CROS mirrors the old system there are no charges either, so the account only shows once it has lines */}
       <section className={`${card} ${letOnlyFile || !(acc && acc.lines.length) && file.stage !== 'let_agreed' ? 'hidden' : ''}`}>
@@ -654,19 +654,22 @@ const MONTH_STATUS: Record<string, [string, string]> = {
   no_charge: ['Nothing due', 'text-neutral-500'], collected_by_previous_agent: ['Previous agent', 'text-neutral-500'],
 }
 
-function MonthByMonth({ file }: { file: LettingFile }) {
-  const [data, setData] = useState<{ months: any[]; before: { from: string; to: string } | null } | null>(null)
+const monthsCache = new Map<string, { months: any[]; before: { from: string; to: string } | null }>()
+
+/** Also on the room page, so a tenancy's months read the same wherever you meet them. */
+export function MonthByMonth({ tenancyId, rent, who }: { tenancyId: string; rent: number | null | undefined; who: string }) {
+  const [data, setData] = useState<{ months: any[]; before: { from: string; to: string } | null } | null>(() => monthsCache.get(tenancyId) ?? null)
   const [error, setError] = useState('')
   const [open, setOpen] = useState<any | null>(null)
   useEffect(() => {
     let off = false
-    adminFetch(`/api/admin/lettings/${file.tenancy.id}/months`).then(async r => {
+    adminFetch(`/api/admin/lettings/${tenancyId}/months`).then(async r => {
       const j = await r.json().catch(() => ({}))
       if (off) return
-      if (!r.ok) setError(j.error ?? 'Could not load the months'); else setData(j)
+      if (!r.ok) setError(j.error ?? 'Could not load the months'); else { monthsCache.set(tenancyId, j); setData(j) }
     })
     return () => { off = true }
-  }, [file.tenancy.id])
+  }, [tenancyId])
   const mirror = data?.months.some(m => m.source === 'mirror')
   // a month still waiting for its statement isn't short — it's unknown; the totals cover the months a statement shows
   const shown = (data?.months ?? []).filter(m => m.status !== 'awaiting_statement')
@@ -711,10 +714,10 @@ function MonthByMonth({ file }: { file: LettingFile }) {
           {mirror && <p className="mt-xs text-xs text-neutral-500">Received is what each month’s imported statement shows. CROS only counts a month as paid once a statement shows it.</p>}
         </>
       )}
-      <SidePanel open={!!open} onClose={() => setOpen(null)} eyebrow={`${file.tenant.name} · ${[file.room.name, file.property.name].filter(Boolean).join(', ')}`} title={open ? monthName(open.month) : ''}>
+      <SidePanel open={!!open} onClose={() => setOpen(null)} eyebrow={who} title={open ? monthName(open.month) : ''}>
         {open && (() => {
           const d = open.difference as number | null
-          const partMonth = open.due != null && Math.abs(Number(open.due) - Number(file.tenancy.rent_amount ?? 0)) >= 0.005
+          const partMonth = open.due != null && Math.abs(Number(open.due) - Number(rent ?? 0)) >= 0.005
           return <>
             <PanelRow label={partMonth ? 'Due · part month, by the day' : 'Due'} value={gbp(open.due)} />
             <PanelRow label="Received" value={open.received ? gbp(open.received) : 'Nothing shown yet'} />

@@ -149,7 +149,7 @@ function RentRollScreen({ initialMonth, practice }: { initialMonth?: string; pra
               ? [['all', 'All properties'], ['ready', 'All on statements'], ['waiting', 'Some on statements'], ['none', 'None on a statement yet']]
               : [['all', 'All properties'], ['ready', 'All in · ready to pay'], ['waiting', 'Part in · waiting'], ['none', 'No rent in yet']]) as [ 'all' | 'ready' | 'waiting' | 'none', string][]).map(([k, l]) => {
               const n = k === 'all' ? (roll?.properties.length ?? 0) : (roll?.properties ?? []).filter(p => pileOf(p) === k).length
-              return <button key={k} onClick={() => setFilter(k)} className={`rounded-lg px-md py-xs ${filter === k ? 'bg-[#181614] text-white' : 'text-neutral-600'}`}>{l} · {n}</button>
+              return <button key={k} onClick={() => setFilter(k)} className={`rounded-lg px-md py-xs ${filter === k ? 'bg-[#23261A] text-white' : 'text-neutral-600'}`}>{l} · {n}</button>
             })}
           </div>
           <ExportButtons title={`Rent roll ${monthLabel(month)}`} filename={`rent-roll-${month}`}
@@ -173,7 +173,7 @@ function RentRollScreen({ initialMonth, practice }: { initialMonth?: string; pra
                   {!loading && props.map(p => {
                     const on = selected?.id === p.id
                     return (
-                      <tr key={p.id} onClick={() => pick(p.id)} aria-selected={on} className={`cursor-pointer ${on ? '[&>td]:!bg-[#181614] [&>td]:!text-[#F6F3EC]' : ''}`}>
+                      <tr key={p.id} onClick={() => pick(p.id)} aria-selected={on} className={`cursor-pointer ${on ? '[&>td]:!bg-[#23261A] [&>td]:!text-[#F6F3EC]' : ''}`}>
                         <td className="max-w-[260px]">
                           <span className="block truncate font-semibold">{p.name}</span>
                           <span className={`block truncate text-[11px] ${on ? 'opacity-60' : 'text-neutral-500'}`}>{p.landlord}{p.readyForStatement > 0 && !prevAgent ? <span className={on ? 'text-[#E8B06B]' : 'text-amber-700'}> · ready {gbp(p.readyForStatement)}</span> : null}</span>
@@ -245,7 +245,7 @@ function RentRollScreen({ initialMonth, practice }: { initialMonth?: string; pra
                         {selected.allIn ? `All ${selected.rooms.length} rents for ${monthLabel(month)} are in — funds received. Add any expenses on the statement, then pay.`
                           : <>Paying the rents in now; {gbp(selected.missing)} still to come will go on a second statement.{selected.payPart?.reason ? ` (${selected.payPart.reason})` : ''} <button type="button" onClick={() => payPart(selected.id, false)} className="font-semibold underline">Wait for all instead</button></>}
                       </p>
-                      <Link href={`/admin/statements/prepare?property=${selected.id}&month=${month}${P}`} className="block rounded-xl bg-[#181614] py-sm text-center text-sm font-bold text-white hover:bg-black">Prepare statement · {gbp(selected.readyForStatement)}</Link>
+                      <Link href={`/admin/statements/prepare?property=${selected.id}&month=${month}${P}`} className="block rounded-xl bg-[#23261A] py-sm text-center text-sm font-bold text-white hover:bg-black">Prepare statement · {gbp(selected.readyForStatement)}</Link>
                     </>
                   : <div className="space-y-xs rounded-xl bg-neutral-50 px-md py-sm text-sm text-neutral-700">
                       <p><strong>Waiting for {selected.rooms.filter(r => r.status === 'missing' || r.status === 'part').length} rent{selected.rooms.filter(r => r.status === 'missing' || r.status === 'part').length === 1 ? '' : 's'}</strong> ({gbp(selected.missing)}) so {selected.landlord || 'the landlord'} is paid once, with one statement.</p>

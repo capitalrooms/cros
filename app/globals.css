@@ -258,4 +258,4 @@ button:disabled {
 .office main .border-blue-700 { border-color: #4A5320; }
 .office main .focus\:ring-blue-500:focus, .office main .focus\:border-blue-500:focus { --tw-ring-color: #4A5320; border-color: #4A5320; }
 .office main .rounded-2xl.border.border-neutral-200 { border-color: transparent; box-shadow: 0 1px 0 rgba(35, 38, 26, 0.06); }
-.office :focus-visible { outline: 2px solid #E8B931; outline-offset: 2px; }
+.office :focus-visible:not([tabindex="-1"]) { outline: 2px solid #E8B931; outline-offset: 2px; }

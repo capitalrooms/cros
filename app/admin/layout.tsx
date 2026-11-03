@@ -136,7 +136,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                     {zone.subnav.map(item => {
                       const on = activeSub?.href === item.href
                       return (
-                        <Link key={item.href} href={item.href} prefetch={false}
+                        <Link key={item.href} href={item.href}
                           className={`rounded-lg py-1.5 pl-6 pr-3 text-[12.5px] transition-colors ${on ? 'font-bold text-[#F6F3EC]' : 'text-[#F6F3EC]/50 hover:text-[#F6F3EC]'}`}>
                           {item.label}
                         </Link>

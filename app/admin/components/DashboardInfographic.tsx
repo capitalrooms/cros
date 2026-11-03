@@ -20,7 +20,7 @@ export interface DashboardData {
   voids: { avgDaysToRelet: number | null; checks: number; windows: Record<string, { rate: number; lost: number; emptyDays: number; fullyOnRecord: number; rooms: number; byLandlord: { name: string; rate: number; lost: number; rooms: number }[] }> } | null
 }
 
-const INK = '#181614', CREAM = '#F6F3EC', LET = '#2F6B4F', NOTICE = '#E8A33A', EMPTY = '#6E95D2', RED = '#C8372D'
+const INK = '#23261A', CREAM = '#F6F3EC', LET = '#2F6B4F', NOTICE = '#E8A33A', EMPTY = '#6E95D2', RED = '#C8372D'
 const gbp0 = (n: number) => `£${Math.round(n).toLocaleString('en-GB')}`
 const gbp2 = (n: number) => `£${n.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 const day = (iso: string | null) => iso ? new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', timeZone: 'UTC' }) : '—'
@@ -84,7 +84,7 @@ function VoidTile({ v }: { v: NonNullable<DashboardData['voids']> }) {
   const top = [...w.byLandlord].sort((a, b) => b.rate - a.rate || b.lost - a.lost).slice(0, 5)
   const max = Math.max(1, ...top.map(l => l.rate))
   return (
-    <Tile title="Voids" href="/admin/voids" note={<span className="flex gap-1">{(['3', '6', '12'] as const).map(k => <button key={k} type="button" onClick={() => setM(k)} className={`h-[22px] rounded-md px-sm text-[11px] font-semibold ${m === k ? 'bg-[#181614] text-[#F6F3EC]' : 'border border-[#E4E1DB] text-neutral-600'}`}>{k}m</button>)}</span>}
+    <Tile title="Voids" href="/admin/voids" note={<span className="flex gap-1">{(['3', '6', '12'] as const).map(k => <button key={k} type="button" onClick={() => setM(k)} className={`h-[22px] rounded-md px-sm text-[11px] font-semibold ${m === k ? 'bg-[#23261A] text-[#F6F3EC]' : 'border border-[#E4E1DB] text-neutral-600'}`}>{k}m</button>)}</span>}
       foot={<>{w.fullyOnRecord} of {w.rooms} rooms on record for the whole period; the rest count from their first tenancy.{v.checks > 0 && <> <Warn>{v.checks} room{v.checks === 1 ? '' : 's'} to check.</Warn></>}</>}>
       <div className="grid gap-sm p-md text-[12px]">
         <div className="grid grid-cols-3 gap-sm">
@@ -131,7 +131,7 @@ export default function DashboardInfographic({ d, name }: { d: DashboardData; na
 
   return (
     <div>
-      <section className="bg-[#181614] text-[#F6F3EC]">
+      <section className="bg-[#4A5320] text-[#F3F0E6]">
         <div className="mx-auto max-w-6xl px-lg pb-lg pt-lg">
           <div className="flex flex-wrap items-end justify-between gap-md">
             <div>

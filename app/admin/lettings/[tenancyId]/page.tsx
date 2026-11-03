@@ -39,8 +39,11 @@ export default function LettingFilePage({ params, searchParams }: { params: Prom
   return <LettingFileScreen tenancyId={tenancyId} from={safeFrom(one(sp.from))} initialTab={TABS.some(x => x[0] === t) ? t as Tab : undefined} done={one(sp.done)} mark={one(sp.mark) === '1'} />
 }
 
+// files opened this visit — coming back to one shows it at once while it refreshes (rebuild, 3 Nov 2026)
+const fileCache = new Map<string, LettingFile>()
+
 function LettingFileScreen({ tenancyId, from, initialTab, done, mark }: { tenancyId: string; from: string; initialTab?: Tab; done?: string; mark?: boolean }) {
-  const [file, setFile] = useState<LettingFile | null>(null)
+  const [file, setFile] = useState<LettingFile | null>(() => fileCache.get(tenancyId) ?? null)
   const [error, setError] = useState('')
   const [tab, setTabState] = useState<Tab | null>(initialTab ?? null)
   // the tab is kept in the address, so Back from a page opened here returns to the same tab (rebuild, 3 Nov 2026)
@@ -56,7 +59,7 @@ function LettingFileScreen({ tenancyId, from, initialTab, done, mark }: { tenanc
     const r = await adminFetch(`/api/admin/lettings/${tenancyId}`)
     const d = await r.json().catch(() => ({}))
     if (!r.ok) { setError(d.error ?? 'Could not open the letting file'); return }
-    setFile(d.file); setError('')
+    fileCache.set(tenancyId, d.file); setFile(d.file); setError('')
   }, [tenancyId])
   useEffect(() => { load() }, [load])
   // the rent "Sort out" panel (Money tab) changed something: reload the file

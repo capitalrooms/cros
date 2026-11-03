@@ -239,7 +239,7 @@ export default function PersonPage({ params }: { params: Promise<{ personId: str
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       {/* ── Dark header ── */}
-      <div className="bg-[#181614] text-white">
+      <div className="bg-[#4A5320] text-[#F3F0E6]">
         <AppBar left={<BackButton href="/admin/people" />} />
         <div className="mx-auto max-w-6xl px-lg pb-0 pt-lg">
           <div className="flex items-start justify-between gap-lg mb-lg">

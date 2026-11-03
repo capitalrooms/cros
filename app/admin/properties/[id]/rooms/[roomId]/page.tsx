@@ -17,6 +17,9 @@ import ArrangeWorks from './ArrangeWorks'
 import { useAdminAccess } from '@/lib/admin-context'
 import type { RoomOverview, Need, TimelineItem } from '@/lib/rooms/roomOverview'
 import LineIcon from '@/components/LineIcon'
+import { MonthByMonth } from '@/app/admin/lettings/[tenancyId]/parts'
+import { CROS_COLLECTS_RENT } from '@/lib/finance/mode'
+import { display } from '@/app/components/financeLook'
 
 const gbp = (n: number | null | undefined) => n == null ? '—' : '£' + Number(n).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const full = (iso: string | null | undefined) => iso ? new Date(`${String(iso).slice(0, 10)}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }) : ''
@@ -78,7 +81,7 @@ export default function RoomPage({ params }: { params: Promise<{ id: string; roo
   if (!o) return (
     <div className="min-h-screen bg-neutral-100">
       <AppBar left={<BackButton href="/admin/active-rooms" />} />
-      <div className="h-64 animate-pulse bg-[#181614]" />
+      <div className="h-64 animate-pulse bg-[#4A5320]" />
       <div className="mx-auto max-w-6xl space-y-md px-lg py-xl">{[0, 1, 2].map(i => <div key={i} className="h-32 animate-pulse rounded-2xl bg-white" />)}</div>
     </div>
   )
@@ -95,14 +98,14 @@ export default function RoomPage({ params }: { params: Promise<{ id: string; roo
       <AppBar left={<BackButton href="/admin/active-rooms" />} />
 
       {/* ── hero ─────────────────────────────────────────────────────────────────────────────── */}
-      <section className="bg-[#181614] text-[#F6F3EC]">
+      <section className="bg-[#4A5320] text-[#F3F0E6]">
         <div className="mx-auto max-w-6xl px-lg pt-lg">
           <div className="flex flex-wrap items-end justify-between gap-md">
             <div className="flex min-w-0 flex-[1_1_420px] items-center gap-md md:items-end">
               <StoredImg src={photo} alt={`${o.room.name} photo`} className="h-16 w-16 flex-none rounded-xl object-cover md:h-[90px] md:w-[120px]" />
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-sm">
-                  <h1 className="text-[28px] font-extrabold leading-none md:text-[34px]" style={{ fontFamily: 'var(--font-baloo-2, system-ui, sans-serif)' }}>{o.room.name}</h1>
+                  <h1 className={`${display.className} text-[28px] font-extrabold leading-none tracking-tight md:text-[34px]`}>{o.room.name}</h1>
                   <span className={`rounded-full px-sm py-0.5 text-[11px] font-black uppercase tracking-wide ${pill.cls}`}>{pill.label(o)}</span>
                 </div>
                 {cur && <p className="mt-0.5 text-sm text-[#F6F3EC]/80"><b className="text-[#F6F3EC]">{cur.tenant.name}</b></p>}
@@ -113,7 +116,7 @@ export default function RoomPage({ params }: { params: Promise<{ id: string; roo
               </div>
             </div>
             <div className="hidden flex-wrap gap-sm md:flex">
-              {cur && <button type="button" onClick={message} className="rounded-lg bg-[#F6F3EC] px-md py-sm text-sm font-black text-[#181614]">Message {cur.tenant.name}</button>}
+              {cur && <button type="button" onClick={message} className="rounded-lg bg-[#E8B931] px-md py-sm text-sm font-black text-[#23261A]">Message {cur.tenant.name}</button>}
               {canReport && !letOnly && <button type="button" onClick={() => setArranging(true)} className="rounded-lg border border-[#F6F3EC]/25 px-md py-sm text-sm font-bold">Arrange works</button>}
               <Link href={`/lettings/listing/${roomId}?from=${encodeURIComponent(`/admin/properties/${propertyId}/rooms/${roomId}`)}`} className="rounded-lg border border-[#F6F3EC]/25 px-md py-sm text-sm font-bold">Marketing view</Link>
               <Link href={`/admin/properties/${propertyId}/rooms/${roomId}/edit`} className="rounded-lg border border-[#F6F3EC]/25 px-md py-sm text-sm font-bold">Edit room</Link>
@@ -321,6 +324,14 @@ function CurrentTenancy({ o, wide, onMessage }: { o: RoomOverview; wide: boolean
 }
 
 function Rent({ o, wide }: { o: RoomOverview; wide: boolean }) {
+  // while CROS mirrors the statements, the room shows its tenancy's months exactly as the letting file does (rebuild,
+  // 3 Nov 2026: the room said October "£0.00 · Before CROS" while the letting file showed it paid on LS1062)
+  if (!CROS_COLLECTS_RENT && o.current && o.property.lettingType !== 'let_only') return (
+    <div className="space-y-sm">
+      <MonthByMonth tenancyId={o.current.id} rent={o.current.rent ?? null} who={`${o.current.tenant.name} · ${o.room.name}, ${o.property.name}`} />
+      {o.fee.rent != null && o.fee.perMonth != null && <p className="px-xs text-[13px] text-neutral-600">Each full month: <b className="text-neutral-900">{gbp(o.fee.rent)}</b> rent → <b className="text-neutral-900">{gbp(o.fee.perMonth)}</b> management fee ({o.fee.label}) → <b className="text-neutral-900">{gbp(o.fee.toLandlord)}</b> to {o.landlord ? `${o.landlord.name}${o.landlord.company ? `, ${o.landlord.company}` : ''}` : 'the landlord'}</p>}
+    </div>
+  )
   const [all, setAll] = useState(false)
   const rows = all ? o.rent : o.rent.slice(0, 6)
   const owed = o.current?.balance
