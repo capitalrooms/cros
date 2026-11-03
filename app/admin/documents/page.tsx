@@ -9,6 +9,7 @@ import { getCurrentUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase'
 import AppBar from '@/components/AppBar'
 import PageHero from '@/components/PageHero'
+import { documentTabs } from '@/lib/documentTabs'
 import BackButton from '@/app/components/BackButton'
 import DocReview, { AIResult, TYPE_LABELS } from '@/app/components/DocReview'
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
@@ -289,7 +290,7 @@ export default function DocumentsPage() {
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar left={<BackButton href="/admin" label="Dashboard" />} />
-      <PageHero eyebrow="Compliance · Documents" title="Documents" subtitle="Upload, manage, and file documents — certificates, contracts, tenancy agreements, and more" />
+      <PageHero title="Documents" subtitle="Library: every filed document — certificates, contracts, tenancy agreements and more" tabs={documentTabs('library')} />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
         <div className="mb-2xl">

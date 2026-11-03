@@ -9,6 +9,7 @@ import { getCurrentUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase'
 import AppBar from '@/components/AppBar'
 import PageHero from '@/components/PageHero'
+import { documentTabs } from '@/lib/documentTabs'
 import BackButton from '@/app/components/BackButton'
 import DocReview, { AIResult, TYPE_LABELS } from '@/app/components/DocReview'
 import PurchaseReview from '@/app/components/PurchaseReview'
@@ -175,7 +176,7 @@ export default function InboxPage() {
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar left={<BackButton href="/admin" label="Dashboard" />} />
-      <PageHero title="Document inbox" subtitle={<>Documents forwarded by email land here. Review the AI&apos;s suggestion and file each one, or assign it yourself. Nothing is filed until you confirm.</>} />
+      <PageHero title="Documents" tabs={documentTabs('inbox')} subtitle={<>Emailed in: Documents forwarded by email land here. Review the AI&apos;s suggestion and file each one, or assign it yourself. Nothing is filed until you confirm.</>} />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
         <div className="flex items-start justify-between gap-md">

@@ -9,6 +9,7 @@ import { getCurrentUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase'
 import AppBar from '@/components/AppBar'
 import PageHero from '@/components/PageHero'
+import { documentTabs } from '@/lib/documentTabs'
 import BackButton from '@/app/components/BackButton'
 import DocReview, { AIResult } from '@/app/components/DocReview'
 import PhotoReview from '@/app/components/PhotoReview'
@@ -222,7 +223,7 @@ export default function AIUploadPage() {
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar left={<BackButton href="/admin" label="Dashboard" />} />
-      <PageHero title="AI Doc Scanner" subtitle={<>Drop in certificates, tenancy agreements, contact sheets, utility bills, invoices and receipts — plus property photos. The AI reads documents, tells you what they are, and files once you confirm. For photos, you&apos;ll confirm which property they belong to (and assign rooms now or later on the property&apos;s Photos tab).</>} />
+      <PageHero title="Documents" tabs={documentTabs('scan')} subtitle={<>Scan & file: Drop in certificates, tenancy agreements, contact sheets, utility bills, invoices and receipts — plus property photos. The AI reads documents, tells you what they are, and files once you confirm. For photos, you&apos;ll confirm which property they belong to (and assign rooms now or later on the property&apos;s Photos tab).</>} />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
         <div className="flex items-start justify-between gap-md">
