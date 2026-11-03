@@ -16,6 +16,8 @@ export function Pill({ href, tone = 'paper', second, children, onClick }: { href
 }
 
 export function PageHead({ eyebrow, title, right }: { eyebrow: string; title: string; right?: React.ReactNode }) {
+  // under an olive PageHero the title is in the band: just the controls, right-aligned
+  if (!title) return <div className="mb-lg flex flex-wrap justify-end gap-md">{right}</div>
   return (
     <div className="mb-lg flex flex-wrap items-end justify-between gap-md">
       <div>

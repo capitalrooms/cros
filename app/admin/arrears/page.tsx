@@ -7,7 +7,7 @@ import RentTimingPanel from './RentTimingPanel'
 import Link from 'next/link'
 import AppBar from '@/components/AppBar'
 import PageHero from '@/components/PageHero'
-import { financeTabs } from '@/lib/financeTabs'
+import { financeTabs, rentOwedTabs } from '@/lib/financeTabs'
 import BackButton from '@/app/components/BackButton'
 import { adminFetch, downloadPdf } from '@/lib/adminFetch'
 import type { ArrearsRow } from '@/app/api/admin/arrears/route'
@@ -70,14 +70,14 @@ export default function ArrearsPage() {
   return (
     <div className="min-h-screen fin">
       <AppBar left={<BackButton href="/admin/rent-charges" />} title="Arrears" />
-      <PageHero look="olive" title="Arrears" subtitle="Rent overdue or part paid, by tenancy — “in arrears since” is the due date of the oldest unpaid rent"
+      <PageHero look="olive" title="Rent owed" subtitle="Arrears: rent overdue or part paid, by tenancy — “in arrears since” is the due date of the oldest unpaid rent"
         stats={[
           { label: `Owed · ${totals.tenants} tenanc${totals.tenants === 1 ? 'y' : 'ies'}`, value: gbp(totals.owed), tone: totals.owed > 0 ? 'bad' : undefined },
           { label: '3+ months (Ground 8)', value: totals.legal, tone: totals.legal ? 'bad' : undefined },
           { label: '2+ months — act now', value: totals.approaching, tone: totals.approaching ? 'warn' : undefined },
           { label: 'Under 2 months', value: totals.tenants - totals.legal - totals.approaching },
         ]}
-        tabs={financeTabs('arrears')} />
+        tabs={rentOwedTabs('arrears')} />
       <div className="mx-auto max-w-6xl px-lg py-xl space-y-lg">
         <RentTimingPanel />
         {totals.legal > 0 && (

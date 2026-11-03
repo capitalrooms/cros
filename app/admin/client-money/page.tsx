@@ -5,7 +5,7 @@
 import { Fragment, useCallback, useEffect, useState } from 'react'
 import AppBar from '@/components/AppBar'
 import PageHero from '@/components/PageHero'
-import { financeTabs } from '@/lib/financeTabs'
+import { financeTabs, clientMoneyTabs } from '@/lib/financeTabs'
 import BackButton from '@/app/components/BackButton'
 import { adminFetch, downloadPdf } from '@/lib/adminFetch'
 import ExportButtons from '@/app/components/ExportButtons'
@@ -75,7 +75,7 @@ export default function ClientMoneyPage() {
     <div className="min-h-screen fin">
       <AppBar left={<BackButton href="/admin" label="Dashboard" />} title="Client money" />
       <PageHero look="olive" title="Client money" subtitle={<>What the client account (20-18-93 · 4016 2574) holds for each landlord{data ? `, from ${d(data.start)}` : ''} — no landlord’s balance should ever go below zero</>}
-        tabs={financeTabs('client-money')} />
+        tabs={clientMoneyTabs('client')} />
       <div className="mx-auto max-w-6xl px-lg py-xl space-y-lg">
         {data?.setupNeeded && <p className="rounded-xl border border-amber-200 bg-amber-50 px-md py-sm text-sm text-amber-900">{data.setupNeeded}</p>}
         {error && <p className="rounded-xl bg-red-50 px-md py-sm text-sm text-red-700">{error}</p>}

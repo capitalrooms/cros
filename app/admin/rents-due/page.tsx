@@ -15,6 +15,8 @@ import { getCurrentUser } from '@/lib/auth'
 import { isOfficeRole } from '@/lib/access/areas'
 import { adminFetch } from '@/lib/adminFetch'
 import AppBar from '@/components/AppBar'
+import PageHero from '@/components/PageHero'
+import { rentOwedTabs } from '@/lib/financeTabs'
 import HeroMonthPicker from '@/components/HeroMonthPicker'
 import BackButton from '@/app/components/BackButton'
 import { C, display, PageHead, Pill } from '@/app/components/financeLook'
@@ -70,10 +72,11 @@ function RentsDue({ initialMonth }: { initialMonth?: string }) {
   }
 
   return (
-    <div className={`min-h-screen ${C.ground}`}>
-      <AppBar left={<BackButton href={`/admin/finance?month=${month}`} label="Agency accounts" />} title="Rents due" />
+    <div className="min-h-screen fin">
+      <AppBar left={<BackButton href={`/admin/finance?month=${month}`} label="Agency accounts" />} title="Rent owed" />
+      <PageHero look="olive" title="Rent owed" subtitle="Rents due: every active tenancy whose rent isn’t fully in this month" tabs={rentOwedTabs('due')} />
       <div className="mx-auto max-w-6xl px-lg py-xl">
-        <PageHead eyebrow="Every active tenancy whose rent isn’t fully in" title="Rents due" right={
+        <PageHead eyebrow="" title="" right={
           <div className="flex flex-wrap items-center gap-sm">
             <span className="inline-flex rounded-full bg-[#4A5320] px-sm py-[2px]"><HeroMonthPicker month={month} onChange={go} /></span>
             {collects && <Pill tone="mustard" href={`/admin/rent-chase${chosen.length ? `?only=${chosen.join(',')}` : ''}`}>{chosen.length ? `Chase ${chosen.length} selected` : 'Chase'}</Pill>}
