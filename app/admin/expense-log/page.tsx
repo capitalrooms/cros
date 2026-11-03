@@ -17,6 +17,7 @@ import { isOfficeRole } from '@/lib/access/areas'
 import { useRouter } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase'
+import SidePanel, { PanelRow, PanelButton } from '@/app/components/SidePanel'
 import { adminFetch } from '@/lib/adminFetch'
 import AppBar from '@/components/AppBar'
 import PageHero, { HeroButton } from '@/components/PageHero'
@@ -50,6 +51,7 @@ const EMPTY_FORM = { property_id: '', room_id: '', description: '', supplier: ''
 const HOW: Record<string, string> = { card: 'card', bank_transfer: 'bank transfer', cash: 'cash', direct_debit: 'direct debit' }
 
 export default function ExpensesPage() {
+  const [openRow, setOpenRow] = useState<Row | null>(null)
   const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [rows, setRows] = useState<Row[]>([])
@@ -300,6 +302,25 @@ export default function ExpensesPage() {
                 rows={exportRows(filtered)} totals={{ description: 'Total', amount: filteredTotal }} />
             </div>
 
+            <SidePanel open={!!openRow} onClose={() => setOpenRow(null)} eyebrow={openRow ? firstLine(openRow.property) : ''} title={openRow ? (openRow.reference ?? (openRow.kind === 'statement' ? 'From an imported statement' : 'Expense')) : ''}
+              footer={openRow && <div className="flex flex-wrap gap-sm">
+                {openRow.has_invoice && <PanelButton onClick={() => openInvoice(openRow)}>Open the invoice</PanelButton>}
+                {openRow.kind === 'logged' && !openRow.voided && <PanelButton second onClick={() => { const r = openRow; setOpenRow(null); voidExpense(r) }}>Void…</PanelButton>}
+              </div>}>
+              {openRow && <>
+                <p className="mb-sm text-[15px] font-semibold">{openRow.description}</p>
+                <PanelRow label="Amount" value={gbp(openRow.amount)} />
+                <PanelRow label="Dated" value={ukDate(openRow.date)} />
+                {openRow.room_label && <PanelRow label="Room" value={openRow.room_label} />}
+                {openRow.category && <PanelRow label="Category" value={categoryLabel(openRow.category)} />}
+                {openRow.supplier && <PanelRow label="Supplier" value={`${openRow.supplier}${openRow.invoice_number ? ` · inv ${openRow.invoice_number}` : ''}`} />}
+                {openRow.paid_on && <PanelRow label="Paid to supplier" value={`${ukDate(openRow.paid_on)}${openRow.paid_how ? ` · ${HOW[openRow.paid_how] ?? openRow.paid_how}` : ''}${openRow.paid_ref ? ` · ${openRow.paid_ref}` : ''}`} />}
+                <PanelRow label="Landlord statement" value={openRow.statement ?? (openRow.comes_off ? `Due ${monthName(openRow.comes_off)}` : 'Not yet on one')} tone={openRow.statement ? undefined : 'warn'} />
+                {openRow.deducted_on && <PanelRow label="Taken from landlord" value={ukDate(openRow.deducted_on)} />}
+                {openRow.reimbursed_on && <PanelRow label="Back to operations account" value={`${ukDate(openRow.reimbursed_on)}${openRow.transfer_no ? ` · ${openRow.transfer_no}` : ''}`} tone="good" />}
+                {openRow.voided && <PanelRow label="Void" value={openRow.void_reason ?? 'Yes'} tone="warn" />}
+              </>}
+            </SidePanel>
             <div className="overflow-x-auto rounded-2xl border border-neutral-200 bg-white">
               <table className="min-w-full text-sm">
                 <thead className="bg-neutral-900 text-left text-xs font-bold text-white">
@@ -307,7 +328,7 @@ export default function ExpensesPage() {
                 </thead>
                 <tbody className="divide-y divide-neutral-100">
                   {filtered.map(r => (
-                    <tr key={r.kind + r.id} className={r.voided ? 'text-neutral-400 line-through' : 'text-neutral-900'}>
+                    <tr key={r.kind + r.id} onClick={() => setOpenRow(r)} className={`cursor-pointer hover:bg-neutral-50 ${openRow?.id === r.id && openRow?.kind === r.kind ? 'bg-neutral-100' : ''} ${r.voided ? 'text-neutral-400 line-through' : 'text-neutral-900'}`}>
                       <td className="whitespace-nowrap px-md py-sm font-mono text-xs">{r.reference ?? (r.kind === 'statement' ? 'imported' : '')}</td>
                       <td className="whitespace-nowrap px-md py-sm">{ukDate(r.date)}</td>
                       <td className="px-md py-sm">{firstLine(r.property)}</td>
@@ -315,7 +336,7 @@ export default function ExpensesPage() {
                       <td className="px-md py-sm">{r.supplier ?? ''}{r.invoice_number ? <span className="block text-xs text-neutral-500">inv {r.invoice_number}</span> : null}</td>
                       <td className="whitespace-nowrap px-md py-sm text-right tabular-nums">{gbp(r.amount)}</td>
                       <td className="whitespace-nowrap px-md py-sm text-xs">{r.statement ?? (r.comes_off ? <span className="text-amber-700">Due {monthName(r.comes_off)}</span> : '')}</td>
-                      <td className="whitespace-nowrap px-md py-sm text-xs">{r.has_invoice && <button onClick={() => openInvoice(r)} className="font-semibold text-indigo-700 underline">Invoice</button>}</td>
+                      <td className="whitespace-nowrap px-md py-sm text-xs">{r.has_invoice && <button onClick={e => { e.stopPropagation(); openInvoice(r) }} className="font-semibold text-indigo-700 underline">Invoice</button>}</td>
                     </tr>
                   ))}
                   {!filtered.length && <tr><td colSpan={8} className="px-md py-xl text-center text-sm text-neutral-500">No expenses match these filters.</td></tr>}
