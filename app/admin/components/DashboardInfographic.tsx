@@ -20,7 +20,7 @@ export interface DashboardData {
   voids: { avgDaysToRelet: number | null; checks: number; windows: Record<string, { rate: number; lost: number; emptyDays: number; fullyOnRecord: number; rooms: number; byLandlord: { name: string; rate: number; lost: number; rooms: number }[] }> } | null
 }
 
-const INK = '#23261A', CREAM = '#F6F3EC', LET = '#2F6B4F', NOTICE = '#E8A33A', EMPTY = '#6E95D2', RED = '#C8372D'
+const INK = '#132219', CREAM = '#F6F3EC', LET = '#2F6B4F', NOTICE = '#E8A33A', EMPTY = '#6E95D2', RED = '#C8372D'
 const gbp0 = (n: number) => `£${Math.round(n).toLocaleString('en-GB')}`
 const gbp2 = (n: number) => `£${n.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 const day = (iso: string | null) => iso ? new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', timeZone: 'UTC' }) : '—'
