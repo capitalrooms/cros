@@ -204,7 +204,7 @@ export async function GET(req: Request) {
   // Safety net (3 Nov 2026): November's rents were never raised — the 1st-of-month job didn't run. Every morning make
   // sure this month's charges exist. Idempotent: anything already raised is skipped, so on a normal month it adds nothing.
   const now = new Date()
-  const charges = await import('@/lib/rentCharges/generate')
+  const charges = !(await import('@/lib/finance/mode')).CROS_COLLECTS_RENT ? { skipped: 'replication mode — rent collected in the other system' } : await import('@/lib/rentCharges/generate')
     .then(m => m.generateMonthCharges(supabase as any, `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}-01`))
     .catch(e => ({ error: e instanceof Error ? e.message : 'failed' }))
   if ('created' in charges && charges.created) console.warn('[nudge] raised rent charges the monthly job missed:', JSON.stringify(charges))

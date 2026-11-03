@@ -20,6 +20,7 @@ import BackButton from '@/app/components/BackButton'
 import { C, display, Pill, type Tone } from '@/app/components/financeLook'
 
 interface Dash {
+  collectsRent: boolean
   ready: { count: number; total: number; items: { id: string; name: string; landlord: string; amount: number; part: boolean }[]; letOnly: { tenancyId: string; name: string; landlord: string; tenant: string; start: string; amount: number; step: 'pay' | 'record' }[] }
   due: { count: number; total: number; waitingHouses: number; notRaised: number; items: { property: string; propertyId: string; room: string; tenant: string; tenancyId: string | null; owed: number; status: string; received: number; ends: string | null }[]; paid: number }
   expenses: { count: number; total: number; houses: { propertyId: string; house: string; count: number; total: number }[] }
@@ -80,6 +81,7 @@ function FinanceHomeScreen({ initialMonth }: { initialMonth?: string }) {
             </Link>
           </div>
         </div>
+        {d && !d.collectsRent && <p className={`mb-md rounded-2xl px-lg py-md text-sm ${C.paper}`}><b>Statements only.</b> Rent is collected in your other system; CROS mirrors the statements you add. Nothing here raises, chases or pays rent until you switch CROS to collecting rent.</p>}
         {error && <p className="mb-md rounded-2xl bg-red-50 px-lg py-md text-sm text-red-700">{error}</p>}
 
         <div className="grid items-start gap-md md:grid-cols-2 lg:grid-cols-3">
@@ -97,8 +99,8 @@ function FinanceHomeScreen({ initialMonth }: { initialMonth?: string }) {
             </Tile>
 
             <Tile id="due" open={open} setOpen={setOpen} tone="mustard"
-              title="Rents due" big={String(d.due.count)} sub={d.due.count ? `${gbp(d.due.total)} outstanding${d.due.notRaised ? ` · ${d.due.notRaised} not raised yet` : ''}` : 'Every rent is in'}
-              actions={[{ label: 'Rents due', href: `/admin/rents-due${q}` }, ...(d.due.count ? [{ label: 'Chase', href: '/admin/rent-chase' }] : []), ...(d.due.notRaised ? [{ label: `Raise ${d.due.notRaised} rents`, href: '/admin/rent-charges' }] : [])]}>
+              title="Rents due" big={String(d.due.count)} sub={!d.collectsRent ? 'Collected in your other system — shown for checking only' : d.due.count ? `${gbp(d.due.total)} outstanding${d.due.notRaised ? ` · ${d.due.notRaised} not raised yet` : ''}` : 'Every rent is in'}
+              actions={[{ label: 'Rents due', href: `/admin/rents-due${q}` }, ...(d.collectsRent && d.due.count ? [{ label: 'Chase', href: '/admin/rent-chase' }] : []), ...(d.collectsRent && d.due.notRaised ? [{ label: `Raise ${d.due.notRaised} rents`, href: '/admin/rent-charges' }] : [])]}>
               {d.due.items.map((r, i) => (
                 <Row key={i} href={r.tenancyId ? `/admin/lettings/${r.tenancyId}?tab=money` : `/admin/rents-due${q}`} left={r.tenant || r.room} sub={`${r.room}, ${r.property}${r.status === 'no_charge' ? ' · not raised' : ''}`} right={gbp(r.owed)} />
               ))}
