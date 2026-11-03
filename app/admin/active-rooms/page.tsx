@@ -239,7 +239,7 @@ export default function AllUnitsPage() {
         ) : shownHouses.map(h => (
           <article key={h.id} className="overflow-hidden rounded-2xl border border-neutral-200 bg-white">
             <header className="flex flex-wrap items-center gap-x-lg gap-y-sm border-b border-neutral-100 px-lg py-md">
-              {h.code && <span className="rounded-md bg-[#181614] px-2 py-0.5 font-mono text-[11px] font-bold text-[#F6F3EC]">{h.code}</span>}
+              {h.code && <span className="rounded-md bg-[#23261A] px-2 py-0.5 font-mono text-[11px] font-bold text-[#F6F3EC]">{h.code}</span>}
               <div className="min-w-0 flex-1 basis-60">
                 <Link href={`/admin/properties/${h.id}`} className="text-lg font-bold text-neutral-900 hover:underline" style={{ fontFamily: 'var(--font-baloo-2, system-ui, sans-serif)' }}>{h.name}</Link>
                 {h.demo && <span className="ml-sm rounded-full bg-amber-100 px-sm py-0.5 text-[11px] font-bold text-amber-900">Practice house</span>}
@@ -247,7 +247,7 @@ export default function AllUnitsPage() {
               </div>
               <div className="flex flex-wrap items-center gap-sm text-xs">
                 <span className="text-neutral-700"><b>{h.let}/{h.rows.length}</b> let</span>
-                {h.letOnly ? <span className="rounded-full bg-[#181614] px-sm py-0.5 font-bold text-[#F6F3EC]">Let only</span> : <>
+                {h.letOnly ? <span className="rounded-full bg-[#23261A] px-sm py-0.5 font-bold text-[#F6F3EC]">Let only</span> : <>
                 <span className="rounded-full bg-neutral-100 px-sm py-0.5 font-semibold text-neutral-800" title="Rent of the tenants living there now">Rent {gbp(h.rentMonth)}/mo</span>
                 <span className="rounded-full bg-neutral-100 px-sm py-0.5 font-semibold text-neutral-800" title="Management fee on those rents">Fee {gbp(h.feeMonth)}/mo</span>
                 {h.fullRent > h.rentMonth + 0.5 && <span className="text-neutral-500" title="With the empty rooms let at their asking (or last) rent">{gbp(h.fullRent)} when full</span>}</>}

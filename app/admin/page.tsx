@@ -105,7 +105,7 @@ function usePhone() {
 
 export default function AdminDashboardWithBoundary() {
   const phone = usePhone()
-  if (phone === null) return <div className="min-h-[220px] bg-[#181614]" />
+  if (phone === null) return <div className="min-h-[220px] bg-[#4A5320]" />
   return (
     <AdminErrorBoundary>
       {phone ? <MobileToday /> : <AdminDashboard />}
