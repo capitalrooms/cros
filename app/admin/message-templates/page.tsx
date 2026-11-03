@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import AppBar from '@/components/AppBar'
 import PageHero from '@/components/PageHero'
+import { messageTabs } from '@/lib/messageTabs'
 import BackButton from '@/app/components/BackButton'
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
 import { createClient } from '@/lib/supabase'
@@ -598,7 +599,7 @@ export default function MessageTemplatesPage() {
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar left={<BackButton href="/admin" label="Dashboard" />} />
-      <PageHero title="Message Templates" subtitle={<>Every automated message the system sends — grouped by purpose. Templates marked <strong>✏️ Editable</strong> can be changed here; changes take effect on the next send without a code deploy.</>} />
+      <PageHero title="Messages" tabs={messageTabs('templates')} subtitle={<>Templates: Every automated message the system sends — grouped by purpose. Templates marked <strong>✏️ Editable</strong> can be changed here; changes take effect on the next send without a code deploy.</>} />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
 

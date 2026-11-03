@@ -7,6 +7,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { createClient } from '@/lib/supabase';
 import AppBar from '@/components/AppBar'
 import PageHero from '@/components/PageHero'
+import { messageTabs } from '@/lib/messageTabs'
 import BackButton from '@/app/components/BackButton';
 import Link from 'next/link';
 import { AcknowledgmentNoteSchema, validateInput } from '@/lib/validation-schemas';
@@ -233,7 +234,7 @@ export default function AcknowledgmentNotesPage() {
           </Link>
         }
       />
-      <PageHero title="Acknowledgments" subtitle={<>Notes that require active tenant confirmation. Auto-files after 7 days if unacknowledged.</>} />
+      <PageHero title="Messages" tabs={messageTabs('ack')} subtitle={<>Acknowledgments: Notes that require active tenant confirmation. Auto-files after 7 days if unacknowledged.</>} />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
         <div className="flex items-center justify-between mb-lg">

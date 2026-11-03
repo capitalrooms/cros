@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import AppBar from '@/components/AppBar'
 import PageHero from '@/components/PageHero'
+import { messageTabs } from '@/lib/messageTabs'
 import BackButton from '@/app/components/BackButton'
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
@@ -86,7 +87,7 @@ export default function CommunicationsHubPage() {
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar left={<BackButton href="/admin" label="Dashboard" />} />
-      <PageHero title="All Messages" subtitle={<>Every message, every channel, one filterable place.</>} />
+      <PageHero title="Messages" subtitle={<>All messages: every message, every channel, one filterable place.</>} tabs={messageTabs('all')} />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
         <div className="mb-lg text-center">
