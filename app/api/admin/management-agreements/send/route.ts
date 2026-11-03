@@ -32,6 +32,7 @@ export async function GET(req: NextRequest) {
   if (!(await requireStaff(req))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const s = createServiceClient()
   const id = req.nextUrl.searchParams.get('id')
+  if (!id || !/^[0-9a-f-]{36}$/i.test(id)) return NextResponse.json({ error: 'Which agreement?' }, { status: 400 })
   const { data: a, error } = await s.from('management_agreements').select('*').eq('id', id ?? '').is('deleted_at', null).maybeSingle()
   if (error) return NextResponse.json({ error: /review_/.test(error.message) ? 'Needs migration 253 running in Supabase.' : error.message }, { status: 500 })
   if (!a) return NextResponse.json({ error: 'Agreement not found' }, { status: 404 })

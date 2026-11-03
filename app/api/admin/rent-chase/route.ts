@@ -25,6 +25,8 @@ export async function GET(req: NextRequest) {
   if (!(await requireStaff(req))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const s = createServiceClient()
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
+  // statements only: nothing can be chased from CROS, so don't spend 15 seconds working out every rent account
+  if (!CROS_COLLECTS_RENT) return NextResponse.json({ rows: [], checked: 0, statementsOnly: true })
   const { data: ts, error } = await s.from('tenancies').select('id, properties!inner(is_demo)').is('let_cancelled_at', null)
     .lte('start_date', today).or(`end_date.is.null,end_date.gte.${today}`)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

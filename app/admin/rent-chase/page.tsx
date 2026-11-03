@@ -19,6 +19,7 @@ const MESSAGES = [['rent-late', 'Friendly reminder'], ['rent-late-2', 'Second re
 export default function RentChasePage() {
   const [rows, setRows] = useState<Row[] | null>(null)
   const [checked, setChecked] = useState(0)
+  const [statementsOnly, setStatementsOnly] = useState(false)
   const [error, setError] = useState('')
   const [tick, setTick] = useState<Record<string, boolean>>({})
   const [amount, setAmount] = useState<Record<string, string>>({})
@@ -33,7 +34,7 @@ export default function RentChasePage() {
     adminFetch('/api/admin/rent-chase').then(async r => {
       const d = await r.json().catch(() => ({}))
       if (!r.ok) { setError(d.error ?? 'Could not load'); return }
-      setRows(d.rows); setChecked(d.checked)
+      setRows(d.rows); setChecked(d.checked); setStatementsOnly(!!d.statementsOnly)
       // ?only=id,id from Rents due ("Chase selected"): tick just those
       const only = new URLSearchParams(window.location.search).get('only')?.split(',').filter(Boolean)
       setTick(Object.fromEntries(d.rows.map((x: Row) => [x.tenancyId, !only?.length || only.includes(x.tenancyId)])))
@@ -73,7 +74,9 @@ export default function RentChasePage() {
         </div>
         {error && <p className="rounded-xl bg-red-50 px-md py-sm text-sm text-red-700">{error}</p>}
         {rows === null && !error && <p className="text-sm text-neutral-500">Checking every rent account…</p>}
-        {rows && rows.length === 0 && <p className="rounded-xl bg-green-50 px-md py-sm text-sm text-green-800">All {checked} current rent accounts are up to date. Nobody to chase.</p>}
+        {rows && rows.length === 0 && (statementsOnly
+          ? <p className="rounded-xl bg-neutral-50 px-md py-sm text-sm text-neutral-700"><b>Statements only.</b> Rent is collected in your other system, so reminders aren’t sent from CROS.</p>
+          : <p className="rounded-xl bg-green-50 px-md py-sm text-sm text-green-800">All {checked} current rent accounts are up to date. Nobody to chase.</p>)}
 
         {rows && rows.length > 0 && (<>
           <div className="overflow-x-auto rounded-2xl border border-neutral-200 bg-white">
