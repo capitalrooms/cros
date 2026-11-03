@@ -69,7 +69,7 @@ function FinanceHomeScreen({ initialMonth }: { initialMonth?: string }) {
       <div className="mx-auto max-w-6xl px-lg py-xl">
         <div className="mb-lg flex flex-wrap items-center justify-between gap-md">
           <div>
-            <HeroMonthPicker month={month} onChange={go} />
+            <span className="inline-flex rounded-full bg-[#4A5320] px-sm py-[2px]"><HeroMonthPicker month={month} onChange={go} /></span>
             <h1 className={`${display.className} mt-xs text-4xl font-extrabold tracking-tight ${C.ink}`}>Agency accounts</h1>
           </div>
           <div className="flex items-center gap-md">
