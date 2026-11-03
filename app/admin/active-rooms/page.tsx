@@ -13,6 +13,7 @@ import { isOfficeRole } from '@/lib/access/areas'
 import { useRouter } from 'next/navigation'
 import AppBar from '@/components/AppBar'
 import PageHero, { HeroButton } from '@/components/PageHero'
+import { propertyTabs } from '@/lib/lettingsTabs'
 import BackButton from '@/app/components/BackButton'
 import Link from 'next/link'
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
@@ -211,6 +212,7 @@ export default function AllUnitsPage() {
           { label: 'Let agreed', value: counts.agreed, tone: 'info', href: '#agreed' },
         ]}
         actions={<HeroButton href="/admin/properties/new" primary>+ Add property</HeroButton>}
+        tabs={propertyTabs('all')}
       />
 
       <main className="mx-auto max-w-6xl px-lg py-xl space-y-lg">
