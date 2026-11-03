@@ -584,11 +584,13 @@ export function MoneyTab({ file }: { file: LettingFile }) {
   const t = file.tenancy
   const acc = file.account
   const [sorting, setSorting] = useState(false)
+  const letOnlyFile = file.property.lettingType === 'let_only' || !!(t as any).rooms?.is_let_only
   return (
     <div className="space-y-md">
       {/* a let-only let's money before move-in: received, fee, landlord paid (migration 231) */}
-      {file.property.lettingType === 'let_only' && <InitialMonies tenancyId={t.id} onChanged={() => window.dispatchEvent(new Event('letting-file-changed'))} />}
-      <section className={card}>
+      {letOnlyFile && <InitialMonies tenancyId={t.id} onChanged={() => window.dispatchEvent(new Event('letting-file-changed'))} />}
+      {/* let only: the tenant pays the landlord after move-in, so there is no rent account here (3 Nov 2026 audit) */}
+      <section className={`${card} ${letOnlyFile ? 'hidden' : ''}`}>
         <div className="flex flex-wrap items-center justify-between gap-sm mb-sm">
           <h2 className="text-lg font-bold">Rent account</h2>
           <span className="flex flex-wrap gap-sm">
@@ -619,7 +621,7 @@ export function MoneyTab({ file }: { file: LettingFile }) {
         <h2 className="text-lg font-bold mb-sm">Deposit</h2>
         <dl className="grid grid-cols-2 gap-sm text-sm sm:grid-cols-3">
           <div><dt className={label}>Amount</dt><dd>{gbp(t.deposit_amount)}{t.deposit_no ? ` · ${t.deposit_no}` : ''}</dd></div>
-          <div><dt className={label}>Protected</dt><dd>{t.deposit_protected_at ? `${day(t.deposit_protected_at)} · ${t.deposit_scheme ?? ''} ${t.deposit_scheme_ref ?? ''}` : t.deposit_protection_assumed ? 'Taken as protected (before CROS)' : 'Not yet'}</dd></div>
+          <div><dt className={label}>Protected</dt><dd>{t.deposit_protected_at ? `${day(t.deposit_protected_at)} · ${t.deposit_scheme ?? ''} ${t.deposit_scheme_ref ?? ''}` : t.deposit_protection_assumed ? 'Taken as protected (before CROS)' : letOnlyFile ? 'Landlord protects (let only)' : 'Not yet'}</dd></div>
           <div><dt className={label}>Prescribed info</dt><dd>{t.prescribed_info_served_at ? day(t.prescribed_info_served_at) : 'Not yet'}</dd></div>
           <DepositMoney file={file} />
           {file.depositReturn && <div className="col-span-2 sm:col-span-3"><dt className={label}>Return</dt><dd>{file.depositReturn.txn_no} · {file.depositReturn.status} · to tenant {gbp(file.depositReturn.to_tenant)}, to landlord {gbp(file.depositReturn.to_landlord)}{file.depositReturn.returned_on ? ` · returned ${day(file.depositReturn.returned_on)}` : ''}</dd></div>}

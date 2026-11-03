@@ -3,6 +3,7 @@
 // POST { action: 'fill_refs' }          give every current tenancy without one its payment reference
 //                                       (house number + street letters + room, e.g. 208ROS05)
 import { endDatesToSort, makeRolling } from '@/lib/tenancy/rolling'
+import { CROS_COLLECTS_RENT } from '@/lib/finance/mode'
 import { depositHolderFor } from '@/lib/tenancy/depositHolder'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
@@ -88,7 +89,9 @@ export async function GET(req: NextRequest) {
   const checks: Check[] = [
     { key: 'refs', title: 'Payment references', ok: !noRef.length, count: noRef.length, detail: 'Each tenancy needs one fixed reference for its rent — it’s how bank payments are matched.',
       items: noRef.slice(0, 50).map(t => ({ label: `${who(t)} · ${where(t)}${t.payment_reference ? ` (now ${t.payment_reference})` : ''} → ${buildPaymentRef(t.properties?.name || '', t.rooms?.name)}` })), fix: { action: 'fill_refs', label: `Fill in or fix ${noRef.length} reference${noRef.length === 1 ? '' : 's'}` } },
-    month < start
+    !CROS_COLLECTS_RENT
+      ? { key: 'charges', title: 'Rent charges', ok: true, count: 0, detail: 'CROS is on statements only — rent is collected in your other system, so no rent charges are raised here.', items: [] }
+      : month < start
       ? { key: 'charges', title: 'Rent charges', ok: true, count: 0, detail: `CROS starts collecting rent on ${startLabel}. Charges are raised automatically that morning, and on the 1st of every month after.`, items: [] }
       : { key: 'charges', title: `Rent charges for ${new Date(month + 'T12:00:00').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}`, ok: !unbilled.length, count: unbilled.length, detail: 'They’re raised automatically on the 1st. Tenancies below have no charge for this month yet.',
         items: unbilled.slice(0, 50).map(t => ({ label: `${who(t)} · ${where(t)}` })), fix: { href: '/admin/rent-charges', label: 'Raise charges' } },

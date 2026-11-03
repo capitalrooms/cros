@@ -14,13 +14,14 @@ import SchemeDetails from './SchemeDetails'
 interface Row {
   tenancyId: string; tenant: string; room: string; property: string; startDate: string | null; rent: number; deposit: number; cap: number; overCap: boolean
   scheme: string | null; schemeRef: string | null; protectedAt: string | null; prescribedInfoAt: string | null; prescribedInfoInPack: string | null
-  deadline: string | null; status: 'overdue' | 'due' | 'no_deposit' | 'protected'
+  deadline: string | null; status: 'overdue' | 'due' | 'no_deposit' | 'protected' | 'landlord'
 }
 const gbp = (n: number) => '£' + n.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const d = (iso: string | null) => iso ? new Date(iso + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : '—'
 const STATUS: Record<Row['status'], [string, string]> = {
   overdue: ['Past 30 days', 'bg-red-100 text-red-800'], due: ['Protect by deadline', 'bg-amber-100 text-amber-900'],
   no_deposit: ['No deposit recorded', 'bg-neutral-100 text-neutral-600'], protected: ['Protected', 'bg-emerald-50 text-emerald-700'],
+  landlord: ['Let only — landlord protects', 'bg-neutral-100 text-neutral-600'],
 }
 const input = 'w-full rounded-lg border border-neutral-300 bg-white px-sm py-xs text-sm text-neutral-900'
 
@@ -97,7 +98,7 @@ export default function DepositsPage() {
         <SchemeDetails onReady={onReady} />
         {rows && (
           <div className="flex flex-wrap gap-sm text-sm">
-            {(['overdue', 'due', 'no_deposit', 'protected'] as const).map(k => <span key={k} className={`rounded-full px-md py-xs font-semibold ${STATUS[k][1]}`}>{STATUS[k][0]}: {counts[k] || 0}</span>)}
+            {(['overdue', 'due', 'no_deposit', 'protected', 'landlord'] as const).map(k => <span key={k} className={`rounded-full px-md py-xs font-semibold ${STATUS[k][1]}`}>{STATUS[k][0]}: {counts[k] || 0}</span>)}
           </div>
         )}
         {!rows ? <p className="text-sm text-neutral-400">Loading…</p> : (
