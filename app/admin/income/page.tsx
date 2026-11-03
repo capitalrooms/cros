@@ -422,12 +422,6 @@ export default function IncomeDashboard() {
             >
               Import Statements →
             </Link>
-            <Link
-              href="/admin/accounts"
-              className="rounded-xl border border-neutral-300 px-lg py-sm text-sm font-semibold text-neutral-700 hover:bg-neutral-50"
-            >
-              Accounts Hub →
-            </Link>
           </div>
         </div>
 
