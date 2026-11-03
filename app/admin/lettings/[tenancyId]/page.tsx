@@ -42,7 +42,12 @@ export default function LettingFilePage({ params, searchParams }: { params: Prom
 function LettingFileScreen({ tenancyId, from, initialTab, done, mark }: { tenancyId: string; from: string; initialTab?: Tab; done?: string; mark?: boolean }) {
   const [file, setFile] = useState<LettingFile | null>(null)
   const [error, setError] = useState('')
-  const [tab, setTab] = useState<Tab | null>(initialTab ?? null)
+  const [tab, setTabState] = useState<Tab | null>(initialTab ?? null)
+  // the tab is kept in the address, so Back from a page opened here returns to the same tab (rebuild, 3 Nov 2026)
+  const setTab = useCallback((k: Tab) => {
+    setTabState(k)
+    try { const u = new URL(window.location.href); u.searchParams.set('tab', k); u.searchParams.delete('mark'); window.history.replaceState(window.history.state, '', u.pathname + u.search) } catch {}
+  }, [])
   const [step, setStep] = useState<StepId | null>(null)
   const [banner, setBanner] = useState(done ?? '')
   const [notify, setNotify] = useState(false)
