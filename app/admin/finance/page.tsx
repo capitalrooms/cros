@@ -122,9 +122,9 @@ function FinanceHomeScreen({ initialMonth }: { initialMonth?: string }) {
               ))}
             </Tile>
 
-            <Tile id="imp" open={open} setOpen={setOpen} tone="paper" warn={behind == null || behind > 1}
+            <Tile id="imp" open={open} setOpen={setOpen} tone="paper" warn={d.collectsRent && (behind == null || behind > 1)}
               title="Import diary" big={d.imports.coveredTo ? short(d.imports.coveredTo) : 'None'}
-              sub={d.imports.last ? `Covered to here · last import ${when(d.imports.last.at)}${behind ? ` · ${behind} day${behind === 1 ? '' : 's'} not imported` : ''}` : 'No bank statement imported yet'}
+              sub={!d.imports.last && !d.collectsRent ? 'No bank statement imported — not needed while CROS is on statements only' : d.imports.last ? `Covered to here · last import ${when(d.imports.last.at)}${behind ? ` · ${behind} day${behind === 1 ? '' : 's'} not imported` : ''}` : 'No bank statement imported yet'}
               actions={[{ label: 'Bank calendar', href: '/admin/bank-calendar' }, { label: 'Import', href: '/admin/bank-import' }]} />
 
             <Tile id="cl" open={open} setOpen={setOpen} tone="paper" warn={!!d.client && !d.client.agrees}

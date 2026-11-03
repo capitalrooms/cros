@@ -201,6 +201,12 @@ export async function sendToTenancy(f: TenancyFacts, o: { subject: string; email
 export const unfilled = (...texts: string[]) => [...new Set(texts.join('\n').match(/\[[^\]\n]{2,60}\]/g) ?? [])]
 
 /** The morning job: send every scheduled tenant message due today or earlier (migration 256). */
+/** Messages that state rent figures (owed, received, overpaid). While CROS is on statements only (lib/finance/mode) it
+ *  doesn't hold those figures, so these aren't sent from CROS. "How to pay" carries no figures and still goes. */
+export const RENT_FIGURE_MESSAGES = new Set(['rent-due', 'rent-late', 'rent-late-2', 'rent-received', 'overpaid'])
+export const statesRentFigures = (idOrName: string | null | undefined) =>
+  !!idOrName && (RENT_FIGURE_MESSAGES.has(idOrName) || QUICK_MESSAGES.some(m => RENT_FIGURE_MESSAGES.has(m.id) && m.name === idOrName))
+
 export async function sendScheduledMessages(s: SupabaseClient): Promise<number> {
   const { getElectedCommsLive } = await import('@/lib/comms')
   if (!(await getElectedCommsLive())) return 0
@@ -212,6 +218,7 @@ export async function sendScheduledMessages(s: SupabaseClient): Promise<number> 
     // claim it first, so a second run can't send it twice
     const { data: claimed } = await s.from('scheduled_tenant_messages').update({ sent_at: new Date().toISOString() }).eq('id', m.id).is('sent_at', null).select('id')
     if (!claimed?.length) continue
+    if (statesRentFigures(m.name) && !(await import('@/lib/finance/mode')).CROS_COLLECTS_RENT) { await s.from('scheduled_tenant_messages').update({ result: { skipped: 'statements only — rent figures not sent from CROS' } }).eq('id', m.id); continue }
     const f = await tenancyFacts(s, m.tenancy_id).catch(() => null)
     if (!f) { await s.from('scheduled_tenant_messages').update({ result: { error: 'tenancy not found' } }).eq('id', m.id); continue }
     const result = await sendToTenancy(f, { subject: m.subject, email: m.email, sms: m.sms, channels: m.channels })

@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireStaff } from '@/lib/portalAuth'
 import { createServiceClient } from '@/lib/supabase'
 import { getElectedCommsLive } from '@/lib/comms'
+import { CROS_COLLECTS_RENT } from '@/lib/finance/mode'
 import { QUICK_MESSAGES, sendToTenancy, tenancyFacts, unfilled, fillMessage, type Channel, type TenancyFacts } from '@/lib/tenancy/quickMessages'
 
 export const runtime = 'nodejs'
@@ -39,6 +40,8 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   if (!(await requireStaff(req))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   if (!(await getElectedCommsLive())) return NextResponse.json({ error: 'Messages you send are switched off in Settings. Nothing was sent.' }, { status: 409 })
+  // statements-only mode: CROS doesn't hold the rent figures, so it mustn't tell tenants what they owe (lib/finance/mode)
+  if (!CROS_COLLECTS_RENT) return NextResponse.json({ error: 'CROS is on statements only — rent is collected in your other system, so rent reminders aren’t sent from here. Nothing was sent.' }, { status: 409 })
   const b = await req.json().catch(() => ({}))
   const msg = QUICK_MESSAGES.find(m => m.id === b.messageId && m.group === 'Rent')
   if (!msg) return NextResponse.json({ error: 'Choose which reminder to send' }, { status: 400 })

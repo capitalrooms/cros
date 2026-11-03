@@ -52,7 +52,7 @@ export default function TenantMessages({ tenancyId }: { tenancyId: string }) {
     const who = facts.tenants.map(t => t.name).join(' & ')
     if (!window.confirm(`Send “${open.name}” to ${who} by ${channels.map(c => c === 'sms' ? 'text' : c === 'push' ? 'app' : 'email').join(', ')}?`)) return
     setSending(true); setResult('')
-    const r = await adminFetch('/api/admin/tenancy-messages', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tenancyId, subject, email, sms, channels, name: open.name, sendAgainOn: again || undefined, onlyLater: onlyLater && !!again }) })
+    const r = await adminFetch('/api/admin/tenancy-messages', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tenancyId, subject, email, sms, channels, messageId: open.id, name: open.name, sendAgainOn: again || undefined, onlyLater: onlyLater && !!again }) })
     const d = await r.json().catch(() => ({}))
     setSending(false)
     if (!r.ok) { setResult(d.error ?? 'Not sent'); return }

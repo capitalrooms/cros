@@ -7,7 +7,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireStaff } from '@/lib/portalAuth'
 import { createServiceClient } from '@/lib/supabase'
 import { getElectedCommsLive } from '@/lib/comms'
-import { QUICK_MESSAGES, fillMessage, sendToTenancy, tenancyFacts, unfilled, type Channel } from '@/lib/tenancy/quickMessages'
+import { QUICK_MESSAGES, fillMessage, sendToTenancy, tenancyFacts, unfilled, type Channel, statesRentFigures } from '@/lib/tenancy/quickMessages'
+import { CROS_COLLECTS_RENT } from '@/lib/finance/mode'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -30,6 +31,7 @@ export async function POST(req: NextRequest) {
   if (!(await requireStaff(req))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   if (!(await getElectedCommsLive())) return NextResponse.json({ error: 'Messages you send are switched off in Settings. Nothing was sent.' }, { status: 409 })
   const b = await req.json().catch(() => ({}))
+  if (!CROS_COLLECTS_RENT && (statesRentFigures(b.messageId) || statesRentFigures(b.name))) return NextResponse.json({ error: 'CROS is on statements only — rent is collected in your other system, so messages about rent owed or received aren’t sent from here. Nothing was sent.' }, { status: 409 })
   const channels = (Array.isArray(b.channels) ? b.channels : []).filter((c: string) => ['email', 'sms', 'push'].includes(c)) as Channel[]
   if (!channels.length) return NextResponse.json({ error: 'Choose email, text or app notification' }, { status: 400 })
   const subject = String(b.subject ?? '').trim(), email = String(b.email ?? '').trim(), sms = String(b.sms ?? '').trim()
