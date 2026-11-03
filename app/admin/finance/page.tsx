@@ -129,7 +129,7 @@ function FinanceHomeScreen({ initialMonth }: { initialMonth?: string }) {
 
             <Tile id="cl" open={open} setOpen={setOpen} tone="paper" warn={!!d.client && !d.client.agrees}
               title="Client account & income" big={gbp(d.client?.held)} sub={d.client ? (d.client.agrees ? 'Ledgers agree' : 'Ledgers don’t agree — check') : ''}
-              actions={[{ label: 'Reconcile', href: '/admin/client-money' }, { label: 'Fees', href: '/admin/reports/fees' }]} />
+              actions={[{ label: 'Reconcile', href: '/admin/client-money' }, { label: 'Income', href: '/admin/income' }]} />
           </>}
         </div>
       </div>
@@ -139,6 +139,7 @@ function FinanceHomeScreen({ initialMonth }: { initialMonth?: string }) {
 
 // Everything else in finance, alphabetical (Harry: menus always alphabetical), so no screen is more than two clicks away
 const MORE = [
+  ['Income', '/admin/income'],
   ['Arrears letters', '/admin/arrears'], ['Bank', '/admin/bank-calendar'], ['Cashbook', '/admin/reports/cashbook'], ['Deposits', '/admin/deposits'],
   ['Expenses report', '/admin/reports/expenses'], ['Finance health check', '/admin/finance-check'], ['Landlord income', '/admin/reports/landlord-income'],
   ['Making Tax Digital', '/admin/reports/mtd'], ['Rent analysis', '/admin/reports/rent-analysis'],

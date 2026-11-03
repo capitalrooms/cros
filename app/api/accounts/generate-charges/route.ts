@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { requireAdmin } from '@/lib/adminAuth'
+import { CROS_COLLECTS_RENT } from '@/lib/finance/mode'
 import { generateMonthCharges, ensureTenancyCharge } from '@/lib/rentCharges/generate'
 
 export const runtime = 'nodejs'
@@ -51,6 +52,8 @@ export async function POST(req: NextRequest) {
 
   // Bulk mode: every tenancy running this month (part months pro-rata; demo houses excluded) — shared with the cron
   try {
+    // statements-only mode (lib/finance/mode): rent is collected in the other system, so only practice charges can be raised
+    if (!CROS_COLLECTS_RENT && body.practice !== true) return NextResponse.json({ error: 'CROS is on statements only — rent is collected in your other system, so rent charges aren’t raised here. Practice mode still works.' }, { status: 409 })
     const result = await generateMonthCharges(service, chargeMonth, { practice: body.practice === true })
     return NextResponse.json({ ok: true, ...result })
   } catch (e) {

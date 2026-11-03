@@ -37,5 +37,9 @@ const EXPENSES: [key: string, label: string, href: string][] = [
 export const expenseTabs = (active: 'log' | 'contractor' | 'review' | 'autoledger'): HeroTab[] =>
   EXPENSES.map(([key, label, href]) => ({ label, href, active: key === active }))
 
+// Income is one place (3 Nov 2026): what the agency earns — the monthly dashboard, and the fees report for any dates.
+export const incomeTabs = (active: 'income' | 'fees'): HeroTab[] =>
+  ([['income', 'Agency income', '/admin/income'], ['fees', 'Fees report', '/admin/reports/fees']] as const).map(([key, label, href]) => ({ label, href, active: key === active }))
+
 export const financeTabs = (active: string, month?: string): HeroTab[] =>
   TABS.map(([key, label, href]) => ({ label, href: href(month), active: key === active }))
