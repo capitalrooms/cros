@@ -18,7 +18,8 @@ const TONE: Record<string, string> = { good: 'text-[#6EAF8B]', warn: 'text-[#E8B
 export default function PageHero({ title, subtitle, eyebrow, stats, actions, tabs, look }: {
   title: ReactNode; subtitle?: ReactNode; eyebrow?: ReactNode; stats?: HeroStat[]; actions?: ReactNode; tabs?: HeroTab[]; look?: 'olive'
 }) {
-  const olive = look === 'olive'
+  // every band is olive since the rebuild (3 Nov 2026); look stays accepted so older calls still compile
+  const olive = look === 'olive' || true
   return (
     <section className={olive ? 'bg-[#4A5320] text-[#F3F0E6]' : 'bg-[#181614] text-[#F6F3EC]'}>
       <div className="mx-auto max-w-6xl px-lg pt-lg">

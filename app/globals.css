@@ -226,3 +226,36 @@ button:disabled {
 
 /* the role apps on a computer (26 Oct 2026): the side rail carries the logo, so the top bar beside it doesn't repeat it */
 @media (min-width: 1024px) { .cr-shell .cr-topbar-logo { visibility: hidden; } }
+
+/* ─── The office look (rebuild A+B, 3 Nov 2026) ───────────────────────────────────────────────────────────────────
+   Every office screen sits inside .office (app/admin/layout). The greys every page already uses become olive-warm
+   neutrals on a cream ground, cards become paper, links olive — one look across all screens without touching what
+   each screen does. The band at the top of each page is PageHero (olive); the rail and top bar are the dark ink. */
+.office {
+  --n-50: 250 248 241;
+  --n-100: 243 240 230;
+  --n-200: 226 221 201;
+  --n-300: 207 201 178;
+  --n-400: 163 160 138;
+  --n-500: 107 106 85;
+  --n-600: 85 85 63;
+  --n-700: 67 70 48;
+  --n-800: 46 50 32;
+  --n-900: 35 38 26;
+  --n-950: 22 24 15;
+  --cr-ink: #23261A;
+  --cr-ivory: #F3F0E6;
+  --cr-line: #E2DDC9;
+  --cr-muted: #6B6A55;
+  --cr-bar: #23261A;
+  color: #23261A;
+}
+.office main .bg-white { background-color: #FFFDF6; }
+.office main .text-blue-600, .office main .text-blue-700 { color: #4A5320; }
+.office main .hover\:text-blue-800:hover, .office main .hover\:text-blue-900:hover { color: #23261A; }
+.office main .bg-blue-600, .office main .bg-blue-700 { background-color: #4A5320; }
+.office main .hover\:bg-blue-700:hover, .office main .hover\:bg-blue-800:hover { background-color: #3B4219; }
+.office main .border-blue-700 { border-color: #4A5320; }
+.office main .focus\:ring-blue-500:focus, .office main .focus\:border-blue-500:focus { --tw-ring-color: #4A5320; border-color: #4A5320; }
+.office main .rounded-2xl.border.border-neutral-200 { border-color: transparent; box-shadow: 0 1px 0 rgba(35, 38, 26, 0.06); }
+.office :focus-visible { outline: 2px solid #E8B931; outline-offset: 2px; }
