@@ -66,9 +66,14 @@ export async function GET(req: NextRequest) {
     // client-money loose ends (3 Nov 2026 audit): a holding deposit still "held" after the tenant moved in should have
     // gone towards the move-in money; a live deposit with nobody recorded as holding it can't be checked as protected
     const todayL = london(new Date().toISOString())
-    const { data: hds } = await s.from('holding_deposits').select('hold_no, amount, tenancy_id, tenancies(start_date, people!person_id(salutation, first_name, last_name), properties(id, name))').eq('status', 'held')
+    const { data: hds } = await s.from('holding_deposits').select('hold_no, amount, received_on, tenancy_id, tenancies(start_date, agreement_signed_at, people!person_id(salutation, first_name, last_name), properties(id, name))').eq('status', 'held')
     const holdingToApply = ((hds ?? []) as any[]).filter(h => h.tenancy_id && h.tenancies?.start_date && h.tenancies.start_date <= todayL && !demo.has(h.tenancies?.properties?.id))
       .map(h => ({ tenancyId: h.tenancy_id as string, number: h.hold_no as string, amount: Number(h.amount), house: first(h.tenancies?.properties?.name), tenant: [h.tenancies?.people?.salutation, h.tenancies?.people?.first_name, h.tenancies?.people?.last_name].filter(Boolean).join(' '), moved: h.tenancies.start_date as string }))
+    // Tenant Fees Act 2019: 15 days from taking a holding deposit to sign (unless another date was agreed in writing);
+    // past it, with no signed agreement, the deposit is normally refunded within 7 days
+    const day15 = new Date(Date.now() - 15 * 86_400_000).toISOString().slice(0, 10)
+    const holdingPastDeadline = ((hds ?? []) as any[]).filter(h => h.received_on && h.received_on < day15 && !h.tenancies?.agreement_signed_at && !(h.tenancies?.start_date && h.tenancies.start_date <= todayL) && !demo.has(h.tenancies?.properties?.id))
+      .map(h => ({ tenancyId: h.tenancy_id as string | null, number: h.hold_no as string, amount: Number(h.amount), house: first(h.tenancies?.properties?.name), tenant: [h.tenancies?.people?.salutation, h.tenancies?.people?.first_name, h.tenancies?.people?.last_name].filter(Boolean).join(' '), received: h.received_on as string }))
     const { data: deps } = await s.from('tenancies').select('id, deposit_amount, deposit_held_by, end_date, let_cancelled_at, property_id').gt('deposit_amount', 0).is('let_cancelled_at', null).is('deposit_held_by', null).or(`end_date.is.null,end_date.gte.${todayL}`)
     const depositHolderMissing = ((deps ?? []) as any[]).filter(t => !demo.has(t.property_id)).length
 
@@ -104,7 +109,7 @@ export async function GET(req: NextRequest) {
       statements: { items: last },
       imports: { last: lastImport ? { at: lastImport.imported_at, from: lastImport.period_from, to: lastImport.period_to, file: lastImport.filename } : null, coveredTo, daysBehind },
       client: position ? { held: position.cashbook.total, agrees: position.agrees } : null,
-      holdingToApply, depositHolderMissing,
+      holdingToApply, holdingPastDeadline, depositHolderMissing,
     })
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : 'Could not load' }, { status: 500 })

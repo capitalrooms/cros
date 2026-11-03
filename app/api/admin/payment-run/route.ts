@@ -9,6 +9,7 @@
 // POST { action: 'close', month }                          close the run — only when everything is paid and matches
 // practice=1 (GET) / practice: true (POST): the practice run for demo houses (migration 209) — X numbers, no bank details, no bank file
 import { NextRequest, NextResponse } from 'next/server'
+import { bankCoveredTo } from '@/lib/finance/bankCoverage'
 import { createServiceClient } from '@/lib/supabase'
 import { requireAdmin } from '@/lib/adminAuth'
 import { loadPaymentRun, bankFileCsv, ledgerStart } from '@/lib/finance/paymentRun'
@@ -79,6 +80,11 @@ export async function POST(req: NextRequest) {
       if (!p.bank && !practice) return NextResponse.json({ error: `Add bank details for ${p.landlord} first` }, { status: 409 })
       // client money rule: never pay a landlord more than is held for them — no ledger entries means nothing held, and
       // no statement date exempts it (3 Nov 2026 audit: both had let a payment through unchecked)
+      // cleared funds only: the bank must be imported up to the latest statement in this payment (lib/finance/bankCoverage)
+      const latest = p.statements.map(x => x.date ?? '').sort().pop() ?? ''
+      const covered = await bankCoveredTo(s, { practice })
+      if (latest && (!covered || covered < latest))
+        return NextResponse.json({ error: `The bank is only imported up to ${covered ? new Date(covered + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : '— nothing yet'}. Import the bank statement up to ${new Date(latest + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })} first, so ${p.landlord} is only paid from money that has cleared.` }, { status: 409 })
       const heldNow = p.held ?? 0
       if (p.amount > heldNow + 0.005)
         return NextResponse.json({ error: `Only £${heldNow.toFixed(2)} is held for ${p.landlord}; this payment is £${p.amount.toFixed(2)}. Check the rent received and statements first.` }, { status: 409 })
