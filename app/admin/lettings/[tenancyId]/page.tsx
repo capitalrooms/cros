@@ -144,7 +144,8 @@ function LettingFileScreen({ tenancyId, from, initialTab, done, mark }: { tenanc
 
           {/* ── People & shortcuts ── */}
           <aside className="space-y-md">
-            <section className="rounded-2xl border border-neutral-200 bg-white p-md">
+            {/* only when there's someone besides the tenant — the joint tenant, or who's moving out or in */}
+            {(file.jointTenant || file.outgoing || file.incoming) && <section className="rounded-2xl border border-neutral-200 bg-white p-md">
               <h2 className="text-xs font-bold uppercase tracking-wider text-neutral-500 mb-sm">People</h2>
               <ul className="space-y-sm text-sm">
                 <li className="flex items-baseline justify-between gap-sm">
@@ -164,7 +165,7 @@ function LettingFileScreen({ tenancyId, from, initialTab, done, mark }: { tenanc
                   </li>
                 )}
               </ul>
-            </section>
+            </section>}
             {/* Landlord updates — before move-in every step; the first two months the full report; after that only what was sent */}
             {file.stage !== 'fell_through' && <LandlordUpdates tenancyId={tenancyId} phase={
               file.stage === 'let_agreed' ? 'letting'
