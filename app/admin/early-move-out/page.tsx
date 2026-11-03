@@ -7,6 +7,7 @@ import { getCurrentUser } from '@/lib/auth'
 import { displayName } from '@/lib/people'
 import AppBar from '@/components/AppBar'
 import PageHero from '@/components/PageHero'
+import { tenancyTabs } from '@/lib/lettingsTabs'
 import BackButton from '@/app/components/BackButton'
 import Link from 'next/link'
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
@@ -137,8 +138,8 @@ export default function AdminEarlyMoveOutPage() {
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
-      <AppBar left={<BackButton href="/admin" label="Dashboard" />} />
-      <PageHero eyebrow="Lettings" title="Early Move-Out Requests" subtitle="Tenants asking to leave before their 2 months’ notice is up" />
+      <AppBar left={<BackButton href="/admin/lettings" />} title="Tenancies" />
+      <PageHero title="Tenancies" subtitle="Move-out requests: tenants asking to leave before their 2 months’ notice is up" tabs={tenancyTabs('requests')} />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
         <div className="mb-xl flex items-start justify-between gap-md">
