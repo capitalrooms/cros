@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * /admin/finance — Finance home (1 Nov 2026, Harry's sketch "Agency accounts summary"). Six tiles, each one process:
+ * /admin/finance — Finance home, look C olive & mustard (3 Nov 2026) (1 Nov 2026, Harry's sketch "Agency accounts summary"). Six tiles, each one process:
  * Ready to pay · Rents due · Expenses · Last statements · Import diary · Client account. Each shows its count and
  * opens in place to the list behind it, every line a link to the screen that deals with it. Kept minimal.
  * Data: /api/admin/finance-dashboard.
@@ -17,10 +17,11 @@ import { adminFetch } from '@/lib/adminFetch'
 import AppBar from '@/components/AppBar'
 import HeroMonthPicker from '@/components/HeroMonthPicker'
 import BackButton from '@/app/components/BackButton'
+import { C, display, Pill, type Tone } from '@/app/components/financeLook'
 
 interface Dash {
   ready: { count: number; total: number; items: { id: string; name: string; landlord: string; amount: number; part: boolean }[] }
-  due: { count: number; total: number; waitingHouses: number; notRaised: number; items: { property: string; propertyId: string; room: string; tenant: string; tenancyId: string | null; owed: number }[] }
+  due: { count: number; total: number; waitingHouses: number; notRaised: number; items: { property: string; propertyId: string; room: string; tenant: string; tenancyId: string | null; owed: number; status: string; received: number; ends: string | null }[]; paid: number }
   expenses: { count: number; total: number; houses: { propertyId: string; house: string; count: number; total: number }[] }
   statements: { items: { id: string; house: string; landlord: string; reference: string; date: string; net: number; state: string }[] }
   imports: { last: { at: string; from: string; to: string; file: string } | null; coveredTo: string | null; daysBehind: number | null }
@@ -61,36 +62,46 @@ function FinanceHomeScreen({ initialMonth }: { initialMonth?: string }) {
   const q = `?month=${month}`
   const behind = d?.imports.daysBehind
 
+  const held = d?.client?.held
   return (
-    <div className="min-h-screen bg-[#F4F4F2]">
+    <div className={`min-h-screen ${C.ground}`}>
       <AppBar left={<BackButton href="/admin" label="Dashboard" />} title="Finance" />
       <div className="mx-auto max-w-6xl px-lg py-xl">
         <div className="mb-lg flex flex-wrap items-center justify-between gap-md">
-          <h1 className="text-3xl font-black tracking-tight text-neutral-900">Agency accounts</h1>
-          <HeroMonthPicker month={month} onChange={go} />
+          <div>
+            <HeroMonthPicker month={month} onChange={go} />
+            <h1 className={`${display.className} mt-xs text-4xl font-extrabold tracking-tight ${C.ink}`}>Agency accounts</h1>
+          </div>
+          <div className="flex items-center gap-md">
+            <More />
+            <Link href="/admin/client-money" className={`rounded-[22px] px-lg py-md text-right ${C.olive}`}>
+              <span className="block text-xs opacity-80">Client account{d?.client ? (d.client.agrees ? ' · ledgers agree' : ' · ledgers don’t agree') : ''}</span>
+              <span className={`${display.className} block text-3xl font-extrabold tabular-nums`}>{held == null ? '—' : gbp(held)}</span>
+            </Link>
+          </div>
         </div>
         {error && <p className="mb-md rounded-2xl bg-red-50 px-lg py-md text-sm text-red-700">{error}</p>}
 
         <div className="grid items-start gap-md md:grid-cols-2 lg:grid-cols-3">
-          {!d && !error && [1, 2, 3, 4, 5, 6].map(i => <div key={i} className="h-48 animate-pulse rounded-3xl bg-white" />)}
+          {!d && !error && [1, 2, 3, 4, 5, 6].map(i => <div key={i} className="h-56 animate-pulse rounded-[28px] bg-[#FFFDF6]" />)}
           {d && <>
-            <Tile id="ready" open={open} setOpen={setOpen} tone={d.ready.count ? 'green' : 'none'}
+            <Tile id="ready" open={open} setOpen={setOpen} tone="olive"
               title="Ready to pay" big={String(d.ready.count)} sub={d.ready.count ? `${gbp(d.ready.total)} · every rent in` : 'No house has all its rent in yet'}
-              actions={[{ label: 'Payment run', href: `/admin/payment-run${q}` }]}>
+              actions={[{ label: 'Rent Roll', href: `/admin/rent-roll${q}` }, { label: 'Payment run', href: `/admin/payment-run${q}` }]}>
               {d.ready.items.map(r => (
                 <Row key={r.id} href={`/admin/statements/prepare?property=${r.id}&month=${month}`} left={r.name} sub={`${r.landlord}${r.part ? ' · paying part now' : ''}`} right={gbp(r.amount)} cta="Prepare" />
               ))}
             </Tile>
 
-            <Tile id="due" open={open} setOpen={setOpen} tone={d.due.count || d.due.notRaised ? 'amber' : 'green'}
-              title="Rents due" big={String(d.due.count)} sub={d.due.notRaised ? `${d.due.notRaised} room${d.due.notRaised === 1 ? '' : 's'} with no rent raised for this month yet${d.due.count ? ` · ${gbp(d.due.total)} outstanding` : ''}` : d.due.count ? `${gbp(d.due.total)} outstanding${d.due.waitingHouses ? ` · ${d.due.waitingHouses} house${d.due.waitingHouses === 1 ? '' : 's'} waiting` : ''}` : 'Every rent is in'}
-              actions={[{ label: 'Import bank CSV', href: '/admin/bank-import' }, ...(d.due.count ? [{ label: 'Chase', href: '/admin/rent-chase' }] : []), ...(d.due.notRaised ? [{ label: `Raise ${d.due.notRaised} rents`, href: '/admin/rent-charges' }] : [])]}>
+            <Tile id="due" open={open} setOpen={setOpen} tone="mustard"
+              title="Rents due" big={String(d.due.count)} sub={d.due.count ? `${gbp(d.due.total)} outstanding${d.due.notRaised ? ` · ${d.due.notRaised} not raised yet` : ''}` : 'Every rent is in'}
+              actions={[{ label: 'Rents due', href: `/admin/rents-due${q}` }, ...(d.due.count ? [{ label: 'Chase', href: '/admin/rent-chase' }] : []), ...(d.due.notRaised ? [{ label: `Raise ${d.due.notRaised} rents`, href: '/admin/rent-charges' }] : [])]}>
               {d.due.items.map((r, i) => (
-                <Row key={i} href={r.tenancyId ? `/admin/lettings/${r.tenancyId}?tab=money` : `/admin/rent-roll${q}`} left={r.tenant || r.room} sub={`${r.room}, ${r.property}`} right={gbp(r.owed)} />
+                <Row key={i} href={r.tenancyId ? `/admin/lettings/${r.tenancyId}?tab=money` : `/admin/rents-due${q}`} left={r.tenant || r.room} sub={`${r.room}, ${r.property}${r.status === 'no_charge' ? ' · not raised' : ''}`} right={gbp(r.owed)} />
               ))}
             </Tile>
 
-            <Tile id="exp" open={open} setOpen={setOpen} tone="none"
+            <Tile id="exp" open={open} setOpen={setOpen} tone="paper"
               title="Expenses" big={String(d.expenses.count)} sub={d.expenses.count ? `${gbp(d.expenses.total)} waiting to go on statements` : 'Nothing waiting'}
               actions={[{ label: 'Add expense', href: '/admin/expense-log' }, { label: 'Upload invoice', href: '/admin/capture' }]}>
               {d.expenses.houses.map(h => (
@@ -98,7 +109,7 @@ function FinanceHomeScreen({ initialMonth }: { initialMonth?: string }) {
               ))}
             </Tile>
 
-            <Tile id="st" open={open} setOpen={setOpen} tone="none"
+            <Tile id="st" open={open} setOpen={setOpen} tone="paper"
               title="Last statements" big={String(d.statements.items.length)} sub="The latest statement for each house"
               actions={[{ label: 'All statements', href: '/admin/statements' }]}>
               {d.statements.items.map(st => (
@@ -106,14 +117,14 @@ function FinanceHomeScreen({ initialMonth }: { initialMonth?: string }) {
               ))}
             </Tile>
 
-            <Tile id="imp" open={open} setOpen={setOpen} tone={behind == null ? 'red' : behind > 1 ? 'amber' : 'green'}
+            <Tile id="imp" open={open} setOpen={setOpen} tone="paper" warn={behind == null || behind > 1}
               title="Import diary" big={d.imports.coveredTo ? short(d.imports.coveredTo) : 'None'}
               sub={d.imports.last ? `Covered to here · last import ${when(d.imports.last.at)}${behind ? ` · ${behind} day${behind === 1 ? '' : 's'} not imported` : ''}` : 'No bank statement imported yet'}
               actions={[{ label: 'Bank calendar', href: '/admin/bank-calendar' }, { label: 'Import', href: '/admin/bank-import' }]} />
 
-            <Tile id="cl" open={open} setOpen={setOpen} tone={d.client ? (d.client.agrees ? 'green' : 'red') : 'none'}
-              title="Client account" big={gbp(d.client?.held)} sub={d.client ? (d.client.agrees ? 'Ledgers agree' : 'Ledgers don’t agree — check') : ''}
-              actions={[{ label: 'Reconcile', href: '/admin/client-money' }, { label: 'Reports', href: '/admin/reports/fees' }]} />
+            <Tile id="cl" open={open} setOpen={setOpen} tone="paper" warn={!!d.client && !d.client.agrees}
+              title="Client account & income" big={gbp(d.client?.held)} sub={d.client ? (d.client.agrees ? 'Ledgers agree' : 'Ledgers don’t agree — check') : ''}
+              actions={[{ label: 'Reconcile', href: '/admin/client-money' }, { label: 'Fees', href: '/admin/reports/fees' }]} />
           </>}
         </div>
       </div>
@@ -121,48 +132,67 @@ function FinanceHomeScreen({ initialMonth }: { initialMonth?: string }) {
   )
 }
 
-const DOT = { red: 'bg-red-500', amber: 'bg-amber-400', green: 'bg-emerald-500', none: 'bg-neutral-300' }
+// Everything else in finance, alphabetical (Harry: menus always alphabetical), so no screen is more than two clicks away
+const MORE = [
+  ['Arrears letters', '/admin/arrears'], ['Bank import', '/admin/bank-import'], ['Cashbook', '/admin/reports/cashbook'], ['Deposits', '/admin/deposits'],
+  ['Expenses report', '/admin/reports/expenses'], ['Finance health check', '/admin/finance-check'], ['Landlord income', '/admin/reports/landlord-income'],
+  ['Making Tax Digital', '/admin/reports/mtd'], ['Reconciliation', '/admin/reconciliation'], ['Rent analysis', '/admin/reports/rent-analysis'],
+  ['Rent charges', '/admin/rent-charges'], ['Rent Chase', '/admin/rent-chase'], ['Rent demands', '/admin/reports/rent-demands'], ['Rent increase', '/admin/rent-increase'],
+  ['Rent Roll', '/admin/rent-roll'], ['Reports (all)', '/admin/reports'], ['Supplier invoices', '/admin/supplier-invoices'], ['Tax year', '/admin/reports/tax-year'],
+  ['Tenant balances', '/admin/reports/tenant-balances'], ['Utilities', '/admin/reports/utilities'], ['Voids', '/admin/reports/voids'],
+].sort((a, b) => a[0].localeCompare(b[0]))
 
-function Tile({ id, open, setOpen, tone, title, big, sub, actions, children }: {
-  id: string; open: string | null; setOpen: (v: string | null) => void; tone: keyof typeof DOT
+function More() {
+  const [o, setO] = useState(false)
+  return (
+    <div className="relative">
+      <Pill tone="paper" second onClick={() => setO(!o)}>More {o ? '▴' : '▾'}</Pill>
+      {o && (
+        <ul className="absolute right-0 z-20 mt-sm max-h-96 w-60 overflow-y-auto rounded-2xl bg-[#FFFDF6] p-xs shadow-lg ring-1 ring-black/5">
+          {MORE.map(([l, h]) => <li key={h}><Link href={h} className="block rounded-xl px-md py-xs text-sm text-[#23261A] hover:bg-[#EDE8D6]">{l}</Link></li>)}
+        </ul>
+      )}
+    </div>
+  )
+}
+
+const TONE = { olive: C.olive, mustard: C.mustard, paper: C.paper }
+
+function Tile({ id, open, setOpen, tone, warn, title, big, sub, actions, children }: {
+  id: string; open: string | null; setOpen: (v: string | null) => void; tone: Tone; warn?: boolean
   title: string; big: string; sub: string; actions: { label: string; href: string }[]; children?: React.ReactNode
 }) {
   const list = Array.isArray(children) ? children.flat().filter(Boolean) : children ? [children] : []
   const isOpen = open === id
   return (
-    <div className="flex flex-col rounded-3xl bg-white p-lg shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-      <div className="flex items-center gap-sm">
-        <span className={`h-2.5 w-2.5 rounded-full ${DOT[tone]}`} aria-hidden />
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-500">{title}</h2>
-      </div>
-      <p className="mt-sm text-4xl font-black tabular-nums tracking-tight text-neutral-900">{big}</p>
-      <p className="mt-xs min-h-[1.25rem] text-sm text-neutral-600">{sub}</p>
-      <div className="mt-md flex flex-wrap items-center gap-sm">
-        {actions.map((a, i) => (
-          <Link key={a.href} href={a.href} className={`rounded-full px-md py-xs text-sm font-semibold ${i === 0 ? 'bg-neutral-900 text-white hover:bg-black' : 'bg-neutral-100 text-neutral-800 hover:bg-neutral-200'}`}>{a.label}</Link>
-        ))}
+    <div className={`flex min-h-[15rem] flex-col rounded-[28px] p-lg shadow-[0_2px_0_rgba(35,38,26,0.12)] ${TONE[tone]} ${warn ? 'ring-2 ring-red-500' : ''}`}>
+      <h2 className="text-xs font-semibold uppercase tracking-[0.08em] opacity-75">{title}</h2>
+      <p className={`${display.className} mt-sm text-5xl font-extrabold tabular-nums tracking-tight`}>{big}</p>
+      <p className="mt-xs min-h-[1.25rem] text-sm opacity-85">{sub}</p>
+      <div className="mt-auto flex flex-wrap items-center gap-sm pt-md">
+        {actions.map((a, i) => <Pill key={a.href} href={a.href} tone={tone} second={i > 0}>{a.label}</Pill>)}
         {list.length > 0 && (
-          <button type="button" onClick={() => setOpen(isOpen ? null : id)} aria-expanded={isOpen} className="ml-auto text-sm font-semibold text-neutral-700 hover:text-neutral-900">
+          <button type="button" onClick={() => setOpen(isOpen ? null : id)} aria-expanded={isOpen} className="ml-auto text-sm font-semibold">
             {isOpen ? 'Hide' : `Show ${list.length}`} <span aria-hidden>{isOpen ? '▴' : '▾'}</span>
           </button>
         )}
       </div>
-      {isOpen && <ul className="mt-md max-h-80 divide-y divide-neutral-100 overflow-y-auto border-t border-neutral-100">{list}</ul>}
+      {isOpen && <ul className="-mx-sm mt-md max-h-80 overflow-y-auto rounded-2xl bg-[#FFFDF6] px-md text-[#23261A]">{list}</ul>}
     </div>
   )
 }
 
 function Row({ href, left, sub, right, cta }: { href: string; left: string; sub?: string; right: string; cta?: string }) {
   return (
-    <li>
-      <Link href={href} className="flex items-center justify-between gap-md py-sm hover:bg-neutral-50">
+    <li className="border-b border-[#E7E2CF] last:border-0">
+      <Link href={href} className="flex items-center justify-between gap-md py-sm hover:bg-[#F3F0E6]">
         <span className="min-w-0">
           <span className="block truncate text-sm font-semibold text-neutral-900">{left}</span>
           {sub && <span className="block truncate text-xs text-neutral-500">{sub}</span>}
         </span>
         <span className="flex shrink-0 items-center gap-sm">
           <span className="text-sm font-semibold tabular-nums">{right}</span>
-          {cta && <span className="rounded-full bg-neutral-900 px-sm py-[2px] text-xs font-bold text-white">{cta}</span>}
+          {cta && <span className="rounded-full bg-[#4A5320] px-sm py-[2px] text-xs font-bold text-white">{cta}</span>}
         </span>
       </Link>
     </li>

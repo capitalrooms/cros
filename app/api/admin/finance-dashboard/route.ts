@@ -30,8 +30,10 @@ export async function GET(req: NextRequest) {
     const ps = roll.properties
     const ready = ps.filter(p => (p.allIn || p.payPart) && p.readyForStatement > 0.005)
       .map(p => ({ id: p.id, name: p.name, landlord: p.landlord, amount: p.readyForStatement, part: !p.allIn }))
-    const due = ps.flatMap(p => p.rooms.filter(r => r.status === 'missing' || r.status === 'part')
-      .map(r => ({ property: p.name, propertyId: p.id, room: r.room, tenant: r.tenant, tenancyId: r.tenancyId, owed: Math.max(0, (r.due ?? 0) - r.received) })))
+    // an active tenancy means rent is due, even when this month's charge was never raised
+    const due = ps.flatMap(p => p.rooms.filter(r => r.status === 'missing' || r.status === 'part' || r.status === 'no_charge')
+      .map(r => ({ property: p.name, propertyId: p.id, room: r.room, tenant: r.tenant, tenancyId: r.tenancyId, status: r.status, received: r.received, ends: r.ends ?? null,
+        owed: r.status === 'no_charge' ? (r.expected ?? 0) : Math.max(0, (r.due ?? 0) - r.received) })))
 
     // expenses not yet on a statement, per house
     const byHouse = new Map<string, { propertyId: string; house: string; count: number; total: number }>()
@@ -60,7 +62,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       month,
       ready: { count: ready.length, total: round(ready.reduce((n, r) => n + r.amount, 0)), items: ready },
-      due: { count: due.length, total: round(due.reduce((n, r) => n + r.owed, 0)), items: due, waitingHouses: ps.filter(p => !p.allIn && !p.payPart && p.received > 0.005).length, notRaised: ps.reduce((n, p) => n + p.rooms.filter(r => r.status === 'no_charge').length, 0) },
+      due: { count: due.length, total: round(due.reduce((n, r) => n + r.owed, 0)), items: due, waitingHouses: ps.filter(p => !p.allIn && !p.payPart && p.received > 0.005).length, notRaised: due.filter(r => r.status === 'no_charge').length, paid: ps.reduce((n, p) => n + p.rooms.filter(r => r.status === 'paid' || r.status === 'over').length, 0) },
       expenses: { count: (exps ?? []).length, total: round(((exps ?? []) as any[]).reduce((n, e) => n + Number(e.amount || 0), 0)), houses: [...byHouse.values()].sort((a, b) => b.total - a.total) },
       statements: { items: last },
       imports: { last: lastImport ? { at: lastImport.imported_at, from: lastImport.period_from, to: lastImport.period_to, file: lastImport.filename } : null, coveredTo, daysBehind },

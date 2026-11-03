@@ -17,6 +17,8 @@ export interface RollRoom {
   roomId: string | null; room: string; tenant: string; tenancyId: string | null; reference: string | null; chargeId: string | null; chargeNo: string | null
   due: number | null; received: number; difference: number | null; status: RoomStatus; receipts: Receipt[]
   paidOver: number; statement: string | null
+  /** no charge raised yet: what the active tenancy owes this month (pro rata if it starts or ends in the month) */
+  expected?: number | null; ends?: string | null
 }
 export interface RollStatement { id: string; reference: string; date: string; net: number; state: 'draft' | 'approved' | 'paid'; source: string }
 export interface RollProperty {
@@ -48,7 +50,7 @@ export async function buildRentRoll(s: SupabaseClient, month: string, opts: { pr
   const [props, rooms, tens, statements] = await Promise.all([
     s.from('properties').select('id, name, property_code, landlord_id, letting_type, property_type').or('letting_type.is.null,letting_type.neq.let_only'),
     s.from('rooms').select('id, name, property_id'),
-    s.from('tenancies').select('id, room_id, property_id, start_date, end_date, payment_reference, people!person_id(salutation, first_name, last_name, full_name)')
+    s.from('tenancies').select('id, room_id, property_id, start_date, end_date, rent_amount, payment_reference, people!person_id(salutation, first_name, last_name, full_name)')
       .lte('start_date', end).or(`end_date.is.null,end_date.gte.${start}`).is('let_cancelled_at', null),
     // a window either side: a statement belongs to its own month (lib/finance/statementMonth), which needn't be the month of its date
     s.from('landlord_statements').select('*').gte('statement_date', shiftDays(start, -45)).lte('statement_date', shiftDays(end, 45)).order('statement_date'),
@@ -150,7 +152,7 @@ export async function buildRentRoll(s: SupabaseClient, month: string, opts: { pr
         const tenant = who(t?.people)
         if (!c) {
           rollRooms.push({ roomId: room.id, room: room.name, tenant, tenancyId: t?.id ?? null, reference: t?.payment_reference ?? null, chargeId: null, chargeNo: null,
-            due: null, received: 0, difference: null, status: 'no_charge', receipts: [], paidOver: 0, statement: null })
+            due: null, received: 0, difference: null, status: 'no_charge', receipts: [], paidOver: 0, statement: null, expected: expectedRent(t, month), ends: t?.end_date ?? null })
           continue
         }
         const due = r2(Number(c.amount_due || 0)), received = r2(Number(c.amount_received || 0)), diff = r2(received - due)
@@ -174,4 +176,16 @@ function sum(ps: RollProperty[]) {
     due: r2(ps.reduce((t, p) => t + p.due, 0)), received: r2(ps.reduce((t, p) => t + p.received, 0)),
     missing: r2(ps.reduce((t, p) => t + p.missing, 0)), ready: r2(ps.reduce((t, p) => t + p.readyForStatement, 0)),
   }
+}
+
+/** An active tenancy owes rent up to its end date: the monthly rent, pro rata by days if it starts or ends inside the month. */
+function expectedRent(t: any, month: string): number | null {
+  const monthly = Number(t?.rent_amount || 0)
+  if (!monthly) return null
+  const first = `${month}-01`, days = new Date(Date.UTC(+month.slice(0, 4), +month.slice(5, 7), 0)).getUTCDate(), last = `${month}-${String(days).padStart(2, '0')}`
+  const from = t.start_date && t.start_date > first ? t.start_date : first
+  const to = t.end_date && t.end_date < last ? t.end_date : last
+  if (to < from) return 0
+  const n = Math.round((Date.parse(`${to}T12:00:00Z`) - Date.parse(`${from}T12:00:00Z`)) / 86_400_000) + 1
+  return n >= days ? monthly : Math.round(monthly * 12 / 365 * n * 100) / 100
 }
