@@ -12,6 +12,7 @@
 // mean another client's money had been used.
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { demoPropertyIds, inScope } from '@/lib/demoProperties'
+import { importedChargeIds } from '@/lib/finance/importedCharges'
 
 export type LedgerKind = 'rent_in' | 'fee' | 'expenses' | 'payout' | 'opening_balance' | 'correction' | 'rent_other' | 'expense_paid' | 'deposit_in' | 'deposit_out' | 'initial_in'
 export interface LedgerEntry {
@@ -70,9 +71,12 @@ export async function loadLedger(s: SupabaseClient, opts: { asAt?: string; from?
   const inRange = (d: string | null | undefined) => !!d && d >= from && d <= asAt
   const ok = inScope(demo, !!opts.practice)   // real books: demo houses out; practice: only them
 
+  // rent "received" on a charge from a previous agent's imported statement was never in our account (3 Nov 2026 audit:
+  // Redstart's £4,120 of November rent counted as client money held, which a landlord payment is checked against)
+  const imported = await importedChargeIds(s, ((charges.data ?? []) as any[]).map(c => c.id))
   const entries: LedgerEntry[] = []
   for (const c of (charges.data ?? []) as any[]) {
-    if (c.voided || !ok(c.property_id)) continue
+    if (c.voided || !ok(c.property_id) || imported.has(c.id)) continue
     const date = String(c.received_date || c.paid_at || c.charge_month).slice(0, 10)
     if (!inRange(date)) continue
     entries.push({

@@ -13,6 +13,7 @@
 //   unidentified — bank receipts not yet matched to anyone (suspense)
 // The two totals are built from the same records, so they must agree; the bank balance is the independent check.
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { importedChargeIds } from '@/lib/finance/importedCharges'
 import { loadLedger, landlordBalances } from '@/lib/clientLedger'
 import { demoPropertyIds } from '@/lib/demoProperties'
 
@@ -35,7 +36,7 @@ export async function clientAccountPosition(s: SupabaseClient, asAt?: string): P
   const demo = await demoPropertyIds(s)
   const [props, charges, statements, transfers, bank, holding] = await Promise.all([
     s.from('properties').select('id, landlord_id'),
-    s.from('rent_charges').select('property_id, charge_month, amount_received, remitted_amount, received_date, voided').gte('charge_month', start).gt('amount_received', 0),
+    s.from('rent_charges').select('id, property_id, charge_month, amount_received, remitted_amount, received_date, voided').gte('charge_month', start).gt('amount_received', 0),
     s.from('landlord_statements').select('*').gte('statement_date', start).lte('statement_date', D),
     s.from('office_transfers').select('*, payment_runs(is_practice), initial_monies(property_id)').lte('transferred_on', D),
     s.from('bank_transactions').select('*').in('status', ['unmatched', 'possible_duplicate']).gte('transaction_date', start).lte('transaction_date', D),
@@ -68,8 +69,9 @@ export async function clientAccountPosition(s: SupabaseClient, asAt?: string): P
   const balances = await landlordBalances(s, ledger.entries)
   const per = new Map<string, { advance: number; awaitingPayment: number; float: number }>()
   const bucket = (id: string | null) => { const k = id ?? 'none'; const v = per.get(k) ?? { advance: 0, awaitingPayment: 0, float: 0 }; per.set(k, v); return v }
+  const importedIds = await importedChargeIds(s, ((charges.data ?? []) as any[]).map(c => c.id))   // never money we held
   for (const c of real(charges.data as any[])) {
-    if (c.voided || String(c.received_date || '') > D) continue
+    if (c.voided || importedIds.has(c.id) || String(c.received_date || '') > D) continue
     if (String(c.charge_month) > D) bucket(landlordOf.get(c.property_id) ?? null).advance += Number(c.amount_received || 0) - Number(c.remitted_amount || 0)
   }
   // let-only initial monies received but not yet paid to the landlord
