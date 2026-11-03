@@ -99,6 +99,7 @@ function LettingFileScreen({ tenancyId, from, initialTab, done, mark }: { tenanc
       <AppBar left={<BackButton href={from} />} title="Letting file" />
       {notify && <QuickNotifyModal propertyId={file.property.id} initialPeople={[file.tenant.id, ...(file.jointTenant ? [file.jointTenant.id] : [])]} onClose={() => setNotify(false)} onSuccess={load} />}
       <PageHero
+        trail={[{ label: 'Properties', href: '/admin/active-rooms' }, { label: String(file.property.name ?? '').split('\n')[0].split(',')[0], href: `/admin/properties/${file.property.id}` }, ...(file.room.name && file.room.id ? [{ label: file.room.name, href: `/admin/properties/${file.property.id}/rooms/${file.room.id}` }] : [])]}
         eyebrow={<>Letting{file.room.unitCode ? ` · ${file.room.unitCode}` : ''} · {STAGE_LABEL[file.stage]} · {file.property.lettingType === 'let_only' ? 'Let only' : 'Fully managed'}</>}
         title={[file.tenant.name, file.jointTenant?.name].filter(Boolean).join(' and ') || where}   // both joint tenants
         subtitle={<>{file.tenant.name ? `${where} · ` : ''}tenancy start date {day(tn.start_date)}{tn.end_date ? ` · tenancy end date ${day(tn.end_date)}` : ''} · {gbp(tn.rent_amount)} per month{agreementLabel ? ` · ${agreementLabel}` : ''}{file.landlord ? ` · landlord ${file.landlord.name}` : ''}</>}
