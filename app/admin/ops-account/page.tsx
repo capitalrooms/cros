@@ -11,7 +11,7 @@ import BackButton from '@/app/components/BackButton'
 import ExportButtons from '@/app/components/ExportButtons'
 import { adminFetch } from '@/lib/adminFetch'
 import { createClient } from '@/lib/supabase'
-import { financeTabs } from '@/lib/financeTabs'
+import { financeTabs, expenseTabs } from '@/lib/financeTabs'
 
 interface Prop { id: string; name: string; code: string | null; letOnly: boolean }
 interface Room { id: string; name: string; property_id: string }
@@ -103,7 +103,7 @@ export default function OpsAccountPage() {
   return (
     <div className="min-h-screen fin">
       <AppBar left={<BackButton href="/admin/expense-log" />} title="Operations account" />
-      <PageHero look="olive" title="Operations account" subtitle="Payments out of the business account, from the month’s bank CSV. File each once: a house, a split, a company expense, or not an expense — CROS remembers for next month." tabs={financeTabs('expenses')} />
+      <PageHero look="olive" title="Expenses" subtitle="Operations account: payments out of the business account, from the month’s bank CSV. File each once: a house, a split, a company expense, or not an expense — CROS remembers for next month." tabs={expenseTabs('ops')} />
       <div className="mx-auto max-w-6xl px-lg py-xl space-y-lg">
         {setup && <p className="rounded-xl border border-amber-200 bg-amber-50 px-lg py-sm text-sm font-semibold text-amber-900">{setup}</p>}
         {banner && <p className={`rounded-xl border px-lg py-sm text-sm font-semibold ${banner.ok ? 'border-green-200 bg-green-50 text-green-800' : 'border-red-200 bg-red-50 text-red-800'}`}>{banner.text}</p>}

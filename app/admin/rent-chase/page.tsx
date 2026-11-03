@@ -6,6 +6,8 @@
 // send them all at once. Let-only tenants pay their landlord, so they aren't listed. /api/admin/rent-chase.
 import { useEffect, useState } from 'react'
 import AppBar from '@/components/AppBar'
+import PageHero from '@/components/PageHero'
+import { rentOwedTabs } from '@/lib/financeTabs'
 import BackButton from '@/app/components/BackButton'
 import { adminFetch } from '@/lib/adminFetch'
 
@@ -63,11 +65,11 @@ export default function RentChasePage() {
   const label = (id: string) => (rows ?? []).find(r => r.tenancyId === id)
   return (
     <div className="min-h-screen fin">
-      <AppBar left={<BackButton href="/admin/finance" />} title="Rent chase" />
+      <AppBar left={<BackButton href="/admin/finance" />} title="Rent owed" />
+      <PageHero look="olive" title="Rent owed" subtitle="Rent chase: remind everyone who owes, in one send" tabs={rentOwedTabs('chase')} />
       <div className="mx-auto max-w-6xl px-lg py-xl space-y-lg">
         <div>
-          <h1 className="text-2xl font-black text-neutral-900">Rent chase</h1>
-          <p className="mt-xs text-sm text-neutral-600">Everyone whose rent account shows rent unpaid, from the payments matched so far. Import and match the bank statement first, then check the amounts, untick anyone you don’t want to chase, and send.</p>
+          <p className="text-sm text-neutral-600">Everyone whose rent account shows rent unpaid, from the payments matched so far. Import and match the bank statement first, then check the amounts, untick anyone you don’t want to chase, and send.</p>
         </div>
         {error && <p className="rounded-xl bg-red-50 px-md py-sm text-sm text-red-700">{error}</p>}
         {rows === null && !error && <p className="text-sm text-neutral-500">Checking every rent account…</p>}

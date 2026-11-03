@@ -149,17 +149,14 @@ const ZONES_AS_WRITTEN: Zone[] = [
     // the month's cycle first; everything else is under "Other tools" on Finance home
     subnav: [
       { emoji: '🏠', label: 'Finance Home',     href: '/admin/finance' },
-      { emoji: '📨', label: 'Rent Chase',       href: '/admin/rent-chase' },
       { emoji: '📋', label: 'Rent Roll',        href: '/admin/rent-roll' },
       { emoji: '🧾', label: 'Statements',       href: '/admin/statements' },
       { emoji: '💸', label: 'Payment Run',      href: '/admin/payment-run' },
       { emoji: '🏦', label: 'Bank',             href: '/admin/bank-calendar' },
       { emoji: '💷', label: 'Expenses',         href: '/admin/expense-log' },
       { emoji: '💰', label: 'Income',           href: '/admin/income' },
-      { emoji: '🏧', label: 'Operations Account', href: '/admin/ops-account' },
-      { emoji: '⏰', label: 'Arrears',          href: '/admin/arrears' },
-      { emoji: '🔐', label: 'Client Money',     href: '/admin/client-money' },
-      { emoji: '🛡', label: 'Deposits',         href: '/admin/deposits' },
+      { emoji: '⏰', label: 'Rent Owed',        href: '/admin/rents-due' },   // Rents due · Arrears · Rent chase
+      { emoji: '🔐', label: 'Client Money',     href: '/admin/client-money' },   // Client money · Deposits
       { emoji: '📊', label: 'Reports',          href: '/admin/reports' },
     ],
   },

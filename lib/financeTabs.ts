@@ -31,15 +31,24 @@ const EXPENSES: [key: string, label: string, href: string][] = [
   ['contractor', 'Contractor invoices', '/admin/supplier-invoices'],
   ['review', 'Statement lines', '/admin/expense-review'],
   ['autoledger', 'AutoLedger', '/admin/autoledger'],
+  ['ops', 'Operations account', '/admin/ops-account'],
   // Capture is the whole office's inbox (photos, post, invoices), so it keeps its own page — this just goes there
   ['capture', 'Upload an invoice ↗', '/admin/capture'],
 ]
-export const expenseTabs = (active: 'log' | 'contractor' | 'review' | 'autoledger'): HeroTab[] =>
+export const expenseTabs = (active: 'log' | 'contractor' | 'review' | 'autoledger' | 'ops'): HeroTab[] =>
   EXPENSES.map(([key, label, href]) => ({ label, href, active: key === active }))
 
 // Income is one place (3 Nov 2026): what the agency earns — the monthly dashboard, and the fees report for any dates.
 export const incomeTabs = (active: 'income' | 'fees'): HeroTab[] =>
   ([['income', 'Agency income', '/admin/income'], ['fees', 'Fees report', '/admin/reports/fees']] as const).map(([key, label, href]) => ({ label, href, active: key === active }))
+
+// Rent owed is one place (3 Nov 2026 tidy-up): who hasn't paid this month, older arrears, and chasing them.
+export const rentOwedTabs = (active: 'due' | 'arrears' | 'chase'): HeroTab[] =>
+  ([['due', 'Rents due', '/admin/rents-due'], ['arrears', 'Arrears', '/admin/arrears'], ['chase', 'Rent chase', '/admin/rent-chase']] as const).map(([key, label, href]) => ({ label, href, active: key === active }))
+
+// Client money is one place: what the client account holds and for whom, and the tenancy deposits.
+export const clientMoneyTabs = (active: 'client' | 'deposits'): HeroTab[] =>
+  ([['client', 'Client money', '/admin/client-money'], ['deposits', 'Deposits', '/admin/deposits']] as const).map(([key, label, href]) => ({ label, href, active: key === active }))
 
 export const financeTabs = (active: string, month?: string): HeroTab[] =>
   TABS.map(([key, label, href]) => ({ label, href: href(month), active: key === active }))
