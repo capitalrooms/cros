@@ -3,6 +3,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { generateMonthCharges } from '@/lib/rentCharges/generate'
+import { CROS_COLLECTS_RENT } from '@/lib/finance/mode'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -11,6 +12,8 @@ export async function GET(req: NextRequest) {
   if (req.headers.get('authorization') !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
+  // replication mode: rent is collected in the other system, so the monthly job raises nothing (lib/finance/mode)
+  if (!CROS_COLLECTS_RENT && !req.nextUrl.searchParams.get('month')) return NextResponse.json({ ok: true, skipped: 'replication mode' })
   const now = new Date()
   const month = req.nextUrl.searchParams.get('month') || `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}-01`
   const s = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { persistSession: false } })

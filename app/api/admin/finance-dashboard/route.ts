@@ -7,6 +7,7 @@ import { requireAdmin } from '@/lib/adminAuth'
 import { buildRentRoll } from '@/lib/finance/rentRoll'
 import { clientAccountPosition } from '@/lib/finance/clientAccount'
 import { demoPropertyIds } from '@/lib/demoProperties'
+import { CROS_COLLECTS_RENT } from '@/lib/finance/mode'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -82,7 +83,7 @@ export async function GET(req: NextRequest) {
     const daysBehind = coveredTo ? Math.max(0, Math.round((Date.parse(`${today}T12:00:00Z`) - Date.parse(`${coveredTo}T12:00:00Z`)) / 86_400_000) - 1) : null
 
     return NextResponse.json({
-      month,
+      month, collectsRent: CROS_COLLECTS_RENT,
       ready: { count: ready.length + letOnly.length, total: round(ready.reduce((n, r) => n + r.amount, 0) + letOnly.filter(l => l.step === 'pay').reduce((n, l) => n + l.amount, 0)), items: ready, letOnly },
       due: { count: due.length, total: round(due.reduce((n, r) => n + r.owed, 0)), items: due, waitingHouses: ps.filter(p => !p.allIn && !p.payPart && p.received > 0.005).length, notRaised: due.filter(r => r.status === 'no_charge').length, paid: ps.reduce((n, p) => n + p.rooms.filter(r => r.status === 'paid' || r.status === 'over').length, 0) },
       expenses: { count: (exps ?? []).length, total: round(((exps ?? []) as any[]).reduce((n, e) => n + Number(e.amount || 0), 0)), houses: [...byHouse.values()].sort((a, b) => b.total - a.total) },

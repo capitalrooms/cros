@@ -35,6 +35,7 @@ function RentsDue({ initialMonth }: { initialMonth?: string }) {
   const [month, setMonth] = useState(initialMonth || new Date().toISOString().slice(0, 7))
   const [items, setItems] = useState<Item[] | null>(null)
   const [paid, setPaid] = useState(0)
+  const [collects, setCollects] = useState(true)
   const [error, setError] = useState('')
   const [filter, setFilter] = useState<Filter | null>(null)
   const [tick, setTick] = useState<Record<string, boolean>>({})
@@ -47,7 +48,7 @@ function RentsDue({ initialMonth }: { initialMonth?: string }) {
       const r = await adminFetch(`/api/admin/finance-dashboard?month=${month}`)
       const j = await r.json().catch(() => ({}))
       if (!r.ok) { setError(j.error || 'Could not load'); return }
-      setItems(j.due.items); setPaid(j.due.paid ?? 0)
+      setItems(j.due.items); setPaid(j.due.paid ?? 0); setCollects(j.collectsRent !== false)
     })()
   }, [router, month])
 
@@ -74,11 +75,12 @@ function RentsDue({ initialMonth }: { initialMonth?: string }) {
         <PageHead eyebrow="Every active tenancy whose rent isn’t fully in" title="Rents due" right={
           <div className="flex flex-wrap items-center gap-sm">
             <span className="inline-flex rounded-full bg-[#4A5320] px-sm py-[2px]"><HeroMonthPicker month={month} onChange={go} /></span>
-            <Pill tone="mustard" href={`/admin/rent-chase${chosen.length ? `?only=${chosen.join(',')}` : ''}`}>{chosen.length ? `Chase ${chosen.length} selected` : 'Chase'}</Pill>
+            {collects && <Pill tone="mustard" href={`/admin/rent-chase${chosen.length ? `?only=${chosen.join(',')}` : ''}`}>{chosen.length ? `Chase ${chosen.length} selected` : 'Chase'}</Pill>}
             <Pill tone="paper" second href="/admin/bank-import">Import bank CSV</Pill>
-            {count('no_charge') > 0 && <Pill tone="paper" second href="/admin/rent-charges">Raise {count('no_charge')} rents</Pill>}
+            {collects && count('no_charge') > 0 && <Pill tone="paper" second href="/admin/rent-charges">Raise {count('no_charge')} rents</Pill>}
           </div>
         } />
+        {!collects && <p className={`mb-md rounded-2xl px-lg py-md text-sm ${C.paper}`}><b>Statements only.</b> Rent is collected in your other system — this list is for checking, nothing here chases or raises rent.</p>}
         {error && <p className="mb-md rounded-2xl bg-red-50 px-lg py-md text-sm text-red-700">{error}</p>}
 
         <div className="mb-lg flex flex-wrap gap-sm text-sm font-semibold">
