@@ -20,7 +20,7 @@ export async function renderAnnualSummary(s: SupabaseClient, landlordId: string,
   ])
   if (!landlord) throw new Error('Landlord not found')
   const y = landlordYear(books)
-  const props = [...new Set(books.rows.filter(r => r.kind !== 'deposit').map(r => r.property))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+  const props = [...new Set(books.rows.filter(r => r.kind !== 'deposit').map(r => r.property))].sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true }))
   const sumOf = (pr: string, kind: string, cat?: string) => r2(books.rows.filter(r => r.property === pr && r.kind === kind && (!cat || r.category === cat)).reduce((t, r) => t + r.amount, 0))
   const lines: DocLine[] = props.flatMap(pr => [
     { description: pr, detail: 'Rent received', amount: sumOf(pr, 'rent') },

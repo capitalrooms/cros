@@ -189,7 +189,7 @@ export async function loadBooks(s: SupabaseClient, o: { from: string; to: string
     rows.push({ kind: 'deposit', date: on, month: String(on).slice(0, 7), taxYear: taxYearOf(on), landlordId: p?.landlord_id ?? null, landlord: who(p?.landlord_id), propertyId: t.property_id, property: first(p?.name), room: t.rooms?.name ?? null, tenant: pp ? [pp.salutation, pp.first_name, pp.last_name].filter(Boolean).join(' ') || pp.full_name : null, description: `Deposit${t.deposit_scheme ? ` · ${t.deposit_scheme}` : ''}${t.deposit_scheme_ref ? ` ${t.deposit_scheme_ref}` : ''}`, category: t.deposit_sent_on ? 'deposit — sent to the scheme' : t.deposit_protected_at ? 'deposit — protected' : 'deposit', amount: r2(Number(t.deposit_received_amount ?? t.deposit_amount)), net: null, vat: null, reference: t.deposit_scheme_ref ?? null, source: 'tenancy', note: t.deposit_received_on ? (t.deposit_sent_on || t.deposit_protected_at ? undefined : 'Received — not yet shown as protected') : 'Received date not recorded — counted from the tenancy start' })
   }
 
-  rows.sort((a, b) => a.date.localeCompare(b.date) || a.property.localeCompare(b.property, undefined, { numeric: true }))
+  rows.sort((a, b) => String(a.date).localeCompare(String(b.date)) || String(a.property ?? '').localeCompare(String(b.property ?? ''), undefined, { numeric: true }))
   return { from: o.from, to: o.to, vat, rows, checks }
 }
 
