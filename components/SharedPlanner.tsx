@@ -270,6 +270,12 @@ export function EmailBoard({ boardId, member, post }: { boardId: string; member:
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const [onFile, setOnFile] = useState('')
   const [to, setTo] = useState('')
+  const [shown, setShown] = useState<{ to: string; subject: string; html: string } | null>(null)
+  async function preview() {
+    setMsg(null)
+    try { setShown(await post({ action: 'email_board', boardId, message, show: true, to: elsewhere ? to.trim() : undefined })) }
+    catch (e) { setMsg({ ok: false, text: e instanceof Error ? e.message : 'Couldn’t make the preview' }) }
+  }
   const [asked, setAsked] = useState(false)   // look the address up once, when the panel opens
   useEffect(() => { if (!open || asked) return; setAsked(true); post({ action: 'email_board', boardId, preview: true }).then(d => { setOnFile(d.to ?? ''); setTo(d.to ?? '') }).catch(() => {}) }, [open, asked, boardId, post])
   const elsewhere = !!to.trim() && to.trim().toLowerCase() !== onFile.toLowerCase()
@@ -301,10 +307,18 @@ export function EmailBoard({ boardId, member, post }: { boardId: string; member:
       <textarea rows={4} className={input} value={message} onChange={e => setMessage(e.target.value)} placeholder="A line from you (optional) — otherwise it says we’ve set up a shared planner for the two of you." />
       <p className="text-xs text-neutral-500">It shows the board’s name and what’s open on it, and a button that signs them straight in (no password needed). Send yourself a test first to see exactly what they’ll get — your copy’s button opens the board as you see it.</p>
       <div className="flex flex-wrap gap-sm">
+        <button type="button" onClick={preview} disabled={!!busy} className="rounded-xl border border-neutral-300 px-md py-sm text-sm font-semibold disabled:opacity-40">Preview the email</button>
         <button type="button" onClick={() => send(true)} disabled={!!busy} className="rounded-xl border border-neutral-300 px-md py-sm text-sm font-semibold disabled:opacity-40">{busy === 'test' ? 'Sending…' : 'Send me a test'}</button>
         <button type="button" onClick={() => send(false)} disabled={!!busy} className="rounded-xl bg-neutral-900 px-md py-sm text-sm font-bold text-white disabled:opacity-40">{busy === 'send' ? 'Sending…' : `Send to ${to.trim() || member}`}</button>
       </div>
       {msg && <p className={`text-sm font-semibold ${msg.ok ? 'text-green-700' : 'text-red-700'}`}>{msg.text}</p>}
+      {shown && (
+        <div className="space-y-xs rounded-xl border border-neutral-300 bg-neutral-50 p-sm">
+          <div className="flex items-start justify-between gap-sm text-xs"><span><b>To</b> {shown.to}<br /><b>Subject</b> {shown.subject}</span><button type="button" onClick={() => setShown(null)} className="font-semibold text-neutral-600">Hide</button></div>
+          <iframe title="The email as they'll get it" srcDoc={shown.html} sandbox="" className="h-[620px] w-full rounded-lg border border-neutral-200 bg-white" />
+          <p className="text-xs text-neutral-500">Exactly what they’ll get — nothing has been sent. In theirs, the button signs them straight into their planner.</p>
+        </div>
+      )}
     </div>
   )
 }
