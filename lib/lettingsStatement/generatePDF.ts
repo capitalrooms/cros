@@ -85,7 +85,9 @@ function pctToFraction(pct: number): string {
 
 // ── Main generator ────────────────────────────────────────────────────────────
 
+// the office palette (Forest and brand gold) with tints for the tiles — a banking-letter feel, in colour
 const INK = '#132219', MUTED = '#5C6B62', LINE = '#E1E6E0', TILE = '#F1F3EF', FOREST = '#1F3B2E', GOLD = '#C4922A'
+const MINT = '#E6EFE8', SAGE = '#EEF3E6', BLUSH = '#FBECE8', CREAM = '#F8F0DE', RED = '#A3301F'
 
 function ageOf(iso?: string): number | null {
   if (!iso) return null
@@ -105,7 +107,7 @@ export function lettingsStatementFileName(d: Pick<LettingsStatementData, 'unitCo
 
 export async function generateLettingsStatementPDF(data: LettingsStatementData): Promise<Buffer> {
   const assets = await loadPDFLetterheadAssets()
-  const R = assets.fontReg, B = assets.fontBold
+  const R = assets.fontReg, B = assets.fontBold, D = assets.fontDisplay
   const doc = new PDFDocument({ size: 'A4', margin: 0, bufferPages: true, info: { Title: lettingsStatementFileName(data).replace(/\.pdf$/, ''), Author: 'Capital Rooms' } })
   const chunks: Buffer[] = []
   doc.on('data', (c: Buffer) => chunks.push(c))
@@ -136,11 +138,11 @@ export async function generateLettingsStatementPDF(data: LettingsStatementData):
 
   // ── heading: the room and street lead ───────────────────────────────────
   let y = MARGIN + 4
-  doc.font(B).fontSize(8.5).fillColor(MUTED).text(`LETTINGS STATEMENT  ·  ${fmtDate(data.statementDate).toUpperCase()}`, MARGIN, y, { characterSpacing: 1.2 })
+  doc.font(B).fontSize(8.5).fillColor(GOLD).text(`LETTINGS STATEMENT  ·  ${fmtDate(data.statementDate).toUpperCase()}`, MARGIN, y, { characterSpacing: 1.2 })
   y = doc.y + 6
   const [street, ...rest] = data.propertyAddress.split(/,\s*/)
   const place = /^whole/i.test(data.roomName) || !data.roomName ? street : `${data.roomName}, ${street}`
-  doc.font(B).fontSize(24).fillColor(INK).text(place, MARGIN, y, { width: COL_W - LOGO_W - 30 })
+  doc.font(D).fontSize(26).fillColor(FOREST).text(place, MARGIN, y, { width: COL_W - LOGO_W - 30 })
   y = doc.y + 1
   if (rest.length) { doc.font(R).fontSize(12).fillColor(INK).text(rest.join(', '), MARGIN, y, { width: COL_W - LOGO_W - 30 }); y = doc.y + 6 }
   const chips = [data.paymentReference || data.unitCode, `New tenancy from ${fmtDate(`${data.startDate.slice(0, 10)}T12:00:00`)}`].filter(Boolean) as string[]
@@ -148,8 +150,8 @@ export async function generateLettingsStatementPDF(data: LettingsStatementData):
   for (const c of chips) {
     doc.font(B).fontSize(8)
     const w = doc.widthOfString(c) + 14
-    doc.save().roundedRect(cx, y, w, 16, 8).fill(TILE).restore()
-    doc.font(B).fontSize(8).fillColor(INK).text(c, cx + 7, y + 4.5, { lineBreak: false })
+    doc.save().roundedRect(cx, y, w, 16, 8).fill(cx === MARGIN ? FOREST : MINT).restore()
+    doc.font(B).fontSize(8).fillColor(cx === MARGIN ? '#FFFFFF' : FOREST).text(c, cx + 7, y + 4.5, { lineBreak: false })
     cx += w + 6
   }
   y += 26
@@ -158,9 +160,10 @@ export async function generateLettingsStatementPDF(data: LettingsStatementData):
 
   // ── hero: what's due to the landlord ────────────────────────────────────
   const heroH = 80
-  doc.save().roundedRect(MARGIN, y, COL_W, heroH, 12).fill(FOREST).restore()
-  doc.font(R).fontSize(9.5).fillColor('#C9D6CD').text(paid ? 'Paid to you' : 'Due to you', MARGIN + 22, y + 16)
-  doc.font(B).fontSize(30).fillColor('#FFFFFF').text(fmtGBP(due), MARGIN + 22, y + 30)
+  doc.save().rect(MARGIN, y + heroH - 6, COL_W, 6).fill(GOLD).restore()
+  doc.save().roundedRect(MARGIN, y, COL_W, heroH - 3, 12).fill(FOREST).restore()
+  doc.font(B).fontSize(9).fillColor(GOLD).text(paid ? 'PAID TO YOU' : 'DUE TO YOU', MARGIN + 22, y + 15, { characterSpacing: 1 })
+  doc.font(D).fontSize(32).fillColor('#FFFFFF').text(fmtGBP(due), MARGIN + 22, y + 28)
   const acct = data.bankAccountNumber ? String(data.bankAccountNumber).replace(/\s/g, '').slice(-4) : ''
   const lines = [paid ? `Paid on ${paid}` : 'To be paid to you', acct ? `To account ending ${acct}` : null, data.paymentReference ? `Reference ${data.paymentReference}` : null].filter(Boolean) as string[]
   doc.font(R).fontSize(9).fillColor('#E8EEE9').text(lines.join('\n'), MARGIN + COL_W - 232, y + 21, { width: 210, align: 'right', lineGap: 3 })
@@ -178,9 +181,9 @@ export async function generateLettingsStatementPDF(data: LettingsStatementData):
     ['Deposit', `${fmtGBP(data.depositAmount)} (${depositWeeks} weeks)`],
   ]
   const cardH = 40 + (about ? 16 : 0) + Math.ceil(facts.length / 2) * 30 + 16
-  doc.save().roundedRect(MARGIN, y, COL_W, cardH, 12).fill(TILE).restore()
-  doc.font(B).fontSize(8).fillColor(MUTED).text('YOUR NEW TENANT', MARGIN + 20, y + 14, { characterSpacing: 1 })
-  doc.font(B).fontSize(15).fillColor(INK).text(tenantName || 'Tenant', MARGIN + 20, y + 26)
+  doc.save().roundedRect(MARGIN, y, COL_W, cardH, 12).fill(MINT).restore()
+  doc.font(B).fontSize(8).fillColor(GOLD).text('YOUR NEW TENANT', MARGIN + 20, y + 14, { characterSpacing: 1 })
+  doc.font(D).fontSize(17).fillColor(FOREST).text(tenantName || 'Tenant', MARGIN + 20, y + 25)
   let fy = y + 46
   if (about) { doc.font(R).fontSize(10).fillColor(INK).text(about, MARGIN + 20, fy - 1); fy += 16 }
   const half = (COL_W - 40) / 2
@@ -193,31 +196,32 @@ export async function generateLettingsStatementPDF(data: LettingsStatementData):
 
   // ── the money as tiles ──────────────────────────────────────────────────
   const tiles: [string, string, string, string][] = [
-    ['Deposit received', `${depositWeeks} weeks`, fmtGBP(data.depositAmount), INK],
-    ['Rent received', rentMonths === 1 ? 'One month in advance' : `${rentMonths} months in advance`, fmtGBP(rentIn), INK],
-    ...(feeAmount > 0 ? [['Our letting fee', feeLabel, `−${fmtGBP(feeAmount)}`, '#A3301F'] as [string, string, string, string]] : []),
+    ['Deposit received', `${depositWeeks} weeks`, fmtGBP(data.depositAmount), FOREST],
+    ['Rent received', rentMonths === 1 ? 'One month in advance' : `${rentMonths} months in advance`, fmtGBP(rentIn), FOREST],
+    ...(feeAmount > 0 ? [['Our letting fee', feeLabel, `−${fmtGBP(feeAmount)}`, RED] as [string, string, string, string]] : []),
   ]
   const gap = 8, tw = (COL_W - gap * (tiles.length - 1)) / tiles.length
   tiles.forEach(([label, sub, v, col], i) => {
     const x = MARGIN + i * (tw + gap)
-    doc.save().roundedRect(x, y, tw, 62, 10).lineWidth(0.8).strokeColor(LINE).stroke().restore()
+    doc.save().roundedRect(x, y, tw, 62, 10).fill(col === RED ? BLUSH : i === 0 ? SAGE : TILE).restore()
     doc.font(R).fontSize(8.5).fillColor(MUTED).text(label, x + 12, y + 10, { width: tw - 24 })
-    doc.font(B).fontSize(15).fillColor(col).text(v, x + 12, y + 23, { width: tw - 24 })
+    doc.font(D).fontSize(16).fillColor(col).text(v, x + 12, y + 22, { width: tw - 24 })
     doc.font(R).fontSize(8).fillColor(MUTED).text(sub, x + 12, y + 44, { width: tw - 24, lineBreak: false, ellipsis: true })
   })
   y += 62 + 12
 
   // ── how it adds up ──────────────────────────────────────────────────────
   const parts = [`${fmtGBP(data.depositAmount)} deposit`, `+ ${fmtGBP(rentIn)} rent`, ...(feeAmount > 0 ? [`− ${fmtGBP(feeAmount)} letting fee`] : [])]
-  doc.save().roundedRect(MARGIN, y, COL_W, holdingPaid > 0 ? 50 : 38, 10).fill(TILE).restore()
-  doc.font(R).fontSize(10).fillColor(INK).text(`${parts.join('  ')}  =  `, MARGIN + 16, y + 13, { continued: true }).font(B).fillColor(GOLD).text(`${fmtGBP(due)} ${paid ? 'paid' : 'due'} to you`)
+  doc.save().roundedRect(MARGIN, y, COL_W, holdingPaid > 0 ? 50 : 38, 10).fill(CREAM).restore()
+  doc.font(R).fontSize(10).fillColor(INK).text(`${parts.join('  ')}  =  `, MARGIN + 16, y + 13, { continued: true }).font(D).fillColor(FOREST).text(`${fmtGBP(due)} ${paid ? 'paid' : 'due'} to you`)
   if (holdingPaid > 0) doc.font(R).fontSize(8.5).fillColor(MUTED).text(`The ${fmtGBP(holdingPaid)} holding deposit ${data.tenantFirstName || 'the tenant'} paid to reserve the ${/^whole/i.test(data.roomName) ? 'property' : 'room'} is part of the deposit above.`, MARGIN + 16, y + 31, { width: COL_W - 32 })
   y += (holdingPaid > 0 ? 50 : 38) + 18
 
   // ── where it's paid ─────────────────────────────────────────────────────
   if (y > bottom - 110) { doc.addPage(); y = MARGIN + LOGO_H + 20 }
-  doc.font(B).fontSize(13).fillColor(INK).text(paid ? `Paid on ${paid} to` : 'Paid to', MARGIN, y)
+  doc.font(D).fontSize(15).fillColor(FOREST).text(paid ? `Paid on ${paid} to` : 'Where we pay it', MARGIN, y)
   y = doc.y + 8
+  const slipTop = y
   const bank: [string, string][] = [
     ['Name', data.bankAccountName],
     ...(data.bankName ? [['Bank', data.bankName] as [string, string]] : []),
@@ -226,11 +230,13 @@ export async function generateLettingsStatementPDF(data: LettingsStatementData):
     ...(data.paymentReference ? [['Reference', data.paymentReference] as [string, string]] : []),
   ]
   for (const [k, v] of bank) {
-    doc.font(R).fontSize(9.5).fillColor(MUTED).text(k, MARGIN, y + 4, { width: 110 })
-    doc.font(B).fontSize(9.5).fillColor(INK).text(v, MARGIN + 110, y + 4, { width: COL_W - 110 })
-    y += 20
-    doc.save().moveTo(MARGIN, y).lineTo(MARGIN + COL_W, y).lineWidth(0.5).strokeColor(LINE).stroke().restore()
+    doc.font(R).fontSize(9.5).fillColor(MUTED).text(k, MARGIN + 18, y + 9, { width: 110 })
+    doc.font(B).fontSize(10).fillColor(INK).text(v, MARGIN + 128, y + 9, { width: COL_W - 146 })
+    y += 24
   }
+  // a bank slip: a forest edge with the details inside
+  doc.save().roundedRect(MARGIN, slipTop, COL_W, y - slipTop + 8, 10).lineWidth(1.2).strokeColor(FOREST).stroke().restore()
+  doc.save().rect(MARGIN, slipTop + 10, 4, y - slipTop - 12).fill(GOLD).restore()
 
   const range = doc.bufferedPageRange()
   for (let i = 0; i < range.count; i++) {
