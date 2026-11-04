@@ -17,6 +17,7 @@ import {
 } from '@/lib/pdfLetterhead'
 import { tenancyForCharge } from '@/lib/rentCharges'
 import { contentDisposition } from '@/lib/contentDisposition'
+import { PDF } from '@/lib/pdf/palette'
 
 export const dynamic = 'force-dynamic'
 
@@ -47,7 +48,7 @@ export async function GET(req: NextRequest) {
 
   if (!charge) return NextResponse.json({ error: 'Not found' }, { status: 404 })
   charge.tenancy = await tenancyForCharge(supabase as any, charge,
-    'id, rent_amount, person:people!tenancies_person_id_fkey (id, salutation, first_name, last_name, email), room:rooms (name, properties (name, address, landlord:people!properties_landlord_id_fkey (salutation, first_name, last_name)))')
+    'id, rent_amount, payment_reference, person:people!tenancies_person_id_fkey (id, salutation, first_name, last_name, email), room:rooms (name, properties (name, address, landlord:people!properties_landlord_id_fkey (salutation, first_name, last_name)))')
 
   const person = charge.tenancy?.person
   const room   = charge.tenancy?.room
@@ -86,7 +87,7 @@ export async function GET(req: NextRequest) {
   doc.save()
     .font(fontReg).fontSize(9).fillColor(BLACK)
     .text('Re:  ', MARGIN, y, { continued: true })
-    .font(fontBold).text(`Rent Arrears Notice — ${room?.name ? room.name + ', ' : ''}${prop?.name || prop?.address || ''}`)
+    .font(fontBold).text(`Rent arrears — ${room?.name ? room.name + ', ' : ''}${prop?.name || prop?.address || ''}`)
     .restore()
   y = drawPDFLetterRule(doc, y + 16)
 
@@ -94,28 +95,28 @@ export async function GET(req: NextRequest) {
 
   // Body
   doc.font(fontReg).fontSize(9.5).fillColor(BLACK)
-    .text('We write to draw your attention to an outstanding balance on your rent account. Our records show the following amount remains unpaid:', MARGIN, y, { width: COL_W, lineGap: 2 })
+    .text('We are writing about an outstanding balance on your rent account. Our records show the following amount is unpaid:', MARGIN, y, { width: COL_W, lineGap: 2 })
   y = doc.y + 18
 
   // Arrears box
   const boxH = 56
-  doc.rect(MARGIN, y, COL_W, boxH).fillColor('#FEF2F2').fill()
-  doc.strokeColor('#FECACA').lineWidth(1).rect(MARGIN, y, COL_W, boxH).stroke()
+  doc.rect(MARGIN, y, COL_W, boxH).fillColor(PDF.tint).fill()
+  doc.strokeColor(PDF.tint).lineWidth(1).rect(MARGIN, y, COL_W, boxH).stroke()
 
-  doc.font(fontReg).fontSize(8.5).fillColor('#991B1B')
+  doc.font(fontReg).fontSize(8.5).fillColor(PDF.alert)
     .text('AMOUNT OUTSTANDING', MARGIN + 16, y + 12, { width: COL_W - 32 })
-  doc.font(fontBold).fontSize(22).fillColor('#991B1B')
+  doc.font(fontBold).fontSize(22).fillColor(PDF.alert)
     .text(gbp(outstanding), MARGIN + 16, y + 24, { width: COL_W - 32 })
-  doc.font(fontReg).fontSize(8).fillColor('#B91C1C')
-    .text(`Due date: ${fmtDate(charge.due_date)} · Rent charge ID: ${chargeId.slice(0, 8).toUpperCase()}`, MARGIN + 16, y + 44, { width: COL_W - 32 })
+  doc.font(fontReg).fontSize(8).fillColor(PDF.alert)
+    .text([`Due ${fmtDate(charge.due_date)}`, charge.tenancy?.payment_reference ? `Payment reference ${charge.tenancy.payment_reference}` : null].filter(Boolean).join('   ·   '), MARGIN + 16, y + 44, { width: COL_W - 32 })
   y += boxH + 18
 
   // Payment instructions
-  doc.font(fontBold).fontSize(9.5).fillColor(BLACK).text('How to pay', MARGIN, y); y += 14
+  doc.font(fontBold).fontSize(9.5).fillColor(BLACK).text('Payment details', MARGIN, y); y += 14
+  // only ways that exist (4 Nov 2026: this used to offer an "online portal" payment the tenant app doesn't take)
   const instructions = [
-    `Bank Transfer: Please transfer ${gbp(outstanding)} to the account details held on file and include your name and property address as the reference.`,
-    'Standing Order: If you have an active standing order, please check that the correct amount is set up and contact us if you need assistance.',
-    `Online Portal: Log in to your tenant account to make a payment directly.`,
+    `Bank transfer: please pay ${gbp(outstanding)} into the account you normally pay your rent into${charge.tenancy?.payment_reference ? `, quoting your payment reference ${charge.tenancy.payment_reference}` : ', quoting your name and room'}.`,
+    'Standing order: if you pay by standing order, please check that it is set up for the correct amount and date.',
   ]
   for (const line of instructions) {
     doc.font(fontReg).fontSize(9).fillColor(GREY)
@@ -125,7 +126,7 @@ export async function GET(req: NextRequest) {
 
   y += 4
   doc.font(fontReg).fontSize(9).fillColor(BLACK)
-    .text(`If payment has already been made or you have any queries regarding this notice, please contact us immediately at ${biz.email} or ${biz.phone}. Failure to make payment or contact us within 7 days may result in further action being taken.`, MARGIN, y, { width: COL_W, lineGap: 2 })
+    .text(`If payment has already been made or you have any queries about this letter, please contact us at ${biz.email} or on ${biz.phone}. If we do not receive payment or hear from you within 7 days, we may need to take further action.`, MARGIN, y, { width: COL_W, lineGap: 2 })
   y = doc.y + 16
 
   y = drawPDFSignOff(doc, y, {

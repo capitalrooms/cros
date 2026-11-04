@@ -12,6 +12,7 @@ import {
   drawPDFLogo, drawPDFFooter, drawPDFSignOff, drawPDFLetterRule, type PDFSender,
   PAGE_H, MARGIN, COL_W, LOGO_H, FOOTER_BAND_H, BLACK, GREY,
 } from '@/lib/pdfLetterhead'
+import { PDF } from '@/lib/pdf/palette'
 
 export interface FormalLetter {
   recipientName: string
@@ -214,8 +215,8 @@ export async function renderFormalLetter(letter: FormalLetter, signer: LetterSig
         ensure(h)
         let x = MARGIN
         widths.forEach((w, i) => {
-          if (header) doc.save().rect(x, y, w, h).fill('#F2F2F2').restore()
-          doc.save().lineWidth(0.5).rect(x, y, w, h).stroke('#D0D0D0').restore()
+          if (header) doc.save().rect(x, y, w, h).fill(PDF.tint).restore()
+          doc.save().lineWidth(0.5).rect(x, y, w, h).stroke(PDF.line).restore()
           const cell = row[i] ?? ''
           const bold = header || /^\*\*.*\*\*$/.test(cell)
           doc.font(bold ? fontBold : fontReg).fontSize(9).fillColor(BLACK)
@@ -245,7 +246,7 @@ export async function renderFormalLetter(letter: FormalLetter, signer: LetterSig
     drawPDFFooter(doc, footerImg, biz, fontReg)
     if (range.count > 1) {
       doc.page.margins.bottom = 0
-      doc.font(fontReg).fontSize(8).fillColor('#78716c')
+      doc.font(fontReg).fontSize(8).fillColor(PDF.muted)
         .text(`Page ${i - range.start + 1} of ${range.count}`, MARGIN, PAGE_H - FOOTER_BAND_H - 14, { width: COL_W, align: 'right', lineBreak: false })
     }
   }

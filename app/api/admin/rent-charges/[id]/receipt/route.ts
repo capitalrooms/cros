@@ -24,6 +24,7 @@ import {
 } from '@/lib/pdfLetterhead'
 import { tenancyForCharge } from '@/lib/rentCharges'
 import { contentDisposition } from '@/lib/contentDisposition'
+import { PDF } from '@/lib/pdf/palette'
 
 export const dynamic = 'force-dynamic'
 
@@ -112,7 +113,7 @@ export async function GET(req: NextRequest, { params: paramsPromise }: { params:
   doc.save()
     .font(fontReg).fontSize(9).fillColor(BLACK)
     .text('Re:  ', MARGIN, y, { continued: true })
-    .font(fontBold).text(`Payment Receipt — ${room?.name ? room.name + ', ' : ''}${prop?.name || prop?.address || ''}`)
+    .font(fontBold).text(`Rent receipt — ${room?.name ? room.name + ', ' : ''}${prop?.name || prop?.address || ''}`)
     .restore()
   y = drawPDFLetterRule(doc, y + 16)
 
@@ -138,22 +139,22 @@ export async function GET(req: NextRequest, { params: paramsPromise }: { params:
   ]
 
   for (const [i, row] of rows.entries()) {
-    if (i % 2 === 0) doc.rect(MARGIN, y, COL_W, 16).fillColor('#F9FAFB').fill()
+    if (i % 2 === 0) doc.rect(MARGIN, y, COL_W, 16).fillColor(PDF.tint).fill()
     doc.font(fontReg).fontSize(8.5).fillColor(GREY)
       .text(row.label, MARGIN + 8, y + 4, { width: 160 })
     doc.font(fontBold).fontSize(8.5).fillColor(
         row.label === 'Balance outstanding' && row.value === '£0.00 — fully cleared'
-          ? '#059669'
+          ? PDF.forest
           : row.label === 'Amount received'
             ? BLACK
-            : '#374151'
+            : PDF.ink
       )
       .text(row.value, MARGIN + 175, y + 4, { width: COL_W - 183 })
     y += 16
   }
 
   // Receipt box border
-  doc.strokeColor('#E5E7EB').lineWidth(0.5)
+  doc.strokeColor(PDF.line).lineWidth(0.5)
     .rect(MARGIN, y - rows.length * 16, COL_W, rows.length * 16).stroke()
 
   y += 20

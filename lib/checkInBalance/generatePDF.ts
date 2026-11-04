@@ -100,7 +100,7 @@ export async function generateCheckInBalanceInvoiceStylePDF(data: CheckInBalance
 
   return renderInvoiceStyleDocument({
     pdfTitle: `Check-in balance — ${data.propertyAddress}`,
-    docTitle: 'Check-in balance',
+    docTitle: 'Move-in monies',
     subtitle: `Monthly rent ${money(data.rentMonthly)} · tenancy starts ${fmtDate(start)}`,
     recipientName: joinNames(data.tenantNames),
     addressLines,
@@ -117,7 +117,7 @@ export async function generateCheckInBalanceInvoiceStylePDF(data: CheckInBalance
     totalLabel: 'Amount due',
     total: amountDue,
     pay: {
-      title: 'How to pay',
+      title: 'Payment details',
       rows: bank,
       note: 'Please pay the full balance in one bank transfer (BACS or CHAPS), quoting the payment reference. To check in on time we need it in cleared funds at least 24 hours before check-in.',
     },

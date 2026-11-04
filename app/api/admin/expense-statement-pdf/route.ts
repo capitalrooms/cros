@@ -15,6 +15,7 @@ import {
   BLACK, GREY,
 } from '@/lib/pdfLetterhead'
 import { contentDisposition } from '@/lib/contentDisposition'
+import { PDF } from '@/lib/pdf/palette'
 
 export const dynamic = 'force-dynamic'
 
@@ -94,8 +95,8 @@ export async function GET(req: NextRequest) {
   const cols = { date: 75, ref: 65, desc: 235, cat: 80, amount: 36 }
   const colX = { date: MARGIN, ref: MARGIN + cols.date, desc: MARGIN + cols.date + cols.ref, cat: MARGIN + cols.date + cols.ref + cols.desc, amount: MARGIN + cols.date + cols.ref + cols.desc + cols.cat }
 
-  doc.rect(MARGIN, y, COL_W, 14).fillColor('#F3F4F6').fill()
-  doc.font(fontBold).fontSize(7.5).fillColor('#4B5563')
+  doc.rect(MARGIN, y, COL_W, 14).fillColor(PDF.tint).fill()
+  doc.font(fontBold).fontSize(7.5).fillColor(PDF.muted)
   doc.text('Date',        colX.date   + 2, y + 4, { width: cols.date   - 4 })
   doc.text('Ref',         colX.ref    + 2, y + 4, { width: cols.ref    - 4 })
   doc.text('Description', colX.desc   + 2, y + 4, { width: cols.desc   - 4 })
@@ -107,7 +108,7 @@ export async function GET(req: NextRequest) {
   let rowNum = 0
   for (const e of rows as any[]) {
     if (y > bodyBottom - 14) { doc.addPage(); y = MARGIN }
-    if (rowNum % 2 === 0) doc.rect(MARGIN, y, COL_W, 14).fillColor('#FAFAFA').fill()
+    if (rowNum % 2 === 0) doc.rect(MARGIN, y, COL_W, 14).fillColor(PDF.tint).fill()
     doc.font(fontReg).fontSize(8).fillColor(BLACK)
     doc.text(fmtDate(e.expense_date), colX.date   + 2, y + 3, { width: cols.date   - 4 })
     doc.text(e.reference || '—',      colX.ref    + 2, y + 3, { width: cols.ref    - 4 })
@@ -124,7 +125,7 @@ export async function GET(req: NextRequest) {
 
   // Total row
   if (y > bodyBottom - 18) { doc.addPage(); y = MARGIN }
-  doc.rect(MARGIN, y, COL_W, 18).fillColor('#111827').fill()
+  doc.rect(MARGIN, y, COL_W, 18).fillColor(PDF.ink).fill()
   doc.font(fontBold).fontSize(9).fillColor('white')
     .text('TOTAL', MARGIN + 8, y + 5, { width: 200 })
     .text(gbp(total), colX.amount - 8, y + 5, { width: cols.amount + 15, align: 'right' })

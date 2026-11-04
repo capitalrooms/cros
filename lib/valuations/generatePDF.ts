@@ -12,6 +12,7 @@ import {
   type PDFBizSettings, type PDFSender,
 } from '@/lib/pdfLetterhead'
 import { ValuationData } from './ValuationDocument'
+import { PDF } from '@/lib/pdf/palette'
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -51,8 +52,8 @@ const MARGIN     = _M
 const COL_W      = PAGE_W - MARGIN * 2
 const BLACK      = _BK
 const GREY       = _GR
-const LIGHT      = '#f8f8f8'
-const BORDER     = '#e0e0e0'
+const LIGHT      = PDF.tint
+const BORDER     = PDF.line
 const GREY_BAND  = _GB
 const LOGO_W     = _LW
 const LOGO_H     = _LH
@@ -159,7 +160,7 @@ export async function generateValuationPDF(data: ValuationData): Promise<Buffer>
     y += 24
 
     // Thin rule under Re: line
-    drawHRule(doc, MARGIN, y, COL_W, '#d0d0d0')
+    drawHRule(doc, MARGIN, y, COL_W, PDF.line)
     y += 12
 
     // ─ OPENING PARA ───────────────────────────────────────────────────────────
@@ -237,14 +238,14 @@ export async function generateValuationPDF(data: ValuationData): Promise<Buffer>
             .text(r.notes, colRoomX + 4, y + ROW_H - 8, { width: colRoomW - 8, lineBreak: false })
             .restore()
         }
-        drawHRule(doc, MARGIN, y + ROW_H, COL_W, '#ececec')
+        drawHRule(doc, MARGIN, y + ROW_H, COL_W, PDF.line)
         y += ROW_H
         totalLow  += r.low
         totalHigh += r.high
       }
 
       // Totals row
-      doc.save().fillColor('#f2f2f2').rect(MARGIN, y, COL_W, ROW_H).fill().restore()
+      doc.save().fillColor(PDF.tint).rect(MARGIN, y, COL_W, ROW_H).fill().restore()
       doc.save().font(fontBold).fontSize(8).fillColor(BLACK)
         .text('Combined monthly income', colRoomX + 4, y + 7, { width: colRoomW - 8, lineBreak: false })
         .text(fmt(totalLow, sym),  col2X, y + 7, { width: priceW, align: 'right', lineBreak: false })
@@ -294,12 +295,12 @@ export async function generateValuationPDF(data: ValuationData): Promise<Buffer>
           ],
           ROW_H, bg, false, fontReg, fontBold
         )
-        drawHRule(doc, MARGIN, y + ROW_H, COL_W, '#ececec')
+        drawHRule(doc, MARGIN, y + ROW_H, COL_W, PDF.line)
         y += ROW_H
         total += item.estimatedCost
       }
 
-      doc.save().fillColor('#f2f2f2').rect(MARGIN, y, COL_W, ROW_H).fill().restore()
+      doc.save().fillColor(PDF.tint).rect(MARGIN, y, COL_W, ROW_H).fill().restore()
       doc.save().font(fontBold).fontSize(8).fillColor(BLACK)
         .text('Total estimated refurbishment cost', catX + 4, y + 5, { width: catW + descW - 8, lineBreak: false })
         .text(fmtCost(total, sym), costX, y + 5, { width: costW, align: 'right', lineBreak: false })
@@ -384,7 +385,7 @@ export async function generateValuationPDF(data: ValuationData): Promise<Buffer>
 
     ensureSpace(50)
     y += 6
-    drawHRule(doc, MARGIN, y, COL_W, '#d0d0d0')
+    drawHRule(doc, MARGIN, y, COL_W, PDF.line)
     y += 8
     doc.save().font(fontReg).fontSize(6.5).fillColor('#999')
       .text(disclaimer, MARGIN, y, { width: COL_W, align: 'left', lineGap: 2 })

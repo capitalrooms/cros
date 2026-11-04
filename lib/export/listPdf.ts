@@ -4,6 +4,7 @@
 import {
   loadPDFLetterheadAssets, drawPDFFooter, fetchPDFBizSettings, PAGE_W, PAGE_H, MARGIN, FOOTER_BAND_H, LOGO_W, LOGO_H, BLACK, GREY,
 } from '@/lib/pdfLetterhead'
+import { PDF } from '@/lib/pdf/palette'
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const PDFDocument = require('pdfkit') as typeof import('pdfkit')
@@ -61,7 +62,7 @@ export async function renderListPdf(d: ListPdf): Promise<Buffer> {
 
   const headerRow = (y: number) => {
     doc.save().rect(MARGIN, y, COL_W, 16).fill(BLACK).restore()
-    d.columns.forEach((c, i) => doc.font(B).fontSize(size).fillColor('#ffffff')
+    d.columns.forEach((c, i) => doc.font(B).fontSize(size).fillColor(PDF.white)
       .text(c.label, xs[i] + 4, y + 4.5, { width: widths[i] - 8, align: c.align ?? (c.money ? 'right' : 'left'), lineBreak: false, ellipsis: true }))
     return y + 16
   }
@@ -87,8 +88,8 @@ export async function renderListPdf(d: ListPdf): Promise<Buffer> {
     doc.font(bold ? B : R).fontSize(size)
     const h = Math.max(...d.columns.map((c, i) => doc.heightOfString(cell(c, r[c.key]) || ' ', { width: widths[i] - 8 }))) + 7
     if (y + h > bottom) y = newPage(false)
-    if (bold) doc.save().rect(MARGIN, y, COL_W, h).fill('#e8e8e8').restore()
-    else if (zebra) doc.save().rect(MARGIN, y, COL_W, h).fill('#f4f4f4').restore()
+    if (bold) doc.save().rect(MARGIN, y, COL_W, h).fill(PDF.line).restore()
+    else if (zebra) doc.save().rect(MARGIN, y, COL_W, h).fill(PDF.tint).restore()
     d.columns.forEach((c, i) => doc.font(bold ? B : R).fontSize(size).fillColor(BLACK)
       .text(cell(c, r[c.key]), xs[i] + 4, y + 3.5, { width: widths[i] - 8, align: c.align ?? (c.money ? 'right' : 'left') }))
     y += h

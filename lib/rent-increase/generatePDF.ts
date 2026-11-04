@@ -15,6 +15,7 @@ import {
   drawPDFFooter, drawPDFSignOff, drawPDFSalutation, PDF_BIZ_DEFAULTS,
   type PDFBizSettings, type PDFSender,
 } from '@/lib/pdfLetterhead'
+import { PDF } from '@/lib/pdf/palette'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -59,10 +60,10 @@ const PAGE_W        = _PW
 const PAGE_H        = _PH
 const MARGIN        = _M
 const COL_W         = PAGE_W - MARGIN * 2
-const BLACK         = '#1a1a1a'
-const GREY          = '#555555'
-const LIGHT         = '#f8f8f8'
-const BORDER        = '#e0e0e0'
+const BLACK         = PDF.ink
+const GREY          = PDF.muted
+const LIGHT         = PDF.tint
+const BORDER        = PDF.line
 const GREY_BAND     = _GB
 const LOGO_W        = _LW
 const LOGO_H        = _LH
@@ -208,7 +209,7 @@ export async function generateCoverLetter(d: RentIncreaseData): Promise<Buffer> 
   y += 24
 
   // Thin rule under Re: line
-  rule(doc, MARGIN, y, COL_W, '#d0d0d0')
+  rule(doc, MARGIN, y, COL_W, PDF.line)
   y += 12
 
   // Salutation — shared helper ensures correct spacing on all letters
@@ -418,7 +419,7 @@ export async function generateForm4A(d: RentIncreaseData): Promise<Buffer> {
   const cW2 = COL_W * 0.25
 
   // Header row
-  doc.save().fillColor('#1a1a1a').rect(MARGIN, y, COL_W, 18).fill().restore()
+  doc.save().fillColor(PDF.ink).rect(MARGIN, y, COL_W, 18).fill().restore()
   doc.save().font(fontBold).fontSize(7.5).fillColor('#fff')
     .text('Charge', c0x, y + 5, { width: cW0, lineBreak: false })
     .text('In existing rent', c1x, y + 5, { width: cW1, align: 'center', lineBreak: false })
@@ -434,7 +435,7 @@ export async function generateForm4A(d: RentIncreaseData): Promise<Buffer> {
       .text('Included', c1x, y + 4, { width: cW1, align: 'center', lineBreak: false })
       .text('Included', c2x, y + 4, { width: cW2, align: 'center', lineBreak: false })
       .restore()
-    rule(doc, MARGIN, y + 16, COL_W, '#ececec')
+    rule(doc, MARGIN, y + 16, COL_W, PDF.line)
     y += 16
   }
   y += 14
