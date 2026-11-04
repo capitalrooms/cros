@@ -53,7 +53,8 @@ export default function PageHero({ title, subtitle, eyebrow, stats, actions, tab
           {actions && <div className="flex flex-wrap items-center gap-sm">{actions}</div>}
         </div>
         {stats && stats.length > 0 && (
-          <div className={`mt-md grid gap-sm ${stats.length >= 4 ? 'grid-cols-2 sm:grid-cols-4' : stats.length === 3 ? 'grid-cols-3' : stats.length === 2 ? 'grid-cols-2' : 'grid-cols-1'}`}>
+          // tiles are the same size on every screen (4 Nov 2026): a quarter of the band, however many there are
+          <div className="mt-md grid grid-cols-2 gap-sm sm:grid-cols-4">
             {stats.map(s => {
               const body = <>
                 <p className={`text-xl font-bold tabular-nums sm:text-2xl ${s.tone ? (olive && s.tone === 'warn' ? 'text-[var(--accent,#E8B931)]' : TONE[s.tone]) : ''} ${olive ? display.className : ''}`} style={olive ? undefined : { fontFamily: 'var(--font-baloo-2, system-ui, sans-serif)' }}>{s.value}</p>

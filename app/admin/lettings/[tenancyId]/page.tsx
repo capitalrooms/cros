@@ -124,7 +124,7 @@ function LettingFileScreen({ tenancyId, from, initialTab, done, mark }: { tenanc
           ...(Number(tn.deposit_amount) > 0 ? [{ label: tn.deposit_protected_at ? 'Deposit · protected' : 'Deposit', value: gbp(tn.deposit_amount), tone: (tn.deposit_protected_at ? undefined : 'warn') as 'warn' | undefined }] : []),
         ]}
         // message the tenant(s) through Quick Notify — the one tenant messaging (current tenancies only)
-        actions={(file.stage === 'live' || file.stage === 'on_notice') ? <HeroButton onClick={() => setNotify(true)} primary>Message {[file.tenant.name, file.jointTenant?.name].filter(Boolean).join(' and ')}</HeroButton> : undefined}
+        actions={(file.stage === 'live' || file.stage === 'on_notice') ? <HeroButton onClick={() => setNotify(true)} primary>{file.jointTenant ? 'Message both tenants' : `Message ${file.tenant.name}`}</HeroButton> : undefined}
         tabs={TABS.map(([k, label]) => ({ key: k, label: k === 'letters' && file.documents.length ? `${label} · ${file.documents.length}` : k === 'progress' && file.stage !== 'let_agreed' ? 'Move-in' : label, active: activeTab === k, onClick: () => setTab(k) }))}
       />
       <div className="mx-auto max-w-6xl px-lg py-xl space-y-lg">
