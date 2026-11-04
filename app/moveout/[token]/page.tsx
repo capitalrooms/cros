@@ -74,6 +74,8 @@ export default function MoveOutForm({ params }: { params: Promise<{ token: strin
 
   return (
     <PublicShell label="Move-out">
+      {/* the finance screens' heading face (React hoists this into <head>) */}
+      <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@800&display=swap" precedence="default" />
       <div className="mx-auto max-w-2xl space-y-5 px-4 py-6 md:py-10" style={{ color: F.text }}>
         {/* the date, big */}
         <section className="rounded-3xl p-6 md:p-8" style={{ background: F.forest, borderBottom: `6px solid ${F.gold}` }}>
