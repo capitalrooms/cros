@@ -8,6 +8,7 @@ const TABS: [key: string, label: string, href: (month?: string) => string][] = [
   ['statements', '2 · Statements', () => '/admin/statements'],
   ['payment-run', '3 · Payment run', m => `/admin/payment-run${m ? `?month=${m}` : ''}`],
   ['bank', 'Bank', () => '/admin/bank-calendar'],
+  ['books', 'Books', () => '/admin/books'],
   ['expenses', 'Expenses', () => '/admin/expense-log'],
   ['arrears', 'Arrears', () => '/admin/arrears'],
   ['client-money', 'Client money', () => '/admin/client-money'],
