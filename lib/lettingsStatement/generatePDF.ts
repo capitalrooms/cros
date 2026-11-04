@@ -85,9 +85,9 @@ function pctToFraction(pct: number): string {
 
 // ── Main generator ────────────────────────────────────────────────────────────
 
-// the office palette (Forest and brand gold) with tints for the tiles — a banking-letter feel, in colour
-const INK = '#132219', MUTED = '#5C6B62', LINE = '#E1E6E0', TILE = '#F1F3EF', FOREST = '#1F3B2E', GOLD = '#C4922A'
-const MINT = '#E6EFE8', SAGE = '#EEF3E6', BLUSH = '#FBECE8', CREAM = '#F8F0DE', RED = '#A3301F'
+// two colours and their neutrals (4 Nov 2026, Harry: "too many colours … i like two or three"): Forest for the figures
+// and headings, brand gold only for the small labels and one rule; everything else ink, grey and hairlines
+const INK = '#132219', MUTED = '#5C6B62', LINE = '#DCE2DC', TINT = '#F3F5F2', FOREST = '#1F3B2E', GOLD = '#B8862A'
 
 function ageOf(iso?: string): number | null {
   if (!iso) return null
@@ -136,107 +136,98 @@ export async function generateLettingsStatementPDF(data: LettingsStatementData):
   const due = totalIn - feeAmount
   const paid = data.paidOn ? fmtDate(`${data.paidOn}T12:00:00`) : null
 
-  // ── heading: the room and street lead ───────────────────────────────────
+  // ── heading: the room and street, then the statement's particulars in one quiet line ──────────────
+  const start = fmtDate(`${data.startDate.slice(0, 10)}T12:00:00`)
+  const ref = data.paymentReference || data.unitCode
   let y = MARGIN + 4
-  doc.font(B).fontSize(8.5).fillColor(GOLD).text(`LETTINGS STATEMENT  ·  ${fmtDate(data.statementDate).toUpperCase()}`, MARGIN, y, { characterSpacing: 1.2 })
+  doc.font(B).fontSize(8.5).fillColor(GOLD).text('LETTINGS STATEMENT', MARGIN, y, { characterSpacing: 1.4 })
   y = doc.y + 6
   const [street, ...rest] = data.propertyAddress.split(/,\s*/)
   const place = /^whole/i.test(data.roomName) || !data.roomName ? street : `${data.roomName}, ${street}`
-  doc.font(D).fontSize(26).fillColor(FOREST).text(place, MARGIN, y, { width: COL_W - LOGO_W - 30 })
+  doc.font(D).fontSize(24).fillColor(FOREST).text(place, MARGIN, y, { width: COL_W - LOGO_W - 30 })
   y = doc.y + 1
-  if (rest.length) { doc.font(R).fontSize(12).fillColor(INK).text(rest.join(', '), MARGIN, y, { width: COL_W - LOGO_W - 30 }); y = doc.y + 6 }
-  const chips = [data.paymentReference || data.unitCode, `New tenancy from ${fmtDate(`${data.startDate.slice(0, 10)}T12:00:00`)}`].filter(Boolean) as string[]
-  let cx = MARGIN
-  for (const c of chips) {
-    doc.font(B).fontSize(8)
-    const w = doc.widthOfString(c) + 14
-    doc.save().roundedRect(cx, y, w, 16, 8).fill(cx === MARGIN ? FOREST : MINT).restore()
-    doc.font(B).fontSize(8).fillColor(cx === MARGIN ? '#FFFFFF' : FOREST).text(c, cx + 7, y + 4.5, { lineBreak: false })
-    cx += w + 6
+  if (rest.length) { doc.font(R).fontSize(11).fillColor(INK).text(rest.join(', '), MARGIN, y, { width: COL_W - LOGO_W - 30 }); y = doc.y + 8 }
+  doc.font(R).fontSize(8.5).fillColor(MUTED).text([`Statement date ${fmtDate(data.statementDate)}`, ref ? `Reference ${ref}` : null].filter(Boolean).join('   ·   '), MARGIN, y, { width: COL_W - LOGO_W - 30 })
+  y = doc.y + 12
+  doc.font(R).fontSize(9.5).fillColor(INK).text([data.landlordName, ...data.landlordAddress.split('\n').filter(Boolean)].join('\n'), MARGIN, y, { width: 260, lineGap: 1.5 })
+  y = Math.max(doc.y, MARGIN + LOGO_H) + 16
+
+  // ── the balance ──────────────────────────────────────────────────────────
+  const heroH = 64
+  doc.save().roundedRect(MARGIN, y, COL_W, heroH, 10).fill(FOREST).restore()
+  doc.font(B).fontSize(8.5).fillColor('#C9D6CD').text(paid ? 'AMOUNT PAID TO YOU' : 'BALANCE DUE TO YOU', MARGIN + 22, y + 15, { characterSpacing: 1.2 })
+  doc.font(D).fontSize(26).fillColor('#FFFFFF').text(fmtGBP(due), MARGIN + 22, y + 27)
+  const digits = String(data.bankAccountNumber ?? '').replace(/\D/g, '')   // only real digits — never a garbled value
+  const acct = digits.length >= 6 ? digits.slice(-4) : ''
+  const lines = [paid ? `Paid on ${paid}` : 'To be paid by bank transfer', acct ? `To the account ending ${acct}` : null].filter(Boolean) as string[]
+  doc.font(R).fontSize(9).fillColor('#E3EAE5').text(lines.join('\n'), MARGIN + COL_W - 232, y + 21, { width: 210, align: 'right', lineGap: 3 })
+  y += heroH + 18
+
+  const heading = (t: string) => {
+    doc.font(B).fontSize(8.5).fillColor(GOLD).text(t.toUpperCase(), MARGIN, y, { characterSpacing: 1.2 })
+    y = doc.y + 6
+    doc.save().moveTo(MARGIN, y).lineTo(MARGIN + COL_W, y).lineWidth(0.8).strokeColor(FOREST).stroke().restore()
+    y += 4
   }
-  y += 26
-  doc.font(R).fontSize(9).fillColor(MUTED).text([data.landlordName, ...data.landlordAddress.split('\n').filter(Boolean)].join('\n'), MARGIN, y, { width: 260, lineGap: 1 })
-  y = Math.max(doc.y, MARGIN + LOGO_H) + 18
+  const row = (k: string, v: string, o: { sub?: string; bold?: boolean; last?: boolean } = {}) => {
+    const h = o.sub ? 32 : 22
+    doc.font(o.bold ? B : R).fontSize(10).fillColor(INK).text(k, MARGIN, y + 7, { width: COL_W - 160 })
+    if (o.sub) doc.font(R).fontSize(8.5).fillColor(MUTED).text(o.sub, MARGIN, y + 19, { width: COL_W - 160 })
+    doc.font(o.bold ? D : R).fontSize(o.bold ? 12 : 10).fillColor(o.bold ? FOREST : INK).text(v, MARGIN + COL_W - 150, y + (o.bold ? 5 : 7), { width: 150, align: 'right' })
+    y += h
+    if (!o.last) doc.save().moveTo(MARGIN, y).lineTo(MARGIN + COL_W, y).lineWidth(0.5).strokeColor(LINE).stroke().restore()
+  }
 
-  // ── hero: what's due to the landlord ────────────────────────────────────
-  const heroH = 80
-  doc.save().rect(MARGIN, y + heroH - 6, COL_W, 6).fill(GOLD).restore()
-  doc.save().roundedRect(MARGIN, y, COL_W, heroH - 3, 12).fill(FOREST).restore()
-  doc.font(B).fontSize(9).fillColor(GOLD).text(paid ? 'PAID TO YOU' : 'DUE TO YOU', MARGIN + 22, y + 15, { characterSpacing: 1 })
-  doc.font(D).fontSize(32).fillColor('#FFFFFF').text(fmtGBP(due), MARGIN + 22, y + 28)
-  const acct = data.bankAccountNumber ? String(data.bankAccountNumber).replace(/\s/g, '').slice(-4) : ''
-  const lines = [paid ? `Paid on ${paid}` : 'To be paid to you', acct ? `To account ending ${acct}` : null, data.paymentReference ? `Reference ${data.paymentReference}` : null].filter(Boolean) as string[]
-  doc.font(R).fontSize(9).fillColor('#E8EEE9').text(lines.join('\n'), MARGIN + COL_W - 232, y + 21, { width: 210, align: 'right', lineGap: 3 })
-  y += heroH + 14
+  // ── statement: money in, the fee, the balance ────────────────────────────
+  heading('Statement')
+  row('Deposit received', fmtGBP(data.depositAmount), { sub: `${depositWeeks} weeks’ rent${holdingPaid > 0 ? ` · includes the ${fmtGBP(holdingPaid)} holding deposit paid to reserve the ${/^whole/i.test(data.roomName) ? 'property' : 'room'}` : ''}` })
+  row('Rent received', fmtGBP(rentIn), { sub: rentMonths === 1 ? 'One month in advance' : `${rentMonths} months in advance` })
+  if (feeAmount > 0) row('Less letting fee', `−${fmtGBP(feeAmount)}`, { sub: feeLabel })
+  doc.save().moveTo(MARGIN, y).lineTo(MARGIN + COL_W, y).lineWidth(0.8).strokeColor(FOREST).stroke().restore()
+  row(paid ? 'Amount paid to you' : 'Balance due to you', fmtGBP(due), { bold: true, last: true })
+  y += 14
 
-  // ── your new tenant ─────────────────────────────────────────────────────
+  // ── tenant details ────────────────────────────────────────────────────────
   const tenantName = [data.tenantSalutation, data.tenantFirstName, data.tenantLastName].filter(Boolean).join(' ')
   const age = ageOf(data.tenantDob)
-  const about = [age ? `Age ${age}` : null, data.tenantOccupation, data.tenantEmployer ? `at ${data.tenantEmployer}` : null].filter(Boolean).join(' · ')
+  const work = [data.tenantOccupation, data.tenantEmployer ? `at ${data.tenantEmployer}` : null].filter(Boolean).join(' ')
   const facts: [string, string][] = [
-    ...(data.tenantPhone ? [['Phone', data.tenantPhone] as [string, string]] : []),
+    ['Tenant', tenantName || '—'],
+    ...(age ? [['Age', String(age)] as [string, string]] : []),
+    ...(work ? [['Occupation', work] as [string, string]] : []),
+    ...(data.tenantPhone ? [['Telephone', data.tenantPhone] as [string, string]] : []),
     ...(data.tenantEmail ? [['Email', data.tenantEmail] as [string, string]] : []),
-    ['Moves in', fmtDate(`${data.startDate.slice(0, 10)}T12:00:00`)],
-    ['Rent', `${fmtGBP(data.rentAmount)} a month`],
-    ['Deposit', `${fmtGBP(data.depositAmount)} (${depositWeeks} weeks)`],
+    ['Tenancy start date', start],
+    ['Rent', `${fmtGBP(data.rentAmount)} per month`],
   ]
-  const cardH = 40 + (about ? 16 : 0) + Math.ceil(facts.length / 2) * 30 + 16
-  doc.save().roundedRect(MARGIN, y, COL_W, cardH, 12).fill(MINT).restore()
-  doc.font(B).fontSize(8).fillColor(GOLD).text('YOUR NEW TENANT', MARGIN + 20, y + 14, { characterSpacing: 1 })
-  doc.font(D).fontSize(17).fillColor(FOREST).text(tenantName || 'Tenant', MARGIN + 20, y + 25)
-  let fy = y + 46
-  if (about) { doc.font(R).fontSize(10).fillColor(INK).text(about, MARGIN + 20, fy - 1); fy += 16 }
-  const half = (COL_W - 40) / 2
+  if (y > bottom - (facts.length / 2) * 27 - 30) { doc.addPage(); y = MARGIN + LOGO_H + 20 }
+  heading('Tenant details')
+  const half = COL_W / 2
+  const fy = y
   facts.forEach(([k, v], i) => {
-    const x = MARGIN + 20 + (i % 2) * half, yy = fy + Math.floor(i / 2) * 30 + 4
+    const x = MARGIN + (i % 2) * half, yy = fy + Math.floor(i / 2) * 27 + 5
     doc.font(R).fontSize(8).fillColor(MUTED).text(k, x, yy)
-    doc.font(B).fontSize(10).fillColor(INK).text(v, x, yy + 11, { width: half - 12, lineBreak: false, ellipsis: true })
+    doc.font(B).fontSize(10).fillColor(INK).text(v, x, yy + 11, { width: half - 16, lineBreak: false, ellipsis: true })
   })
-  y += cardH + 14
+  y = fy + Math.ceil(facts.length / 2) * 27 + 14
 
-  // ── the money as tiles ──────────────────────────────────────────────────
-  const tiles: [string, string, string, string][] = [
-    ['Deposit received', `${depositWeeks} weeks`, fmtGBP(data.depositAmount), FOREST],
-    ['Rent received', rentMonths === 1 ? 'One month in advance' : `${rentMonths} months in advance`, fmtGBP(rentIn), FOREST],
-    ...(feeAmount > 0 ? [['Our letting fee', feeLabel, `−${fmtGBP(feeAmount)}`, RED] as [string, string, string, string]] : []),
-  ]
-  const gap = 8, tw = (COL_W - gap * (tiles.length - 1)) / tiles.length
-  tiles.forEach(([label, sub, v, col], i) => {
-    const x = MARGIN + i * (tw + gap)
-    doc.save().roundedRect(x, y, tw, 62, 10).fill(col === RED ? BLUSH : i === 0 ? SAGE : TILE).restore()
-    doc.font(R).fontSize(8.5).fillColor(MUTED).text(label, x + 12, y + 10, { width: tw - 24 })
-    doc.font(D).fontSize(16).fillColor(col).text(v, x + 12, y + 22, { width: tw - 24 })
-    doc.font(R).fontSize(8).fillColor(MUTED).text(sub, x + 12, y + 44, { width: tw - 24, lineBreak: false, ellipsis: true })
-  })
-  y += 62 + 12
-
-  // ── how it adds up ──────────────────────────────────────────────────────
-  const parts = [`${fmtGBP(data.depositAmount)} deposit`, `+ ${fmtGBP(rentIn)} rent`, ...(feeAmount > 0 ? [`− ${fmtGBP(feeAmount)} letting fee`] : [])]
-  doc.save().roundedRect(MARGIN, y, COL_W, holdingPaid > 0 ? 50 : 38, 10).fill(CREAM).restore()
-  doc.font(R).fontSize(10).fillColor(INK).text(`${parts.join('  ')}  =  `, MARGIN + 16, y + 13, { continued: true }).font(D).fillColor(FOREST).text(`${fmtGBP(due)} ${paid ? 'paid' : 'due'} to you`)
-  if (holdingPaid > 0) doc.font(R).fontSize(8.5).fillColor(MUTED).text(`The ${fmtGBP(holdingPaid)} holding deposit ${data.tenantFirstName || 'the tenant'} paid to reserve the ${/^whole/i.test(data.roomName) ? 'property' : 'room'} is part of the deposit above.`, MARGIN + 16, y + 31, { width: COL_W - 32 })
-  y += (holdingPaid > 0 ? 50 : 38) + 18
-
-  // ── where it's paid ─────────────────────────────────────────────────────
-  if (y > bottom - 110) { doc.addPage(); y = MARGIN + LOGO_H + 20 }
-  doc.font(D).fontSize(15).fillColor(FOREST).text(paid ? `Paid on ${paid} to` : 'Where we pay it', MARGIN, y)
-  y = doc.y + 8
-  const slipTop = y
+  // ── payment details ──────────────────────────────────────────────────────
   const bank: [string, string][] = [
-    ['Name', data.bankAccountName],
+    ['Account name', data.bankAccountName],
     ...(data.bankName ? [['Bank', data.bankName] as [string, string]] : []),
-    ...(data.bankAccountNumber ? [['Account', String(data.bankAccountNumber)] as [string, string]] : []),
     ...(data.bankSortCode ? [['Sort code', String(data.bankSortCode)] as [string, string]] : []),
-    ...(data.paymentReference ? [['Reference', data.paymentReference] as [string, string]] : []),
+    ...(data.bankAccountNumber ? [['Account number', String(data.bankAccountNumber)] as [string, string]] : []),
+    ...(data.paymentReference ? [['Payment reference', data.paymentReference] as [string, string]] : []),
   ]
+  if (y > bottom - bank.length * 22 - 40) { doc.addPage(); y = MARGIN + LOGO_H + 20 }
+  heading(paid ? `Payment made ${paid}` : 'Payment details')
+  doc.save().roundedRect(MARGIN, y + 4, COL_W, bank.length * 22 + 12, 8).fill(TINT).restore()
+  y += 10
   for (const [k, v] of bank) {
-    doc.font(R).fontSize(9.5).fillColor(MUTED).text(k, MARGIN + 18, y + 9, { width: 110 })
-    doc.font(B).fontSize(10).fillColor(INK).text(v, MARGIN + 128, y + 9, { width: COL_W - 146 })
-    y += 24
+    doc.font(R).fontSize(9.5).fillColor(MUTED).text(k, MARGIN + 16, y + 5, { width: 140 })
+    doc.font(B).fontSize(10).fillColor(INK).text(v, MARGIN + 170, y + 5, { width: COL_W - 186 })
+    y += 22
   }
-  // a bank slip: a forest edge with the details inside
-  doc.save().roundedRect(MARGIN, slipTop, COL_W, y - slipTop + 8, 10).lineWidth(1.2).strokeColor(FOREST).stroke().restore()
-  doc.save().rect(MARGIN, slipTop + 10, 4, y - slipTop - 12).fill(GOLD).restore()
 
   const range = doc.bufferedPageRange()
   for (let i = 0; i < range.count; i++) {
