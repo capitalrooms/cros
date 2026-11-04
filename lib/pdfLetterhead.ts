@@ -54,6 +54,8 @@ export interface PDFLetterheadAssets {
   fontReg:   string
   /** Absolute path to Lato-Bold.ttf, or 'Helvetica-Bold' fallback */
   fontBold:  string
+  /** Bricolage Grotesque ExtraBold — the finance screens' display face, for headings and big figures (4 Nov 2026) */
+  fontDisplay: string
 }
 
 /**
@@ -79,6 +81,7 @@ export function loadPDFLetterheadAssets(): PDFLetterheadAssets {
     penImg:    tryRead('letterhead-pen.jpg') ?? tryRead('letterhead-pen.png'),
     fontReg:   fontPath('Lato-Regular.ttf', 'Helvetica'),
     fontBold:  fontPath('Lato-Bold.ttf', 'Helvetica-Bold'),
+    fontDisplay: fontPath('BricolageGrotesque-800.ttf', fontPath('Lato-Bold.ttf', 'Helvetica-Bold')),
   }
 }
 
