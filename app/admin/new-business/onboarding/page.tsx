@@ -17,6 +17,9 @@ import LineIcon from '@/components/LineIcon'
 const STAGES = [
   { n: 1, label: 'New Enquiry',         sub: 'Welcome pack not sent',              type: 'action', colour: 'amber' },
   { n: 2, label: 'Welcome Pack Sent',   sub: 'Documents awaiting',                 type: 'passive', colour: 'blue' },
+  // a landlord who sent their form and was then asked for more (Ask for what's missing reopens the form) — 4 Nov 2026,
+  // Harry: Mr Rislan sat under "Welcome Pack Sent" with no way to see or deal with what he'd been asked for
+  { n: 2.5, label: 'More Details Asked For', sub: 'Waiting on the landlord',       type: 'passive', colour: 'blue' },
   { n: 3, label: 'Docs Received',       sub: 'Awaiting verification',              type: 'action', colour: 'amber' },
   { n: 4, label: 'Verified',            sub: 'Approval email sent',                type: 'action', colour: 'amber' },
   { n: 5, label: 'Agreement Sent',      sub: 'Awaiting signature (Adobe Sign)',    type: 'passive', colour: 'blue' },
@@ -266,13 +269,22 @@ export default function OnboardingPage() {
     }
   }
 
+  // what we last asked the landlord for, while we're still waiting on it (asked after their last form, not yet verified)
+  const askedFor = (row: any): { at: string; items: string[]; note?: string } | null => {
+    const fd = row?.form_data ?? {}
+    const reqs = Array.isArray(fd.__requests) ? fd.__requests : []
+    const last = reqs[reqs.length - 1]
+    if (!last || row.stage !== 2 || row.verified_at) return null
+    return !fd.__submitted_at || String(last.at) > String(fd.__submitted_at) ? last : null
+  }
+
   // Group rows by stage (exclude archived stage=0)
   const activeRows   = rows.filter(r => r.stage > 0)
   const archivedRows = rows.filter(r => r.stage === 0)
 
   const byStage = STAGES.map(s => ({
     ...s,
-    items: activeRows.filter(r => r.stage === s.n),
+    items: activeRows.filter(r => s.n === 2.5 ? !!askedFor(r) : s.n === 2 ? r.stage === 2 && !askedFor(r) : r.stage === s.n),
   }))
 
   const inp = 'w-full rounded-xl border border-neutral-200 bg-white px-md py-sm text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900'
@@ -395,6 +407,7 @@ export default function OnboardingPage() {
                               <div className="text-right shrink-0">
                                 {row.welcome_sent_at && <p className="text-xs text-neutral-400">Pack sent {fmt(row.welcome_sent_at)}</p>}
                                 {row.docs_received_at && <p className="text-xs text-neutral-400">Docs {fmt(row.docs_received_at)}</p>}
+                                {askedFor(row) && <p className="text-xs font-semibold text-amber-700">Asked for {askedFor(row)!.items.length} thing{askedFor(row)!.items.length === 1 ? '' : 's'} · {fmt(askedFor(row)!.at)}</p>}
                                 {row.verified_at && <p className="text-xs text-green-600 font-medium">Verified {fmt(row.verified_at)}</p>}
                               </div>
                             </div>
@@ -470,7 +483,7 @@ export default function OnboardingPage() {
 
               <Link href={`/admin/new-business/onboarding/${selected.id}`}
                 className="block w-full text-center rounded-xl bg-neutral-900 text-white py-sm text-sm font-semibold hover:bg-neutral-700 transition">
-                {selected.stage >= 3 ? 'Open full AML review →' : 'Open record →'}
+                {selected.stage >= 3 || askedFor(selected) ? 'Open full AML review →' : 'Open record →'}
               </Link>
 
               {/* AML form link */}
@@ -602,14 +615,30 @@ export default function OnboardingPage() {
               <div className="space-y-sm pt-sm border-t border-neutral-100">
                 <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wide">Actions</p>
 
+                {/* asked for more: what, when, and the ways forward — a reminder, or carry on with what they've sent by email */}
+                {askedFor(selected) && (() => {
+                  const a = askedFor(selected)!
+                  return (
+                    <div className="space-y-sm rounded-xl border border-amber-200 bg-amber-50 p-md">
+                      <p className="text-sm font-semibold text-amber-900">Asked for on {fmt(a.at)} — waiting on them</p>
+                      <ul className="list-disc space-y-xs pl-lg text-sm text-amber-900">{a.items.map((it, i) => <li key={i}>{it}</li>)}</ul>
+                      {a.note && <p className="text-xs text-amber-800">Your note: {a.note}</p>}
+                      <p className="text-xs text-amber-800">Their form is open for them to add these. When they send it back, they move to Docs Received on their own. The new management agreement goes after that: verify, then Approve &amp; send on the AML review.</p>
+                      <button onClick={() => advanceStage(selected.id, 3, { docs_received: true })} disabled={advancing} className="w-full rounded-xl bg-neutral-900 text-white py-sm text-sm font-semibold hover:bg-neutral-700 transition disabled:opacity-40">
+                        {advancing ? '…' : 'They’ve replied another way — carry on with the review'}
+                      </button>
+                    </div>
+                  )
+                })()}
+
                 {/* the form link again (and the agreement, if one was sent) — this used to only move the stage on */}
                 {selected.stage <= 2 && (
                   <button onClick={() => resendForm(selected.id, selected.email)} disabled={advancing} className="w-full rounded-xl bg-neutral-900 text-white py-sm text-sm font-semibold hover:bg-neutral-700 transition disabled:opacity-40">
-                    {advancing ? '…' : 'Send the form link again'}
+                    {advancing ? '…' : askedFor(selected) ? 'Remind them — send the form link again' : 'Send the form link again'}
                   </button>
                 )}
 
-                {selected.stage === 2 && (
+                {selected.stage === 2 && !askedFor(selected) && (
                   <button onClick={() => advanceStage(selected.id, 3, { docs_received: true })} disabled={advancing} className="w-full rounded-xl bg-neutral-900 text-white py-sm text-sm font-semibold hover:bg-neutral-700 transition disabled:opacity-40">
                     {advancing ? '…' : 'Mark documents received'}
                   </button>
