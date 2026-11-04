@@ -7,6 +7,8 @@
  *        { action: 'status', entryId, status: 'open'|'done' }
  *        { action: 'archive_board', boardId }               office only
  *        { action: 'import_board', personId, plannerBoardId, itemIds }  office only — copy from the office's own Planner
+ *        { action: 'email_board', boardId, message?, test? }  office only — email the person their board with a link that
+ *          signs them straight into it (4 Nov 2026); test: true sends the same email to you, its button opening your view
  * The other side gets an in-app notification and a push for a new entry or reply. Office = administrator/admin.
  */
 import { NextRequest, NextResponse } from 'next/server'
@@ -17,6 +19,12 @@ import { sendServerPush } from '@/lib/serverPush'
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
 import { loadPrivateBoards, importItems } from '@/lib/planner/importBoard'
 import { shortAddress } from '@/lib/lettings/letWording'
+import { authLink } from '@/lib/auth/links'
+import { authUsersByEmail, statusOf } from '@/lib/auth/accounts'
+import { buildEmail, PORTAL_URL } from '@/lib/emailWrapper'
+import { deliverEmail } from '@/lib/sendEmail'
+import { greeting, paraHtml, hero, card, button, note, esc } from '@/lib/email/blocks'
+import { dearName } from '@/lib/people'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -131,6 +139,43 @@ export async function POST(req: NextRequest) {
   const b = await req.json().catch(() => ({}))
   const s = createServiceClient()
   const who = await s.from('people').select('salutation, first_name, last_name, full_name').eq('id', caller.personId).maybeSingle().then(r => name(r.data) || caller.email)
+
+  // Email the person their board (4 Nov 2026, Harry: sharing told Jacob nothing; "before I send to Richard I can see what
+  // Richard is going to get"). Their copy's button signs them straight into their planner — no password needed; a test
+  // goes to the office person pressing it, word for word, but its button opens the board as the office sees it (a
+  // sign-in link for someone else's account is never sent to anyone but them).
+  if (b.action === 'email_board') {
+    if (!isOffice(caller)) return NextResponse.json({ error: 'Only the office can do that' }, { status: 403 })
+    const board = await boardFor(s, caller, String(b.boardId ?? ''))
+    if (!board) return NextResponse.json({ error: 'Board not found' }, { status: 404 })
+    const { data: p } = await s.from('people').select('id, salutation, first_name, last_name, full_name, company, email, role').eq('id', board.member_person_id).maybeSingle() as { data: any }
+    if (!p?.email) return NextResponse.json({ error: 'They have no email address — add one on their profile first' }, { status: 400 })
+    const test = b.test === true
+    let link: string | null
+    if (test) link = `${PORTAL_URL}/admin/planner/shared?board=${board.id}`
+    else {
+      const users = await authUsersByEmail(s as any)
+      const u = users.get(String(p.email).toLowerCase())
+      if (u && statusOf(u).off) return NextResponse.json({ error: 'Their sign-in is turned off — turn it back on (People › their profile) first' }, { status: 400 })
+      link = await authLink(s as any, p.email, u ? 'magiclink' : 'invite', '/planner')
+      if (!link) return NextResponse.json({ error: 'Couldn’t make their sign-in link — try again' }, { status: 502 })
+    }
+    const entries = await loadBoard(s, board)
+    const open = entries.filter((e: any) => e.status !== 'done')
+    const message = String(b.message ?? '').trim().slice(0, 3000)
+    const body = [
+      greeting(dearName(p) || name(p)),
+      message ? message.split(/\n\s*\n/).map(x => paraHtml(esc(x).replace(/\n/g, '<br>'))).join('') : paraHtml(`We’ve set up a shared planner for the two of us — the things we’re working on together, in one place. You can reply to anything, add photos and links, and tick things off when they’re done.`),
+      hero({ eyebrow: 'Your shared planner', title: board.title, sub: `${open.length} open item${open.length === 1 ? '' : 's'}` }),
+      open.length ? card('On it now', open.slice(0, 6).map((e: any) => `<p style="margin:0 0 8px;font-size:14px;line-height:1.5"><strong>${esc(e.title)}</strong>${e.property ? ` <span style="color:#5C6B62">· ${esc(e.property)}</span>` : ''}</p>`).join('') + (open.length > 6 ? `<p style="margin:0;font-size:13px;color:#5C6B62">…and ${open.length - 6} more</p>` : ''), 'mint') : '',
+      button(link!, 'Open my planner'),
+      note(test ? `<strong>Test copy for you.</strong> ${esc(name(p))}’s button signs them straight into their planner; yours opens the board as you see it.` : 'The button signs you straight in — no password needed. It works once; next time, sign in at ' + esc(PORTAL_URL) + ' or ask us for a new link.'),
+    ].join('')
+    const to = test ? caller.email : p.email
+    const sent = await deliverEmail({ to, subject: `${test ? 'TEST · ' : ''}Your shared planner with Capital Rooms`, html: await buildEmail(body, { req }) }, { req })
+    if (!sent.ok) return NextResponse.json({ error: 'The email didn’t send — try again' }, { status: 502 })
+    return NextResponse.json({ ok: true, to })
+  }
 
   if (b.action === 'create_board' || b.action === 'archive_board') {
     if (!isOffice(caller)) return NextResponse.json({ error: 'Only the office can do that' }, { status: 403 })
