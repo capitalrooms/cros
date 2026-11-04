@@ -13,6 +13,7 @@ import { PROPERTY_CERTIFICATES } from '@/lib/propertyCertificates'
 import { oneWeekRent } from '@/lib/tenancy/deposit'
 import { applyMoveInRent } from '@/lib/lettings/moveInRent'
 import { fullDatesIn } from '@/lib/fullDates'
+import { isWholeLet, shortAddress } from '@/lib/lettings/letWording'
 
 const todayIso = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
 const r2 = (n: number) => Math.round(n * 100) / 100
@@ -40,6 +41,7 @@ export async function loadRoomOverview(s: SupabaseClient, roomId: string) {
   if (!roomRow) return { error: 'Room not found' as const }
   const { property: prop, ...room } = roomRow as any
   if (!prop) return { error: 'Property not found' as const }
+  const whole = isWholeLet(prop.property_type, room.name)
 
   const [houseRoomsQ, houseTenQ, roomTenQ, landlordQ, chargesQ, ticketsQ, purchasesQ, photosQ, viewingsQ, applicantsQ, offersQ, holdsQ, notesQ, checksQ, takeover] = await Promise.all([
     s.from('rooms').select('id, name, current_asking_rent, status').eq('property_id', prop.id),
@@ -242,8 +244,8 @@ export async function loadRoomOverview(s: SupabaseClient, roomId: string) {
     const left = days(today, current.end_date)
     const lead = applicants.find(a => a.offerSentAt) ?? applicants[0]
     needs.push({ key: 'relet', level: left <= 7 ? 'urgent' : 'week', category: 'Re-let', title: `No incoming tenancy for ${fullDate(addDays(current.end_date, 1))}`,
-      detail: [lead ? `${lead.offerSentAt ? `Offer to applicant ${lead.name} sent ${fullDate(lead.offerSentAt)}` : `Applicant ${lead.name}`}, ${lead.stage === 'reserved' || lead.offerStatus === 'deposit_paid' ? 'reserved' : 'not reserved'}.` : 'No applicants for this room.', room.marketing_status === 'listed' || room.show_on_website ? '' : 'Not advertised.', ((viewingsQ as any).data ?? []).some((v: any) => v.viewing_date >= today) ? '' : 'No viewings booked.'].filter(Boolean).join(' '),
-      due: left >= 0 ? `Room free in ${left + 1} day${left === 0 ? '' : 's'}` : 'Room free now', href: '#relet', action: 'Re-let plan' })
+      detail: [lead ? `${lead.offerSentAt ? `Offer to applicant ${lead.name} sent ${fullDate(lead.offerSentAt)}` : `Applicant ${lead.name}`}, ${lead.stage === 'reserved' || lead.offerStatus === 'deposit_paid' ? 'reserved' : 'not reserved'}.` : `No applicants for ${whole ? 'the property' : 'this room'}.`, room.marketing_status === 'listed' || room.show_on_website ? '' : 'Not advertised.', ((viewingsQ as any).data ?? []).some((v: any) => v.viewing_date >= today) ? '' : 'No viewings booked.'].filter(Boolean).join(' '),
+      due: left >= 0 ? `${whole ? 'Free' : 'Room free'} in ${left + 1} day${left === 0 ? '' : 's'}` : whole ? 'Free now' : 'Room free now', href: '#relet', action: 'Re-let plan' })
   }
   if (current?.notice_received_date && !current.checkout_confirmation_sent_at) {
     const ev = (((eventsQ as any).data ?? []) as any[]).find(e => e.tenancy_id === current.id && e.kind === 'notice')
@@ -278,7 +280,7 @@ export async function loadRoomOverview(s: SupabaseClient, roomId: string) {
     const lastEnd = expired[0]?.end_date ?? null
     const from = lastEnd ? addDays(lastEnd, 1) : null
     const n = from ? days(from, today) + 1 : null
-    needs.push({ key: 'void', level: 'urgent', category: 'Void', title: from ? `Void since ${fullDate(from)}` : 'No tenancy on record', detail: n ? `${n} days · ${gbp(r2(n * dailyRent(Number(room.current_asking_rent) || Number(expired[0]?.rent_amount) || 0)))} of rent lost so far.` : 'Add the tenancy, or advertise the room.', due: n ? `${n} days` : '', href: '#relet', action: 'Fill the room' })
+    needs.push({ key: 'void', level: 'urgent', category: 'Void', title: from ? `Void since ${fullDate(from)}` : 'No tenancy on record', detail: n ? `${n} days · ${gbp(r2(n * dailyRent(Number(room.current_asking_rent) || Number(expired[0]?.rent_amount) || 0)))} of rent lost so far.` : `Add the tenancy, or advertise ${whole ? 'the property' : 'the room'}.`, due: n ? `${n} days` : '', href: '#relet', action: whole ? 'Let the property' : 'Fill the room' })
   }
   for (const m of ((ticketsQ as any).data ?? []) as any[]) {
     if (['completed', 'cancelled'].includes(m.status)) continue
@@ -313,6 +315,8 @@ export async function loadRoomOverview(s: SupabaseClient, roomId: string) {
       marketingDescription: room.marketing_description ?? null, showOnWebsite: !!room.show_on_website, isLetOnly: !!room.is_let_only,
       photos: photos.map(p => ({ id: p.id, src: p.file_url || p.file_path, caption: p.caption ?? null })),
     },
+    // a whole home (single let) — the page talks about the property, not a room (4 Nov 2026)
+    whole,
     property: { id: prop.id, name: firstLine(prop.name), address: prop.address ?? '', postcode: prop.postcode ?? '', code: prop.property_code ?? null, type: prop.property_type ?? null, roomCount: strip.length, furnished: prop.furnished_status ?? null, bills: prop.bills_included ?? null, lettingType: prop.letting_type ?? null },
     landlord: (landlordQ as any).data ? { id: (landlordQ as any).data.id, name: pname((landlordQ as any).data), company: (landlordQ as any).data.company ?? null } : null,
     fee: { label: describeFee(fee), perMonth: feeNow, toLandlord: rentNow != null && feeNow != null ? r2(rentNow - feeNow) : null, rent: rentNow },

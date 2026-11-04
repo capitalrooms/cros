@@ -63,6 +63,13 @@ export default function TenanciesManagementPage() {
   const [view, setView] = useState<'all' | 'let_agreed' | 'live' | 'notice' | 'ended'>('all');   // All current · Let agreed · Live · On notice · Ended
   const [q, setQ] = useState('');
   const [menu, setMenu] = useState<string | null>(null);   // the row whose ⋯ menu is open
+  // ?add=<property>:<room> — opened from a room page's "Add an existing tenancy": the New tenancy form, filled in (4 Nov 2026)
+  useEffect(() => {
+    const add = new URLSearchParams(window.location.search).get('add')
+    if (!add) return
+    const [p, r] = add.split(':')
+    setShowAdd(true); if (p) setSelProp(p); if (r) setSelRoom(r)
+  }, [])
   useEffect(() => {
     if (!menu) return;
     const close = (e: MouseEvent) => { if (!(e.target as HTMLElement).closest('[data-row-menu]')) setMenu(null); };
