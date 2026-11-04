@@ -14,6 +14,7 @@ import BackButton from '@/app/components/BackButton'
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
 import LineIcon from '@/components/LineIcon'
 import PageHero, { HeroButton } from '@/components/PageHero'
+import PersonPlannerPanel from '@/components/PersonPlannerPanel'
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface Person {
@@ -256,6 +257,7 @@ export default function PersonPage({ params }: { params: Promise<{ personId: str
         )}
 
         {/* ── Profile tab ── */}
+        {activeTab === 'profile' && <div className="mb-lg"><PersonPlannerPanel personId={person.id} name={name} /></div>}
         {activeTab === 'profile' && (
           <div className="space-y-lg">
             <div className="bg-white rounded-2xl border border-neutral-200 p-lg">
