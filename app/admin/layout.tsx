@@ -39,7 +39,9 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
-  const onPropHub = isPropertyHub(pathname)
+  // a tenant's letting file opened from a house or a room stays under Properties in the menu (4 Nov 2026: the menu
+  // used to jump to Lettings › Tenancies on the way from a house to its tenant)
+  const onPropHub = isPropertyHub(pathname) || (pathname.startsWith('/admin/lettings/') && /^\/admin\/(properties|active-rooms)/.test(searchParams.get('from') ?? ''))
   const activeZone = getActiveZone(pathname)
 
   // access levels (lib/access/areas): administrators see everything; other office staff only their areas.

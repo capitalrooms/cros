@@ -51,7 +51,7 @@ export function stageOf(t: { let_cancelled_at?: string | null; start_date?: stri
 export async function loadLettingFile(s: SupabaseClient, tenancyId: string) {
   const today = todayIso()
   const { data: t, error } = await s.from('tenancies')
-    .select('*, people!person_id(id, salutation, first_name, middle_name, last_name, full_name, email, phone, occupation, right_to_rent_until, applicant_id), co:people!co_tenant_id(id, salutation, first_name, last_name, full_name, email, phone), rooms(id, name, unit_code, status, is_let_only), properties(id, name, address, postcode, property_code, letting_type, landlord_id)')
+    .select('*, people!person_id(id, salutation, first_name, middle_name, last_name, full_name, email, phone, occupation, right_to_rent_until, applicant_id), co:people!co_tenant_id(id, salutation, first_name, last_name, full_name, email, phone), rooms(id, name, unit_code, status, is_let_only), properties(id, name, address, postcode, property_code, letting_type, landlord_id, property_type)')
     .eq('id', tenancyId).maybeSingle() as { data: any; error: any }
   if (error) return { error: error.message }
   if (!t) return { error: 'Tenancy not found' }
@@ -117,7 +117,7 @@ export async function loadLettingFile(s: SupabaseClient, tenancyId: string) {
       jointTenant: t.co ? { id: t.co.id, name: name(t.co), email: t.co.email ?? null, phone: t.co.phone ?? null } : null,
       tenant: { id: t.people?.id ?? t.person_id, name: name(t.people), formalName: t.people ? formalName(t.people) : '', email: t.people?.email ?? null, phone: t.people?.phone ?? null, occupation: t.people?.occupation ?? null, rightToRentUntil: t.people?.right_to_rent_until ?? null },
       room: { id: room.id, name: room.name ?? '', unitCode: room.unit_code ?? null, status: room.status ?? null },
-      property: { id: prop.id, name: prop.name ?? '', address: prop.address ?? '', postcode: prop.postcode ?? '', code: prop.property_code ?? null, lettingType: prop.letting_type ?? null },
+      property: { id: prop.id, name: prop.name ?? '', address: prop.address ?? '', postcode: prop.postcode ?? '', code: prop.property_code ?? null, lettingType: prop.letting_type ?? null, type: (prop.property_type ?? null) as string | null },
       landlord: (landlordQ as any).data ? { id: (landlordQ as any).data.id, name: name((landlordQ as any).data), email: (landlordQ as any).data.email, phone: (landlordQ as any).data.phone } : null,
       applicant,
       holds,
