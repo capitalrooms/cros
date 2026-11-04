@@ -177,6 +177,7 @@ export default function SharedPlanner({ mode, initialBoard }: { mode: 'office' |
             post={post} onClose={() => setImporting(false)}
             onDone={async id => { setImporting(false); setBoardId(id); await load(id) }} />
         )}
+        {mode === 'office' && board && <EmailBoard key={board.id} boardId={board.id} member={board.member ?? "them"} post={post} />}
         {mode === 'office' && board && board.role === 'landlord' ? (
           // a landlord's board: the same grid they see in their app, editable here (components/LandlordPlanner)
           <div className="pub rounded-2xl border border-neutral-200 bg-white p-6 md:p-8">
@@ -259,6 +260,43 @@ function EntryCard({ e, boardId, post, reload }: { e: Entry; boardId: string; po
 interface PItem { id: string; groupName: string; title: string; status: string; responsible?: string; date?: string; updates?: { body?: string; images?: string[] }[] }
 interface PBoard { id: string; title: string; subtitle?: string; items: PItem[] }
 const PSTATUS: Record<string, string> = { discuss: 'To discuss', discussed: 'Discussed', progress: 'In progress', done: 'Done', parked: 'Parked' }
+
+// Email the person their board (4 Nov 2026): a test to you first, word for word, then to them — their copy's button
+// signs them straight into their planner.
+function EmailBoard({ boardId, member, post }: { boardId: string; member: string; post: (b: Record<string, unknown>) => Promise<any> }) {
+  const [open, setOpen] = useState(false)
+  const [message, setMessage] = useState('')
+  const [busy, setBusy] = useState('')
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  async function send(test: boolean) {
+    if (!test && !confirm(`Email ${member} their planner, with a button that signs them straight in?`)) return
+    setBusy(test ? 'test' : 'send'); setMsg(null)
+    try { const d = await post({ action: 'email_board', boardId, message, test }); setMsg({ ok: true, text: test ? `Test sent to ${d.to} — exactly what ${member} will get.` : `Sent to ${member} (${d.to}).` }) }
+    catch (e) { setMsg({ ok: false, text: e instanceof Error ? e.message : 'Not sent' }) }
+    finally { setBusy('') }
+  }
+  if (!open) return (
+    <div className="flex flex-wrap items-center justify-between gap-sm rounded-2xl border border-neutral-200 bg-white px-lg py-sm">
+      <p className="text-sm text-neutral-700">Let {member} know it’s there — an email with a button that signs them straight into their planner.</p>
+      <button type="button" onClick={() => setOpen(true)} className="rounded-xl bg-neutral-900 px-md py-xs text-sm font-bold text-white">Email them the board…</button>
+    </div>
+  )
+  return (
+    <div className="space-y-sm rounded-2xl border-2 border-neutral-900 bg-white p-lg">
+      <div className="flex items-start justify-between gap-md">
+        <h2 className="text-lg font-bold text-neutral-900">Email {member} their planner</h2>
+        <button type="button" onClick={() => setOpen(false)} className="text-sm font-semibold text-neutral-500">Close</button>
+      </div>
+      <textarea rows={4} className={input} value={message} onChange={e => setMessage(e.target.value)} placeholder="A line from you (optional) — otherwise it says we’ve set up a shared planner for the two of you." />
+      <p className="text-xs text-neutral-500">It shows the board’s name and what’s open on it, and a button that signs them straight in (no password needed). Send yourself a test first to see exactly what they’ll get — your copy’s button opens the board as you see it.</p>
+      <div className="flex flex-wrap gap-sm">
+        <button type="button" onClick={() => send(true)} disabled={!!busy} className="rounded-xl border border-neutral-300 px-md py-sm text-sm font-semibold disabled:opacity-40">{busy === 'test' ? 'Sending…' : 'Send me a test'}</button>
+        <button type="button" onClick={() => send(false)} disabled={!!busy} className="rounded-xl bg-neutral-900 px-md py-sm text-sm font-bold text-white disabled:opacity-40">{busy === 'send' ? 'Sending…' : `Send to ${member}`}</button>
+      </div>
+      {msg && <p className={`text-sm font-semibold ${msg.ok ? 'text-green-700' : 'text-red-700'}`}>{msg.text}</p>}
+    </div>
+  )
+}
 
 function ImportPanel({ people, preselect, post, onClose, onDone }: {
   people: { id: string; name: string; role: string }[]; preselect?: string
