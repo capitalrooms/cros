@@ -274,36 +274,15 @@ export default function ContractorProfilePage({ params, searchParams }: { params
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar left={<BackButton href="/admin/people" />} />
-      <PageHero trail={[{ label: 'People', href: '/admin/people' }, isCleaner ? { label: 'Cleaners', href: '/admin/people?tab=cleaners' } : { label: 'Contractors', href: '/admin/people?tab=contractors' }]} title={displayName} subtitle={[person.company, person.email, person.phone].filter(Boolean).join(' · ') || undefined}
+      <PageHero trail={[{ label: 'People', href: '/admin/people' }, isCleaner ? { label: 'Cleaners', href: '/admin/people?tab=cleaners' } : { label: 'Contractors', href: '/admin/people?tab=contractors' }]} title={displayName}
+        // the same heading as every record (4 Nov 2026): one status — their cover — and one line of facts; contact details live on Contact
+        chip={warnings.length ? { label: warnings[0], tone: 'warn' } : !isCleaner && !person.insurance_expiry ? { label: 'No insurance on file', tone: 'warn' } : !isCleaner ? { label: 'Insurance in date', tone: 'good' } : person.dbs_checked_at ? { label: 'DBS checked', tone: 'good' } : undefined}
+        subtitle={[((person.trade_types || []) as string[]).join(', ') || (isCleaner ? 'Cleaning' : 'No trades listed'), person.company, `${jobs.length} job${jobs.length === 1 ? '' : 's'}`].filter(Boolean).join(' · ')}
         tabs={TABS.map(tab => ({ key: tab.id, label: tab.label, active: activeTab === tab.id, onClick: () => setActiveTab(tab.id) }))} />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
 
-        {/* Header — trades and warnings, on the Overview */}
-        {activeTab === 'overview' && <div className="rounded-xl border border-neutral-200 bg-white px-xl py-lg mb-xl">
-          <div className="flex items-start justify-between gap-lg">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-widest text-neutral-400 mb-xs">Trades</p>
-              {(person.trade_types || []).length === 0 && <p className="text-sm text-neutral-500">None listed</p>}
-              {(person.trade_types || []).length > 0 && (
-                <div className="flex flex-wrap gap-xs">
-                  {(person.trade_types as string[]).map(t => (
-                    <span key={t} className="text-xs font-semibold px-sm py-xs rounded-full bg-blue-50 text-blue-800 border border-blue-100">{t}</span>
-                  ))}
-                </div>
-              )}
-            </div>
-            <div className="text-right space-y-xs shrink-0">
-              {warnings.length > 0 && (
-                <div className="space-y-xs">
-                  {warnings.map(w => (
-                    <div key={w} className="text-xs font-semibold px-md py-xs rounded-full bg-amber-50 text-amber-800 border border-amber-200">{w}</div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>}
+        {/* trades and cover warnings are in the heading now (4 Nov 2026) */}
 
         {/* ══ INVOICES ══ */}
         {activeTab === 'money' && (

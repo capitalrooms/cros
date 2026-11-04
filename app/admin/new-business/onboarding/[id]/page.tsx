@@ -2,7 +2,7 @@
 
 import { useEffect, useState, use } from 'react'
 import AppBar from '@/components/AppBar'
-import PageHero from '@/components/PageHero'
+import PageHero, { HeroButton } from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import { adminFetch, downloadPdf } from '@/lib/adminFetch'
 import { FACT_LABELS, propertyDocLabel, type PropertyDoc } from '@/lib/landlordOnboarding/propertyDocs'
@@ -224,21 +224,17 @@ export default function OnboardingReviewPage({ params }: { params: Promise<{ id:
   const areas = Array.from(new Set((review?.checks ?? []).map(c => c.area)))
 
   return (
-    <Page>
-      {/* Header */}
-      <div className="flex flex-wrap items-start justify-between gap-md mb-lg">
-        <div>
-          <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wide">AML review</p>
-          <h1 className="text-2xl font-bold text-neutral-900">{onboardingName(row)}</h1>
-          <p className="text-sm text-neutral-500">{row.email}{f.j_contact_email ? ` · ${f.j_contact_email}` : ''} · {submitted ? `Submitted ${fmt(f.__submitted_at ?? row.docs_received_at)}` : 'Form not yet submitted'}{waiting ? ` · more details asked for ${fmt(waiting.at)} — waiting on them` : ''}</p>
-        </div>
-        <div className="flex flex-wrap gap-sm">
-          {(!submitted) && <button onClick={resend} disabled={!!busy} className="rounded-xl bg-neutral-900 px-md py-sm text-sm font-semibold text-white hover:bg-neutral-700 disabled:opacity-40">{busy === 'resend' ? 'Sending…' : 'Send the form link again'}</button>}
-          {submitted && <button onClick={rerun} disabled={!!busy} className="rounded-xl border border-neutral-300 bg-white px-md py-sm text-sm font-semibold text-neutral-700 hover:bg-neutral-50 disabled:opacity-40">{busy === 'rerun' ? 'Running checks…' : '↻ Re-run checks'}</button>}
-          {submitted && <button onClick={() => downloadPdf(`/api/landlord-onboarding/${id}/aml-report`, 'CDD-Record.pdf')} className="rounded-xl bg-neutral-900 px-md py-sm text-sm font-semibold text-white hover:bg-neutral-700">⬇ AML report (PDF)</button>}
-        </div>
-      </div>
-
+    <Page hero={{
+      title: onboardingName(row),
+      chip: row.verified_at ? { label: 'AML verified', tone: 'good' } : waiting ? { label: 'Waiting on the landlord', tone: 'warn' } : submitted ? { label: 'Ready to review', tone: 'info' } : { label: 'Form not submitted', tone: 'plain' },
+      subtitle: [row.email, f.j_contact_email, submitted ? `submitted ${fmt(f.__submitted_at ?? row.docs_received_at)}` : null, waiting ? `more details asked for ${fmt(waiting.at)}` : null].filter(Boolean).join(' · '),
+      actions: !submitted
+        ? <HeroButton primary onClick={busy ? undefined : resend}>{busy === 'resend' ? 'Sending…' : 'Send the form link again'}</HeroButton>
+        : <>
+            <HeroButton primary onClick={() => downloadPdf(`/api/landlord-onboarding/${id}/aml-report`, 'CDD-Record.pdf')}>AML report (PDF)</HeroButton>
+            <HeroButton onClick={busy ? undefined : rerun}>{busy === 'rerun' ? 'Running checks…' : 'Re-run checks'}</HeroButton>
+          </>,
+    }}>
       {msg && <div className={`rounded-xl border px-md py-sm text-sm mb-lg ${msg.ok ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-800'}`}>{msg.text}</div>}
 
       {!submitted && (
@@ -431,11 +427,13 @@ export default function OnboardingReviewPage({ params }: { params: Promise<{ id:
   )
 }
 
-function Page({ children }: { children: React.ReactNode }) {
+// one heading, the same as every record (4 Nov 2026): New business › Landlord onboarding, their name, one status, the buttons
+function Page({ children, hero }: { children: React.ReactNode; hero?: { title: string; chip?: { label: string; tone: 'good' | 'warn' | 'info' | 'plain' }; subtitle?: string; actions?: React.ReactNode } }) {
   return (
     <div className="min-h-screen bg-neutral-100">
       <AppBar left={<BackButton href="/admin/new-business/onboarding" />} title="AML review" />
-      <PageHero eyebrow="New business · Landlord onboarding" title="AML review" />
+      <PageHero trail={[{ label: 'New business', href: '/admin/new-business' }, { label: 'Landlord onboarding', href: '/admin/new-business/onboarding' }]}
+        title={hero?.title ?? 'AML review'} chip={hero?.chip} subtitle={hero?.subtitle} actions={hero?.actions} />
       <div className="mx-auto max-w-6xl px-lg py-xl">{children}</div>
     </div>
   )
