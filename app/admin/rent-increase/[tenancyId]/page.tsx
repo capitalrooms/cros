@@ -249,7 +249,7 @@ export default function RentIncreasePage() {
           <div className="grid grid-cols-2 gap-md">
             <div>
               <p className="text-xs text-neutral-400 mb-xs">Current rent</p>
-              <p className="font-bold text-neutral-900 text-lg">{fmtMoney(currentRent)}/mo</p>
+              <p className="font-bold text-neutral-900 text-lg">{fmtMoney(currentRent)} per month</p>
             </div>
             <div>
               <p className="text-xs text-neutral-400 mb-xs">Tenancy start</p>
@@ -319,8 +319,8 @@ export default function RentIncreasePage() {
             </div>
             {proposedRent && Number(proposedRent) > currentRent && (
               <p className="text-xs text-neutral-500 mt-xs">
-                Increase: {fmtMoney(increase)}/mo (+{pctIncrease}%)
-                {' · '}New rent: {fmtMoney(Number(proposedRent))}/mo
+                Increase: {fmtMoney(increase)} per month (+{pctIncrease}%)
+                {' · '}New rent: {fmtMoney(Number(proposedRent))} per month
               </p>
             )}
             {proposedRent && Number(proposedRent) <= currentRent && (
@@ -424,7 +424,7 @@ export default function RentIncreasePage() {
           <p className="text-xs font-bold uppercase tracking-wide text-neutral-400 mb-xs">Preview — review before sending</p>
           <h1 className="text-2xl font-bold text-neutral-900">Section 13 Notice — {person ? displayName(person) : ''}</h1>
           <p className="text-sm text-neutral-500 mt-xs">
-            {fmtMoney(currentRent)}/mo → {fmtMoney(Number(proposedRent))}/mo · Effective {fmtDate(effectiveDate)}
+            {fmtMoney(currentRent)} per month → {fmtMoney(Number(proposedRent))} per month · Effective {fmtDate(effectiveDate)}
           </p>
         </div>
 
@@ -518,7 +518,7 @@ export default function RentIncreasePage() {
         </p>
         <p className="text-sm text-neutral-500 mb-xl">
           The notice has been recorded in CROS (ID: <code className="text-xs bg-neutral-100 px-xs py-[2px] rounded">{sentNoticeId}</code>).
-          Rent will remain at {fmtMoney(currentRent)}/mo until you confirm the increase has taken effect on {fmtDate(effectiveDate)}.
+          Rent will remain at {fmtMoney(currentRent)} per month until you confirm the increase has taken effect on {fmtDate(effectiveDate)}.
         </p>
 
         {sendWarning && (
