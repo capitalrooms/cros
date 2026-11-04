@@ -178,8 +178,31 @@ export default function SharedPlanner({ mode, initialBoard }: { mode: 'office' |
             onDone={async id => { setImporting(false); setBoardId(id); await load(id) }} />
         )}
         {mode === 'office' && board && <EmailBoard key={board.id} boardId={board.id} member={board.member ?? "them"} post={post} />}
-        {mode === 'office' && board && board.role === 'landlord' ? (
-          // a landlord's board: the same grid they see in their app, editable here (components/LandlordPlanner)
+        {mode === 'office' && board && (() => {
+          // the same item more than once (the board was shared more than once before 4 Nov 2026) — one press tidies it
+          const keys = data.entries.map(e => `${String(e.title).trim().toLowerCase()}|${e.property ?? ''}`)
+          const repeats = keys.length - new Set(keys).size
+          return (
+            <div className="flex flex-wrap items-center justify-between gap-sm rounded-2xl border border-neutral-200 bg-white px-lg py-sm">
+              {repeats > 0
+                ? <p className="text-sm font-semibold text-amber-800">{repeats} item{repeats === 1 ? ' is' : 's are'} on this board more than once (it was shared more than once).</p>
+                : <p className="text-sm text-neutral-600">{data.entries.length} item{data.entries.length === 1 ? '' : 's'} shared with {board.member}.</p>}
+              <span className="flex flex-wrap gap-sm">
+                {repeats > 0 && <button type="button" className="rounded-xl bg-neutral-900 px-md py-xs text-sm font-bold text-white" onClick={async () => {
+                  if (!confirm(`Remove the ${repeats} repeated item${repeats === 1 ? '' : 's'}? The first copy of each stays, with its notes. Anything ${board.member} has replied to is kept.`)) return
+                  try { const d = await post({ action: 'remove_duplicates', boardId: board.id }); setError(''); await load(board.id); alert(`Removed ${d.removed} repeated item${d.removed === 1 ? '' : 's'}.`) } catch (e) { setError(e instanceof Error ? e.message : 'Not removed') }
+                }}>Remove the repeats</button>}
+                <button type="button" className="rounded-xl border border-neutral-300 px-md py-xs text-sm font-semibold text-red-700" onClick={async () => {
+                  if (!confirm(`Stop sharing this board with ${board.member}? They won’t see it any more. Nothing is deleted — you can start a new board with them later.`)) return
+                  try { await post({ action: 'archive_board', boardId: board.id }); setBoardId(undefined); await load() } catch (e) { setError(e instanceof Error ? e.message : 'Not stopped') }
+                }}>Stop sharing</button>
+              </span>
+            </div>
+          )
+        })()}
+        {/* every board in the planner layout they see (4 Nov 2026 — it was only landlords') */}
+        {mode === 'office' && board ? (
+          // their board: the same grid they see in their app, editable here (components/LandlordPlanner)
           <div className="pub rounded-2xl border border-neutral-200 bg-white p-6 md:p-8">
             <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap" precedence="default" />
             <p className="pub-eyebrow m-0 mb-1">With {board.member} · what they see in their app</p>
