@@ -23,11 +23,29 @@ export async function GET(req: NextRequest) {
   const range = year ? taxYearRange(year) : { from: q.get('from') || '', to: q.get('to') || '', label: '' }
   if (!/^\d{4}-\d{2}-\d{2}$/.test(range.from) || !/^\d{4}-\d{2}-\d{2}$/.test(range.to)) return NextResponse.json({ error: 'Choose a tax year or two dates' }, { status: 400 })
   const books = await loadBooks(s as any, { from: range.from, to: range.to, landlordId: q.get('landlordId'), propertyId: q.get('propertyId') })
+  // narrowing (4 Nov 2026): a type (kind), and within it a category — e.g. letting fee, cleaning, deposit to landlord
   const kind = q.get('kind') as BookKind | null
-  const rows = kind && KINDS.includes(kind) ? books.rows.filter(r => r.kind === kind) : books.rows
+  const category = q.get('category') || ''
+  const rows = books.rows.filter(r => (!kind || !KINDS.includes(kind) || r.kind === kind) && (!category || r.category === category))
+  const categories = Object.fromEntries(KINDS.map(k => [k, [...new Set(books.rows.filter(r => r.kind === k).map(r => r.category))].sort()]))
+
+  if (q.get('format') === 'pdf') {
+    const KN: Record<string, string> = { rent: 'Rent received', fee: 'Fees', expense: 'Expenses', payout: 'Paid to landlords', deposit: 'Deposits' }
+    const fmt = (d: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })
+    const lid = q.get('landlordId'), pid = q.get('propertyId')
+    const [{ data: ll }, { data: pp }] = await Promise.all([
+      lid ? s.from('people').select('salutation, first_name, last_name, full_name, company').eq('id', lid).maybeSingle() : Promise.resolve({ data: null }),
+      pid ? s.from('properties').select('name').eq('id', pid).maybeSingle() : Promise.resolve({ data: null }),
+    ])
+    const title = `${category ? category.charAt(0).toUpperCase() + category.slice(1) : kind ? KN[kind] : 'Books'}${pp ? ` — ${String((pp as any).name).split('\n')[0]}` : ''}`
+    const chosen = [range.label ? `Tax year ${range.label}` : `${fmt(range.from)} to ${fmt(range.to)}`, ll ? `Landlord: ${(ll as any).company || [(ll as any).salutation, (ll as any).first_name, (ll as any).last_name].filter(Boolean).join(' ') || (ll as any).full_name}` : 'Every landlord', pp ? `Property: ${String((pp as any).name).split('\n')[0]}` : 'Every property', `${rows.length} entr${rows.length === 1 ? 'y' : 'ies'}`]
+    const { renderBooksPdf } = await import('@/lib/finance/booksPdf')
+    const pdf = await renderBooksPdf({ title, chosen, rows, vat: !!books.vat })
+    return new NextResponse(new Uint8Array(pdf), { headers: { 'Content-Type': 'application/pdf', 'Content-Disposition': contentDisposition(`Capital Rooms ${title} ${range.label || `${range.from} to ${range.to}`}.pdf`) } })
+  }
 
   if (q.get('format') === 'csv') {
-    const name = `Capital Rooms ${kind ? { rent: 'rent received', fee: 'fees', expense: 'expenses', payout: 'payments to landlords', deposit: 'deposits' }[kind] : 'books'} ${range.label || `${range.from} to ${range.to}`}.csv`
+    const name = `Capital Rooms ${category || (kind ? { rent: 'rent received', fee: 'fees', expense: 'expenses', payout: 'payments to landlords', deposit: 'deposits' }[kind] : 'books')} ${range.label || `${range.from} to ${range.to}`}.csv`
     return new NextResponse(booksCsv(rows), { headers: { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': contentDisposition(name) } })
   }
 
@@ -57,7 +75,7 @@ export async function GET(req: NextRequest) {
     s.from('properties').select('id, name, is_demo'),
   ])
   return NextResponse.json({
-    from: range.from, to: range.to, label: range.label, vat: books.vat, rows, totals, feeTotals, checks,
+    from: range.from, to: range.to, label: range.label, vat: books.vat, rows: books.rows, totals, feeTotals, checks, categories,
     landlords: ((landlords ?? []) as any[]).map(p => ({ id: p.id, name: String(p.company || [p.salutation, p.first_name, p.last_name].filter(Boolean).join(' ') || p.full_name || p.email || 'Landlord without a name') })).sort((a, b) => a.name.localeCompare(b.name)),
     properties: ((properties ?? []) as any[]).filter(p => !p.is_demo).map(p => ({ id: p.id, name: String(p.name ?? '').split('\n')[0] })).sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true })),
   })

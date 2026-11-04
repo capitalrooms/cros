@@ -16,20 +16,40 @@ import { financeTabs } from '@/lib/financeTabs'
 import { one, type PageSearchParams } from '@/lib/pageSearchParams'
 import type { BookRow } from '@/lib/finance/books'
 
-type View = 'rent' | 'fee' | 'expense' | 'payout' | 'deposit' | 'yearend'
-const VIEWS: [View, string][] = [['rent', 'Rent received'], ['fee', 'Fees'], ['expense', 'Expenses'], ['payout', 'Paid to landlords'], ['deposit', 'Deposits'], ['yearend', 'Landlords’ year-end']]
-interface Data { from: string; to: string; label: string; vat: { from: string; rate: number } | null; rows: BookRow[]; totals: Record<string, number>; feeTotals: { management: number; letting: number; net: number; vat: number }; checks: { level: 'fix' | 'look'; text: string }[]; landlords: { id: string; name: string }[]; properties: { id: string; name: string }[] }
+type View = 'all' | 'rent' | 'fee' | 'expense' | 'payout' | 'deposit' | 'yearend'
+const VIEWS: [View, string][] = [['all', 'Everything'], ['rent', 'Rent received'], ['fee', 'Fees'], ['expense', 'Expenses'], ['payout', 'Paid to landlords'], ['deposit', 'Deposits'], ['yearend', 'Landlords’ year-end']]
+interface Data { from: string; to: string; label: string; vat: { from: string; rate: number } | null; rows: BookRow[]; totals: Record<string, number>; feeTotals: { management: number; letting: number; net: number; vat: number }; checks: { level: 'fix' | 'look'; text: string }[]; landlords: { id: string; name: string }[]; properties: { id: string; name: string }[]; categories: Record<string, string[]> }
 
 const gbp = (n: number) => (n < 0 ? '−£' : '£') + Math.abs(n).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const day = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' })
 const monthName = (m: string | null) => m ? new Date(`${m}-01T12:00:00Z`).toLocaleDateString('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' }) : ''
 const thisTaxYear = () => { const d = new Date(); return d.getMonth() > 3 || (d.getMonth() === 3 && d.getDate() >= 6) ? d.getFullYear() : d.getFullYear() - 1 }
 const r2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100
+const KIND_LABEL: Record<string, string> = { rent: 'Rent', fee: 'Fee', expense: 'Expense', payout: 'Paid to landlord', deposit: 'Deposit' }
+// quick date picks (4 Nov 2026, Harry: "date range selected easily") — whole calendar months and quarters
+const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+function quickRange(k: string): [string, string] {
+  const n = new Date(), y = n.getFullYear(), m = n.getMonth()
+  if (k === 'this-month') return [iso(new Date(y, m, 1)), iso(new Date(y, m + 1, 0))]
+  if (k === 'last-month') return [iso(new Date(y, m - 1, 1)), iso(new Date(y, m, 0))]
+  const q = Math.floor(m / 3) * 3
+  if (k === 'this-quarter') return [iso(new Date(y, q, 1)), iso(new Date(y, q + 3, 0))]
+  if (k === 'last-quarter') return [iso(new Date(y, q - 3, 1)), iso(new Date(y, q, 0))]
+  if (k === 'last-12') return [iso(new Date(y, m - 11, 1)), iso(new Date(y, m + 1, 0))]
+  return [iso(new Date(y, 0, 1)), iso(new Date(y, 11, 31))]   // this calendar year
+}
+const QUICK: [string, string][] = [['this-month', 'This month'], ['last-month', 'Last month'], ['this-quarter', 'This quarter'], ['last-quarter', 'Last quarter'], ['last-12', 'Last 12 months'], ['this-year', 'This calendar year']]
 
 export default function BooksPage({ searchParams }: { searchParams: PageSearchParams }) {
   const sp = use(searchParams)
-  const [view, setView] = useState<View>((VIEWS.some(v => v[0] === one(sp.view)) ? one(sp.view) : 'rent') as View)
+  const [view, setViewRaw] = useState<View>((VIEWS.some(v => v[0] === one(sp.view)) ? one(sp.view) : 'all') as View)
   const [year, setYear] = useState<number>(Number(one(sp.year)) || thisTaxYear())
+  // dates: a tax year, or any from–to (quick picks fill them in)
+  const [mode, setMode] = useState<'year' | 'dates'>(one(sp.from) ? 'dates' : 'year')
+  const [from, setFrom] = useState(one(sp.from) || quickRange('this-month')[0])
+  const [to, setTo] = useState(one(sp.to) || quickRange('this-month')[1])
+  const [category, setCategory] = useState('')
+  const setView = (v: View) => { setViewRaw(v); setCategory('') }
   const [landlordId, setLandlordId] = useState('')
   const [propertyId, setPropertyId] = useState('')
   const [q, setQ] = useState('')
@@ -37,7 +57,8 @@ export default function BooksPage({ searchParams }: { searchParams: PageSearchPa
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  const params = useCallback((extra: Record<string, string> = {}) => new URLSearchParams({ year: String(year), ...(landlordId ? { landlordId } : {}), ...(propertyId ? { propertyId } : {}), ...extra }).toString(), [year, landlordId, propertyId])
+  const datesOk = mode === 'year' || (/^\d{4}-\d{2}-\d{2}$/.test(from) && /^\d{4}-\d{2}-\d{2}$/.test(to) && from <= to)
+  const params = useCallback((extra: Record<string, string> = {}) => new URLSearchParams({ ...(mode === 'year' ? { year: String(year) } : { from, to }), ...(landlordId ? { landlordId } : {}), ...(propertyId ? { propertyId } : {}), ...extra }).toString(), [mode, year, from, to, landlordId, propertyId])
   const load = useCallback(async () => {
     setLoading(true); setError('')
     const r = await adminFetch(`/api/admin/books?${params()}`)
@@ -46,20 +67,26 @@ export default function BooksPage({ searchParams }: { searchParams: PageSearchPa
     if (!r.ok) { setError(d.error ?? 'The books didn’t load'); return }
     setData(d)
   }, [params])
-  useEffect(() => { load() }, [load])
+  useEffect(() => { if (datesOk) load() }, [load, datesOk])
 
-  async function csv(kind?: string) {
-    const r = await adminFetch(`/api/admin/books?${params({ format: 'csv', ...(kind ? { kind } : {}) })}`)
-    if (!r.ok) { setError('The CSV couldn’t be made'); return }
-    const name = decodeURIComponent(r.headers.get('content-disposition')?.match(/filename\*=UTF-8''([^;]+)/)?.[1] ?? 'books.csv')
+  // CSV or PDF of exactly what's chosen: dates, landlord, property, type and category
+  const [making, setMaking] = useState('')
+  async function file(format: 'csv' | 'pdf', kind?: string, cat?: string) {
+    setMaking(format); setError('')
+    const r = await adminFetch(`/api/admin/books?${params({ format, ...(kind && kind !== 'all' ? { kind } : {}), ...(cat ? { category: cat } : {}) })}`)
+    setMaking('')
+    if (!r.ok) { setError(`The ${format.toUpperCase()} couldn’t be made`); return }
+    const name = decodeURIComponent(r.headers.get('content-disposition')?.match(/filename\*=UTF-8''([^;]+)/)?.[1] ?? `books.${format}`)
     const a = document.createElement('a'); a.href = URL.createObjectURL(await r.blob()); a.download = name; a.click()
   }
+  const csv = (kind?: string) => file('csv', kind)
 
   const rows = useMemo(() => {
     if (!data || view === 'yearend') return []
     const needle = q.trim().toLowerCase()
-    return data.rows.filter(r => r.kind === view && (!needle || `${r.property} ${r.landlord} ${r.tenant ?? ''} ${r.room ?? ''} ${r.description} ${r.category} ${r.reference ?? ''}`.toLowerCase().includes(needle)))
-  }, [data, view, q])
+    return data.rows.filter(r => (view === 'all' || r.kind === view) && (!category || r.category === category) && (!needle || `${r.property} ${r.landlord} ${r.tenant ?? ''} ${r.room ?? ''} ${r.description} ${r.category} ${r.reference ?? ''}`.toLowerCase().includes(needle)))
+  }, [data, view, q, category])
+  const cats = data && view !== 'yearend' ? (view === 'all' ? Object.entries(data.categories ?? {}).flatMap(([k, cs]) => cs.map(c => [k, c] as [string, string])) : (data.categories?.[view] ?? []).map(c => [view, c] as [string, string])) : []
   const shownTotal = r2(rows.reduce((t, r) => t + r.amount, 0))
 
   // the landlords' year-end: one line each, the figures for their tax return
@@ -84,7 +111,7 @@ export default function BooksPage({ searchParams }: { searchParams: PageSearchPa
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar left={<BackButton href="/admin/finance" />} title="Books" />
-      <PageHero title="Books" subtitle={<>Every rent received, fee, expense, payment to a landlord and deposit — for HMRC, your accountant and each landlord’s tax return. {data ? `Tax year ${data.label}: 6 April ${year} – 5 April ${year + 1}.` : ''}</>}
+      <PageHero title="Books" subtitle={<>Every rent received, fee, expense, payment to a landlord and deposit — for HMRC, your accountant and each landlord’s tax return. {data ? (data.label ? `Tax year ${data.label}: 6 April ${year} – 5 April ${year + 1}.` : `${day(data.from)} to ${day(data.to)}.`) : ''}</>}
         stats={data ? [
           { label: 'Rent received', value: gbp(data.totals.rent) },
           { label: 'Our fees', value: gbp(data.totals.fee) },
@@ -95,9 +122,23 @@ export default function BooksPage({ searchParams }: { searchParams: PageSearchPa
 
       <main className="mx-auto max-w-6xl space-y-md px-lg py-xl">
         <div className="flex flex-wrap items-center gap-sm">
-          <select className={sel} value={year} onChange={e => setYear(Number(e.target.value))} aria-label="Tax year">
-            {years.map(y => <option key={y} value={y}>Tax year {y}/{String(y + 1).slice(2)}</option>)}
-          </select>
+          <div className="flex rounded-xl border border-neutral-200 bg-white p-0.5 text-sm" role="group" aria-label="Dates by">
+            {(['year', 'dates'] as const).map(m => <button key={m} type="button" onClick={() => setMode(m)} className={`rounded-lg px-md py-xs font-semibold ${mode === m ? 'bg-[var(--band,#1F3B2E)] text-white' : 'text-neutral-600'}`}>{m === 'year' ? 'Tax year' : 'Dates'}</button>)}
+          </div>
+          {mode === 'year' ? (
+            <select className={sel} value={year} onChange={e => setYear(Number(e.target.value))} aria-label="Tax year">
+              {years.map(y => <option key={y} value={y}>Tax year {y}/{String(y + 1).slice(2)}</option>)}
+            </select>
+          ) : (
+            <>
+              <input type="date" className={sel} value={from} max={to} onChange={e => setFrom(e.target.value)} aria-label="From" />
+              <span className="text-sm text-neutral-500">to</span>
+              <input type="date" className={sel} value={to} min={from} onChange={e => setTo(e.target.value)} aria-label="To" />
+              <select className={sel} value="" onChange={e => { if (e.target.value) { const [f, t] = quickRange(e.target.value); setFrom(f); setTo(t) } }} aria-label="Quick dates">
+                <option value="">Quick pick…</option>{QUICK.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+              </select>
+            </>
+          )}
           <select className={sel} value={landlordId} onChange={e => setLandlordId(e.target.value)} aria-label="Landlord">
             <option value="">Every landlord</option>{data?.landlords.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
           </select>
@@ -114,7 +155,8 @@ export default function BooksPage({ searchParams }: { searchParams: PageSearchPa
           </details>
         )}
 
-        <SubTabs<View> tabs={VIEWS.map(([k, l]) => [k, data && k !== 'yearend' ? `${l} · ${gbp(data.totals[k] ?? 0)}` : l])} active={view} onChange={setView} />
+        <SubTabs<View> tabs={VIEWS.map(([k, l]) => [k, data && k !== 'yearend' && k !== 'all' ? `${l} · ${gbp(data.totals[k] ?? 0)}` : l])} active={view} onChange={setView} />
+        {!datesOk && <p className="text-sm text-amber-800">Choose a from date on or before the to date.</p>}
         {error && <p className="rounded-xl border border-red-200 bg-red-50 px-lg py-sm text-sm text-red-800">{error}</p>}
         {!data ? <p className="text-sm text-neutral-500">{loading ? 'Adding up the books…' : ''}</p> : view === 'yearend' ? (
           <section className="rounded-2xl border border-neutral-200 bg-white overflow-x-auto">
@@ -129,7 +171,7 @@ export default function BooksPage({ searchParams }: { searchParams: PageSearchPa
                     <td className="px-md py-sm text-right">{gbp(r2(x.rent))}</td><td className="px-md py-sm text-right">{gbp(r2(x.mgmt))}</td><td className="px-md py-sm text-right">{gbp(r2(x.letting))}</td>
                     {data.vat && <td className="px-md py-sm text-right">{gbp(r2(x.vat))}</td>}
                     <td className="px-md py-sm text-right">{gbp(r2(x.exp))}</td><td className="px-md py-sm text-right font-bold">{gbp(r2(x.rent - x.mgmt - x.letting - x.exp))}</td><td className="px-md py-sm text-right">{gbp(r2(x.paid))}</td>
-                    <td className="px-md py-sm text-right">{x.id && <button type="button" className="text-xs font-semibold text-blue-700 hover:underline" onClick={async () => {
+                    <td className="px-md py-sm text-right">{x.id && mode === 'year' && <button type="button" className="text-xs font-semibold text-blue-700 hover:underline" onClick={async () => {
                       const r = await adminFetch(`/api/admin/statements/annual?landlordId=${x.id}&year=${year}`)
                       if (!r.ok) { setError((await r.json().catch(() => ({}))).error ?? 'The summary couldn’t be made'); return }
                       const a = document.createElement('a'); a.href = URL.createObjectURL(await r.blob()); a.download = `Annual summary ${data.label} - ${x.name}.pdf`; a.click()
@@ -138,28 +180,35 @@ export default function BooksPage({ searchParams }: { searchParams: PageSearchPa
                 ))}
               </tbody>
             </table>
-            <p className="border-t border-neutral-100 px-md py-sm text-xs text-neutral-500">Net income = rent − our fees − expenses: what goes on their property income return. Each annual summary shows the same figures by property and by type of expense.</p>
+            <p className="border-t border-neutral-100 px-md py-sm text-xs text-neutral-500">Net income = rent − our fees − expenses: what goes on their property income return. Each annual summary shows the same figures by property and by type of expense.{mode === 'dates' && ' Annual summaries are by tax year — switch to Tax year to make them.'}</p>
           </section>
         ) : (
           <section className="rounded-2xl border border-neutral-200 bg-white">
             <div className="flex flex-wrap items-center justify-between gap-sm border-b border-neutral-100 px-md py-sm">
               <input type="search" value={q} onChange={e => setQ(e.target.value)} placeholder="Search property, tenant, description, reference…" className="min-w-[220px] flex-1 rounded-lg border border-neutral-200 px-sm py-xs text-sm" />
+              {cats.length > 1 && (
+                <select value={category} onChange={e => setCategory(e.target.value)} className="rounded-lg border border-neutral-200 bg-white px-sm py-xs text-sm" aria-label="Type">
+                  <option value="">{view === 'fee' ? 'Every fee' : view === 'expense' ? 'Every expense' : view === 'deposit' ? 'Every deposit' : 'Every type'}</option>
+                  {cats.map(([k, c]) => <option key={`${k}|${c}`} value={c}>{view === 'all' ? `${KIND_LABEL[k]} — ${c}` : c.charAt(0).toUpperCase() + c.slice(1)}</option>)}
+                </select>
+              )}
               <span className="text-sm text-neutral-700">{rows.length} · <b>{gbp(shownTotal)}</b>{view === 'fee' && data.feeTotals && <> · management {gbp(data.feeTotals.management)} · letting {gbp(data.feeTotals.letting)}{data.vat ? <> · net {gbp(data.feeTotals.net)} · VAT {gbp(data.feeTotals.vat)}</> : ''}</>}</span>
-              <button type="button" onClick={() => csv(view)} className="rounded-lg border border-neutral-300 px-md py-xs text-sm font-semibold">CSV</button>
+              <button type="button" disabled={!!making} onClick={() => file('csv', view, category)} className="rounded-lg border border-neutral-300 px-md py-xs text-sm font-semibold disabled:opacity-50">{making === 'csv' ? 'Making…' : 'CSV'}</button>
+              <button type="button" disabled={!!making} onClick={() => file('pdf', view, category)} className="rounded-lg bg-[var(--band,#1F3B2E)] px-md py-xs text-sm font-semibold text-white disabled:opacity-50">{making === 'pdf' ? 'Making…' : 'PDF'}</button>
             </div>
             <div className="max-h-[70dvh] overflow-auto">
               <table className="w-full text-sm">
                 <thead className="sticky top-0 bg-white"><tr className="border-b border-neutral-200 text-left text-[11px] font-bold uppercase tracking-[0.06em] text-neutral-500">
-                  <th className="px-md py-sm">{view === 'payout' || view === 'deposit' ? 'Date' : 'For'}</th><th className="px-md py-sm">Property</th><th className="px-md py-sm">What</th>
+                  <th className="px-md py-sm">{view === 'payout' || view === 'deposit' || view === 'all' ? 'Date' : 'For'}</th><th className="px-md py-sm">Property</th><th className="px-md py-sm">What</th>
                   {view === 'fee' && data.vat && <><th className="px-md py-sm text-right">Net</th><th className="px-md py-sm text-right">VAT</th></>}
                   <th className="px-md py-sm text-right">Amount</th><th className="px-md py-sm">Reference</th>
                 </tr></thead>
                 <tbody>
                   {rows.slice(0, 1500).map((r, i) => (
                     <tr key={i} className="border-t border-neutral-100 align-top">
-                      <td className="whitespace-nowrap px-md py-sm tabular-nums text-neutral-700">{view === 'payout' || view === 'deposit' ? day(r.date) : monthName(r.month) || day(r.date)}</td>
+                      <td className="whitespace-nowrap px-md py-sm tabular-nums text-neutral-700">{view === 'payout' || view === 'deposit' || view === 'all' ? day(r.date) : monthName(r.month) || day(r.date)}</td>
                       <td className="px-md py-sm"><span className="block font-semibold">{r.property}</span><span className="text-xs text-neutral-500">{r.landlord}</span></td>
-                      <td className="px-md py-sm"><span className="block">{r.description}</span><span className="text-xs text-neutral-500">{[r.category, r.source === 'per statement' ? 'statement total' : null].filter(Boolean).join(' · ')}</span>{r.note && <span className="block text-xs font-semibold text-amber-800">{r.note}</span>}</td>
+                      <td className="px-md py-sm"><span className="block">{r.description}</span><span className="text-xs text-neutral-500">{[view === 'all' ? KIND_LABEL[r.kind] : null, r.category, r.source === 'per statement' ? 'statement total' : null].filter(Boolean).join(' · ')}</span>{r.note && <span className="block text-xs font-semibold text-amber-800">{r.note}</span>}</td>
                       {view === 'fee' && data.vat && <><td className="px-md py-sm text-right tabular-nums">{gbp(r.net ?? r.amount)}</td><td className="px-md py-sm text-right tabular-nums">{gbp(r.vat ?? 0)}</td></>}
                       <td className="whitespace-nowrap px-md py-sm text-right font-semibold tabular-nums">{gbp(r.amount)}</td>
                       <td className="whitespace-nowrap px-md py-sm text-xs text-neutral-600">{r.reference ?? '—'}</td>
