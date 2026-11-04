@@ -635,8 +635,9 @@ export default function OnboardingPage() {
                   )
                 })()}
 
-                {/* the form link again (and the agreement, if one was sent) — this used to only move the stage on */}
-                {selected.stage <= 2 && (
+                {/* the form link again (and the agreement, if one was sent) — this used to only move the stage on; not when
+                    we're waiting on asked-for details (the follow-up above says exactly what's needed) */}
+                {selected.stage <= 2 && !askedFor(selected) && (
                   <button onClick={() => resendForm(selected.id, selected.email)} disabled={advancing} className="w-full rounded-xl bg-neutral-900 text-white py-sm text-sm font-semibold hover:bg-neutral-700 transition disabled:opacity-40">
                     {advancing ? '…' : askedFor(selected) ? 'Remind them — send the form link again' : 'Send the form link again'}
                   </button>

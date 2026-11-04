@@ -9,6 +9,8 @@ import { FACT_LABELS, propertyDocLabel, type PropertyDoc } from '@/lib/landlordO
 import { onboardingName } from '@/lib/people'
 import LineIcon from '@/components/LineIcon'
 import AskForMissing from './AskForMissing'
+import FollowUp from '../FollowUp'
+import { dearFromText } from '@/lib/people'
 import TakeDetails from './TakeDetails'
 
 type Status = 'pass' | 'review' | 'fail'
@@ -150,7 +152,11 @@ export default function OnboardingReviewPage({ params }: { params: Promise<{ id:
   const f = row.form_data ?? {}
   const review: Review | undefined = f.__review
   const decision: Decision | undefined = f.__decision
-  const submitted = row.stage >= 3
+  // submitted once = their answers and the checks are there to see, even when the form has been reopened to ask for
+  // more (4 Nov 2026, Harry: Mr Rislan's review showed "not yet submitted" after we asked him for three things)
+  const submitted = row.stage >= 3 || !!f.__submitted_at
+  const reqs = (Array.isArray(f.__requests) ? f.__requests : []) as { at: string; items: string[]; note?: string }[]
+  const waiting = row.stage === 2 && !row.verified_at && reqs.length > 0 && (!f.__submitted_at || String(reqs[reqs.length - 1].at) > String(f.__submitted_at)) ? reqs[reqs.length - 1] : null
   const docs = Object.entries((f.documents ?? {}) as Record<string, string[]>).filter(([type]) => type !== 'property_document')
   const otherNames = (f.other_doc_names ?? []) as string[]
   const propertyDocs = ((f.property_docs ?? []) as PropertyDoc[]).filter(d => !d.removed)
@@ -224,10 +230,10 @@ export default function OnboardingReviewPage({ params }: { params: Promise<{ id:
         <div>
           <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wide">AML review</p>
           <h1 className="text-2xl font-bold text-neutral-900">{onboardingName(row)}</h1>
-          <p className="text-sm text-neutral-500">{row.email}{f.j_contact_email ? ` · ${f.j_contact_email}` : ''} · {submitted ? `Submitted ${fmt(f.__submitted_at ?? row.docs_received_at)}` : 'Form not yet submitted'}</p>
+          <p className="text-sm text-neutral-500">{row.email}{f.j_contact_email ? ` · ${f.j_contact_email}` : ''} · {submitted ? `Submitted ${fmt(f.__submitted_at ?? row.docs_received_at)}` : 'Form not yet submitted'}{waiting ? ` · more details asked for ${fmt(waiting.at)} — waiting on them` : ''}</p>
         </div>
         <div className="flex flex-wrap gap-sm">
-          {!submitted && <button onClick={resend} disabled={!!busy} className="rounded-xl bg-neutral-900 px-md py-sm text-sm font-semibold text-white hover:bg-neutral-700 disabled:opacity-40">{busy === 'resend' ? 'Sending…' : 'Send the form link again'}</button>}
+          {(!submitted) && <button onClick={resend} disabled={!!busy} className="rounded-xl bg-neutral-900 px-md py-sm text-sm font-semibold text-white hover:bg-neutral-700 disabled:opacity-40">{busy === 'resend' ? 'Sending…' : 'Send the form link again'}</button>}
           {submitted && <button onClick={rerun} disabled={!!busy} className="rounded-xl border border-neutral-300 bg-white px-md py-sm text-sm font-semibold text-neutral-700 hover:bg-neutral-50 disabled:opacity-40">{busy === 'rerun' ? 'Running checks…' : '↻ Re-run checks'}</button>}
           {submitted && <button onClick={() => downloadPdf(`/api/landlord-onboarding/${id}/aml-report`, 'CDD-Record.pdf')} className="rounded-xl bg-neutral-900 px-md py-sm text-sm font-semibold text-white hover:bg-neutral-700">⬇ AML report (PDF)</button>}
         </div>
@@ -321,7 +327,15 @@ export default function OnboardingReviewPage({ params }: { params: Promise<{ id:
 
           {/* Right column: decision + agreement */}
           <div className="space-y-lg">
-            {!row.verified_at && review && <AskForMissing id={id} form={f} review={review} onSent={load} card={card} h2={h2} />}
+            {/* waiting on the landlord: what was asked, and a follow-up you can preview — instead of asking again */}
+            {waiting ? (
+              <div className={card}>
+                <h2 className={h2}>Waiting on {dearFromText(String(row.full_name ?? ''))}</h2>
+                <p className="mb-xs text-sm text-neutral-700">Asked for on {fmt(waiting.at)}:</p>
+                <ul className="mb-md list-disc space-y-xs pl-lg text-sm text-neutral-800">{waiting.items.map((it, i) => <li key={i}>{it}</li>)}</ul>
+                <FollowUp id={id} dear={dearFromText(String(row.full_name ?? ''))} items={waiting.items} followups={Array.isArray(f.__followups) ? f.__followups : []} onSent={load} />
+              </div>
+            ) : !row.verified_at && review && <AskForMissing id={id} form={f} review={review} onSent={load} card={card} h2={h2} />}
 
             <div className={card}>
               <h2 className={h2}>Your decision</h2>

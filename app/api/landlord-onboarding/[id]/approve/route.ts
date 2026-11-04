@@ -22,7 +22,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const { data: row } = await svc().from('landlord_onboarding').select('*').eq('id', id).single()
   if (!row) return NextResponse.json({ error: 'Not found' }, { status: 404 })
   const f = row.form_data ?? {}
-  if (row.stage < 3) return NextResponse.json({ error: 'The landlord has not submitted their form yet' }, { status: 400 })
+  // a form submitted once counts even when it's been reopened to ask for more (4 Nov 2026: Mr Rislan)
+  if (row.stage < 3 && !f.__submitted_at) return NextResponse.json({ error: 'The landlord has not submitted their form yet' }, { status: 400 })
   if (!f.__decision) return NextResponse.json({ error: 'Record your risk assessment decision first' }, { status: 400 })
   if (f.__decision.risk_level === 'high' && body.confirm_high !== true) {
     return NextResponse.json({ error: 'This client is rated HIGH risk — confirm that enhanced due diligence is complete and senior approval given before sending' }, { status: 409 })

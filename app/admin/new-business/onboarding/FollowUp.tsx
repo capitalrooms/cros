@@ -25,6 +25,7 @@ export default function FollowUp({ id, dear, items, followups, onSent }: { id: s
   const [edited, setEdited] = useState(false)
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  const [preview, setPreview] = useState<{ to: string[]; subject: string; html: string; attachment: string | null } | null>(null)
   const last = followups[followups.length - 1]
 
   function choose(w: boolean) {
@@ -38,6 +39,13 @@ export default function FollowUp({ id, dear, items, followups, onSent }: { id: s
     const r = await adminFetch(`/api/landlord-onboarding/${id}/agreement?pdf=1`)
     if (!r.ok) { win?.close(); setMsg({ ok: false, text: (await r.json().catch(() => ({}))).error ?? 'Couldn’t open the agreement' }); return }
     const u = URL.createObjectURL(await r.blob()); if (win) win.location.href = u; else window.location.href = u
+  }
+  async function showPreview() {
+    setMsg(null)
+    const r = await adminFetch(`/api/landlord-onboarding/${id}/follow-up`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message, withAgreement, preview: true }) })
+    const d = await r.json().catch(() => ({}))
+    if (!r.ok) { setMsg({ ok: false, text: d.error ?? 'Couldn’t make the preview' }); return }
+    setPreview(d)
   }
   async function send() {
     if (!confirm(withAgreement ? 'Send this follow-up with the new management agreement attached?' : 'Send this follow-up asking for the missing details?')) return
@@ -64,9 +72,20 @@ export default function FollowUp({ id, dear, items, followups, onSent }: { id: s
           <textarea value={message} onChange={e => { setMessage(e.target.value); setEdited(true) }} rows={12} className="w-full rounded-lg border border-neutral-300 px-sm py-xs text-sm" />
           <p className="text-xs text-neutral-500">Ends with a button to their registration form. Sent to them (and their co-owner, if they gave one).{withAgreement ? ' The agreement is the one you sent, with their own details from the form where you accepted them. It doesn’t count as approving their AML.' : ''}</p>
           <div className="flex gap-sm">
+            <button type="button" onClick={showPreview} disabled={busy || !message.trim()} className="rounded-xl border border-neutral-300 px-md text-sm font-semibold">Preview the email</button>
             <button type="button" onClick={send} disabled={busy || !message.trim()} className="flex-1 rounded-xl bg-neutral-900 py-sm text-sm font-semibold text-white disabled:opacity-40">{busy ? 'Sending…' : 'Send the follow-up'}</button>
             <button type="button" onClick={() => setOpen(false)} className="rounded-xl border border-neutral-300 px-md text-sm font-semibold">Close</button>
           </div>
+          {preview && (
+            <div className="space-y-xs rounded-xl border border-neutral-300 bg-neutral-50 p-sm">
+              <div className="flex items-start justify-between gap-sm text-xs">
+                <span><b>To</b> {preview.to.join(', ')}<br /><b>Subject</b> {preview.subject}{preview.attachment && <><br /><b>Attached</b> {preview.attachment} <button type="button" onClick={previewAgreement} className="font-semibold text-blue-700 underline">open it</button></>}</span>
+                <button type="button" onClick={() => setPreview(null)} className="font-semibold text-neutral-600">Hide</button>
+              </div>
+              <iframe title="The email as it will arrive" srcDoc={preview.html} sandbox="" className="h-[520px] w-full rounded-lg border border-neutral-200 bg-white" />
+              <p className="text-xs text-neutral-500">Change the wording above and press Preview again to see it updated.</p>
+            </div>
+          )}
         </div>
       )}
     </div>
