@@ -67,12 +67,19 @@ async function copyPhoto(s: SupabaseClient, boardId: string, src: string): Promi
   } catch { return null }
 }
 
-export async function importItems(s: SupabaseClient, opts: { boardId: string; authorId: string; items: PrivateItem[] }): Promise<{ entries: number; replies: number; photosMissed: number }> {
+export async function importItems(s: SupabaseClient, opts: { boardId: string; authorId: string; items: PrivateItem[] }): Promise<{ entries: number; replies: number; photosMissed: number; skipped: number }> {
   const { data: props } = await s.from('properties').select('id, name, address')
   const plist = ((props ?? []) as any[]).map(p => ({ id: p.id, text: `${oneLine(p.name)} | ${oneLine(p.address)}`.toLowerCase() }))
-  let entries = 0, replies = 0, photosMissed = 0
+  let entries = 0, replies = 0, photosMissed = 0, skipped = 0
+  // what's already on their board (same title, same house) is never copied again — sharing a board twice used to
+  // repeat everything (4 Nov 2026: Jacob's board had each item four times)
+  const { data: existing } = await s.from('planner_shared_entries').select('title, property_id').eq('board_id', opts.boardId)
+  const onBoard = new Set(((existing ?? []) as any[]).map(e => `${String(e.title).trim().toLowerCase()}|${e.property_id ?? ''}`))
   for (const it of opts.items) {
     const propertyId = propertyFor(it.groupName, plist)
+    const key = `${(propertyId || !it.groupName ? it.title : `${it.groupName} — ${it.title}`).slice(0, 300).trim().toLowerCase()}|${propertyId ?? ''}`
+    if (onBoard.has(key)) { skipped++; continue }
+    onBoard.add(key)
     const date = it.date && it.date !== '—' ? it.date.trim() : ''
     const due = dayMonth(date)
     // a date like "5 Sep" becomes the due date; anything else ("Spring 26", "Nov") stays in the line
@@ -110,5 +117,5 @@ export async function importItems(s: SupabaseClient, opts: { boardId: string; au
       replies++
     }
   }
-  return { entries, replies, photosMissed }
+  return { entries, replies, photosMissed, skipped }
 }

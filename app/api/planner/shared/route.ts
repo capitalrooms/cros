@@ -124,9 +124,10 @@ export async function GET(req: NextRequest) {
   const { data: board, error } = await s.from('planner_shared_boards').select('*').eq('member_person_id', caller.personId).is('archived_at', null).maybeSingle() as { data: any; error: any }
   if (error) return NextResponse.json(missing(error) ? { setupNeeded: true, board: null, entries: [] } : { error: error.message }, { status: missing(error) ? 200 : 500 })
   // a landlord can tag an entry with one of their own properties (14 Oct 2026)
+  // staff can tag any house (4 Nov 2026 — staff now get the same planner layout as landlords)
   const { data: mine } = caller.role === 'landlord'
     ? await s.from('properties').select('id, name, address').eq('landlord_id', caller.personId)
-    : { data: [] as any[] }
+    : await s.from('properties').select('id, name, address').or('is_demo.is.null,is_demo.eq.false')
   return NextResponse.json({
     office: false, board: board ? { id: board.id, title: board.title } : null, entries: board ? await loadBoard(s, board) : [],
     properties: sortPropertiesNumerically((mine ?? []) as any[]).map((p: any) => ({ id: p.id, name: shortAddress(p.name || p.address) })),
@@ -153,7 +154,10 @@ export async function POST(req: NextRequest) {
     const test = b.test === true
     // where it goes: their email on file, or another address of theirs typed in the panel (4 Nov 2026, Harry: "I can't
     // just send to email"). The button signs in as them, so the panel warns before sending it anywhere else.
-    if (b.preview === true) return NextResponse.json({ to: p.email })
+    if (b.preview === true) {
+      const { data: last } = await s.from('audit_logs').select('created_at, details').eq('action', 'planner_board_emailed').like('details', `${board.id}%`).order('created_at', { ascending: false }).limit(1).maybeSingle() as { data: any }
+      return NextResponse.json({ to: p.email, lastSent: last ? { at: last.created_at, to: String(last.details).split(' → ')[1] ?? '' } : null })
+    }
     const other = String(b.to ?? '').trim().toLowerCase()
     if (other && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(other)) return NextResponse.json({ error: 'That email address doesn’t look right' }, { status: 400 })
     // show: the email exactly as they'd get it, on screen — nothing sent, and no sign-in link made (4 Nov 2026)
@@ -183,7 +187,31 @@ export async function POST(req: NextRequest) {
     if (show) return NextResponse.json({ to, subject: 'Your shared planner with Capital Rooms', html: await buildEmail(body, { req }) })
     const sent = await deliverEmail({ to, subject: `${test ? 'TEST · ' : ''}Your shared planner with Capital Rooms`, html: await buildEmail(body, { req }) }, { req })
     if (!sent.ok) return NextResponse.json({ error: 'The email didn’t send — try again' }, { status: 502 })
+    if (!test) await s.from('audit_logs').insert({ user_id: caller.personId, action: 'planner_board_emailed', details: `${board.id} → ${to}` })
     return NextResponse.json({ ok: true, to })
+  }
+
+  // Remove the repeats a board picked up from being shared more than once (4 Nov 2026): keeps the first copy of each
+  // item (same title, same house) with its notes; a later copy is only removed when nobody but the office has replied to it.
+  if (b.action === 'remove_duplicates') {
+    if (!isOffice(caller)) return NextResponse.json({ error: 'Only the office can do that' }, { status: 403 })
+    const board = await boardFor(s, caller, String(b.boardId ?? ''))
+    if (!board) return NextResponse.json({ error: 'Board not found' }, { status: 404 })
+    const { data: es } = await s.from('planner_shared_entries').select('id, title, property_id, created_at').eq('board_id', board.id).order('created_at') as { data: any[] | null }
+    const ids = (es ?? []).map(e => e.id)
+    const { data: rs } = ids.length ? await s.from('planner_shared_replies').select('entry_id, author_id').in('entry_id', ids) : { data: [] as any[] }
+    const theirs = new Set(((rs ?? []) as any[]).filter(x => x.author_id === board.member_person_id).map(x => x.entry_id))
+    const seen = new Set<string>(); const remove: string[] = []
+    for (const e of es ?? []) {
+      const k = `${String(e.title).trim().toLowerCase()}|${e.property_id ?? ''}`
+      if (seen.has(k) && !theirs.has(e.id)) remove.push(e.id); else seen.add(k)
+    }
+    if (remove.length) {
+      const { error } = await s.from('planner_shared_entries').delete().in('id', remove)
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+      await s.from('audit_logs').insert({ user_id: caller.personId, action: 'planner_duplicates_removed', details: `${board.id}: ${remove.length}` })
+    }
+    return NextResponse.json({ ok: true, removed: remove.length })
   }
 
   if (b.action === 'create_board' || b.action === 'archive_board') {
@@ -226,6 +254,7 @@ export async function POST(req: NextRequest) {
     }
     try {
       const r = await importItems(s, { boardId: board.id, authorId: caller.personId, items })
+      if (!r.entries) return NextResponse.json({ error: `Already shared — all ${r.skipped} of those are on their board. Nothing was copied again.`, boardId: board.id }, { status: 409 })
       await tell(s, caller, board, 'Shared with you', `Capital Rooms has shared ${r.entries} item${r.entries === 1 ? '' : 's'} with you on your planner.`)
       return NextResponse.json({ ok: true, boardId: board.id, ...r })
     } catch (e) {
@@ -240,7 +269,8 @@ export async function POST(req: NextRequest) {
     if (!title) return NextResponse.json({ error: 'Give it a title' }, { status: 400 })
     // the office may tag any property; anyone else only one of their own (a landlord's houses)
     let propertyId: string | null = b.propertyId ? String(b.propertyId) : null
-    if (propertyId && !isOffice(caller)) {
+    // a landlord tags only their own houses; staff (lettings, cleaners, contractors) any house we manage (4 Nov 2026)
+    if (propertyId && !isOffice(caller) && caller.role === 'landlord') {
       const { data: own } = await s.from('properties').select('id').eq('id', propertyId).eq('landlord_id', caller.personId).maybeSingle()
       if (!own) propertyId = null
     }
