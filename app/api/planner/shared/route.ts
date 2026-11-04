@@ -156,8 +156,11 @@ export async function POST(req: NextRequest) {
     if (b.preview === true) return NextResponse.json({ to: p.email })
     const other = String(b.to ?? '').trim().toLowerCase()
     if (other && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(other)) return NextResponse.json({ error: 'That email address doesn’t look right' }, { status: 400 })
+    // show: the email exactly as they'd get it, on screen — nothing sent, and no sign-in link made (4 Nov 2026)
+    const show = b.show === true
     let link: string | null
-    if (test) link = `${PORTAL_URL}/admin/planner/shared?board=${board.id}`
+    if (show) link = `${PORTAL_URL}/planner`
+    else if (test) link = `${PORTAL_URL}/admin/planner/shared?board=${board.id}`
     else {
       const users = await authUsersByEmail(s as any)
       const u = users.get(String(p.email).toLowerCase())
@@ -174,9 +177,10 @@ export async function POST(req: NextRequest) {
       hero({ eyebrow: 'Your shared planner', title: board.title, sub: `${open.length} open item${open.length === 1 ? '' : 's'}` }),
       open.length ? card('On it now', open.slice(0, 6).map((e: any) => `<p style="margin:0 0 8px;font-size:14px;line-height:1.5"><strong>${esc(e.title)}</strong>${e.property ? ` <span style="color:#5C6B62">· ${esc(e.property)}</span>` : ''}</p>`).join('') + (open.length > 6 ? `<p style="margin:0;font-size:13px;color:#5C6B62">…and ${open.length - 6} more</p>` : ''), 'mint') : '',
       button(link!, 'Open my planner'),
-      note(test ? `<strong>Test copy for you.</strong> ${esc(name(p))}’s button signs them straight into their planner; yours opens the board as you see it.` : 'The button signs you straight in — no password needed. It works once; next time, sign in at ' + esc(PORTAL_URL) + ' or ask us for a new link.'),
+      note(test && !show ? `<strong>Test copy for you.</strong> ${esc(name(p))}’s button signs them straight into their planner; yours opens the board as you see it.` : 'The button signs you straight in — no password needed. It works once; next time, sign in at ' + esc(PORTAL_URL) + ' or ask us for a new link.'),
     ].join('')
     const to = test ? caller.email : (other || p.email)
+    if (show) return NextResponse.json({ to, subject: 'Your shared planner with Capital Rooms', html: await buildEmail(body, { req }) })
     const sent = await deliverEmail({ to, subject: `${test ? 'TEST · ' : ''}Your shared planner with Capital Rooms`, html: await buildEmail(body, { req }) }, { req })
     if (!sent.ok) return NextResponse.json({ error: 'The email didn’t send — try again' }, { status: 502 })
     return NextResponse.json({ ok: true, to })
