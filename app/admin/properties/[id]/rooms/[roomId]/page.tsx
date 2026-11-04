@@ -11,6 +11,7 @@ import Link from 'next/link'
 import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
 import PageHero, { HeroButton } from '@/components/PageHero'
+import { propertySystemAddress } from '@/lib/properties/names'
 import { StoredImg } from '@/components/StoredImg'
 import { adminFetch } from '@/lib/adminFetch'
 import QuickNotifyModal from '@/app/admin/components/QuickNotifyModal'
@@ -128,7 +129,7 @@ export default function RoomPage({ params }: { params: Promise<{ id: string; roo
               label: /^room\s*\d+$/i.test(o.room.name) ? `${o.room.name} of ${o.strip.length}` : `${o.room.name} · ${idx + 1} of ${o.strip.length}`,
               items: o.strip.map(r => ({ label: r.name, href: `/admin/properties/${propertyId}/rooms/${r.id}`, current: r.id === roomId, dot: DOT[r.state] ?? 'bg-neutral-400', hint: r.tenant ?? 'No tenancy' })),
             } : undefined}
-            title={o.whole ? o.property.name : o.room.name}
+            title={o.whole ? propertySystemAddress(o.property) || o.property.name : o.room.name}   // a single let: named as on its house page
             chip={CHIP[o.stage] ?? CHIP.live}
             subtitle={<>{facts.filter(Boolean).map((f, i) => <span key={i}>{i > 0 && ' · '}{f}</span>)}</>}
             stats={[
@@ -136,7 +137,7 @@ export default function RoomPage({ params }: { params: Promise<{ id: string; roo
               ...(o.stage === 'void' && empty > 0 ? [{ label: 'Days empty', value: String(empty), tone: 'warn' as const }] : []),
             ]}
             actions={<>
-              {cur && <HeroButton primary onClick={message}>Message {cur.tenant.name}</HeroButton>}
+              {cur && <HeroButton primary onClick={message}>{cur.jointTenant ? 'Message both tenants' : `Message ${cur.tenant.name}`}</HeroButton>}
               <HeroButton href={`/admin/properties/${propertyId}/rooms/${roomId}/edit`}>{o.whole ? 'Edit details' : 'Edit room'}</HeroButton>
             </>}
           />
