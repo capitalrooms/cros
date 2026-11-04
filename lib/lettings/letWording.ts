@@ -44,5 +44,9 @@ export function shortAddress(s?: string | null): string {
   const parts = String(s ?? '').split(/\s*[\r\n,]+\s*/).map(x => x.trim()).filter(Boolean)
   if (!parts.length) return ''
   if (/^\d+[a-z]?$/i.test(parts[0]) && parts[1]) return `${parts[0]} ${parts[1]}`
-  return /^(flat|apartment|apt|unit|studio|room)\s+\S+$/i.test(parts[0]) && parts[1] ? `${parts[0]}, ${parts[1]}` : parts[0]
+  if (/^(flat|apartment|apt|unit|studio|room)\s+\S+$/i.test(parts[0]) && parts[1]) return `${parts[0]}, ${parts[1]}`
+  // a flat described in words — "Flat First Floor A", "Ground Floor Flat", "Top Floor" — keeps its street:
+  // "Flat First Floor A, 136 Tranmere Road" (4 Nov 2026, Harry's single-let flat showed as "Flat First Floor A, SW18 3QU")
+  if (/^(flat|apartment|apt|unit|studio|maisonette|basement|lower ground|ground|first|second|third|top|upper)\b/i.test(parts[0]) && /^\d/.test(parts[1] ?? '')) return `${parts[0]}, ${parts[1]}`
+  return parts[0]
 }

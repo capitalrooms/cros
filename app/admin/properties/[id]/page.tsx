@@ -295,7 +295,10 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
         </>}
         actions={<HeroButton onClick={() => setShowQuickNotify(true)}>Message the house</HeroButton>}
         stats={house ? [
-          { label: 'Rooms let', value: `${house.let} of ${house.rooms}`, tone: house.let < house.rooms ? 'warn' : 'good' },
+          // a single let is one home, not rooms (4 Nov 2026: "0 of 1 rooms let" on a single-let flat)
+          property.property_type === 'single_let'
+            ? { label: 'Whole property', value: house.let > 0 ? 'Let' : 'Empty', tone: house.let > 0 ? 'good' : 'warn' }
+            : { label: 'Rooms let', value: `${house.let} of ${house.rooms}`, tone: house.let < house.rooms ? 'warn' : 'good' },
           { label: 'Rent per month', value: `£${house.rent.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` },
           { label: house.nextCert ? `${house.nextCert.label} expires` : 'Certificates', value: house.nextCert ? fullDate(house.nextCert.expiry) : 'None on file', tone: house.nextCert && house.nextCert.expiry < addDaysIso(30) ? 'warn' : undefined },
           { label: 'Repairs open', value: String(tickets.filter((t: any) => !['completed', 'cancelled'].includes(t.status)).length), tone: tickets.some((t: any) => !['completed', 'cancelled'].includes(t.status)) ? 'warn' : undefined },

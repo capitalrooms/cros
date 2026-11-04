@@ -246,7 +246,7 @@ export default function AllUnitsPage() {
                 <p className="text-xs text-neutral-500">{[h.displayName && !h.name.toLowerCase().startsWith(String(h.displayName).toLowerCase()) ? `Advertised as “${h.displayName}”` : '', h.landlord, h.feeLabel, h.type].filter(Boolean).join(' · ')}</p>
               </div>
               <div className="flex flex-wrap items-center gap-sm text-xs">
-                <span className="text-neutral-700"><b>{h.let}/{h.rows.length}</b> let</span>
+                <span className="text-neutral-700">{h.type === 'SINGLE LET' && h.rows.length === 1 ? <b>{h.let ? 'Let' : 'Empty'}</b> : <><b>{h.let}/{h.rows.length}</b> let</>}</span>
                 {h.letOnly ? <span className="rounded-full bg-[var(--ink,#23261A)] px-sm py-0.5 font-bold text-[#F6F3EC]">Let only</span> : <>
                 <span className="rounded-full bg-neutral-100 px-sm py-0.5 font-semibold text-neutral-800" title="Rent of the tenants living there now">Rent {gbp(h.rentMonth)}/mo</span>
                 <span className="rounded-full bg-neutral-100 px-sm py-0.5 font-semibold text-neutral-800" title="Management fee on those rents">Fee {gbp(h.feeMonth)}/mo</span>
