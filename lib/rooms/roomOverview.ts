@@ -313,6 +313,7 @@ export async function loadRoomOverview(s: SupabaseClient, roomId: string) {
       features: room.features ?? null, furnishings: room.furnishings_description ?? null, detected: room.detected_features ?? null,
       askingRent: room.current_asking_rent != null ? Number(room.current_asking_rent) : null, marketingStatus: room.marketing_status ?? null,
       marketingDescription: room.marketing_description ?? null, showOnWebsite: !!room.show_on_website, isLetOnly: !!room.is_let_only,
+      status: (room.status ?? null) as string | null,
       photos: photos.map(p => ({ id: p.id, src: p.file_url || p.file_path, caption: p.caption ?? null })),
     },
     // a whole home (single let) — the page talks about the property, not a room (4 Nov 2026)

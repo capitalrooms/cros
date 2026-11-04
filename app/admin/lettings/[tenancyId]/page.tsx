@@ -14,6 +14,7 @@ import QuickNotifyModal from '@/app/admin/components/QuickNotifyModal'
 import BackButton from '@/app/components/BackButton'
 import { adminFetch } from '@/lib/adminFetch'
 import { one, type PageSearchParams } from '@/lib/pageSearchParams'
+import { isWholeLet } from '@/lib/lettings/letWording'
 import type { LettingFile, StepId } from '@/lib/lettings/lettingFile'
 import { TenantProfileView } from '@/app/admin/tenant/[personId]/TenantProfileView'
 import LandlordUpdates from '@/app/components/LandlordUpdates'
@@ -27,6 +28,7 @@ const TABS = [
 type Tab = typeof TABS[number][0]
 
 const STAGE_LABEL: Record<string, string> = { let_agreed: 'Let agreed', live: 'Current tenancy', on_notice: 'Notice received', ended: 'Expired tenancy', fell_through: 'Fell through' }
+const STAGE_TONE: Record<string, 'good' | 'warn' | 'bad' | 'info' | 'plain'> = { let_agreed: 'info', live: 'good', on_notice: 'warn', ended: 'plain', fell_through: 'bad' }
 
 
 // the house in a trail: its first line, keeping "Flat 4, 44 Claverton Street" together but dropping town and postcode
@@ -95,6 +97,7 @@ function LettingFileScreen({ tenancyId, from, initialTab, done, mark }: { tenanc
   )
 
   const tn = file.tenancy
+  const whole = isWholeLet(file.property.type, file.room.name)
   const where = [file.room.name, file.property.name].filter(Boolean).join(', ')
   const agreementLabel = tn.agreement_type === 'assured_periodic' ? 'assured periodic' : String(tn.agreement_type ?? '').replace(/_/g, ' ')
   const money = file.money
@@ -105,15 +108,20 @@ function LettingFileScreen({ tenancyId, from, initialTab, done, mark }: { tenanc
       <AppBar left={<BackButton href={from} />} title="Letting file" />
       {notify && <QuickNotifyModal propertyId={file.property.id} initialPeople={[file.tenant.id, ...(file.jointTenant ? [file.jointTenant.id] : [])]} onClose={() => setNotify(false)} onSuccess={load} />}
       <PageHero
-        trail={[{ label: 'Properties', href: '/admin/active-rooms' }, { label: shortHouse(file.property.name), href: `/admin/properties/${file.property.id}` }, ...(file.room.name && file.room.id ? [{ label: file.room.name, href: `/admin/properties/${file.property.id}/rooms/${file.room.id}` }] : [])]}
-        eyebrow={<>Letting{file.room.unitCode ? ` · ${file.room.unitCode}` : ''} · {STAGE_LABEL[file.stage]} · {file.property.lettingType === 'let_only' ? 'Let only' : 'Fully managed'}</>}
+        // the same heading as the house and the room (4 Nov 2026): Properties › the house › the room, the tenant, one
+        // status, one line of facts. A single let has no room step — the property is the home (its page is the room page).
+        trail={[{ label: 'Properties', href: '/admin/active-rooms' }, ...(whole
+          ? [{ label: shortHouse(file.property.name), href: file.room.id ? `/admin/properties/${file.property.id}/rooms/${file.room.id}` : `/admin/properties/${file.property.id}` }]
+          : [{ label: shortHouse(file.property.name), href: `/admin/properties/${file.property.id}` }, ...(file.room.name && file.room.id ? [{ label: file.room.name, href: `/admin/properties/${file.property.id}/rooms/${file.room.id}` }] : [])])]}
         title={[file.tenant.name, file.jointTenant?.name].filter(Boolean).join(' and ') || where}   // both joint tenants
-        subtitle={<>{file.tenant.name ? `${where} · ` : ''}tenancy start date {day(tn.start_date)}{tn.end_date ? ` · tenancy end date ${day(tn.end_date)}` : ''} · {gbp(tn.rent_amount)} per month{agreementLabel ? ` · ${agreementLabel}` : ''}</>}
+        chip={{ label: STAGE_LABEL[file.stage] ?? file.stage, tone: STAGE_TONE[file.stage] ?? 'plain' }}
+        subtitle={<>{[`${gbp(tn.rent_amount)} per month`, agreementLabel ? `${agreementLabel[0].toUpperCase()}${agreementLabel.slice(1)} since ${day(tn.start_date)}` : `Since ${day(tn.start_date)}`, tn.end_date ? `ends ${day(tn.end_date)}` : null, file.property.lettingType === 'let_only' ? 'let only' : null].filter(Boolean).join(' · ')}</>}
         stats={[
           ...(file.liveHold ? [{ label: file.liveHold.status === 'applied' ? `Holding deposit · applied ${day(file.liveHold.outcome_on ?? file.liveHold.received_on)}` : `Holding deposit · received ${day(file.liveHold.received_on)}`, value: gbp(file.liveHold.amount) }] : []),
           ...(balanceDue != null && file.stage === 'let_agreed' ? [{ label: `Balance due by ${day(tn.start_date)}`, value: gbp(balanceDue), tone: 'warn' as const }] : []),
           ...(file.account && file.stage !== 'let_agreed' ? [{ label: 'Rent account', value: file.account.balance > 0.004 ? `${gbp(file.account.balance)} owed` : file.account.balance < -0.004 ? `${gbp(-file.account.balance)} credit` : 'Clear', tone: (file.account.balance > 0.004 ? 'bad' : 'good') as 'bad' | 'good' }] : []),
-          { label: 'Deposit', value: gbp(tn.deposit_amount) },
+          // the deposit only when there is one — never an empty "—" tile
+          ...(Number(tn.deposit_amount) > 0 ? [{ label: tn.deposit_protected_at ? 'Deposit · protected' : 'Deposit', value: gbp(tn.deposit_amount), tone: (tn.deposit_protected_at ? undefined : 'warn') as 'warn' | undefined }] : []),
         ]}
         // message the tenant(s) through Quick Notify — the one tenant messaging (current tenancies only)
         actions={(file.stage === 'live' || file.stage === 'on_notice') ? <HeroButton onClick={() => setNotify(true)} primary>Message {[file.tenant.name, file.jointTenant?.name].filter(Boolean).join(' and ')}</HeroButton> : undefined}

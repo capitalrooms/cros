@@ -57,9 +57,10 @@ export default function PeopleTab({ propertyId }: { propertyId: string }) {
               : kind === 'expired' ? ['Ended', 'bg-neutral-100 text-neutral-600']
               : t.end_date || t.notice_received_date ? ['Notice received', 'bg-amber-100 text-amber-900'] : ['Let', 'bg-green-50 text-green-800']
             return (
-              <li key={t.id} className="flex flex-wrap items-center gap-x-lg gap-y-xs px-md py-sm">
+              // one place per tenant (4 Nov 2026): the row opens their letting file; Back returns to this tab
+              <li key={t.id} className="relative flex flex-wrap items-center gap-x-lg gap-y-xs px-md py-sm hover:bg-neutral-50">
                 <div className="min-w-0 flex-[1_1_260px]">
-                  <p className="font-semibold text-neutral-900">{names(t)}</p>
+                  <Link href={`/admin/lettings/${t.id}?from=${encodeURIComponent(`/admin/properties/${propertyId}?tab=people`)}`} className="font-semibold text-neutral-900 after:absolute after:inset-0 hover:underline">{names(t)}</Link>
                   <p className="text-xs text-neutral-500">
                     {t.room?.name ?? 'No room'} · {kind === 'incoming' ? `tenancy start date ${full(t.start_date)}` : `${full(t.start_date)} – ${t.end_date ? full(t.end_date) : 'periodic, no end date'}`}
                     {t.notice_received_date && kind !== 'expired' ? ` · notice received ${full(t.notice_received_date)}` : ''}
@@ -68,11 +69,7 @@ export default function PeopleTab({ propertyId }: { propertyId: string }) {
                   {kind !== 'expired' && (t.person?.email || t.person?.phone) && <p className="text-xs text-neutral-500">{[t.person?.email, t.person?.phone].filter(Boolean).join(' · ')}</p>}
                 </div>
                 <span className={`whitespace-nowrap rounded-full px-sm py-0.5 text-[11px] font-semibold ${pill[1]}`}>{pill[0]}</span>
-                <span className="flex flex-wrap gap-sm text-xs font-semibold">
-                  <Link href={`/admin/lettings/${t.id}`} className="underline">Letting file</Link>
-                  {t.person && <Link href={`/admin/tenant/${t.person.id}`} className="underline">Profile</Link>}
-                  {t.room_id && <Link href={`/admin/properties/${propertyId}/rooms/${t.room_id}`} className="underline">Room page</Link>}
-                </span>
+                <span aria-hidden="true" className="text-neutral-400">›</span>
               </li>
             )
           })}

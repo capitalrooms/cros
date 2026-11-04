@@ -17,9 +17,15 @@ const TONE: Record<string, string> = { good: 'text-[#6EAF8B]', warn: 'text-[#E8B
 // look 'olive' (3 Nov 2026): the Finance screens, in the Finance home's olive & mustard on cream (look C)
 /** trail (rebuild A+B): where this record sits — e.g. Properties › 44 Claverton Street › Room 1 — each step a link back. */
 export interface TrailStep { label: ReactNode; href?: string }
+/** siblings (4 Nov 2026): step between records of the same kind — Room 1 of 7, with previous / next and the full list. */
+export interface HeroSiblings { label: string; items: { label: string; href: string; current?: boolean; dot?: string; hint?: string }[] }
+/** chip: the record's one status next to its title (Let · On notice · Empty · Current tenancy). */
+export interface HeroChip { label: string; tone?: 'good' | 'warn' | 'bad' | 'info' | 'plain' }
+const CHIP: Record<string, string> = { good: 'bg-[#6EAF8B]/25 text-[#CFEBDB]', warn: 'bg-[var(--accent,#C4922A)]/30 text-[#F6E3B8]', bad: 'bg-[#F28B82]/25 text-[#FBD3CF]', info: 'bg-[#8FB4F0]/25 text-[#D6E4FB]', plain: 'bg-[#F6F3EC]/12 text-[#F6F3EC]/85' }
 
-export default function PageHero({ title, subtitle, eyebrow, stats, actions, tabs, look, trail }: {
+export default function PageHero({ title, subtitle, eyebrow, stats, actions, tabs, look, trail, chip, siblings }: {
   title: ReactNode; subtitle?: ReactNode; eyebrow?: ReactNode; stats?: HeroStat[]; actions?: ReactNode; tabs?: HeroTab[]; look?: 'olive'; trail?: TrailStep[]
+  chip?: HeroChip; siblings?: HeroSiblings
 }) {
   // every band is olive since the rebuild (3 Nov 2026); look stays accepted so older calls still compile
   const olive = look === 'olive' || true
@@ -28,16 +34,20 @@ export default function PageHero({ title, subtitle, eyebrow, stats, actions, tab
       <div className="mx-auto max-w-6xl px-lg pt-lg">
         <div className="flex flex-wrap items-end justify-between gap-md">
           <div className="min-w-0">
-            {trail && trail.length > 0 && (
-              <nav aria-label="Where this is" className="mb-0.5 flex flex-wrap items-center gap-x-1.5 text-[13px] text-[#F3F0E6]/75">
-                {trail.map((t, i) => <span key={i} className="flex items-center gap-x-1.5">
+            {((trail && trail.length > 0) || siblings) && (
+              <nav aria-label="Where this is" className="mb-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[13px] text-[#F3F0E6]/75">
+                {(trail ?? []).map((t, i) => <span key={i} className="flex items-center gap-x-1.5">
                   {i > 0 && <span aria-hidden="true" className="text-[#F3F0E6]/45">›</span>}
                   {t.href ? <Link href={t.href} className="hover:text-[var(--ground,#F3F0E6)] hover:underline underline-offset-2">{t.label}</Link> : <span>{t.label}</span>}
                 </span>)}
+                {siblings && <Siblings s={siblings} lead={!!trail?.length} />}
               </nav>
             )}
             {eyebrow && <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#F6F3EC]/50">{eyebrow}</p>}
-            <h1 className={`text-2xl font-extrabold leading-tight sm:text-[28px] ${olive ? `${display.className} tracking-tight sm:text-[34px]` : ''}`} style={olive ? undefined : { fontFamily: 'var(--font-baloo-2, system-ui, sans-serif)' }}>{title}</h1>
+            <div className="flex flex-wrap items-center gap-x-sm gap-y-1">
+              <h1 className={`text-2xl font-extrabold leading-tight sm:text-[28px] ${olive ? `${display.className} tracking-tight sm:text-[34px]` : ''}`} style={olive ? undefined : { fontFamily: 'var(--font-baloo-2, system-ui, sans-serif)' }}>{title}</h1>
+              {chip && <span className={`rounded-full px-sm py-0.5 text-[11px] font-bold uppercase tracking-[0.06em] ${CHIP[chip.tone ?? 'plain']}`}>{chip.label}</span>}
+            </div>
             {subtitle && <p className="mt-0.5 text-sm text-[#F6F3EC]/60">{subtitle}</p>}
           </div>
           {actions && <div className="flex flex-wrap items-center gap-sm">{actions}</div>}
@@ -68,6 +78,32 @@ export default function PageHero({ title, subtitle, eyebrow, stats, actions, tab
         ) : <div className="h-lg" />}
       </div>
     </section>
+  )
+}
+
+// ‹ Room 1 of 7 › — previous / next, and a menu of every sibling with its state; keyboard: the menu is a native <details>
+function Siblings({ s, lead }: { s: HeroSiblings; lead: boolean }) {
+  const i = s.items.findIndex(x => x.current)
+  const prev = i > 0 ? s.items[i - 1] : null, next = i >= 0 && i < s.items.length - 1 ? s.items[i + 1] : null
+  const arrow = 'grid h-6 w-6 place-items-center rounded-md hover:bg-[#F6F3EC]/12'
+  return (
+    <span className="flex items-center gap-x-1">
+      {lead && <span aria-hidden="true" className="text-[#F3F0E6]/45">›</span>}
+      {prev ? <Link href={prev.href} className={arrow} aria-label={`Previous: ${prev.label}`} title={prev.label}>‹</Link> : <span className={`${arrow} opacity-30`} aria-hidden="true">‹</span>}
+      <details className="relative">
+        <summary className="cursor-pointer list-none rounded-md px-xs hover:bg-[#F6F3EC]/12 [&::-webkit-details-marker]:hidden">{s.label} ▾</summary>
+        <div className="absolute left-0 z-40 mt-1 max-h-[60vh] min-w-[240px] overflow-auto rounded-xl border border-neutral-200 bg-white p-1 text-neutral-900 shadow-xl">
+          {s.items.map(x => (
+            <Link key={x.href} href={x.href} aria-current={x.current ? 'page' : undefined} className={`flex items-center gap-sm rounded-lg px-sm py-1.5 text-sm hover:bg-neutral-100 ${x.current ? 'bg-neutral-100 font-bold' : ''}`}>
+              {x.dot && <span className={`h-2 w-2 flex-none rounded-full ${x.dot}`} />}
+              <span className="flex-1">{x.label}</span>
+              {x.hint && <span className="truncate text-xs text-neutral-500">{x.hint}</span>}
+            </Link>
+          ))}
+        </div>
+      </details>
+      {next ? <Link href={next.href} className={arrow} aria-label={`Next: ${next.label}`} title={next.label}>›</Link> : <span className={`${arrow} opacity-30`} aria-hidden="true">›</span>}
+    </span>
   )
 }
 

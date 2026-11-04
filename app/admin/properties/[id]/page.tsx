@@ -85,7 +85,12 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
   // certificates on file whose dates aren't on the house yet get read (lib/compliance/certFromDocument, 27 Oct 2026)
   useEffect(() => { adminFetch('/api/admin/compliance/heal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ propertyId: id }) }).catch(() => null) }, [id])
   useEffect(() => { if (initialRoomId && (rawTab === 'units' || !searchParams.get('tab'))) router.replace(`/admin/properties/${id}/rooms/${initialRoomId}`) }, [initialRoomId])   // eslint-disable-line react-hooks/exhaustive-deps
-  const [activeTab, setActiveTab] = useState<TabType>(initialTab);
+  const [activeTab, setActiveTabState] = useState<TabType>(initialTab);
+  // the tab is kept in the address, so Back from a room or a tenant lands on the same tab (4 Nov 2026)
+  const setActiveTab = (t: TabType) => {
+    setActiveTabState(t)
+    try { const u = new URL(window.location.href); if (t === 'units') u.searchParams.delete('tab'); else u.searchParams.set('tab', t); window.history.replaceState(window.history.state, '', u.pathname + u.search) } catch {}
+  }
   // the header's figures: rooms let today, their rent, the next certificate to expire
   const [house, setHouse] = useState<{ rooms: number; let: number; rent: number; nextCert: { label: string; expiry: string } | null } | null>(null)
   const [peopleSubTab, setPeopleSubTab] = useState<PeopleSubTab>('tenants')
@@ -258,9 +263,11 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
     );
   }
 
+  // a single let is one home with one tenancy at a time — never "rooms" (4 Nov 2026)
+  const whole = property.property_type === 'single_let' || property.property_type === 'single'
   const tabs: Array<{ id: TabType; label: string }> = [
     { id: 'details', label: 'Details' },
-    { id: 'units', label: 'Units' },
+    { id: 'units', label: whole ? 'Tenancy' : 'Rooms' },
     { id: 'people', label: 'People' },
     { id: 'maintenance', label: 'Maintenance' },
     { id: 'lettings', label: 'Lettings' },
@@ -287,21 +294,23 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
           figures, and the tabs. Name, address and postcode are edited on the Details tab. */}
       <PageHero
         trail={[{ label: 'Properties', href: '/admin/active-rooms' }]}
-        eyebrow={[property.property_code, property.property_type === 'hmo' ? 'HMO' : property.property_type === 'single' || property.property_type === 'single_let' ? 'Single let' : property.property_type, property.letting_type === 'let_only' ? 'Let only' : 'Fully managed'].filter(Boolean).join(' · ')}
         title={propertySystemAddress(property) || '—'}
+        // the one status: a single let is let or empty; a house says how many rooms are empty
+        chip={house ? (whole
+          ? (house.let > 0 ? { label: 'Let', tone: 'good' } : { label: 'Empty', tone: 'bad' })
+          : house.let >= house.rooms ? { label: 'Fully let', tone: 'good' } : { label: `${house.rooms - house.let} empty`, tone: 'warn' }) : undefined}
         subtitle={<>
-          {(() => { const addr = String(property.address || '').split('\n').join(', '); const sq = (v: string) => v.replace(/[\s,]/g, '').toLowerCase(); return sq(addr) === sq(String(property.name || '').split('\n').join(', ')) || sq(String(property.name || '')).includes(sq(addr)) ? null : <>{addr} · </> })()}
-          {property.landlord_id ? <>Landlord: <Link href={`/admin/landlord/${property.landlord_id}`} className="hover:underline">{property.landlord_name}</Link></> : 'No landlord linked'}
+          {[property.property_code, whole ? 'Single let' : property.property_type === 'hmo' ? 'HMO' : property.property_type, property.letting_type === 'let_only' ? 'Let only' : 'Fully managed'].filter(Boolean).join(' · ')}
+          {' · '}{property.landlord_id ? <>Landlord <Link href={`/admin/landlord/${property.landlord_id}`} className="font-semibold text-[#F6F3EC] hover:underline">{property.landlord_name}</Link></> : 'No landlord linked'}
         </>}
-        actions={<HeroButton onClick={() => setShowQuickNotify(true)}>Message the house</HeroButton>}
+        actions={<HeroButton onClick={() => setShowQuickNotify(true)}>{whole ? 'Message the tenant' : 'Message the house'}</HeroButton>}
+        // figures that mean something: rooms let and rent for a house; repairs only when open; a certificate only when
+        // it runs out within 60 days (a date a year away is not news)
         stats={house ? [
-          // a single let is one home, not rooms (4 Nov 2026: "0 of 1 rooms let" on a single-let flat)
-          property.property_type === 'single_let'
-            ? { label: 'Whole property', value: house.let > 0 ? 'Let' : 'Empty', tone: house.let > 0 ? 'good' : 'warn' }
-            : { label: 'Rooms let', value: `${house.let} of ${house.rooms}`, tone: house.let < house.rooms ? 'warn' : 'good' },
-          { label: 'Rent per month', value: `£${house.rent.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` },
-          { label: house.nextCert ? `${house.nextCert.label} expires` : 'Certificates', value: house.nextCert ? fullDate(house.nextCert.expiry) : 'None on file', tone: house.nextCert && house.nextCert.expiry < addDaysIso(30) ? 'warn' : undefined },
-          { label: 'Repairs open', value: String(tickets.filter((t: any) => !['completed', 'cancelled'].includes(t.status)).length), tone: tickets.some((t: any) => !['completed', 'cancelled'].includes(t.status)) ? 'warn' : undefined },
+          ...(whole ? [] : [{ label: 'Rooms let', value: `${house.let} of ${house.rooms}`, tone: (house.let < house.rooms ? 'warn' : 'good') as 'warn' | 'good' }]),
+          ...(house.rent > 0 ? [{ label: 'Rent per month', value: `£${house.rent.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` }] : []),
+          ...(() => { const n = tickets.filter((t: any) => !['completed', 'cancelled'].includes(t.status)).length; return n ? [{ label: n === 1 ? 'Repair open' : 'Repairs open', value: String(n), tone: 'warn' as const }] : [] })(),
+          ...(house.nextCert && house.nextCert.expiry < addDaysIso(60) ? [{ label: house.nextCert.expiry < todayIso() ? `${house.nextCert.label} expired` : `${house.nextCert.label} expires`, value: fullDate(house.nextCert.expiry), tone: (house.nextCert.expiry < todayIso() ? 'bad' : 'warn') as 'bad' | 'warn' }] : []),
         ] : undefined}
         tabs={tabs.map(t => ({ key: t.id, label: t.label, active: activeTab === t.id, onClick: () => setActiveTab(t.id) }))}
       />

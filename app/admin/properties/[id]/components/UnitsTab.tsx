@@ -749,11 +749,11 @@ export default function UnitsTab({ propertyId, propertyType, bedrooms, initialRo
                 <thead>
                   <tr className="bg-neutral-50 text-left text-xs font-semibold uppercase tracking-wider text-neutral-500 border-b border-neutral-200">
                     <th className="px-md sm:px-lg py-sm">{wholeLet ? 'Unit' : 'Room'}</th>
-                    <th className="px-lg py-sm hidden md:table-cell">Type</th>
+                    {rooms.some(r => r.room_type) && <th className="px-lg py-sm hidden md:table-cell">Type</th>}
                     <th className="px-md sm:px-lg py-sm">Tenant</th>
                     <th className="px-lg py-sm hidden sm:table-cell">Rent</th>
                     <th className="px-lg py-sm hidden lg:table-cell">Tenancy start date</th>
-                    <th className="px-lg py-sm hidden xl:table-cell">Tenancy end date</th>
+                    {rooms.some(r => r.tenancyEndDate) && <th className="px-lg py-sm hidden xl:table-cell">Tenancy end date</th>}
                     <th className="px-md sm:px-lg py-sm text-right">Status</th>
                   </tr>
                 </thead>
@@ -779,14 +779,14 @@ export default function UnitsTab({ propertyId, propertyType, bedrooms, initialRo
                             </div>
                           )}
                           <div>
-                            <p className="font-semibold text-neutral-900">{room.unit_code || room.name}</p>
-                            {room.unit_code && <p className="text-xs text-neutral-400">{room.name}</p>}
-                            {/* the row opens the room page; the in-tab tools (asking rent, tenancy, delete) are here */}
-                            <button type="button" onClick={e => { e.stopPropagation(); openRoom(room) }} className="mt-0.5 text-[11px] font-semibold text-neutral-500 underline">Manage</button>
+                            {/* the row opens the room page — the one room screen; its tools (let / available, has left,
+                                delete) moved there from a second view here (4 Nov 2026) */}
+                            <p className="font-semibold text-neutral-900">{room.name}</p>
+                            {room.unit_code && room.unit_code !== room.name && <p className="text-xs text-neutral-400">{room.unit_code}</p>}
                           </div>
                         </div>
                       </td>
-                      <td className="px-lg py-md hidden md:table-cell text-neutral-500 text-xs">{room.room_type || '—'}</td>
+                      {rooms.some(r => r.room_type) && <td className="px-lg py-md hidden md:table-cell text-neutral-500 text-xs">{room.room_type || '—'}</td>}
                       <td className="px-md sm:px-lg py-md">
                         {room.currentTenant
                           ? <span className="font-medium text-neutral-900">{room.currentTenant.name || room.currentTenant.email}</span>
@@ -794,11 +794,11 @@ export default function UnitsTab({ propertyId, propertyType, bedrooms, initialRo
                       </td>
                       <td className="px-lg py-md hidden sm:table-cell text-neutral-600">{fmtRent(room.tenancyInfo?.rent_amount)}</td>
                       <td className="px-lg py-md hidden lg:table-cell text-neutral-400 text-xs">{fmtDate(room.tenancyInfo?.start_date)}</td>
-                      <td className="px-lg py-md hidden xl:table-cell text-xs">
+                      {rooms.some(r => r.tenancyEndDate) && <td className="px-lg py-md hidden xl:table-cell text-xs">
                         {room.tenancyEndDate
                           ? <span className="text-amber-600 font-medium">{fmtDate(room.tenancyEndDate)}</span>
                           : <span className="text-neutral-300">—</span>}
-                      </td>
+                      </td>}
                       <td className="px-md sm:px-lg py-md text-right">
                         {/* phones: the pill above the button, so the row fits the screen */}
                         <div className="flex flex-col-reverse items-end gap-xs sm:flex-row sm:items-center sm:justify-end sm:gap-sm">

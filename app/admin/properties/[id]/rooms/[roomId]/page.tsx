@@ -10,10 +10,12 @@ import { use, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
+import PageHero, { HeroButton } from '@/components/PageHero'
 import { StoredImg } from '@/components/StoredImg'
 import { adminFetch } from '@/lib/adminFetch'
 import QuickNotifyModal from '@/app/admin/components/QuickNotifyModal'
 import ArrangeWorks from './ArrangeWorks'
+import RoomTools from './RoomTools'
 import { useAdminAccess } from '@/lib/admin-context'
 import type { RoomOverview, Need, TimelineItem } from '@/lib/rooms/roomOverview'
 import LineIcon from '@/components/LineIcon'
@@ -41,6 +43,11 @@ const STAGE_PILL: Record<string, { cls: string; label: (o: RoomOverview) => stri
   let_agreed: { cls: 'bg-blue-100 text-blue-900', label: o => `Let agreed · tenancy starts ${full(o.incoming?.start)}` },
   void: { cls: 'bg-red-100 text-red-900', label: o => o.voids.at(-1) && !o.voids.at(-1)!.to ? `Void since ${full(o.voids.at(-1)!.from)}` : 'Void' },
   ended: { cls: 'bg-neutral-200 text-neutral-800', label: () => 'Tenancy ended' },
+}
+// the heading's one status (the detail — dates, who — is on the line under the title)
+const CHIP: Record<string, { label: string; tone: 'good' | 'warn' | 'bad' | 'info' | 'plain' }> = {
+  live: { label: 'Current tenancy', tone: 'good' }, on_notice: { label: 'On notice', tone: 'warn' }, let_agreed: { label: 'Let agreed', tone: 'info' },
+  void: { label: 'Empty', tone: 'bad' }, ended: { label: 'Tenancy ended', tone: 'plain' },
 }
 const APPLICANT_STEPS = ['invited', 'applied', 'offer_sent', 'referencing', 'referencing_passed', 'docs_uploaded']
 const KIND_ICON: Record<TimelineItem['kind'], string> = { email: '✉', sms: '💬', app: '🔔', event: '•', note: '✎', money: '£', repair: '🔧', viewing: '👁', offer: '✉', feedback: '★' }
@@ -97,62 +104,44 @@ export default function RoomPage({ params }: { params: Promise<{ id: string; roo
     <div className="min-h-screen bg-neutral-100">
       <AppBar left={<BackButton href="/admin/active-rooms" />} />
 
-      {/* ── hero ─────────────────────────────────────────────────────────────────────────────── */}
-      <section className="bg-[var(--band,#4A5320)] text-[var(--ground,#F3F0E6)]">
-        <div className="mx-auto max-w-6xl px-lg pt-lg">
-          <div className="flex flex-wrap items-end justify-between gap-md">
-            <div className="flex min-w-0 flex-[1_1_420px] items-center gap-md md:items-end">
-              <StoredImg src={photo} alt={`${o.room.name} photo`} className="h-16 w-16 flex-none rounded-xl object-cover md:h-[90px] md:w-[120px]" />
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-sm">
-                  <h1 className={`${display.className} text-[28px] font-extrabold leading-none tracking-tight md:text-[34px]`}>{o.whole ? o.property.name : o.room.name}</h1>
-                  <span className={`rounded-full px-sm py-0.5 text-[11px] font-black uppercase tracking-wide ${pill.cls}`}>{pill.label(o)}</span>
-                </div>
-                {cur && <p className="mt-0.5 text-sm text-[#F6F3EC]/80"><b className="text-[#F6F3EC]">{cur.tenant.name}</b></p>}
-                <p className="mt-0.5 text-[13px] text-[#F6F3EC]/65">
-                  <Link href={`/admin/properties/${propertyId}`} className="font-bold text-[#F6F3EC] underline-offset-2 hover:underline">{o.property.name}</Link>
-                  {o.landlord && <> · <Link href={`/admin/landlord/${o.landlord.id}`} className="hover:underline">{o.landlord.name}</Link></>}
-                </p>
-              </div>
-            </div>
-            <div className="hidden flex-wrap gap-sm md:flex">
-              {cur && <button type="button" onClick={message} className="rounded-lg bg-[var(--accent,#E8B931)] px-md py-sm text-sm font-black text-[var(--ink,#23261A)]">Message {cur.tenant.name}</button>}
-              {canReport && !letOnly && <button type="button" onClick={() => setArranging(true)} className="rounded-lg border border-[#F6F3EC]/25 px-md py-sm text-sm font-bold">Arrange works</button>}
-              <Link href={`/lettings/listing/${roomId}?from=${encodeURIComponent(`/admin/properties/${propertyId}/rooms/${roomId}`)}`} className="rounded-lg border border-[#F6F3EC]/25 px-md py-sm text-sm font-bold">Marketing view</Link>
-              <Link href={`/admin/properties/${propertyId}/rooms/${roomId}/edit`} className="rounded-lg border border-[#F6F3EC]/25 px-md py-sm text-sm font-bold">{o.whole ? 'Edit details' : 'Edit room'}</Link>
-            </div>
-          </div>
-
-          {/* figures only when they need attention: rent owed, or how long the room has stood empty (30 Oct 2026) */}
-          {(() => {
-            const owed = !letOnly && cur?.balance != null && cur.balance > 0.004 ? cur.balance : 0
-            const empty = !cur && o.occupancy?.voidDays ? o.occupancy.voidDays : 0
-            if (!owed && !(o.stage === 'void' && empty)) return null
-            return (
-              <div className="mt-md flex flex-wrap gap-sm">
-                {owed > 0 && <Stat value={gbp(owed)} label="Owed on the rent account" tone="text-red-300" />}
-                {o.stage === 'void' && empty > 0 && <Stat value={`${empty} days`} label="Empty" tone="text-amber-200" />}
-              </div>
-            )
-          })()}
-
-          <nav aria-label={`Rooms at ${o.property.name}`} className="-mx-lg mt-md flex gap-0.5 overflow-x-auto px-lg" style={{ scrollbarWidth: 'none' }}>
-            {o.strip.map(r => {
-              const on = r.id === roomId
-              return (
-                <Link key={r.id} href={`/admin/properties/${propertyId}/rooms/${r.id}`} aria-current={on ? 'page' : undefined}
-                  title={[r.tenant ?? 'No tenancy', r.line].filter(Boolean).join(' · ')}
-                  className={`flex flex-none items-center rounded-t-xl px-md py-sm text-left ${on ? 'bg-neutral-100 text-neutral-900' : 'text-[#F6F3EC]/75 hover:text-[#F6F3EC]'}`}>
-                  <span className="flex items-center gap-xs text-[13px] font-black"><span className={`h-2 w-2 rounded-full ${DOT[r.state] ?? 'bg-neutral-400'}`} />{r.name}</span>
-                </Link>
-              )
-            })}
-            <Link href={`/admin/properties/${propertyId}`} className="flex flex-none items-center gap-xs rounded-t-xl border-l border-[#F6F3EC]/15 px-md py-sm text-[13px] font-black text-[#F6F3EC]/75 hover:text-[#F6F3EC]">
-              The house{houseNeeds > 0 && <span className="rounded-full bg-amber-300 px-xs text-[11px] text-[#181614]">{houseNeeds}</span>}
-            </Link>
-          </nav>
-        </div>
-      </section>
+      {/* the same heading as the house and the letting file (4 Nov 2026, Harry: "work out a system that runs the same
+          throughout"): where it is, the room and its one status, one line of facts, figures only when they need
+          attention, two buttons, and ‹ Room 1 of 7 › to step through the house */}
+      {(() => {
+        const idx = o.strip.findIndex(r => r.id === roomId)
+        const here = `/admin/properties/${propertyId}/rooms/${roomId}`
+        const owed = !letOnly && cur?.balance != null && cur.balance > 0.004 ? cur.balance : 0
+        const empty = !cur && o.occupancy?.voidDays ? o.occupancy.voidDays : 0
+        const facts = cur
+          ? [<Link key="t" href={`/admin/lettings/${cur.id}?from=${encodeURIComponent(here)}`} className="font-bold text-[#F6F3EC] underline-offset-2 hover:underline">{[cur.tenant.name, cur.jointTenant?.name].filter(Boolean).join(' and ')}</Link>,
+             cur.rent != null ? `${gbp(cur.rent)} per month` : null,
+             `since ${full(cur.start)}`,
+             o.stage === 'on_notice' && cur.end ? `leaving ${full(cur.end)}` : null]
+          : o.incoming ? [`${o.incoming.tenant} moves in ${full(o.incoming.start)}`]
+          : [o.room.askingRent != null ? `Asking ${gbp(o.room.askingRent)} per month` : 'No asking rent set']
+        return (
+          <PageHero
+            trail={[{ label: 'Properties', href: '/admin/active-rooms' }, o.whole
+              ? { label: houseNeeds > 0 ? `Property details · ${houseNeeds} to do` : 'Property details', href: `/admin/properties/${propertyId}?tab=details` }   // a single let: the title is already the property
+              : { label: houseNeeds > 0 ? `${o.property.name} · ${houseNeeds} to do` : o.property.name, href: `/admin/properties/${propertyId}` }]}
+            siblings={o.strip.length > 1 ? {
+              label: /^room\s*\d+$/i.test(o.room.name) ? `${o.room.name} of ${o.strip.length}` : `${o.room.name} · ${idx + 1} of ${o.strip.length}`,
+              items: o.strip.map(r => ({ label: r.name, href: `/admin/properties/${propertyId}/rooms/${r.id}`, current: r.id === roomId, dot: DOT[r.state] ?? 'bg-neutral-400', hint: r.tenant ?? 'No tenancy' })),
+            } : undefined}
+            title={o.whole ? o.property.name : o.room.name}
+            chip={CHIP[o.stage] ?? CHIP.live}
+            subtitle={<>{facts.filter(Boolean).map((f, i) => <span key={i}>{i > 0 && ' · '}{f}</span>)}</>}
+            stats={[
+              ...(owed > 0 ? [{ label: 'Rent arrears', value: gbp(owed), tone: 'bad' as const }] : []),
+              ...(o.stage === 'void' && empty > 0 ? [{ label: 'Days empty', value: String(empty), tone: 'warn' as const }] : []),
+            ]}
+            actions={<>
+              {cur && <HeroButton primary onClick={message}>Message {cur.tenant.name}</HeroButton>}
+              <HeroButton href={`/admin/properties/${propertyId}/rooms/${roomId}/edit`}>{o.whole ? 'Edit details' : 'Edit room'}</HeroButton>
+            </>}
+          />
+        )
+      })()}
 
       <div className="mx-auto max-w-6xl space-y-lg px-lg py-xl pb-[120px] md:pb-xl">
         <NeedsYou needs={o.needs.filter(n => n.category !== 'House certificate')} today={o.today} reload={load} />
@@ -165,7 +154,7 @@ export default function RoomPage({ params }: { params: Promise<{ id: string; roo
           </div>
           <div className="min-w-0 flex-[1_1_340px] space-y-lg">
             {(reletDue || o.incoming || o.applicants.length > 0) && <Relet o={o} wide={wide} />}
-            <TheRoom o={o} wide={wide} propertyId={propertyId} />
+            <TheRoom o={o} wide={wide} propertyId={propertyId} reload={load} />
             {!letOnly && <Repairs o={o} wide={wide} onArrange={() => setArranging(true)} />}
             <Safety o={o} wide={wide} propertyId={propertyId} />
           </div>
@@ -295,7 +284,7 @@ function CurrentTenancy({ o, wide, onMessage }: { o: RoomOverview; wide: boolean
           <Link href={`/admin/lettings/${c.id}?from=${encodeURIComponent(`/admin/properties/${o.property.id}/rooms/${o.room.id}`)}`} className={btnLight}>Letting file</Link>
           <Link href={`/admin/move-in/${c.id}`} className={btnLight}>Move-in pack</Link>
           {/* notice is recorded (or changed) in the letting file — the list rows no longer carry the button */}
-          <Link href={`/admin/lettings/${c.id}?tab=notice${c.notice ? '' : '&mark=1'}`} className={`${btnLight} col-span-3 sm:col-span-1`}>{c.notice ? 'Notice' : 'Record notice'}</Link>
+          <Link href={`/admin/lettings/${c.id}?tab=notice${c.notice ? '' : '&mark=1'}&from=${encodeURIComponent(`/admin/properties/${o.property.id}/rooms/${o.room.id}`)}`} className={`${btnLight} col-span-3 sm:col-span-1`}>{c.notice ? 'Notice' : 'Record notice'}</Link>
         </div>
       </div>
       <div className="grid gap-x-xl gap-y-sm px-lg py-md md:grid-cols-2">
@@ -338,7 +327,7 @@ function Rent({ o, wide }: { o: RoomOverview; wide: boolean }) {
   const STATE: Record<string, [string, string]> = { paid: ['Paid', 'bg-green-50 text-green-800'], part: ['Part paid', 'bg-amber-50 text-amber-900'], overdue: ['Overdue', 'bg-red-50 text-red-800'], due: ['Not yet due', 'bg-neutral-100 text-neutral-600'], statement: ['Before CROS', 'bg-neutral-100 text-neutral-600'] }
   return (
     <Section title={o.whole ? 'Rent' : 'Rent on this room'} wide={wide} summary={owed && owed > 0.004 ? `${gbp(owed)} owed on the current tenancy` : o.fee.toLandlord != null ? `${gbp(o.fee.toLandlord)} per month to the landlord` : 'No rent recorded'}
-      right={o.current ? <Link href={`/admin/lettings/${o.current.id}?tab=money`} className={btnLight}>Statement of account</Link> : null}>
+      right={o.current ? <Link href={`/admin/lettings/${o.current.id}?tab=money&from=${encodeURIComponent(`/admin/properties/${o.property.id}/rooms/${o.room.id}`)}`} className={btnLight}>Statement of account</Link> : null}>
       {o.rent.length === 0 ? <p className="px-lg py-md text-sm text-neutral-500">No rent charges {o.whole ? 'yet' : 'on this room yet'}.</p> : (
         <div className="overflow-x-auto">
           <table className="w-full min-w-[680px] text-[13px]">
@@ -452,7 +441,7 @@ function Relet({ o, wide }: { o: RoomOverview; wide: boolean }) {
             <p className="text-[10.5px] font-black uppercase tracking-[0.1em] text-blue-900">Incoming tenancy · let agreed</p>
             <p className="font-bold">{o.incoming.tenant}</p>
             <p className="text-[13px] text-neutral-600">Tenancy start date {full(o.incoming.start)}{o.incoming.rent ? ` · ${gbp(o.incoming.rent)} per month` : ''}</p>
-            <Link href={`/admin/lettings/${o.incoming.id}`} className={`${btnDark} mt-sm`}>Open letting file</Link>
+            <Link href={`/admin/lettings/${o.incoming.id}?from=${encodeURIComponent(`/admin/properties/${o.property.id}/rooms/${o.room.id}`)}`} className={`${btnDark} mt-sm`}>Open letting file</Link>
           </div>
         ) : lead ? (
           <div className="space-y-sm rounded-xl bg-blue-50 p-md">
@@ -466,7 +455,7 @@ function Relet({ o, wide }: { o: RoomOverview; wide: boolean }) {
         ) : <p className="text-sm text-neutral-600">No applicants for {o.whole ? 'the property' : 'this room'}.</p>}
         {!o.incoming && (
           <ol className="text-sm">
-            {c?.notice && <Check done={false} label={`Confirm the notice and end date of ${full(c.end)} in writing`} href={`/admin/lettings/${c.id}?tab=notice`} action="Open" />}
+            {c?.notice && <Check done={false} label={`Confirm the notice and end date of ${full(c.end)} in writing`} href={`/admin/lettings/${c.id}?tab=notice&from=${encodeURIComponent(`/admin/properties/${o.property.id}/rooms/${o.room.id}`)}`} action="Open" />}
             {c?.end && <Check done={false} label={`Check-out inspection and keys returned · ${full(c.end)}`} href="/admin/agency-diary/book-appointment" action="Book" />}
             {c?.end && <Check done={false} label={`End-of-tenancy clean · ${full(c.end)}`} href="/admin/agency-diary/book-clean" action="Book clean" />}
             {openRepairs.map(r => <Check key={r.id} done={false} label={`${r.title} · reported ${full(r.reported)}`} href="/admin/maintenance" action="Book" />)}
@@ -498,7 +487,7 @@ function Check({ done, label, href, action }: { done: boolean; label: string; hr
   )
 }
 
-function TheRoom({ o, wide, propertyId }: { o: RoomOverview; wide: boolean; propertyId: string }) {
+function TheRoom({ o, wide, propertyId, reload }: { o: RoomOverview; wide: boolean; propertyId: string; reload: () => void }) {
   const r = o.room
   const d: any = r.detected ?? {}
   const cap = (v: unknown) => { const t = String(v ?? ''); return t ? t[0].toUpperCase() + t.slice(1) : t }
@@ -521,6 +510,7 @@ function TheRoom({ o, wide, propertyId }: { o: RoomOverview; wide: boolean; prop
       <div className="space-y-sm px-lg py-md">
         <dl className="grid grid-cols-[110px_1fr] gap-y-xs text-sm">{facts.map(([k, v]) => <><dt key={`k-${k}`} className="text-neutral-500">{k}</dt><dd key={`v-${k}`}>{v}</dd></>)}</dl>
         {d && Object.keys(d).length > 0 && <p className="text-xs text-neutral-400">Some features were read from the room photo. Confirm them at the next inspection.</p>}
+        <RoomTools o={o} propertyId={propertyId} onDone={reload} />
         <p className="border-t border-neutral-100 pt-sm text-[13px] text-neutral-600">{r.photos.length} photo{r.photos.length === 1 ? '' : 's'} · advert text {r.marketingDescription ? 'written' : <b className="text-amber-800">not written</b>} · {r.showOnWebsite ? 'on the website' : 'not on the website'}</p>
         <div className="flex flex-wrap gap-sm">
           <Link href={`/admin/properties/${propertyId}/rooms/${r.id}/edit`} className={btnLight}>Photos and details</Link>
@@ -587,7 +577,7 @@ function Expired({ o, wide }: { o: RoomOverview; wide: boolean }) {
                   <td className="px-sm py-sm">{r.x.notice ? full(r.x.notice) : <span className="text-neutral-400">No date recorded</span>}</td>
                   <td className="px-sm py-sm text-right tabular-nums">{gbp(r.x.rent)}</td>
                   <td className="px-sm py-sm">{r.x.deposit ? <>{gbp(r.x.deposit)}{r.x.scheme ? ` · ${r.x.scheme}` : ''} · {r.x.depositReturn ? <span>{r.x.depositReturn.status}{r.x.depositReturn.returnedOn ? ` ${full(r.x.depositReturn.returnedOn)}` : ''}</span> : <b className="text-amber-800">return not recorded</b>}</> : 'None'}</td>
-                  <td className="whitespace-nowrap px-lg py-sm text-right"><Link href={`/admin/lettings/${r.x.id}`} className="font-bold underline">Letting file</Link></td>
+                  <td className="whitespace-nowrap px-lg py-sm text-right"><Link href={`/admin/lettings/${r.x.id}?from=${encodeURIComponent(`/admin/properties/${o.property.id}/rooms/${o.room.id}`)}`} className="font-bold underline">Letting file</Link></td>
                 </tr>
               ))}
             </tbody>
