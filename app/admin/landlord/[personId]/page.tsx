@@ -510,7 +510,7 @@ export default function LandlordProfilePage({ params, searchParams }: { params: 
         <PanelRow label="Dated" value={fmt(st.statement_date || st.created_at)} />
         {st.period_start && <PanelRow label="Period" value={`${fmt(st.period_start)} – ${fmt(st.period_end)}`} />}
         <PanelRow label="Rent" value={money(st.gross_rent)} />
-        {Number(st.management_fees) > 0 && <PanelRow label="Our fees" value={`−${money(st.management_fees)}`} />}
+        {Number(st.management_fees) > 0 && <PanelRow label="Management fees" value={`−${money(st.management_fees)}`} />}
         {Number(st.property_charges) > 0 && <PanelRow label="Expenses" value={`−${money(st.property_charges)}`} />}
         <PanelRow label="To landlord" value={money(st.net_to_landlord)} tone="good" />
         <PanelRow label="Paid" value={st.paid_date ? `${money(st.amount_paid)} on ${fmt(st.paid_date)}` : 'Not recorded as paid'} tone={st.paid_date ? undefined : 'warn'} />

@@ -73,8 +73,8 @@ function RentsDue({ initialMonth }: { initialMonth?: string }) {
 
   return (
     <div className="min-h-screen fin">
-      <AppBar left={<BackButton href={`/admin/finance?month=${month}`} label="Agency accounts" />} title="Rent owed" />
-      <PageHero look="olive" title="Rent owed" subtitle="Rents due: every active tenancy whose rent isn’t fully in this month" tabs={rentOwedTabs('due')} />
+      <AppBar left={<BackButton href={`/admin/finance?month=${month}`} label="Agency accounts" />} title="Rent arrears" />
+      <PageHero look="olive" title="Rent arrears" subtitle="Rents due: every active tenancy whose rent isn’t fully in this month" tabs={rentOwedTabs('due')} />
       <div className="mx-auto max-w-6xl px-lg py-xl">
         <PageHead eyebrow="" title="" right={
           <div className="flex flex-wrap items-center gap-sm">

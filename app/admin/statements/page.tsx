@@ -576,10 +576,10 @@ export default function AdminStatementsPage() {
           </div>
         </details>
 
-        {/* Annual summary for a landlord's tax return */}
+        {/* Annual statement for a landlord's tax return */}
         <div className="mt-md flex flex-wrap items-end gap-sm rounded-[10px] border border-[#D6DCE3] bg-white p-md">
           <div className="mr-auto">
-            <h2 className="font-bold text-neutral-900">Annual summary</h2>
+            <h2 className="font-bold text-neutral-900">Annual statement</h2>
             <p className="text-xs text-neutral-500">Income and expenditure for a landlord’s tax return (6 April – 5 April), from their statements.</p>
           </div>
           <select value={annualLandlord} onChange={(e) => setAnnualLandlord(e.target.value)} className="rounded-lg border border-neutral-300 px-sm py-xs text-sm">
@@ -589,7 +589,7 @@ export default function AdminStatementsPage() {
           <select value={annualYear} onChange={(e) => setAnnualYear(Number(e.target.value))} className="rounded-lg border border-neutral-300 px-sm py-xs text-sm">
             {[0, 1, 2, 3].map((k) => { const y = new Date().getFullYear() - k; return <option key={y} value={y}>{y}/{String(y + 1).slice(2)}</option> })}
           </select>
-          <button type="button" disabled={!annualLandlord} onClick={() => downloadPdf(`/api/admin/statements/annual?landlordId=${annualLandlord}&year=${annualYear}`, `Annual summary ${annualYear}.pdf`)} className="rounded-lg bg-neutral-900 px-md py-xs text-sm font-bold text-white disabled:bg-neutral-300">Download</button>
+          <button type="button" disabled={!annualLandlord} onClick={() => downloadPdf(`/api/admin/statements/annual?landlordId=${annualLandlord}&year=${annualYear}`, `Annual statement ${annualYear}.pdf`)} className="rounded-lg bg-neutral-900 px-md py-xs text-sm font-bold text-white disabled:bg-neutral-300">Download</button>
         </div>
 
         {/* Existing */}

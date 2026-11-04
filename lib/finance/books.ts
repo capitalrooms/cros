@@ -25,6 +25,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { statementMonth } from '@/lib/finance/statementMonth'
 import { demoPropertyIds } from '@/lib/demoProperties'
+import { HMRC_BOXES, SA105_BOX_NO, boxFor, type HmrcBox } from '@/lib/finance/mtd'
+import { categoryLabel } from '@/lib/expense-categories'
 
 export type BookKind = 'rent' | 'fee' | 'expense' | 'payout' | 'deposit'
 export interface BookRow {
@@ -37,6 +39,7 @@ export interface BookRow {
   room: string | null; tenant: string | null
   description: string
   category: string             // rent | management fee | letting fee | <expense category> | paid to landlord | deposit …
+  categorySlug?: string        // expenses: the category's slug (lib/expense-categories) — decides the SA105 box
   amount: number               // gross, £ — what was charged / received / paid
   net: number | null; vat: number | null   // fees only
   reference: string | null     // the statement (LS…), the expense (EXP…), the payout (PAY…), the deposit
@@ -50,7 +53,8 @@ const r2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100
 const first = (s: unknown) => String(s ?? '').split('\n')[0]
 const FEES = new Set(['management_fee', 'letting_fee'])
 const INCOME = new Set(['rent_income', 'income'])
-const CATEGORY_LABEL = (c: string | null | undefined) => String(c || 'other').replace(/_/g, ' ')
+// expense categories by their proper names (lib/expense-categories), never the system slug
+const CATEGORY_LABEL = (c: string | null | undefined) => { const l = categoryLabel(String(c || '')); return l !== 'Other / Not Matched' ? (String(c).startsWith('room_') ? `Room ${l.toLowerCase()}` : l) : c ? String(c).replace(/_/g, ' ').replace(/^./, x => x.toUpperCase()) : 'Other' }
 
 /** "2026/27" for any date — the UK tax year starts on 6 April */
 export function taxYearOf(iso: string): string {
@@ -139,8 +143,8 @@ export async function loadBooks(s: SupabaseClient, o: { from: string; to: string
 
       // costs charged back on the statement
       const eLines = L.filter(l => !FEES.has(String(l.category)) && !INCOME.has(String(l.category)) && l.category_type !== 'income')
-      if (eLines.length && Math.abs(sum(eLines, l => Number(l.amount || 0)) - charges) < 0.02) eLines.forEach(l => rows.push({ ...base, kind: 'expense', date: rentDate, month, taxYear: taxYearOf(rentDate), room: l.room_label ?? null, tenant: null, description: l.description, category: CATEGORY_LABEL(l.category), amount: r2(Number(l.amount || 0)), net: null, vat: null, source: 'statement line' }))
-      else if (charges) rows.push({ ...base, kind: 'expense', date: rentDate, month, taxYear: taxYearOf(rentDate), room: null, tenant: null, description: 'Property charges (per statement)', category: 'property charges', amount: charges, net: null, vat: null, source: 'per statement', note: eLines.length ? `The statement’s cost lines add up to ${r2(sum(eLines, l => Number(l.amount || 0)))}, not ${charges}` : undefined })
+      if (eLines.length && Math.abs(sum(eLines, l => Number(l.amount || 0)) - charges) < 0.02) eLines.forEach(l => rows.push({ ...base, kind: 'expense', date: rentDate, month, taxYear: taxYearOf(rentDate), room: l.room_label ?? null, tenant: null, description: l.description, category: CATEGORY_LABEL(l.category), categorySlug: l.category ?? undefined, amount: r2(Number(l.amount || 0)), net: null, vat: null, source: 'statement line' }))
+      else if (charges) rows.push({ ...base, kind: 'expense', date: rentDate, month, taxYear: taxYearOf(rentDate), room: null, tenant: null, description: 'Property charges (per statement)', category: 'Not itemised on the statement', amount: charges, net: null, vat: null, source: 'per statement', note: eLines.length ? `The statement’s cost lines add up to ${r2(sum(eLines, l => Number(l.amount || 0)))}, not ${charges}` : undefined })
     }
 
     // paid to the landlord — when paid (the old system paid on the statement date)
@@ -155,7 +159,7 @@ export async function loadBooks(s: SupabaseClient, o: { from: string; to: string
     if (e.voided_at || onLines.has(e.id)) continue
     const p: any = prop.get(e.property_id)
     if (!wanted(e.property_id, p?.landlord_id)) continue
-    rows.push({ kind: 'expense', date: e.expense_date, month: String(e.expense_date).slice(0, 7), taxYear: taxYearOf(e.expense_date), landlordId: p?.landlord_id ?? null, landlord: who(p?.landlord_id), propertyId: e.property_id, property: first(p?.name), room: null, tenant: null, description: `${e.description}${e.supplier ? ` · ${e.supplier}` : ''}`, category: CATEGORY_LABEL(e.category), amount: r2(Number(e.amount || 0)), net: null, vat: null, reference: e.txn_no ?? null, source: 'CROS expense', note: e.included_in_statement_id ? undefined : 'Not on a statement yet' })
+    rows.push({ kind: 'expense', date: e.expense_date, month: String(e.expense_date).slice(0, 7), taxYear: taxYearOf(e.expense_date), landlordId: p?.landlord_id ?? null, landlord: who(p?.landlord_id), propertyId: e.property_id, property: first(p?.name), room: null, tenant: null, description: `${e.description}${e.supplier ? ` · ${e.supplier}` : ''}`, category: CATEGORY_LABEL(e.category), categorySlug: e.category ?? undefined, amount: r2(Number(e.amount || 0)), net: null, vat: null, reference: e.txn_no ?? null, source: 'CROS expense', note: e.included_in_statement_id ? undefined : 'Not on a statement yet' })
   }
 
   // ── let-only lets: first rent and deposit in, our fee, paid to the landlord ──
@@ -193,6 +197,16 @@ export async function loadBooks(s: SupabaseClient, o: { from: string; to: string
   return { from: o.from, to: o.to, vat, rows, checks }
 }
 
+// HMRC's SA105 "UK property" boxes (lib/finance/mtd — the one mapping, worded as on the form), so a landlord's annual
+// statement lines up box for box with their return. Suggestions: the statement asks them to confirm with their accountant.
+export const SA105_BOXES: Record<string, string> = { '20': 'Total rents and other income from property', ...Object.fromEntries((Object.keys(HMRC_BOXES) as HmrcBox[]).map(k => [SA105_BOX_NO[k], HMRC_BOXES[k]])) }
+/** The SA105 box a row belongs on — rent is box 20; fees box 27; expenses by category; payments and deposits on none. */
+export function sa105Box(r: Pick<BookRow, 'kind' | 'categorySlug'>): string | null {
+  if (r.kind === 'rent') return '20'
+  if (r.kind === 'fee') return '27'
+  return r.kind === 'expense' ? SA105_BOX_NO[boxFor(r.categorySlug)] : null
+}
+
 /** A landlord's income and expenditure for their tax return, from the same rows. */
 export function landlordYear(b: Books) {
   const k = (kind: BookKind) => b.rows.filter(r => r.kind === kind)
@@ -203,13 +217,18 @@ export function landlordYear(b: Books) {
     rent, managementFees: total(fees.filter(f => f.category === 'management fee')), lettingFees: total(fees.filter(f => f.category === 'letting fee')),
     feesVat: r2(fees.reduce((t, f) => t + (f.vat ?? 0), 0)), expenses: total(exps), expensesByCategory: byCat(exps),
     paidToLandlord: total(k('payout')), profit: r2(rent - total(fees) - total(exps)),
+    // box → total and the categories in it, in box order
+    bySa105: Object.keys(SA105_BOXES).map(box => {
+      const xs = b.rows.filter(r => sa105Box(r) === box)
+      return { box, label: SA105_BOXES[box], amount: total(xs), categories: byCat(xs) }
+    }).filter(x => x.amount),
   }
 }
 
 /** CSV for an accountant: one row per entry, the columns they ask for. */
 export function booksCsv(rows: BookRow[]): string {
-  const head = ['Date', 'Tax year', 'Rent month', 'Type', 'Category', 'Landlord', 'Property', 'Room', 'Tenant', 'Description', 'Amount', 'Net', 'VAT', 'Reference', 'Source', 'Note']
+  const head = ['Date', 'Tax year', 'Rent month', 'Type', 'Category', 'SA105 box', 'Landlord', 'Property', 'Room', 'Tenant', 'Description', 'Amount', 'Net', 'VAT', 'Reference', 'Source', 'Note']
   const cell = (v: unknown) => { const t = v == null ? '' : String(v); return /[",\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t }
-  const KIND: Record<BookKind, string> = { rent: 'Rent received', fee: 'Fee', expense: 'Expense', payout: 'Paid to landlord', deposit: 'Deposit' }
-  return [head, ...rows.map(r => [r.date, r.taxYear, r.month ?? '', KIND[r.kind], r.category, r.landlord, r.property, r.room ?? '', r.tenant ?? '', r.description, r.amount.toFixed(2), r.net != null ? r.net.toFixed(2) : '', r.vat != null ? r.vat.toFixed(2) : '', r.reference ?? '', r.source, r.note ?? ''])].map(r => r.map(cell).join(',')).join('\n')
+  const KIND: Record<BookKind, string> = { rent: 'Rent received', fee: 'Agency fee', expense: 'Property expense', payout: 'Landlord payment', deposit: 'Tenancy deposit' }
+  return [head, ...rows.map(r => [r.date, r.taxYear, r.month ?? '', KIND[r.kind], r.category, sa105Box(r) ?? '', r.landlord, r.property, r.room ?? '', r.tenant ?? '', r.description, r.amount.toFixed(2), r.net != null ? r.net.toFixed(2) : '', r.vat != null ? r.vat.toFixed(2) : '', r.reference ?? '', r.source, r.note ?? ''])].map(r => r.map(cell).join(',')).join('\n')
 }

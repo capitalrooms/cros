@@ -7,14 +7,18 @@ import { dropDemo } from '@/lib/demoProperties'
 
 const r2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100
 
+// Worded exactly as HMRC's SA105 UK property pages (4 Nov 2026), with the box numbers — the one mapping used by MTD,
+// Finance › Transactions and each landlord's annual statement.
 export const HMRC_BOXES = {
-  premisesRunningCosts: 'Rent, rates, insurance, ground rents',
+  premisesRunningCosts: 'Rent, rates, insurance and ground rents',
   repairsAndMaintenance: 'Property repairs and maintenance',
-  costOfServices: 'Cost of services provided (cleaning, utilities, gardening)',
   professionalFees: 'Legal, management and other professional fees',
-  other: 'Other allowable property expenses (incl. replacement furniture — check domestic items relief)',
+  costOfServices: 'Costs of services provided, including wages',
+  other: 'Other allowable property expenses',
+  domesticItems: 'Costs of replacing domestic items',
 } as const
 export type HmrcBox = keyof typeof HMRC_BOXES
+export const SA105_BOX_NO: Record<HmrcBox, string> = { premisesRunningCosts: '24', repairsAndMaintenance: '25', professionalFees: '27', costOfServices: '28', other: '29', domesticItems: '36' }
 
 const BOX: Record<string, HmrcBox> = {
   insurance: 'premisesRunningCosts', council_tax: 'premisesRunningCosts', hmo_licence: 'premisesRunningCosts', water_bill: 'premisesRunningCosts',
@@ -22,7 +26,8 @@ const BOX: Record<string, HmrcBox> = {
   roof_exterior: 'repairsAndMaintenance', boiler_heating: 'repairsAndMaintenance', plumbing: 'repairsAndMaintenance', electrical: 'repairsAndMaintenance',
   decorating: 'repairsAndMaintenance', maintenance_repair: 'repairsAndMaintenance', room_maintenance: 'repairsAndMaintenance', room_decorating: 'repairsAndMaintenance',
   pest_control: 'repairsAndMaintenance', security: 'repairsAndMaintenance', communal_areas: 'repairsAndMaintenance', fire_safety: 'repairsAndMaintenance',
-  appliances_property: 'repairsAndMaintenance',
+  // replacing furniture, furnishings, appliances and kitchenware: replacement of domestic items relief (box 36)
+  appliances_property: 'domesticItems', furniture_property: 'domesticItems', room_furniture: 'domesticItems', room_appliances: 'domesticItems', electronic_equipment: 'domesticItems',
   cleaning: 'costOfServices', broadband: 'costOfServices', utility_bill: 'costOfServices', garden_outdoor: 'costOfServices', communal_kitchen: 'costOfServices',
   management_fee: 'professionalFees', letting_fee: 'professionalFees', legal_professional: 'professionalFees', compliance_certs: 'professionalFees',
 }
@@ -60,7 +65,7 @@ export async function mtdFigures(s: SupabaseClient, year: number, landlordId?: s
     if (!qt || !st.landlord_id) continue
     const key = `${st.landlord_id}|${qt.label}`
     const row: MtdRow = rows.get(key) ?? { landlordId: st.landlord_id, landlord: nameOf.get(st.landlord_id) ?? 'Landlord', quarter: qt.label, from: qt.from, to: qt.to,
-      income: 0, boxes: { premisesRunningCosts: 0, repairsAndMaintenance: 0, costOfServices: 0, professionalFees: 0, other: 0 }, totalExpenses: 0, profit: 0, statements: [] }
+      income: 0, boxes: { premisesRunningCosts: 0, repairsAndMaintenance: 0, professionalFees: 0, costOfServices: 0, other: 0, domesticItems: 0 }, totalExpenses: 0, profit: 0, statements: [] }
     row.income = r2(row.income + Number(st.gross_rent || 0))
     row.boxes.professionalFees = r2(row.boxes.professionalFees + Number(st.management_fees || 0) + Number(st.letting_fees || 0))
     const lines: any[] = Array.isArray(st.expenses) ? st.expenses : []

@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
   try {
     const s = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { persistSession: false } })
     const { pdf } = await renderAnnualSummary(s, landlordId, year)
-    return new NextResponse(new Uint8Array(pdf), { headers: { 'Content-Type': 'application/pdf', 'Content-Disposition': contentDisposition(`Annual summary ${taxYear(year).label}.pdf`) } })
+    return new NextResponse(new Uint8Array(pdf), { headers: { 'Content-Type': 'application/pdf', 'Content-Disposition': contentDisposition(`Annual statement ${taxYear(year).label}.pdf`) } })
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : 'Could not build the summary' }, { status: 400 })
   }

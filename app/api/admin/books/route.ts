@@ -30,14 +30,14 @@ export async function GET(req: NextRequest) {
   const categories = Object.fromEntries(KINDS.map(k => [k, [...new Set(books.rows.filter(r => r.kind === k).map(r => r.category))].sort()]))
 
   if (q.get('format') === 'pdf') {
-    const KN: Record<string, string> = { rent: 'Rent received', fee: 'Fees', expense: 'Expenses', payout: 'Paid to landlords', deposit: 'Deposits' }
+    const KN: Record<string, string> = { rent: 'Rent received', fee: 'Agency fees', expense: 'Property expenses', payout: 'Landlord payments', deposit: 'Tenancy deposits' }
     const fmt = (d: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })
     const lid = q.get('landlordId'), pid = q.get('propertyId')
     const [{ data: ll }, { data: pp }] = await Promise.all([
       lid ? s.from('people').select('salutation, first_name, last_name, full_name, company').eq('id', lid).maybeSingle() : Promise.resolve({ data: null }),
       pid ? s.from('properties').select('name').eq('id', pid).maybeSingle() : Promise.resolve({ data: null }),
     ])
-    const title = `${category ? category.charAt(0).toUpperCase() + category.slice(1) : kind ? KN[kind] : 'Books'}${pp ? ` — ${String((pp as any).name).split('\n')[0]}` : ''}`
+    const title = `${category ? category.charAt(0).toUpperCase() + category.slice(1) : kind ? KN[kind] : 'All transactions'}${pp ? ` — ${String((pp as any).name).split('\n')[0]}` : ''}`
     const chosen = [range.label ? `Tax year ${range.label}` : `${fmt(range.from)} to ${fmt(range.to)}`, ll ? `Landlord: ${(ll as any).company || [(ll as any).salutation, (ll as any).first_name, (ll as any).last_name].filter(Boolean).join(' ') || (ll as any).full_name}` : 'Every landlord', pp ? `Property: ${String((pp as any).name).split('\n')[0]}` : 'Every property', `${rows.length} entr${rows.length === 1 ? 'y' : 'ies'}`]
     const { renderBooksPdf } = await import('@/lib/finance/booksPdf')
     const pdf = await renderBooksPdf({ title, chosen, rows, vat: !!books.vat })

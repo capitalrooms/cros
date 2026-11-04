@@ -102,8 +102,8 @@ export default function OpsAccountPage() {
 
   return (
     <div className="min-h-screen fin">
-      <AppBar left={<BackButton href="/admin/expense-log" />} title="Operations account" />
-      <PageHero look="olive" title="Expenses" subtitle="Operations account: payments out of the business account, from the month’s bank CSV. File each once: a house, a split, a company expense, or not an expense — CROS remembers for next month." tabs={expenseTabs('ops')} />
+      <AppBar left={<BackButton href="/admin/expense-log" />} title="Office account" />
+      <PageHero look="olive" title="Expenses" subtitle="Office account: payments out of the agency’s own (office) account, from the month’s bank CSV. File each once: a house, a split, a company expense, or not an expense — CROS remembers for next month." tabs={expenseTabs('ops')} />
       <div className="mx-auto max-w-6xl px-lg py-xl space-y-lg">
         {setup && <p className="rounded-xl border border-amber-200 bg-amber-50 px-lg py-sm text-sm font-semibold text-amber-900">{setup}</p>}
         {banner && <p className={`rounded-xl border px-lg py-sm text-sm font-semibold ${banner.ok ? 'border-green-200 bg-green-50 text-green-800' : 'border-red-200 bg-red-50 text-red-800'}`}>{banner.text}</p>}
@@ -111,7 +111,7 @@ export default function OpsAccountPage() {
         <section className="rounded-2xl border border-neutral-200 bg-white p-lg flex flex-wrap items-center justify-between gap-md">
           <div>
             <h2 className="text-lg font-bold text-neutral-900">Import the month’s CSV</h2>
-            <p className="text-sm text-neutral-600">Download the Operations account statement from the bank as CSV. Only money going out is read; importing the same file twice adds nothing.</p>
+            <p className="text-sm text-neutral-600">Download the office account statement from the bank as CSV. Only money going out is read; importing the same file twice adds nothing.</p>
           </div>
           <label className={`${btnDark} cursor-pointer ${importing || !!setup ? 'pointer-events-none opacity-40' : ''}`}>
             {importing ? 'Reading…' : 'Choose CSV'}
@@ -127,7 +127,7 @@ export default function OpsAccountPage() {
           </div>
           <div className="flex flex-wrap items-center gap-sm">
             {tab === 'new' && learnt.length > 0 && <button className={btnDark} disabled={!!bulk} onClick={fileAllLearnt}>{bulk ?? `File all ${learnt.length} learnt`}</button>}
-            <ExportButtons title={`Operations account — ${tab === 'receipts' ? 'missing receipts' : tab === 'new' ? 'to file' : tab === 'filed' ? 'filed' : 'not expenses'}`} filename={`operations-${tab}`}
+            <ExportButtons title={`Office account — ${tab === 'receipts' ? 'missing receipts' : tab === 'new' ? 'to file' : tab === 'filed' ? 'filed' : 'not expenses'}`} filename={`operations-${tab}`}
               columns={[{ key: 'date', label: 'Date' }, { key: 'description', label: 'Bank description' }, { key: 'amount', label: 'Amount', money: true, align: 'right' }, { key: 'filed', label: 'Filed as' }, { key: 'receipt', label: 'Receipt' }]}
               rows={exportRows} totals={{ description: 'Total', amount: r2(shown.reduce((n, l) => n + Number(l.amount), 0)) }} />
           </div>

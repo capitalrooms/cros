@@ -114,7 +114,7 @@ function PaymentRun({ initialMonth, practice }: { initialMonth?: string; practic
             {run && (
               <>
                 <div className="mb-md grid grid-cols-2 gap-sm md:grid-cols-4">
-                  {[['Rent on statements', v.totals.rent], ['To landlords', v.totals.toLandlords], ['Our fees', v.totals.fees], ['Expenses back to office', v.totals.expenses]].map(([l, n]) => (
+                  {[['Rent on statements', v.totals.rent], ['To landlords', v.totals.toLandlords], ['Agency fees', v.totals.fees], ['Expenses back to office', v.totals.expenses]].map(([l, n]) => (
                     <div key={l as string} className="rounded-xl bg-white px-md py-sm"><p className="text-xs text-neutral-500">{l}</p><p className="text-xl font-bold tabular-nums text-neutral-900">{gbp(n as number)}</p></div>
                   ))}
                 </div>
@@ -164,7 +164,7 @@ function PaymentRun({ initialMonth, practice }: { initialMonth?: string; practic
                 </section>
 
                 {/* 2 + 3: transfers */}
-                {([['expenses', '2 · Expenses back to the office account', expenseRows], ['fees', '3 · Our fees to the office account', feeRows]] as const).map(([kind, title, rows]) => {
+                {([['expenses', '2 · Expenses back to the office account', expenseRows], ['fees', '3 · Agency fees to the office account', feeRows]] as const).map(([kind, title, rows]) => {
                   const t = v.transfers.find(x => x.kind === kind)!
                   return (
                     <section key={kind} className="mb-lg">
