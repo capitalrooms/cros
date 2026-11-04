@@ -62,7 +62,10 @@ export async function POST(req: NextRequest) {
   // only this tenant's own documents can be shared
   const known = new Set(c.docs.map(d => d.id))
   const docIds = (Array.isArray(b.docIds) ? b.docIds : []).map(String).filter((id: string) => known.has(id))
-  const withPage = docIds.length > 0 || stage === 'offer'
+  // attachDocs (4 Nov 2026, Harry: "email the landlord reference … or just id or just right to rent doc"): the chosen
+  // documents go on the email itself instead of a 7-day private page
+  const attachDocs = !!b.attachDocs && docIds.length > 0
+  const withPage = (docIds.length > 0 && !attachDocs) || stage === 'offer'
   const token = withPage ? newShareToken() : null
   const expires = withPage ? new Date(Date.now() + SHARE_DAYS * 86_400_000) : null
 
@@ -82,6 +85,22 @@ export async function POST(req: NextRequest) {
     if ('error' in st) { await s.from('landlord_updates').delete().eq('id', (row as any).id); return NextResponse.json({ error: `The statement couldn’t be made: ${st.error}` }, { status: 400 }) }
     attachments = [{ filename: st.filename, content: st.buffer.toString('base64') }]
   }
+  if (attachDocs) {
+    const { sharedDocs } = await import('@/lib/landlordUpdates/open')
+    const { readStoredFile } = await import('@/lib/files/server')
+    let total = attachments?.reduce((t, a) => t + a.content.length * 0.75, 0) ?? 0
+    const failed: string[] = []
+    for (const d of await sharedDocs(s as any, docIds)) {
+      try {
+        if (!d.url) throw new Error('no file')
+        const { bytes } = await readStoredFile(d.url)
+        if (total + bytes.length > 18 * 1024 * 1024) { failed.push(`${d.label} (too large to email)`); continue }   // stay under the email size limit
+        total += bytes.length
+        attachments = [...(attachments ?? []), { filename: d.fileName || `${d.label}.pdf`, content: Buffer.from(bytes).toString('base64') }]
+      } catch { failed.push(d.label) }
+    }
+    if (failed.length) { await s.from('landlord_updates').delete().eq('id', (row as any).id); return NextResponse.json({ error: `Couldn’t attach: ${failed.join(', ')}. Nothing was sent — untick ${failed.length === 1 ? 'it' : 'them'}, or send as a private page instead.` }, { status: 400 }) }
+  }
   // the landlord's copy-in list (an accountant …) gets it too (migration 239)
   const copy = c.landlord?.id ? (await landlordCopyTo(s as any, c.landlord.id)).cc.filter(e => !to.map((x: string) => x.toLowerCase()).includes(e)) : []
   const sent = await deliverEmail({ to, ...(copy.length ? { cc: copy } : {}), subject, html, attachments }, { req })
@@ -90,6 +109,6 @@ export async function POST(req: NextRequest) {
     const e = await sent.json().catch(() => ({}))
     return NextResponse.json({ error: `The email didn’t send: ${(e as any)?.message ?? sent.statusText}` }, { status: 502 })
   }
-  if (c.tenancyId) await logTenancyEvent(s, c.tenancyId, 'landlord_update', `Landlord told: ${STAGE_LABEL[stage]} → ${to.join(', ')}${docIds.length ? ` · ${docIds.length} document${docIds.length === 1 ? '' : 's'} shared for ${SHARE_DAYS} days` : ''}${attachments ? ' · lettings statement attached' : ''}`, who.email)
+  if (c.tenancyId) await logTenancyEvent(s, c.tenancyId, 'landlord_update', `Landlord told: ${STAGE_LABEL[stage]} → ${to.join(', ')}${docIds.length ? ` · ${docIds.length} document${docIds.length === 1 ? '' : 's'} ${attachDocs ? 'attached' : `shared for ${SHARE_DAYS} days`}` : ''}${attachments ? ' · lettings statement attached' : ''}`, who.email)
   return NextResponse.json({ ok: true, sentTo: to, link: link || null })
 }

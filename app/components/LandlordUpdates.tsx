@@ -18,7 +18,7 @@ interface Data {
   landlord: { id: string; name: string; emails: string[]; commsOn: boolean; tenantUpdatesOff: boolean } | null
   letOnly: boolean; place: string; tenant: string; stages: StageRow[]; sent: Sent[]; tenancyId: string | null
 }
-interface Draft { subject: string; message: string; facts: { label: string; value: string; on: boolean }[]; docs: { id: string; label: string; fileName: string; on: boolean; idDoc: boolean }[] }
+interface Draft { subject: string; message: string; facts: { label: string; value: string; on: boolean }[]; docs: { id: string; type?: string; label: string; fileName: string; on: boolean; idDoc: boolean }[] }
 
 const LABEL: Record<string, string> = { offer: 'Offer to review', reserved: 'Room reserved', referenced: 'Referencing passed', signed_paid: 'Signed & paid', summary: 'New tenant report' }
 const day = (iso: string | null) => iso ? new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', timeZone: 'Europe/London' }) : ''
@@ -31,6 +31,7 @@ export default function LandlordUpdates({ applicantId, tenancyId, only, bare = f
   const [draft, setDraft] = useState<Draft | null>(null)
   const [to, setTo] = useState('')
   const [statement, setStatement] = useState(false)   // let-only: attach the lettings statement PDF
+  const [attachDocs, setAttachDocs] = useState(true)  // the chosen documents on the email itself, or on a 7-day private page
   const [busy, setBusy] = useState(false)
   const [done, setDone] = useState('')
   const q = tenancyId ? `tenancyId=${tenancyId}` : `applicantId=${applicantId}`
@@ -56,7 +57,7 @@ export default function LandlordUpdates({ applicantId, tenancyId, only, bare = f
     setBusy(true); setError('')
     const r = await adminFetch('/api/admin/landlord-updates', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ applicantId, tenancyId, stage: open, to, subject: draft.subject, message: draft.message, facts: draft.facts.filter(f => f.on), docIds: draft.docs.filter(x => x.on).map(x => x.id), attachStatement: statement }),
+      body: JSON.stringify({ applicantId, tenancyId, stage: open, to, subject: draft.subject, message: draft.message, facts: draft.facts.filter(f => f.on), docIds: draft.docs.filter(x => x.on).map(x => x.id), attachStatement: statement, attachDocs }),
     })
     const j = await r.json().catch(() => ({}))
     setBusy(false)
@@ -147,7 +148,15 @@ export default function LandlordUpdates({ applicantId, tenancyId, only, bare = f
                 )}
                 {draft.docs.length > 0 ? (
                   <div>
-                    <p className="text-xs font-bold uppercase tracking-wide text-neutral-500">Documents on their private page (7 days)</p>
+                    <div className="flex flex-wrap items-center justify-between gap-sm">
+                      <p className="text-xs font-bold uppercase tracking-wide text-neutral-500">Documents</p>
+                      {/* one tap for the usual choices (4 Nov 2026) */}
+                      <span className="flex flex-wrap gap-xs text-xs font-semibold">
+                        {([['All', () => true], ['Reference', (t?: string) => t === 'reference_report'], ['ID', (t?: string) => t === 'id_proof'], ['Right to Rent', (t?: string) => t === 'right_to_rent'], ['None', () => false]] as [string, (t?: string) => boolean][])
+                          .filter(([l, f]) => l === 'All' || l === 'None' || draft.docs.some(x => f(x.type)))
+                          .map(([l, f]) => <button key={l} type="button" onClick={() => setDraft({ ...draft, docs: draft.docs.map(x => ({ ...x, on: f(x.type) })) })} className="rounded-full border border-neutral-300 px-sm py-0.5 hover:bg-neutral-50">{l === 'All' || l === 'None' ? l : `Just ${l === 'ID' ? 'the ID' : l === 'Reference' ? 'the reference' : 'Right to Rent'}`}</button>)}
+                      </span>
+                    </div>
                     <ul className="mt-1 divide-y divide-neutral-100 rounded-lg border border-neutral-200">
                       {draft.docs.map((x, i) => (
                         <li key={x.id} className="flex items-start gap-sm px-sm py-xs text-sm">
@@ -158,6 +167,12 @@ export default function LandlordUpdates({ applicantId, tenancyId, only, bare = f
                         </li>
                       ))}
                     </ul>
+                    {draft.docs.some(x => x.on) && (
+                      <div className="mt-xs flex flex-wrap gap-md text-sm">
+                        <label className="flex items-center gap-xs"><input type="radio" checked={attachDocs} onChange={() => setAttachDocs(true)} /> Attach to the email</label>
+                        <label className="flex items-center gap-xs"><input type="radio" checked={!attachDocs} onChange={() => setAttachDocs(false)} /> On a private page for {7} days</label>
+                      </div>
+                    )}
                   </div>
                 ) : ['referenced', 'signed_paid', 'summary'].includes(open) && (
                   <p className="text-xs text-neutral-500">No documents filed on this tenancy yet — add them in the letting file’s steps to share them.</p>

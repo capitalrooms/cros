@@ -3,7 +3,7 @@
 // bank details and fee, the tenant and the landlord. Used by /api/lettings-statement/[tenancyId] and by the landlord's
 // "Signed & paid" update, which attaches it (17 Oct 2026).
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { generateLettingsStatementPDF } from '@/lib/lettingsStatement/generatePDF'
+import { generateLettingsStatementPDF, lettingsStatementFileName } from '@/lib/lettingsStatement/generatePDF'
 import { fetchPDFBizSettings } from '@/lib/pdfLetterhead'
 import { inlineAddress } from '@/lib/formatAddress'
 import { lettingFeeRule } from '@/lib/fees/lettingFee'
@@ -20,7 +20,7 @@ export async function lettingsStatementFor(s: SupabaseClient, tenancyId: string)
       id, start_date, end_date, rent_amount, deposit_amount,
       rent_in_advance, payment_reference, holding_deposit_received, letting_fee_charged,
       rooms (
-        id, name, property_id,
+        id, name, property_id, unit_code,
         properties (
           id, name, address, property_code, landlord_id, bank_account_id,
           letting_type, letting_fee_pct, letting_fee_flat,
@@ -111,6 +111,9 @@ export async function lettingsStatementFor(s: SupabaseClient, tenancyId: string)
     tenantPhone:  tenant?.phone,
     tenantEmail:  tenant?.email,
     tenantNotes:  tenantNoteParts.length ? tenantNoteParts.join(' · ') : undefined,
+    tenantDob: tenant?.date_of_birth ?? undefined,
+    tenantOccupation: tenant?.occupation ?? undefined,
+    unitCode: (room as any).unit_code ?? undefined,
     lettingFeePct:  feePct  ?? undefined,
     lettingFeeFlat: feeFlat ?? undefined,
     holdingDepositReceived: (tenancy as any).holding_deposit_received ?? undefined,
@@ -124,7 +127,8 @@ export async function lettingsStatementFor(s: SupabaseClient, tenancyId: string)
     bizSettings,
   })
 
-  const filename = `CR-Lettings-Statement_${sanitise(room.name)}_${sanitise(property.name)}_${new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })}.pdf`
+  // "095ROS01 - Lettings Statement - Mr Ziqing Wang.pdf" — how Capital Rooms files them (4 Nov 2026)
+  const filename = lettingsStatementFileName({ unitCode: (room as any).unit_code ?? undefined, paymentReference: paymentRef, tenantSalutation: tenant?.salutation, tenantFirstName: tenant?.first_name ?? '', tenantLastName: tenant?.last_name ?? '' })
   return { buffer, filename }
 }
 

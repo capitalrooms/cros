@@ -200,7 +200,7 @@ export function stageStatus(c: UpdateContext): { stage: UpdateStage; ready: bool
   return rows.map(r => ({ ...r, sentAt: sentAt(r.stage), due: due.has(r.stage), why: r.stage === 'summary' && due.has('summary') ? 'Earlier updates were missed — send them all in one' : r.why }))
 }
 
-export interface Draft { subject: string; message: string; facts: { label: string; value: string; on: boolean }[]; docs: { id: string; label: string; fileName: string; on: boolean; idDoc: boolean }[] }
+export interface Draft { subject: string; message: string; facts: { label: string; value: string; on: boolean }[]; docs: { id: string; type: string; label: string; fileName: string; on: boolean; idDoc: boolean }[] }
 
 /** The draft for one stage: a letter in our usual voice, the facts underneath, and which documents go with it. */
 export function draftFor(c: UpdateContext, stage: UpdateStage): Draft {
@@ -281,7 +281,7 @@ export function draftFor(c: UpdateContext, stage: UpdateStage): Draft {
       break
   }
   const docs = c.docs.filter(d => STAGE_DOCS[stage].includes(d.type))
-    .map(d => ({ id: d.id, label: d.label, fileName: d.fileName, idDoc: ID_DOCS.includes(d.type), on: stage === 'offer' || stage === 'reserved' ? false : ID_DOCS.includes(d.type) ? c.letOnly : true }))
+    .map(d => ({ id: d.id, type: d.type, label: d.label, fileName: d.fileName, idDoc: ID_DOCS.includes(d.type), on: stage === 'offer' || stage === 'reserved' ? false : ID_DOCS.includes(d.type) ? c.letOnly : true }))
   const message = [dear, `Re: ${c.place}`, ...body, 'Should you need anything further, please do not hesitate to contact us.', 'Kind regards,'].join('\n\n')
   return { subject, message, facts, docs }
 }
