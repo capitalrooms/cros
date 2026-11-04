@@ -7,6 +7,8 @@ import AppBar from '@/components/AppBar'
 import PageHero from '@/components/PageHero'
 import { newBusinessTabs } from '@/lib/newBusinessTabs'
 import BackButton from '@/app/components/BackButton'
+import FollowUp from './FollowUp'
+import { dearFromText } from '@/lib/people'
 import LandlordCard, { fromOnboarding } from '@/app/components/LandlordCard'
 import { adminFetch } from '@/lib/adminFetch'
 import { onboardingName } from '@/lib/people'
@@ -623,6 +625,8 @@ export default function OnboardingPage() {
                       <p className="text-sm font-semibold text-amber-900">Asked for on {fmt(a.at)} — waiting on them</p>
                       <ul className="list-disc space-y-xs pl-lg text-sm text-amber-900">{a.items.map((it, i) => <li key={i}>{it}</li>)}</ul>
                       {a.note && <p className="text-xs text-amber-800">Your note: {a.note}</p>}
+                      <FollowUp key={selected.id} id={selected.id} dear={dearFromText(String(onboardingName(selected) || selected.full_name || ''))} items={a.items}
+                        followups={Array.isArray(selected.form_data?.__followups) ? selected.form_data.__followups : []} onSent={load} />
                       <p className="text-xs text-amber-800">Their form is open for them to add these. When they send it back, they move to Docs Received on their own. The new management agreement goes after that: verify, then Approve &amp; send on the AML review.</p>
                       <button onClick={() => advanceStage(selected.id, 3, { docs_received: true })} disabled={advancing} className="w-full rounded-xl bg-neutral-900 text-white py-sm text-sm font-semibold hover:bg-neutral-700 transition disabled:opacity-40">
                         {advancing ? '…' : 'They’ve replied another way — carry on with the review'}
