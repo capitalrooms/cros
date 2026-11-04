@@ -263,15 +263,22 @@ const PSTATUS: Record<string, string> = { discuss: 'To discuss', discussed: 'Dis
 
 // Email the person their board (4 Nov 2026): a test to you first, word for word, then to them — their copy's button
 // signs them straight into their planner.
-function EmailBoard({ boardId, member, post }: { boardId: string; member: string; post: (b: Record<string, unknown>) => Promise<any> }) {
+export function EmailBoard({ boardId, member, post }: { boardId: string; member: string; post: (b: Record<string, unknown>) => Promise<any> }) {
   const [open, setOpen] = useState(false)
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState('')
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  const [onFile, setOnFile] = useState('')
+  const [to, setTo] = useState('')
+  const [asked, setAsked] = useState(false)   // look the address up once, when the panel opens
+  useEffect(() => { if (!open || asked) return; setAsked(true); post({ action: 'email_board', boardId, preview: true }).then(d => { setOnFile(d.to ?? ''); setTo(d.to ?? '') }).catch(() => {}) }, [open, asked, boardId, post])
+  const elsewhere = !!to.trim() && to.trim().toLowerCase() !== onFile.toLowerCase()
   async function send(test: boolean) {
-    if (!test && !confirm(`Email ${member} their planner, with a button that signs them straight in?`)) return
+    if (!test && !confirm(elsewhere
+      ? `Send ${member}'s planner to ${to.trim()}?\n\nIts button signs in as ${member}, so only send it to an address that belongs to them.`
+      : `Email ${member} their planner at ${to.trim() || onFile}, with a button that signs them straight in?`)) return
     setBusy(test ? 'test' : 'send'); setMsg(null)
-    try { const d = await post({ action: 'email_board', boardId, message, test }); setMsg({ ok: true, text: test ? `Test sent to ${d.to} — exactly what ${member} will get.` : `Sent to ${member} (${d.to}).` }) }
+    try { const d = await post({ action: 'email_board', boardId, message, test, to: elsewhere ? to.trim() : undefined }); setMsg({ ok: true, text: test ? `Test sent to ${d.to} — exactly what ${member} will get.` : `Sent to ${member} (${d.to}).` }) }
     catch (e) { setMsg({ ok: false, text: e instanceof Error ? e.message : 'Not sent' }) }
     finally { setBusy('') }
   }
@@ -287,11 +294,15 @@ function EmailBoard({ boardId, member, post }: { boardId: string; member: string
         <h2 className="text-lg font-bold text-neutral-900">Email {member} their planner</h2>
         <button type="button" onClick={() => setOpen(false)} className="text-sm font-semibold text-neutral-500">Close</button>
       </div>
+      <label className="block text-xs font-bold uppercase tracking-wide text-neutral-500">To
+        <input type="email" className={`${input} mt-1 normal-case tracking-normal`} value={to} onChange={e => setTo(e.target.value)} placeholder={onFile || 'their email address'} />
+      </label>
+      {elsewhere && <p className="text-xs font-semibold text-amber-800">Not the address on their profile ({onFile || 'none'}). The button signs in as {member}, so only use an address that belongs to them.</p>}
       <textarea rows={4} className={input} value={message} onChange={e => setMessage(e.target.value)} placeholder="A line from you (optional) — otherwise it says we’ve set up a shared planner for the two of you." />
       <p className="text-xs text-neutral-500">It shows the board’s name and what’s open on it, and a button that signs them straight in (no password needed). Send yourself a test first to see exactly what they’ll get — your copy’s button opens the board as you see it.</p>
       <div className="flex flex-wrap gap-sm">
         <button type="button" onClick={() => send(true)} disabled={!!busy} className="rounded-xl border border-neutral-300 px-md py-sm text-sm font-semibold disabled:opacity-40">{busy === 'test' ? 'Sending…' : 'Send me a test'}</button>
-        <button type="button" onClick={() => send(false)} disabled={!!busy} className="rounded-xl bg-neutral-900 px-md py-sm text-sm font-bold text-white disabled:opacity-40">{busy === 'send' ? 'Sending…' : `Send to ${member}`}</button>
+        <button type="button" onClick={() => send(false)} disabled={!!busy} className="rounded-xl bg-neutral-900 px-md py-sm text-sm font-bold text-white disabled:opacity-40">{busy === 'send' ? 'Sending…' : `Send to ${to.trim() || member}`}</button>
       </div>
       {msg && <p className={`text-sm font-semibold ${msg.ok ? 'text-green-700' : 'text-red-700'}`}>{msg.text}</p>}
     </div>

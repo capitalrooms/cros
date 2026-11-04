@@ -151,6 +151,11 @@ export async function POST(req: NextRequest) {
     const { data: p } = await s.from('people').select('id, salutation, first_name, last_name, full_name, company, email, role').eq('id', board.member_person_id).maybeSingle() as { data: any }
     if (!p?.email) return NextResponse.json({ error: 'They have no email address — add one on their profile first' }, { status: 400 })
     const test = b.test === true
+    // where it goes: their email on file, or another address of theirs typed in the panel (4 Nov 2026, Harry: "I can't
+    // just send to email"). The button signs in as them, so the panel warns before sending it anywhere else.
+    if (b.preview === true) return NextResponse.json({ to: p.email })
+    const other = String(b.to ?? '').trim().toLowerCase()
+    if (other && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(other)) return NextResponse.json({ error: 'That email address doesn’t look right' }, { status: 400 })
     let link: string | null
     if (test) link = `${PORTAL_URL}/admin/planner/shared?board=${board.id}`
     else {
@@ -171,7 +176,7 @@ export async function POST(req: NextRequest) {
       button(link!, 'Open my planner'),
       note(test ? `<strong>Test copy for you.</strong> ${esc(name(p))}’s button signs them straight into their planner; yours opens the board as you see it.` : 'The button signs you straight in — no password needed. It works once; next time, sign in at ' + esc(PORTAL_URL) + ' or ask us for a new link.'),
     ].join('')
-    const to = test ? caller.email : p.email
+    const to = test ? caller.email : (other || p.email)
     const sent = await deliverEmail({ to, subject: `${test ? 'TEST · ' : ''}Your shared planner with Capital Rooms`, html: await buildEmail(body, { req }) }, { req })
     if (!sent.ok) return NextResponse.json({ error: 'The email didn’t send — try again' }, { status: 502 })
     return NextResponse.json({ ok: true, to })
