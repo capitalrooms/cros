@@ -6,6 +6,7 @@ import {
   type PDFBizSettings,
 } from '@/lib/pdfLetterhead'
 import type { AutomatedReview, ReviewCheck } from '@/lib/landlordOnboarding/review'
+import { PDF } from '@/lib/pdf/palette'
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const PDFDocument = require('pdfkit') as typeof import('pdfkit')
@@ -37,8 +38,8 @@ export interface OnboardingReportInput {
 const COL_W = PAGE_W - MARGIN * 2
 const TOP = MARGIN + LOGO_H + 14
 const BOTTOM = PAGE_H - FOOTER_BAND_H - 16
-const RISK_COLOUR: Record<string, string> = { low: '#15803d', medium: '#b45309', high: '#b91c1c' }
-const STATUS: Record<ReviewCheck['status'], [string, string]> = { pass: ['PASS', '#15803d'], review: ['CHECK', '#b45309'], fail: ['FAIL', '#b91c1c'] }
+const RISK_COLOUR: Record<string, string> = { low: PDF.forest, medium: PDF.gold, high: PDF.alert }
+const STATUS: Record<ReviewCheck['status'], [string, string]> = { pass: ['PASS', PDF.forest], review: ['CHECK', PDF.gold], fail: ['FAIL', PDF.alert] }
 
 const fmt = (iso?: string) => {
   if (!iso) return '—'
@@ -89,7 +90,7 @@ export async function generateOnboardingAMLReport(input: OnboardingReportInput):
     y += 6
     doc.font(B).fontSize(10.5).fillColor(BLACK).text(text.toUpperCase(), MARGIN, y, { characterSpacing: 0.4 })
     y += 16
-    doc.save().strokeColor('#d0d0d0').lineWidth(0.5).moveTo(MARGIN, y).lineTo(PAGE_W - MARGIN, y).stroke().restore()
+    doc.save().strokeColor(PDF.line).lineWidth(0.5).moveTo(MARGIN, y).lineTo(PAGE_W - MARGIN, y).stroke().restore()
     y += 8
   }
   const row = (label: string, value: string) => {
@@ -106,9 +107,9 @@ export async function generateOnboardingAMLReport(input: OnboardingReportInput):
     const h = Math.max(doc.heightOfString(c.detail, { width: COL_W - 230, lineGap: 1.5 }), doc.heightOfString(c.label, { width: 165 })) + 2
     ensure(h + 4)
     doc.save().roundedRect(MARGIN, y - 1, 40, 12, 2).fill(colour).restore()
-    doc.font(B).fontSize(7).fillColor('#ffffff').text(tag, MARGIN, y + 1.5, { width: 40, align: 'center' })
+    doc.font(B).fontSize(7).fillColor(PDF.white).text(tag, MARGIN, y + 1.5, { width: 40, align: 'center' })
     doc.font(B).fontSize(8.5).fillColor(BLACK).text(c.label, MARGIN + 48, y, { width: 165 })
-    doc.font(R).fontSize(8.5).fillColor('#333333').text(c.detail, MARGIN + 220, y, { width: COL_W - 220, lineGap: 1.5 })
+    doc.font(R).fontSize(8.5).fillColor(PDF.ink).text(c.detail, MARGIN + 220, y, { width: COL_W - 220, lineGap: 1.5 })
     y += h + 5
   }
 
@@ -127,14 +128,14 @@ export async function generateOnboardingAMLReport(input: OnboardingReportInput):
   row('Form submitted', fmt(input.submittedAt))
   if (level) {
     ensure(30)
-    doc.save().roundedRect(MARGIN, y, COL_W, 24, 4).fill('#f5f5f5').restore()
+    doc.save().roundedRect(MARGIN, y, COL_W, 24, 4).fill(PDF.tint).restore()
     doc.font(B).fontSize(10).fillColor(BLACK).text('Risk classification:', MARGIN + 10, y + 7)
     doc.font(B).fillColor(RISK_COLOUR[level]).text(`${level.toUpperCase()}${decision ? ' — confirmed by reviewer' : ' — automated suggestion, not yet confirmed'}`, MARGIN + 120, y + 7)
     y += 32
   }
 
   heading('Regulatory basis')
-  para('Customer due diligence carried out under the Money Laundering, Terrorist Financing and Transfer of Funds (Information on the Payer) Regulations 2017: regulation 27 (when CDD is required), regulation 28 (identifying and verifying the customer and any beneficial owner, and understanding the purpose and intended nature of the relationship), regulation 33 (enhanced due diligence where risk is higher) and regulation 35 (politically exposed persons), following HMRC guidance for letting agency businesses (AMLG2300 and AMLG3300). Sanctions screening against the UK Sanctions List maintained under the Sanctions and Anti-Money Laundering Act 2018.', { colour: '#333333' })
+  para('Customer due diligence carried out under the Money Laundering, Terrorist Financing and Transfer of Funds (Information on the Payer) Regulations 2017: regulation 27 (when CDD is required), regulation 28 (identifying and verifying the customer and any beneficial owner, and understanding the purpose and intended nature of the relationship), regulation 33 (enhanced due diligence where risk is higher) and regulation 35 (politically exposed persons), following HMRC guidance for letting agency businesses (AMLG2300 and AMLG3300). Sanctions screening against the UK Sanctions List maintained under the Sanctions and Anti-Money Laundering Act 2018.', { colour: PDF.ink })
 
   // ── Persons ───────────────────────────────────────────────────────────
   heading('Persons identified')
@@ -223,7 +224,7 @@ export async function generateOnboardingAMLReport(input: OnboardingReportInput):
   heading('Sign-off and retention')
   row('Reviewed by', decision?.reviewer_name ?? 'Not yet reviewed')
   row('Date of review', fmt(decision?.reviewed_at))
-  para('This record and the documents listed above are retained for five years from the end of the business relationship (MLR 2017 regulation 40) and are subject to ongoing monitoring. The client must be re-screened if their circumstances change and at least annually against the UK Sanctions List.', { colour: '#333333', size: 8.5 })
+  para('This record and the documents listed above are retained for five years from the end of the business relationship (MLR 2017 regulation 40) and are subject to ongoing monitoring. The client must be re-screened if their circumstances change and at least annually against the UK Sanctions List.', { colour: PDF.ink, size: 8.5 })
 
   doc.end()
   return done

@@ -17,10 +17,11 @@ import type { ManagementAgreementData } from '@/lib/managementAgreement/generate
 import { rentCollectionTermsFrom } from '@/lib/managementAgreement/rentCollectionTerms'
 import { durationSentence } from '@/lib/managementAgreement/durationTerms'
 import type { AgreementBlock } from '@/lib/managementAgreement/blocks'
+import { PDF } from '@/lib/pdf/palette'
 
 const COL_W = PAGE_W - MARGIN * 2
-const LIGHT = '#f8f8f8'
-const BORDER = '#e0e0e0'
+const LIGHT = PDF.tint
+const BORDER = PDF.line
 
 const formatDate = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
 const money = (n: number) => `£${n.toLocaleString('en-GB', { minimumFractionDigits: Number.isInteger(n) ? 0 : 2, maximumFractionDigits: 2 })}`
@@ -72,7 +73,7 @@ export async function generateRentCollectionAgreementPDF(data: ManagementAgreeme
     const ensureSpace = (needed: number) => {
       if (y + needed > PAGE_H - FOOTER_BAND_H - 24) { doc.addPage(); y = MARGIN + LOGO_H + 12 }
     }
-    const rule = (colour = '#c0c0c0', w = COL_W) => {
+    const rule = (colour = PDF.line, w = COL_W) => {
       doc.save().strokeColor(colour).lineWidth(0.5).moveTo(MARGIN, y).lineTo(MARGIN + w, y).stroke().restore()
     }
     const para = (text: string, o: { bold?: boolean; size?: number; indent?: number; colour?: string; noRecord?: boolean } = {}) => {
@@ -133,7 +134,7 @@ export async function generateRentCollectionAgreementPDF(data: ManagementAgreeme
         doc.save().font(fontReg).fontSize(8.5).fillColor(BLACK)
           .text(r[0], MARGIN + 6, y + 7, { width: c1 - 12 })
           .text(r[1], MARGIN + c1 + 6, y + 7, { width: c2 - 12 }).restore()
-        doc.save().strokeColor('#ececec').lineWidth(0.5).moveTo(MARGIN, y + h).lineTo(MARGIN + COL_W, y + h).stroke().restore()
+        doc.save().strokeColor(PDF.line).lineWidth(0.5).moveTo(MARGIN, y + h).lineTo(MARGIN + COL_W, y + h).stroke().restore()
         y += h
       })
       y += 14

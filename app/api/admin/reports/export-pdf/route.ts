@@ -20,6 +20,7 @@ import {
   BLACK, GREY,
 } from '@/lib/pdfLetterhead'
 import { contentDisposition } from '@/lib/contentDisposition'
+import { PDF } from '@/lib/pdf/palette'
 
 export const dynamic = 'force-dynamic'
 
@@ -70,9 +71,9 @@ async function buildPDF(data: any, type: string, from: string, to: string): Prom
   y = drawPDFLetterRule(doc, y + 16)
 
   // Disclaimer banner
-  doc.rect(MARGIN, y, COL_W, 22).fillColor('#FEF9C3').fill()
-  doc.strokeColor('#FDE68A').lineWidth(0.5).rect(MARGIN, y, COL_W, 22).stroke()
-  doc.font(fontReg).fontSize(8).fillColor('#713F12')
+  doc.rect(MARGIN, y, COL_W, 22).fillColor(PDF.tint).fill()
+  doc.strokeColor(PDF.gold).lineWidth(0.5).rect(MARGIN, y, COL_W, 22).stroke()
+  doc.font(fontReg).fontSize(8).fillColor(PDF.gold)
     .text('For informational purposes only. This is not a certified tax return. Please consult your accountant.', MARGIN + 8, y + 7)
   y += 30
 
@@ -100,10 +101,10 @@ async function buildPDF(data: any, type: string, from: string, to: string): Prom
     const tileH = 38
     tiles.forEach((tile, i) => {
       const x = MARGIN + i * (tileW + 2)
-      doc.rect(x, y, tileW, tileH).fillColor(tile.dark ? '#F0FDF4' : '#F9FAFB').fill()
-      doc.strokeColor(tile.dark ? '#BBF7D0' : '#E5E7EB').lineWidth(0.5).rect(x, y, tileW, tileH).stroke()
+      doc.rect(x, y, tileW, tileH).fillColor(tile.dark ? PDF.tint : PDF.tint).fill()
+      doc.strokeColor(tile.dark ? PDF.tint : PDF.line).lineWidth(0.5).rect(x, y, tileW, tileH).stroke()
       doc.font(fontReg).fontSize(7).fillColor(GREY).text(tile.label, x + 4, y + 5, { width: tileW - 8 })
-      doc.font(fontBold).fontSize(9.5).fillColor(tile.dark ? '#166534' : BLACK)
+      doc.font(fontBold).fontSize(9.5).fillColor(tile.dark ? PDF.forest : BLACK)
         .text(tile.value, x + 4, y + 16, { width: tileW - 8 })
     })
     y += tileH + 12
@@ -112,7 +113,7 @@ async function buildPDF(data: any, type: string, from: string, to: string): Prom
     for (const prop of (landlord.properties || [])) {
       if (y > bodyBottom - 60) { doc.addPage(); y = MARGIN }
 
-      doc.font(fontBold).fontSize(9.5).fillColor('#374151').text(prop.property_name, MARGIN, y); y += 12
+      doc.font(fontBold).fontSize(9.5).fillColor(PDF.ink).text(prop.property_name, MARGIN, y); y += 12
 
       const cols = [
         { label: 'Month',       x: MARGIN,       w: 60  },
@@ -123,16 +124,16 @@ async function buildPDF(data: any, type: string, from: string, to: string): Prom
         { label: 'Net',         x: MARGIN + 382, w: COL_W - 382 },
       ]
       const hy = y
-      doc.rect(MARGIN, hy, COL_W, 14).fillColor('#F3F4F6').fill()
+      doc.rect(MARGIN, hy, COL_W, 14).fillColor(PDF.tint).fill()
       cols.forEach(c => {
-        doc.font(fontBold).fontSize(7.5).fillColor('#4B5563').text(c.label, c.x + 2, hy + 4, { width: c.w - 4 })
+        doc.font(fontBold).fontSize(7.5).fillColor(PDF.muted).text(c.label, c.x + 2, hy + 4, { width: c.w - 4 })
       })
       y = hy + 14
 
       let bg = false
       for (const m of (prop.months || [])) {
         if (y > bodyBottom - 14) { doc.addPage(); y = MARGIN }
-        if (bg) doc.rect(MARGIN, y, COL_W, 13).fillColor('#F9FAFB').fill()
+        if (bg) doc.rect(MARGIN, y, COL_W, 13).fillColor(PDF.tint).fill()
         bg = !bg
         const net = Number(m.rent || 0) - Number(m.mgmt || 0) - Number(m.letting || 0) - Number(m.expenses || 0)
         const vals = [monthLabel(m.month), gbp(m.rent || 0), gbp(m.mgmt || 0), gbp(m.letting || 0), gbp(m.expenses || 0), gbp(net)]
@@ -144,7 +145,7 @@ async function buildPDF(data: any, type: string, from: string, to: string): Prom
 
       if (y > bodyBottom - 15) { doc.addPage(); y = MARGIN }
       const ty = y
-      doc.rect(MARGIN, ty, COL_W, 14).fillColor('#E5E7EB').fill()
+      doc.rect(MARGIN, ty, COL_W, 14).fillColor(PDF.line).fill()
       const propNet = Number(prop.rent || 0) - Number(prop.management_fees || 0) - Number(prop.letting_fees || 0) - Number(prop.expenses || 0)
       const totVals = ['Total', gbp(prop.rent || 0), gbp(prop.management_fees || 0), gbp(prop.letting_fees || 0), gbp(prop.expenses || 0), gbp(propNet)]
       cols.forEach((c, i) => {

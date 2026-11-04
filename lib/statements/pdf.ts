@@ -11,7 +11,7 @@ export interface StatementForPdf {
   statement: any
   property: { name: string | null; address: string | null; postcode?: string | null; property_code?: string | null; bank_account_name?: string | null; bank_account_number?: string | null } | null
   landlord: any
-  extra?: { accountEnding: string | null; floatBalance: number; stillOwed: { room: string; tenant: string; amount: number }[]; sharedInvoices: Set<string> }
+  extra?: { accountEnding: string | null; floatBalance: number; stillOwed: { room: string; tenant: string; amount: number }[]; sharedInvoices: Set<string>; importedRooms?: any[]; importedLines?: any[] }
 }
 
 export async function loadStatementForPdf(s: SupabaseClient, id: string): Promise<StatementForPdf | null> {
@@ -26,6 +26,13 @@ export async function loadStatementForPdf(s: SupabaseClient, id: string): Promis
     s.from('landlord_statements').select('*').eq('property_id', statement.property_id).lte('statement_date', statement.statement_date),
     s.from('recharge_expenses').select('*').eq('included_in_statement_id', id),
   ])
+  // a statement imported from the old system keeps its detail in rows and lines, not on the statement (4 Nov 2026:
+  // those PDFs read £0.00 throughout) — load them so the PDF shows what the statement says
+  const imported = !(Array.isArray(statement.rooms) && statement.rooms.length)
+  const [{ data: sRooms }, { data: sLines }] = imported ? await Promise.all([
+    s.from('landlord_statement_rooms').select('rent_income, management_fee, tenant_id, rooms(name), people:tenant_id(salutation, first_name, last_name, full_name)').eq('statement_id', id),
+    s.from('statement_line_items').select('description, amount, category, category_type, room_label').eq('statement_id', id),
+  ]) : [{ data: [] as any[] }, { data: [] as any[] }]
   // the account paid into: the property's own payee account, else the landlord's default
   const acct = open((property as any)?.bank_account_number) || open(((banks ?? []) as any[]).sort((a, b) => Number(b.is_default) - Number(a.is_default))[0]?.account_number)   // stored encrypted
   const floatBalance = Math.round(((floats ?? []) as any[]).reduce((t, x) => t + Number(x.float_retained || 0) - Number(x.float_used || 0), 0) * 100) / 100
@@ -45,13 +52,40 @@ export async function loadStatementForPdf(s: SupabaseClient, id: string): Promis
     }
   }
   const sharedInvoices = new Set(((exps ?? []) as any[]).filter(e => e.share_invoice && e.invoice_path).map(e => String(e.txn_no || e.reference || e.id)))
-  return { statement, property, landlord, extra: { accountEnding: acct ? String(acct).replace(/\D/g, '').slice(-4) : null, floatBalance, stillOwed, sharedInvoices } }
+  return { statement, property, landlord, extra: { accountEnding: acct ? String(acct).replace(/\D/g, '').slice(-4) : null, floatBalance, stillOwed, sharedInvoices, importedRooms: (sRooms ?? []) as any[], importedLines: (sLines ?? []) as any[] } }
 }
 
 /** The landlord statement PDF — the modern layout (lib/statements/modernPdf), from a saved statement. */
 export async function renderStatementPdf({ statement: st, property, landlord, extra }: StatementForPdf): Promise<Buffer> {
-  const rooms: any[] = Array.isArray(st.rooms) ? st.rooms : []
-  const expenses: any[] = Array.isArray(st.expenses) ? st.expenses : []
+  let rooms: any[] = Array.isArray(st.rooms) ? st.rooms : []
+  let expenses: any[] = Array.isArray(st.expenses) ? st.expenses : []
+  // imported from the old system: rooms and costs from its rows and lines when they add up to the statement, otherwise
+  // the statement's own totals — the same rule as Finance › Transactions, so the PDF always equals the statement
+  if (!rooms.length) {
+    const r2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100
+    const sum = (xs: any[], f: (x: any) => number) => r2(xs.reduce((t, x) => t + f(x), 0))
+    const gross = r2(Number(st.gross_rent || 0)), fees = r2(Number(st.management_fees || 0) + Number(st.letting_fees || 0)), charges = r2(Number(st.property_charges || 0))
+    const R = extra?.importedRooms ?? [], L = extra?.importedLines ?? []
+    const nm = (p: any) => p ? [p.salutation, p.first_name, p.last_name].filter(Boolean).join(' ') || p.full_name || '' : ''
+    const rentLines = L.filter(l => ['rent_income', 'income'].includes(String(l.category)) || l.category_type === 'income')
+    rooms = R.length && Math.abs(sum(R, x => Number(x.rent_income || 0)) - gross) < 0.02
+      ? R.map(x => ({ room_number: x.rooms?.name ?? 'Room', tenant_name: nm(x.people), rent_income: Number(x.rent_income || 0), management_fee: Number(x.management_fee || 0) }))
+      : rentLines.length && Math.abs(sum(rentLines, l => Number(l.amount || 0)) - gross) < 0.02
+        ? rentLines.map(l => ({ room_number: l.room_label || 'Rent', tenant_name: l.description ?? '', rent_income: Number(l.amount || 0), management_fee: 0 }))
+        : gross ? [{ room_number: 'All rooms', tenant_name: 'Rent received (statement total)', rent_income: gross, management_fee: 0 }] : []
+    const feeOnRows = sum(rooms, x => Number(x.management_fee || 0))
+    const rest = r2(fees - feeOnRows), letf = r2(Number(st.letting_fees || 0))
+    // what the rows don't carry: the letting fee when that's what it is, otherwise the fees the statement shows in total
+    if (Math.abs(rest) > 0.004) rooms.push(Math.abs(rest - letf) < 0.02
+      ? { room_number: '', tenant_name: 'Letting fee', rent_income: 0, management_fee: 0, letting_fee: rest, _last: true }
+      : { room_number: '', tenant_name: 'Fees (statement total)', rent_income: 0, management_fee: rest, _last: true })
+    if (!expenses.length && charges) {
+      const costLines = L.filter(l => !['rent_income', 'income', 'management_fee', 'letting_fee'].includes(String(l.category)) && l.category_type !== 'income')
+      expenses = costLines.length && Math.abs(sum(costLines, l => Number(l.amount || 0)) - charges) < 0.02
+        ? costLines.map(l => ({ description: l.description, amount: Number(l.amount || 0) }))
+        : [{ description: 'Property charges (statement total)', amount: charges }]
+    }
+  }
   const pct = st.management_fee_pct != null ? Number(st.management_fee_pct) : null
   const month = st.period_start ? new Date(String(st.period_start).slice(0, 10) + 'T12:00:00Z').toLocaleDateString('en-GB', { month: 'long', timeZone: 'UTC' }) : ''
   const periodLabel = st.period_start ? new Date(String(st.period_start).slice(0, 10) + 'T12:00:00Z').toLocaleDateString('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' }) : (st.statement_reference || '')
@@ -63,7 +97,7 @@ export async function renderStatementPdf({ statement: st, property, landlord, ex
     property: fullAddress(property?.name, property?.address, property?.postcode) || String(property?.name || ''), propertyCode: property?.property_code ?? null,
     roomsCount: rooms.filter(r => Number(r.rent_income) > 0).length || undefined,
     paidOn: st.paid_date ? ukDate(st.paid_date) : null, accountEnding: extra?.accountEnding ?? null, paymentRef: `CR ${st.statement_reference}`,
-    rooms: rooms.slice().sort((a, b) => String(a.room_number ?? '').localeCompare(String(b.room_number ?? ''), undefined, { numeric: true })).map(r => ({
+    rooms: rooms.slice().sort((a, b) => Number(!!a._last) - Number(!!b._last) || String(a.room_number ?? '').localeCompare(String(b.room_number ?? ''), undefined, { numeric: true })).map(r => ({
       room: /^\d+$/.test(String(r.room_number ?? '')) ? `Room ${r.room_number}` : String(r.room_number ?? 'Room'),
       tenant: r.tenant_name || '', forPeriod: month, rent: Number(r.rent_income || 0), fee: Number(r.management_fee || 0),
       feeLabel: String(r.note || '').match(/fee: ([^;]+)/)?.[1] ?? (pct != null ? `${pct}%` : ''), lettingFee: Number(r.letting_fee || 0) || undefined,

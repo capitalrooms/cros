@@ -18,6 +18,7 @@ import { generateRentCollectionAgreementPDF } from '@/lib/managementAgreement/re
 import { durationSentence } from '@/lib/managementAgreement/durationTerms'
 import type { AgreementBlock } from '@/lib/managementAgreement/blocks'
 import { vatApplies, plusVat, vatSentence } from '@/lib/finance/vat'
+import { PDF } from '@/lib/pdf/palette'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -59,8 +60,8 @@ export interface ManagementAgreementData {
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
 const COL_W = PAGE_W - MARGIN * 2
-const LIGHT  = '#f8f8f8'
-const BORDER = '#e0e0e0'
+const LIGHT  = PDF.tint
+const BORDER = PDF.line
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
@@ -220,7 +221,7 @@ export async function generateManagementAgreementPDF(data: ManagementAgreementDa
       .restore()
     y += 20
 
-    hRule(doc, MARGIN, y, COL_W, '#c0c0c0')
+    hRule(doc, MARGIN, y, COL_W, PDF.line)
     y += 16
 
     // ── PARTIES ──────────────────────────────────────────────────────────────
@@ -235,7 +236,7 @@ export async function generateManagementAgreementPDF(data: ManagementAgreementDa
     drawPara(`Client: ${clientDesc}, of ${clientAddr} ("the Client").`, { bold: false })
 
     spacer(6)
-    hRule(doc, MARGIN, y, COL_W, '#c0c0c0')
+    hRule(doc, MARGIN, y, COL_W, PDF.line)
     y += 16
 
     // ── PROPERTY ─────────────────────────────────────────────────────────────
@@ -251,7 +252,7 @@ export async function generateManagementAgreementPDF(data: ManagementAgreementDa
     }
 
     spacer(6)
-    hRule(doc, MARGIN, y, COL_W, '#c0c0c0')
+    hRule(doc, MARGIN, y, COL_W, PDF.line)
     y += 16
 
     // ── COMMENCEMENT ─────────────────────────────────────────────────────────
@@ -259,7 +260,7 @@ export async function generateManagementAgreementPDF(data: ManagementAgreementDa
     drawPara(`This agreement shall commence on ${formatDate(data.commencementDate)}.`)
 
     spacer(6)
-    hRule(doc, MARGIN, y, COL_W, '#c0c0c0')
+    hRule(doc, MARGIN, y, COL_W, PDF.line)
     y += 16
 
     if (data.nominatedAccount) {
@@ -272,7 +273,7 @@ export async function generateManagementAgreementPDF(data: ManagementAgreementDa
         `Account number: ${acc.accountNumber}`,
       ].filter(Boolean).join('; ')}. The Client shall notify the Agent in writing of any change to this account.`)
       spacer(6)
-      hRule(doc, MARGIN, y, COL_W, '#c0c0c0')
+      hRule(doc, MARGIN, y, COL_W, PDF.line)
       y += 16
     }
 
@@ -472,7 +473,7 @@ export async function generateManagementAgreementPDF(data: ManagementAgreementDa
         .text(name, MARGIN + 6, y + 8, { width: c1W - 6 })
         .text(detail, MARGIN + c1W + 6, y + 8, { width: c2W - 12 })
         .restore()
-      hRule(doc, MARGIN, y + h, COL_W, '#ececec')
+      hRule(doc, MARGIN, y + h, COL_W, PDF.line)
       y += h
     }
 

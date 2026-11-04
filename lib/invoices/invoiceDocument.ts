@@ -6,6 +6,7 @@ import {
   loadPDFLetterheadAssets, drawPDFFooter, PAGE_W, PAGE_H, MARGIN, FOOTER_BAND_H, LOGO_W, LOGO_H,
   type PDFBizSettings,
 } from '@/lib/pdfLetterhead'
+import { PDF } from '@/lib/pdf/palette'
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const PDFDocument = require('pdfkit') as typeof import('pdfkit')
@@ -41,7 +42,7 @@ export interface InvoiceStyleDocument {
   heroNote?: string[]
 }
 
-const INK = '#141414', MUTED = '#6B6B6B', LINE = '#E4E2DE', TILE = '#F4F3F0'
+const INK = PDF.ink, MUTED = PDF.muted, LINE = PDF.line, TILE = PDF.tint
 const COL_W = PAGE_W - MARGIN * 2
 const BOTTOM = PAGE_H - FOOTER_BAND_H - 36
 export const money = (n: number) => '£' + n.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -104,11 +105,11 @@ export async function renderInvoiceStyleDocument(d: InvoiceStyleDocument): Promi
   // ── Hero: the one figure ─────────────────────────────────────────────
   const heroH = 74
   doc.save().roundedRect(MARGIN, y, COL_W, heroH, 10).fill(INK).restore()
-  doc.font(R).fontSize(9.5).fillColor('#BDBDBD').text(d.totalLabel, MARGIN + 20, y + 15)
-  doc.font(B).fontSize(28).fillColor('#FFFFFF').text(money(d.total), MARGIN + 20, y + 29)
+  doc.font(R).fontSize(9.5).fillColor(PDF.line).text(d.totalLabel, MARGIN + 20, y + 15)
+  doc.font(B).fontSize(28).fillColor(PDF.white).text(money(d.total), MARGIN + 20, y + 29)
   const due = d.meta.find(([k]) => /due|pay by/i.test(k))?.[1]
   const note = d.heroNote ?? [due ? `Pay by ${due}` : '', ref ? `Reference ${ref}` : ''].filter(Boolean)
-  doc.font(R).fontSize(9).fillColor('#E6E6E6').text(note.join('\n'), MARGIN + COL_W - 240, y + 22, { width: 220, align: 'right', lineGap: 3 })
+  doc.font(R).fontSize(9).fillColor(PDF.line).text(note.join('\n'), MARGIN + COL_W - 240, y + 22, { width: 220, align: 'right', lineGap: 3 })
   y += heroH + 22
 
   // ── Table ─────────────────────────────────────────────────────────────
@@ -161,7 +162,7 @@ export async function renderInvoiceStyleDocument(d: InvoiceStyleDocument): Promi
   // ── How to pay ────────────────────────────────────────────────────────
   if (y + payH > BOTTOM) newPage()
   doc.save().roundedRect(MARGIN, y, COL_W, payH, 8).fill(TILE).restore()
-  doc.font(B).fontSize(11).fillColor(INK).text(d.pay.title ?? 'How to pay', MARGIN + 16, y + 13)
+  doc.font(B).fontSize(11).fillColor(INK).text(d.pay.title ?? 'Payment details', MARGIN + 16, y + 13)
   d.pay.rows.forEach(([k, v], i) => {
     doc.font(R).fontSize(9).fillColor(MUTED).text(k, MARGIN + 16, y + 34 + i * 14, { width: 110 })
     // wide enough for an IBAN on one line

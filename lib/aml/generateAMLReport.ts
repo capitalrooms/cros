@@ -12,6 +12,7 @@ import {
   PAGE_W, PAGE_H, MARGIN, COL_W, FOOTER_BAND_H, LOGO_W, LOGO_H,
   BLACK, GREY, GREY_BAND,
 } from '@/lib/pdfLetterhead'
+import { PDF } from '@/lib/pdf/palette'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -47,11 +48,11 @@ export interface AmlReportData {
 // NOTE: PAGE_W, PAGE_H, MARGIN, COL_W, FOOTER_BAND_H, LOGO_W, LOGO_H,
 //       BLACK, GREY, GREY_BAND all come from @/lib/pdfLetterhead above.
 
-const LIGHT  = '#f8f8f8'
-const BORDER = '#e0e0e0'
-const GREEN  = '#1a6b3c'
-const AMBER  = '#7a5800'
-const RED_C  = '#7a1a1a'
+const LIGHT  = PDF.tint
+const BORDER = PDF.line
+const GREEN  = PDF.forest
+const AMBER  = PDF.gold
+const RED_C  = PDF.alert
 
 // ── Firm-level compliance constants (from Capital Rooms policy documents) ──────
 const MLRO_NAME       = 'Harry Buchanan'
@@ -136,7 +137,7 @@ export async function generateAMLReport(data: AmlReportData): Promise<Buffer> {
 
     // Ensure we don't overlap the logo before drawing the rule
     y = Math.max(y, MARGIN + LOGO_H + 10)
-    drawHRule(doc, MARGIN, y, COL_W, '#c0c0c0')
+    drawHRule(doc, MARGIN, y, COL_W, PDF.line)
     y += 22
 
     // ─ REGULATORY BASIS BOX ───────────────────────────────────────────────────
@@ -148,7 +149,7 @@ export async function generateAMLReport(data: AmlReportData): Promise<Buffer> {
       `minimum of five years following the end of the business relationship in accordance with Regulation 40(3).`
 
     const regH = doc.heightOfString(regText, { width: COL_W - 24, align: 'justify' })
-    doc.save().fillColor('#f4f4f4').rect(MARGIN, y, COL_W, regH + 16).fill()
+    doc.save().fillColor(PDF.tint).rect(MARGIN, y, COL_W, regH + 16).fill()
       .strokeColor(BORDER).lineWidth(0.5).rect(MARGIN, y, COL_W, regH + 16).stroke()
       .restore()
     doc.save().font(fontReg).fontSize(8).fillColor('#444')
@@ -161,7 +162,7 @@ export async function generateAMLReport(data: AmlReportData): Promise<Buffer> {
       .text('Firm Compliance Framework', MARGIN, y)
       .restore()
     y += 14
-    drawHRule(doc, MARGIN, y, COL_W, '#d0d0d0')
+    drawHRule(doc, MARGIN, y, COL_W, PDF.line)
     y += 14
 
     // Two-column: MLRO left, policies right
@@ -205,7 +206,7 @@ export async function generateAMLReport(data: AmlReportData): Promise<Buffer> {
       .text('Client Details', MARGIN, y)
       .restore()
     y += 14
-    drawHRule(doc, MARGIN, y, COL_W, '#d0d0d0')
+    drawHRule(doc, MARGIN, y, COL_W, PDF.line)
     y += 14
 
     const riskLevel = data.landlord.riskLevel ?? 'low'
@@ -239,7 +240,7 @@ export async function generateAMLReport(data: AmlReportData): Promise<Buffer> {
       .text('CDD Verification History', MARGIN, y)
       .restore()
     y += 14
-    drawHRule(doc, MARGIN, y, COL_W, '#d0d0d0')
+    drawHRule(doc, MARGIN, y, COL_W, PDF.line)
     y += 12
 
     const ROW_H = 22
@@ -286,7 +287,7 @@ export async function generateAMLReport(data: AmlReportData): Promise<Buffer> {
         doc.save().font(fontBold).fontSize(8).fillColor(statusColour)
           .text(statusText, col5X + 4, y + 7, { width: col5W - 8, lineBreak: false })
           .restore()
-        drawHRule(doc, MARGIN, y + ROW_H, COL_W, '#ebebeb')
+        drawHRule(doc, MARGIN, y + ROW_H, COL_W, PDF.line)
         y += ROW_H
       })
     }
@@ -299,7 +300,7 @@ export async function generateAMLReport(data: AmlReportData): Promise<Buffer> {
         .text('Documents & Information Collected', MARGIN, y)
         .restore()
       y += 14
-      drawHRule(doc, MARGIN, y, COL_W, '#d0d0d0')
+      drawHRule(doc, MARGIN, y, COL_W, PDF.line)
       y += 14
 
       const docItems = [
@@ -323,7 +324,7 @@ export async function generateAMLReport(data: AmlReportData): Promise<Buffer> {
     }
 
     // ─ DATA RETENTION NOTICE ──────────────────────────────────────────────────
-    drawHRule(doc, MARGIN, y, COL_W, '#d0d0d0')
+    drawHRule(doc, MARGIN, y, COL_W, PDF.line)
     y += 12
 
     const retentionText =
@@ -337,7 +338,7 @@ export async function generateAMLReport(data: AmlReportData): Promise<Buffer> {
     y += doc.heightOfString(retentionText, { width: COL_W }) + 20
 
     // ─ MLRO SIGN-OFF ──────────────────────────────────────────────────────────
-    drawHRule(doc, MARGIN, y, COL_W, '#d0d0d0')
+    drawHRule(doc, MARGIN, y, COL_W, PDF.line)
     y += 14
 
     const signOffRows: [string, string][] = [

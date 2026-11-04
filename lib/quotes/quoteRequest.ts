@@ -9,6 +9,7 @@ import {
   type PDFBizSettings,
 } from '@/lib/pdfLetterhead'
 import { isCommunal } from '@/lib/booking'
+import { PDF } from '@/lib/pdf/palette'
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const PDFDocument = require('pdfkit') as typeof import('pdfkit')
@@ -137,9 +138,9 @@ export async function renderQuoteRequestPdf(d: QuoteRequestPdfInput): Promise<Bu
 
   // ── Title + meta ──────────────────────────────────────────────────────
   const requested = d.requestedAt ?? new Date()
-  doc.font(B).fontSize(20).fillColor(BLACK).text('Quote request', MARGIN, y, { width: COL_W * 0.55 })
+  doc.font(B).fontSize(20).fillColor(BLACK).text('Request for quotation', MARGIN, y, { width: COL_W * 0.55 })
   let ty = doc.y + 2
-  doc.font(R).fontSize(9.5).fillColor(GREY).text('Please price the work below.', MARGIN, ty, { width: COL_W * 0.55 }); ty = doc.y + 2
+  doc.font(R).fontSize(9.5).fillColor(GREY).text('Please provide a quotation for the work below.', MARGIN, ty, { width: COL_W * 0.55 }); ty = doc.y + 2
   doc.font(B).fontSize(9.5).fillColor(BLACK).text(job.propertyAddress || job.propertyName, MARGIN, ty, { width: COL_W * 0.55 }); ty = doc.y
   const meta: [string, string][] = [
     ['Reference', job.reference],
@@ -160,8 +161,8 @@ export async function renderQuoteRequestPdf(d: QuoteRequestPdfInput): Promise<Bu
     doc.font(R).fontSize(10)
     const h = doc.heightOfString(body, { width: COL_W - 20, lineGap: 2 }) + 34
     if (y + Math.min(h, 120) > BOTTOM) y = newPage()
-    doc.save().rect(MARGIN, y, COL_W, 20).fill('#1a1a1a').restore()
-    doc.font(B).fontSize(8.5).fillColor('#ffffff').text(label.toUpperCase(), MARGIN + 10, y + 6.5, { characterSpacing: 0.4 })
+    doc.save().rect(MARGIN, y, COL_W, 20).fill(PDF.ink).restore()
+    doc.font(B).fontSize(8.5).fillColor(PDF.white).text(label.toUpperCase(), MARGIN + 10, y + 6.5, { characterSpacing: 0.4 })
     y += 28
     doc.font(R).fontSize(10).fillColor(BLACK).text(body, MARGIN + 10, y, { width: COL_W - 20, lineGap: 2 })
     y = doc.y + 16
@@ -178,14 +179,14 @@ export async function renderQuoteRequestPdf(d: QuoteRequestPdfInput): Promise<Bu
   if (images.length) {
     const gap = 12, w = (COL_W - gap) / 2, h = w * 0.75
     if (y + 28 + h > BOTTOM) y = newPage()
-    doc.save().rect(MARGIN, y, COL_W, 20).fill('#1a1a1a').restore()
-    doc.font(B).fontSize(8.5).fillColor('#ffffff').text(`PHOTOS (${images.length})`, MARGIN + 10, y + 6.5, { characterSpacing: 0.4 })
+    doc.save().rect(MARGIN, y, COL_W, 20).fill(PDF.ink).restore()
+    doc.font(B).fontSize(8.5).fillColor(PDF.white).text(`PHOTOS (${images.length})`, MARGIN + 10, y + 6.5, { characterSpacing: 0.4 })
     y += 28
     for (let i = 0; i < images.length; i += 2) {
       if (y + h > BOTTOM) y = newPage()
       for (let j = 0; j < 2 && i + j < images.length; j++) {
         const x = MARGIN + j * (w + gap)
-        doc.save().rect(x, y, w, h).fill('#f3f3f3').restore()
+        doc.save().rect(x, y, w, h).fill(PDF.tint).restore()
         try { doc.image(images[i + j], x, y, { fit: [w, h], align: 'center', valign: 'center' }) } catch { /* unreadable image — leave the grey tile */ }
       }
       y += h + gap
@@ -201,8 +202,8 @@ export async function renderQuoteRequestPdf(d: QuoteRequestPdfInput): Promise<Bu
   if (d.reply.phone) rows.push(['By phone', d.reply.phone])
   const boxH = rows.length * 16 + 58
   if (y + boxH > BOTTOM) y = newPage()
-  doc.save().roundedRect(MARGIN, y, COL_W, boxH, 4).fill('#f3f3f3').restore()
-  doc.font(B).fontSize(9.5).fillColor(BLACK).text('How to send your price', MARGIN + 14, y + 12)
+  doc.save().roundedRect(MARGIN, y, COL_W, boxH, 4).fill(PDF.tint).restore()
+  doc.font(B).fontSize(9.5).fillColor(BLACK).text('How to submit your quotation', MARGIN + 14, y + 12)
   rows.forEach(([k, v], i) => {
     doc.font(R).fontSize(9).fillColor(GREY).text(k, MARGIN + 14, y + 32 + i * 16, { width: 90 })
     doc.font(B).fontSize(9).fillColor(BLACK).text(v, MARGIN + 104, y + 32 + i * 16, { width: COL_W - 118, link: v.startsWith('http') ? v : undefined, lineBreak: false, ellipsis: true })

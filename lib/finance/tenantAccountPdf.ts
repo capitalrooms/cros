@@ -4,11 +4,12 @@
 // a rent punctuality rating, then every charge and payment with a running balance.
 import { loadPDFLetterheadAssets, drawPDFFooter, fetchPDFBizSettings, PAGE_W, PAGE_H, MARGIN, FOOTER_BAND_H, LOGO_W, LOGO_H } from '@/lib/pdfLetterhead'
 import type { TenantAccount, RentMonth } from '@/lib/finance/tenantAccount'
+import { PDF } from '@/lib/pdf/palette'
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const PDFDocument = require('pdfkit') as typeof import('pdfkit')
 
-const INK = '#141414', MUTED = '#6B6B6B', LINE = '#E4E2DE', TILE = '#F4F3F0', GOOD = '#1F6F4A', BAD = '#B42318', WARN = '#B54708'
+const INK = PDF.ink, MUTED = PDF.muted, LINE = PDF.line, TILE = PDF.tint, GOOD = PDF.forest, BAD = PDF.alert, WARN = PDF.gold
 const COL_W = PAGE_W - MARGIN * 2
 const gbp = (n: number) => (n < 0 ? '−£' : '£') + Math.abs(n).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const ukDate = (iso: string) => new Date(`${iso.slice(0, 10)}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })
@@ -78,10 +79,10 @@ export async function renderTenantAccountPdf(a: TenantAccount, opts: { asAt?: st
   const owed = a.balance > 0.004, credit = a.balance < -0.004
   const heroH = 74
   doc.save().roundedRect(MARGIN, y, COL_W, heroH, 10).fill(INK).restore()
-  doc.font(R).fontSize(9.5).fillColor('#BDBDBD').text(owed ? 'Balance owed' : credit ? 'In credit' : 'Balance', MARGIN + 20, y + 15)
-  doc.font(B).fontSize(28).fillColor('#FFFFFF').text(owed || credit ? gbp(Math.abs(a.balance)) : 'Nothing owed', MARGIN + 20, y + 29)
+  doc.font(R).fontSize(9.5).fillColor(PDF.line).text(owed ? 'Balance owed' : credit ? 'In credit' : 'Balance', MARGIN + 20, y + 15)
+  doc.font(B).fontSize(28).fillColor(PDF.white).text(owed || credit ? gbp(Math.abs(a.balance)) : 'Nothing owed', MARGIN + 20, y + 29)
   const p = a.punctuality
-  doc.font(R).fontSize(9).fillColor('#E6E6E6').text(
+  doc.font(R).fontSize(9).fillColor(PDF.line).text(
     [`Rent punctuality: ${p.rating ?? 'not rated yet'}`, p.known ? `${p.onTime} of ${p.known} on time` : null, owed && a.paymentRef ? `Pay with reference ${a.paymentRef}` : null].filter(Boolean).join('\n'),
     MARGIN + COL_W - 240, y + 20, { width: 220, align: 'right', lineGap: 3 })
   y += heroH + 12
