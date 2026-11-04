@@ -120,6 +120,7 @@ const ZONES_AS_WRITTEN: Zone[] = [
     home: '/admin/finance',
     routes: [
       '/admin/supplier-invoices',
+      '/admin/books',
       '/admin/finance',
       '/admin/rent-roll',
       '/admin/payment-run',
@@ -147,6 +148,7 @@ const ZONES_AS_WRITTEN: Zone[] = [
       { emoji: '🧾', label: 'Statements',       href: '/admin/statements' },
       { emoji: '💸', label: 'Payment Run',      href: '/admin/payment-run' },
       { emoji: '🏦', label: 'Bank',             href: '/admin/bank-calendar' },
+      { emoji: '📒', label: 'Books',            href: '/admin/books' },   // every rent, fee, expense, payout and deposit — accountant and HMRC exports
       { emoji: '💷', label: 'Expenses',         href: '/admin/expense-log' },
       { emoji: '💰', label: 'Income',           href: '/admin/income' },
       { emoji: '⏰', label: 'Rent Owed',        href: '/admin/rents-due' },   // Rents due · Arrears · Rent chase
