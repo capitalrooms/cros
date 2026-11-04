@@ -99,7 +99,7 @@ function ageOf(iso?: string): number | null {
 /** "095ROS01 - Lettings Statement - Mr Ziqing Wang.pdf" — the way Capital Rooms files them */
 export function lettingsStatementFileName(d: Pick<LettingsStatementData, 'unitCode' | 'paymentReference' | 'tenantSalutation' | 'tenantFirstName' | 'tenantLastName'>): string {
   const who = [d.tenantSalutation, d.tenantFirstName, d.tenantLastName].filter(Boolean).join(' ')
-  const code = d.unitCode || d.paymentReference || ''
+  const code = d.paymentReference || d.unitCode || ''   // the reference the landlord sees on the payment, as Capital Rooms files them
   return [code, 'Lettings Statement', who].filter(Boolean).join(' - ').replace(/[\\/:*?"<>|]+/g, '').replace(/\s+/g, ' ').trim() + '.pdf'
 }
 
@@ -143,7 +143,7 @@ export async function generateLettingsStatementPDF(data: LettingsStatementData):
   doc.font(B).fontSize(24).fillColor(INK).text(place, MARGIN, y, { width: COL_W - LOGO_W - 30 })
   y = doc.y + 1
   if (rest.length) { doc.font(R).fontSize(12).fillColor(INK).text(rest.join(', '), MARGIN, y, { width: COL_W - LOGO_W - 30 }); y = doc.y + 6 }
-  const chips = [data.unitCode, `New tenancy from ${fmtDate(`${data.startDate.slice(0, 10)}T12:00:00`)}`].filter(Boolean) as string[]
+  const chips = [data.paymentReference || data.unitCode, `New tenancy from ${fmtDate(`${data.startDate.slice(0, 10)}T12:00:00`)}`].filter(Boolean) as string[]
   let cx = MARGIN
   for (const c of chips) {
     doc.font(B).fontSize(8)
@@ -177,7 +177,7 @@ export async function generateLettingsStatementPDF(data: LettingsStatementData):
     ['Rent', `${fmtGBP(data.rentAmount)} a month`],
     ['Deposit', `${fmtGBP(data.depositAmount)} (${depositWeeks} weeks)`],
   ]
-  const cardH = 30 + (about ? 16 : 0) + Math.ceil(facts.length / 2) * 30 + 12
+  const cardH = 40 + (about ? 16 : 0) + Math.ceil(facts.length / 2) * 30 + 16
   doc.save().roundedRect(MARGIN, y, COL_W, cardH, 12).fill(TILE).restore()
   doc.font(B).fontSize(8).fillColor(MUTED).text('YOUR NEW TENANT', MARGIN + 20, y + 14, { characterSpacing: 1 })
   doc.font(B).fontSize(15).fillColor(INK).text(tenantName || 'Tenant', MARGIN + 20, y + 26)
