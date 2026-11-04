@@ -105,7 +105,7 @@ export default function RoomPage({ params }: { params: Promise<{ id: string; roo
               <StoredImg src={photo} alt={`${o.room.name} photo`} className="h-16 w-16 flex-none rounded-xl object-cover md:h-[90px] md:w-[120px]" />
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-sm">
-                  <h1 className={`${display.className} text-[28px] font-extrabold leading-none tracking-tight md:text-[34px]`}>{o.room.name}</h1>
+                  <h1 className={`${display.className} text-[28px] font-extrabold leading-none tracking-tight md:text-[34px]`}>{o.whole ? o.property.name : o.room.name}</h1>
                   <span className={`rounded-full px-sm py-0.5 text-[11px] font-black uppercase tracking-wide ${pill.cls}`}>{pill.label(o)}</span>
                 </div>
                 {cur && <p className="mt-0.5 text-sm text-[#F6F3EC]/80"><b className="text-[#F6F3EC]">{cur.tenant.name}</b></p>}
@@ -119,7 +119,7 @@ export default function RoomPage({ params }: { params: Promise<{ id: string; roo
               {cur && <button type="button" onClick={message} className="rounded-lg bg-[var(--accent,#E8B931)] px-md py-sm text-sm font-black text-[var(--ink,#23261A)]">Message {cur.tenant.name}</button>}
               {canReport && !letOnly && <button type="button" onClick={() => setArranging(true)} className="rounded-lg border border-[#F6F3EC]/25 px-md py-sm text-sm font-bold">Arrange works</button>}
               <Link href={`/lettings/listing/${roomId}?from=${encodeURIComponent(`/admin/properties/${propertyId}/rooms/${roomId}`)}`} className="rounded-lg border border-[#F6F3EC]/25 px-md py-sm text-sm font-bold">Marketing view</Link>
-              <Link href={`/admin/properties/${propertyId}/rooms/${roomId}/edit`} className="rounded-lg border border-[#F6F3EC]/25 px-md py-sm text-sm font-bold">Edit room</Link>
+              <Link href={`/admin/properties/${propertyId}/rooms/${roomId}/edit`} className="rounded-lg border border-[#F6F3EC]/25 px-md py-sm text-sm font-bold">{o.whole ? 'Edit details' : 'Edit room'}</Link>
             </div>
           </div>
 
@@ -337,9 +337,9 @@ function Rent({ o, wide }: { o: RoomOverview; wide: boolean }) {
   const owed = o.current?.balance
   const STATE: Record<string, [string, string]> = { paid: ['Paid', 'bg-green-50 text-green-800'], part: ['Part paid', 'bg-amber-50 text-amber-900'], overdue: ['Overdue', 'bg-red-50 text-red-800'], due: ['Not yet due', 'bg-neutral-100 text-neutral-600'], statement: ['Before CROS', 'bg-neutral-100 text-neutral-600'] }
   return (
-    <Section title="Rent on this room" wide={wide} summary={owed && owed > 0.004 ? `${gbp(owed)} owed on the current tenancy` : o.fee.toLandlord != null ? `${gbp(o.fee.toLandlord)} per month to the landlord` : 'No rent recorded'}
+    <Section title={o.whole ? 'Rent' : 'Rent on this room'} wide={wide} summary={owed && owed > 0.004 ? `${gbp(owed)} owed on the current tenancy` : o.fee.toLandlord != null ? `${gbp(o.fee.toLandlord)} per month to the landlord` : 'No rent recorded'}
       right={o.current ? <Link href={`/admin/lettings/${o.current.id}?tab=money`} className={btnLight}>Statement of account</Link> : null}>
-      {o.rent.length === 0 ? <p className="px-lg py-md text-sm text-neutral-500">No rent charges on this room yet.</p> : (
+      {o.rent.length === 0 ? <p className="px-lg py-md text-sm text-neutral-500">No rent charges {o.whole ? 'yet' : 'on this room yet'}.</p> : (
         <div className="overflow-x-auto">
           <table className="w-full min-w-[680px] text-[13px]">
             <thead><tr className="bg-neutral-50 text-left text-[10.5px] uppercase tracking-wide text-neutral-500"><th className="px-lg py-xs">Period</th><th className="px-sm py-xs">Tenant</th><th className="px-sm py-xs">Due date</th><th className="px-sm py-xs text-right">Due</th><th className="px-sm py-xs text-right">Received</th><th className="px-lg py-xs">Status</th></tr></thead>
@@ -398,7 +398,7 @@ function Messages({ o, wide, composeRef, roomId, reload, onMessage }: { o: RoomO
           {o.current && <Link href={`/admin/lettings/${o.current.id}?tab=messages&from=${encodeURIComponent(`/admin/properties/${o.property.id}/rooms/${o.room.id}`)}`} className="text-sm font-semibold text-blue-700 hover:underline">Rent reminder and other ready messages</Link>}
         </div>
         <div className="overflow-hidden rounded-xl border border-neutral-300">
-          <textarea ref={composeRef} value={body} onChange={e => setBody(e.target.value)} rows={2} placeholder="An office note — kept on this room, never sent" aria-label="Office note" className="block w-full resize-y border-0 px-md py-sm text-sm outline-none" />
+          <textarea ref={composeRef} value={body} onChange={e => setBody(e.target.value)} rows={2} placeholder={`An office note — kept on ${o.whole ? 'this property' : 'this room'}, never sent`} aria-label="Office note" className="block w-full resize-y border-0 px-md py-sm text-sm outline-none" />
           <div className="flex items-center justify-between gap-sm border-t border-neutral-100 bg-neutral-50 px-sm py-sm">
             <span />
             <button type="button" disabled={busy || !body.trim()} onClick={saveNote} className={btnLight}>{busy ? 'Saving…' : 'Save note'}</button>
@@ -442,11 +442,11 @@ function Relet({ o, wide }: { o: RoomOverview; wide: boolean }) {
   const lead = o.lead
   const leadStep = lead ? Math.max(0, APPLICANT_STEPS.indexOf(lead.stage)) : -1
   const openRepairs = o.repairs.filter(r => !['completed', 'cancelled'].includes(r.status))
-  const summary = o.incoming ? `Incoming tenancy: ${o.incoming.tenant} from ${full(o.incoming.start)}` : lead ? `Applicant ${lead.name} · ${lead.stage.replace(/_/g, ' ')}` : freeFrom ? `Room free from ${full(freeFrom)} · no applicant` : 'No applicant'
+  const summary = o.incoming ? `Incoming tenancy: ${o.incoming.tenant} from ${full(o.incoming.start)}` : lead ? `Applicant ${lead.name} · ${lead.stage.replace(/_/g, ' ')}` : freeFrom ? `${o.whole ? 'Free' : 'Room free'} from ${full(freeFrom)} · no applicant` : 'No applicant'
   return (
     <Section id="relet" title={o.incoming ? 'Incoming tenancy' : 'Re-let plan'} wide={wide} open tone="border-blue-200" summary={summary}>
       <div className="space-y-md px-lg py-md">
-        {(freeFrom || o.stage === 'void') && !o.incoming && <p className="text-[13px] text-neutral-600">{freeFrom ? `Tenancy ends ${full(c!.end)} · room free from ${full(freeFrom)}` : 'The room is void'}{daily > 0 ? ` · each void day costs ${gbp(Math.round(daily * 100) / 100)}` : ''}</p>}
+        {(freeFrom || o.stage === 'void') && !o.incoming && <p className="text-[13px] text-neutral-600">{freeFrom ? `Tenancy ends ${full(c!.end)} · ${o.whole ? 'free' : 'room free'} from ${full(freeFrom)}` : o.whole ? 'The property is empty' : 'The room is void'}{daily > 0 ? ` · each void day costs ${gbp(Math.round(daily * 100) / 100)}` : ''}</p>}
         {o.incoming ? (
           <div className="rounded-xl bg-blue-50 p-md">
             <p className="text-[10.5px] font-black uppercase tracking-[0.1em] text-blue-900">Incoming tenancy · let agreed</p>
@@ -461,9 +461,9 @@ function Relet({ o, wide }: { o: RoomOverview; wide: boolean }) {
             <div className="grid grid-cols-6 gap-[3px]" aria-label={`Stage: ${lead.stage.replace(/_/g, ' ')}`}>{APPLICANT_STEPS.map((s, i) => <span key={s} className={`h-1.5 rounded ${i <= leadStep ? 'bg-blue-700' : 'bg-slate-300'}`} />)}</div>
             <p className="text-xs text-neutral-600">Applied {full(lead.applied)}{lead.offerSentAt ? ` · offer sent ${full(lead.offerSentAt)}` : ''}{lead.stage !== 'offer_sent' || !lead.offerSentAt ? ` · ${lead.stage.replace(/_/g, ' ')}` : ' · not reserved yet'}</p>
             <div className="flex flex-wrap gap-sm"><Link href="/admin/applicants" className={btnDark}>Open applicant</Link></div>
-            {o.applicants.length > 1 && <p className="text-xs text-neutral-600">{o.applicants.length - 1} more applicant{o.applicants.length === 2 ? '' : 's'} for this room: {o.applicants.filter(a => a.id !== lead.id).map(a => a.name).join(', ')}</p>}
+            {o.applicants.length > 1 && <p className="text-xs text-neutral-600">{o.applicants.length - 1} more applicant{o.applicants.length === 2 ? '' : 's'} for {o.whole ? 'the property' : 'this room'}: {o.applicants.filter(a => a.id !== lead.id).map(a => a.name).join(', ')}</p>}
           </div>
-        ) : <p className="text-sm text-neutral-600">No applicants for this room.</p>}
+        ) : <p className="text-sm text-neutral-600">No applicants for {o.whole ? 'the property' : 'this room'}.</p>}
         {!o.incoming && (
           <ol className="text-sm">
             {c?.notice && <Check done={false} label={`Confirm the notice and end date of ${full(c.end)} in writing`} href={`/admin/lettings/${c.id}?tab=notice`} action="Open" />}
@@ -475,7 +475,9 @@ function Relet({ o, wide }: { o: RoomOverview; wide: boolean }) {
         )}
         {!o.incoming && (
           <div className="flex flex-wrap gap-sm border-t border-neutral-100 pt-md">
-            <Link href={`/lettings/listing/${o.room.id}`} className={btnLight}>Advertise {o.room.name}</Link>
+            {/* a tenant already living there that CROS doesn't know about (4 Nov 2026) — the New tenancy form, filled in */}
+            {!o.current && <Link href={`/admin/tenancies?add=${o.property.id}:${o.room.id}`} className={btnLight}>Add an existing tenancy</Link>}
+            <Link href={`/lettings/listing/${o.room.id}`} className={btnLight}>Advertise {o.whole ? 'the property' : o.room.name}</Link>
             <Link href="/admin/agency-diary/book-appointment" className={btnLight}>Book a viewing</Link>
             <Link href="/admin/available-and-lettings#send-offer" className={btnLight}>Send an offer</Link>
           </div>
@@ -513,7 +515,7 @@ function TheRoom({ o, wide, propertyId }: { o: RoomOverview; wide: boolean; prop
     ['Asking rent', r.askingRent != null ? `${gbp(r.askingRent)} per month` : 'Not set'],
   ]
   return (
-    <Section title="The room" wide={wide} summary={`${r.type ?? 'Room'} · ${r.photos.length} photo${r.photos.length === 1 ? '' : 's'}${r.size ? '' : ' · not measured'}`}
+    <Section title={o.whole ? 'The property' : 'The room'} wide={wide} summary={`${r.type ?? (o.whole ? 'Whole property' : 'Room')} · ${r.photos.length} photo${r.photos.length === 1 ? '' : 's'}${r.size ? '' : ' · not measured'}`}
       right={<Link href={`/admin/properties/${propertyId}/rooms/${r.id}/edit`} className={btnLight}>Edit</Link>}>
       {r.photos[0] && <StoredImg src={r.photos[0].src} alt={`${r.name}: ${r.photos[0].caption ?? 'room photo'}`} className="h-48 w-full object-cover" />}
       <div className="space-y-sm px-lg py-md">
@@ -569,7 +571,7 @@ function Expired({ o, wide }: { o: RoomOverview; wide: boolean }) {
   return (
     <Section title="Expired tenancies" wide={wide} summary={`${o.expired.length} expired tenanc${o.expired.length === 1 ? 'y' : 'ies'} · ${o.voids.length} void period${o.voids.length === 1 ? '' : 's'}${o.occupancy ? ` · let ${o.occupancy.pct}% since ${full(o.occupancy.since)}` : ''}`}>
       {spanStart && <Timeline o={o} />}
-      {rows.length === 0 ? <p className="px-lg py-md text-sm text-neutral-500">No expired tenancies on this room.</p> : (
+      {rows.length === 0 ? <p className="px-lg py-md text-sm text-neutral-500">No expired tenancies {o.whole ? 'here' : 'on this room'}.</p> : (
         <div className="overflow-x-auto">
           <table className="w-full min-w-[900px] text-[13px]">
             <thead><tr className="bg-neutral-50 text-left text-[10.5px] uppercase tracking-wide text-neutral-500"><th className="px-lg py-xs">Tenant</th><th className="px-sm py-xs">Tenancy start date</th><th className="px-sm py-xs">Tenancy end date</th><th className="px-sm py-xs">Length</th><th className="px-sm py-xs">Notice received</th><th className="px-sm py-xs text-right">Rent</th><th className="px-sm py-xs">Deposit</th><th className="px-lg py-xs"></th></tr></thead>
