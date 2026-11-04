@@ -17,7 +17,7 @@ import { one, type PageSearchParams } from '@/lib/pageSearchParams'
 import type { BookRow } from '@/lib/finance/books'
 
 type View = 'all' | 'rent' | 'fee' | 'expense' | 'payout' | 'deposit' | 'yearend'
-const VIEWS: [View, string][] = [['all', 'Everything'], ['rent', 'Rent received'], ['fee', 'Fees'], ['expense', 'Expenses'], ['payout', 'Paid to landlords'], ['deposit', 'Deposits'], ['yearend', 'Landlords’ year-end']]
+const VIEWS: [View, string][] = [['all', 'All transactions'], ['rent', 'Rent received'], ['fee', 'Agency fees'], ['expense', 'Property expenses'], ['payout', 'Landlord payments'], ['deposit', 'Tenancy deposits'], ['yearend', 'Annual statements']]
 interface Data { from: string; to: string; label: string; vat: { from: string; rate: number } | null; rows: BookRow[]; totals: Record<string, number>; feeTotals: { management: number; letting: number; net: number; vat: number }; checks: { level: 'fix' | 'look'; text: string }[]; landlords: { id: string; name: string }[]; properties: { id: string; name: string }[]; categories: Record<string, string[]> }
 
 const gbp = (n: number) => (n < 0 ? '−£' : '£') + Math.abs(n).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -25,7 +25,7 @@ const day = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString('en
 const monthName = (m: string | null) => m ? new Date(`${m}-01T12:00:00Z`).toLocaleDateString('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' }) : ''
 const thisTaxYear = () => { const d = new Date(); return d.getMonth() > 3 || (d.getMonth() === 3 && d.getDate() >= 6) ? d.getFullYear() : d.getFullYear() - 1 }
 const r2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100
-const KIND_LABEL: Record<string, string> = { rent: 'Rent', fee: 'Fee', expense: 'Expense', payout: 'Paid to landlord', deposit: 'Deposit' }
+const KIND_LABEL: Record<string, string> = { rent: 'Rent received', fee: 'Agency fee', expense: 'Property expense', payout: 'Landlord payment', deposit: 'Tenancy deposit' }
 // quick date picks (4 Nov 2026, Harry: "date range selected easily") — whole calendar months and quarters
 const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 function quickRange(k: string): [string, string] {
@@ -110,13 +110,13 @@ export default function BooksPage({ searchParams }: { searchParams: PageSearchPa
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
-      <AppBar left={<BackButton href="/admin/finance" />} title="Books" />
-      <PageHero title="Books" subtitle={<>Every rent received, fee, expense, payment to a landlord and deposit — for HMRC, your accountant and each landlord’s tax return. {data ? (data.label ? `Tax year ${data.label}: 6 April ${year} – 5 April ${year + 1}.` : `${day(data.from)} to ${day(data.to)}.`) : ''}</>}
+      <AppBar left={<BackButton href="/admin/finance" />} title="Transactions" />
+      <PageHero title="Transactions" subtitle={<>Rent received, agency fees, property expenses, landlord payments and tenancy deposits — for HMRC, your accountant and each landlord’s SA105 return. {data ? (data.label ? `Tax year ${data.label}: 6 April ${year} – 5 April ${year + 1}.` : `${day(data.from)} to ${day(data.to)}.`) : ''}</>}
         stats={data ? [
           { label: 'Rent received', value: gbp(data.totals.rent) },
-          { label: 'Our fees', value: gbp(data.totals.fee) },
-          { label: 'Expenses', value: gbp(data.totals.expense) },
-          { label: 'Paid to landlords', value: gbp(data.totals.payout) },
+          { label: 'Agency fees', value: gbp(data.totals.fee) },
+          { label: 'Property expenses', value: gbp(data.totals.expense) },
+          { label: 'Landlord payments', value: gbp(data.totals.payout) },
         ] : undefined}
         tabs={financeTabs('books')} />
 
@@ -145,12 +145,12 @@ export default function BooksPage({ searchParams }: { searchParams: PageSearchPa
           <select className={sel} value={propertyId} onChange={e => setPropertyId(e.target.value)} aria-label="Property">
             <option value="">Every property</option>{data?.properties.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
-          <button type="button" onClick={() => csv()} className="ml-auto rounded-xl bg-neutral-900 px-md py-sm text-sm font-bold text-white">Everything for the accountant (CSV)</button>
+          <button type="button" onClick={() => csv()} className="ml-auto rounded-xl bg-neutral-900 px-md py-sm text-sm font-bold text-white">Full transaction export (CSV)</button>
         </div>
 
         {data && data.checks.length > 0 && (
           <details className="rounded-2xl border border-amber-200 bg-amber-50 px-lg py-sm" open={data.checks.some(c => c.level === 'fix')}>
-            <summary className="cursor-pointer text-sm font-bold text-amber-900">{data.checks.length} thing{data.checks.length === 1 ? '' : 's'} to check before this goes to an accountant</summary>
+            <summary className="cursor-pointer text-sm font-bold text-amber-900">{data.checks.length} exception{data.checks.length === 1 ? '' : 's'} to resolve before export</summary>
             <ul className="mt-sm space-y-xs text-sm text-amber-950">{data.checks.map((c, i) => <li key={i} className="flex gap-sm"><span className={`mt-1 h-2 w-2 shrink-0 rounded-full ${c.level === 'fix' ? 'bg-red-600' : 'bg-amber-500'}`} />{c.text}</li>)}</ul>
           </details>
         )}
@@ -162,7 +162,7 @@ export default function BooksPage({ searchParams }: { searchParams: PageSearchPa
           <section className="rounded-2xl border border-neutral-200 bg-white overflow-x-auto">
             <table className="w-full text-sm">
               <thead><tr className="border-b border-neutral-200 text-left text-[11px] font-bold uppercase tracking-[0.06em] text-neutral-500">
-                <th className="px-md py-sm">Landlord</th><th className="px-md py-sm text-right">Rent</th><th className="px-md py-sm text-right">Management fees</th><th className="px-md py-sm text-right">Letting fees</th>{data.vat && <th className="px-md py-sm text-right">VAT in fees</th>}<th className="px-md py-sm text-right">Expenses</th><th className="px-md py-sm text-right">Net income</th><th className="px-md py-sm text-right">Paid to them</th><th className="px-md py-sm" />
+                <th className="px-md py-sm">Landlord</th><th className="px-md py-sm text-right">Rent received</th><th className="px-md py-sm text-right">Management fees</th><th className="px-md py-sm text-right">Letting fees</th>{data.vat && <th className="px-md py-sm text-right">VAT in fees</th>}<th className="px-md py-sm text-right">Property expenses</th><th className="px-md py-sm text-right">Net rental income</th><th className="px-md py-sm text-right">Landlord payments</th><th className="px-md py-sm" />
               </tr></thead>
               <tbody className="tabular-nums">
                 {yearEnd.map(x => (
@@ -174,13 +174,13 @@ export default function BooksPage({ searchParams }: { searchParams: PageSearchPa
                     <td className="px-md py-sm text-right">{x.id && mode === 'year' && <button type="button" className="text-xs font-semibold text-blue-700 hover:underline" onClick={async () => {
                       const r = await adminFetch(`/api/admin/statements/annual?landlordId=${x.id}&year=${year}`)
                       if (!r.ok) { setError((await r.json().catch(() => ({}))).error ?? 'The summary couldn’t be made'); return }
-                      const a = document.createElement('a'); a.href = URL.createObjectURL(await r.blob()); a.download = `Annual summary ${data.label} - ${x.name}.pdf`; a.click()
-                    }}>Annual summary (PDF)</button>}</td>
+                      const a = document.createElement('a'); a.href = URL.createObjectURL(await r.blob()); a.download = `Annual statement ${data.label} - ${x.name}.pdf`; a.click()
+                    }}>Annual statement (PDF)</button>}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
-            <p className="border-t border-neutral-100 px-md py-sm text-xs text-neutral-500">Net income = rent − our fees − expenses: what goes on their property income return. Each annual summary shows the same figures by property and by type of expense.{mode === 'dates' && ' Annual summaries are by tax year — switch to Tax year to make them.'}</p>
+            <p className="border-t border-neutral-100 px-md py-sm text-xs text-neutral-500">Net rental income = rent received − agency fees − property expenses (cash basis). Each annual statement shows the same figures by property and by SA105 box.{mode === 'dates' && ' Annual statements are by tax year — switch to Tax year to make them.'}</p>
           </section>
         ) : (
           <section className="rounded-2xl border border-neutral-200 bg-white">
@@ -188,7 +188,7 @@ export default function BooksPage({ searchParams }: { searchParams: PageSearchPa
               <input type="search" value={q} onChange={e => setQ(e.target.value)} placeholder="Search property, tenant, description, reference…" className="min-w-[220px] flex-1 rounded-lg border border-neutral-200 px-sm py-xs text-sm" />
               {cats.length > 1 && (
                 <select value={category} onChange={e => setCategory(e.target.value)} className="rounded-lg border border-neutral-200 bg-white px-sm py-xs text-sm" aria-label="Type">
-                  <option value="">{view === 'fee' ? 'Every fee' : view === 'expense' ? 'Every expense' : view === 'deposit' ? 'Every deposit' : 'Every type'}</option>
+                  <option value="">{view === 'fee' ? 'All fee types' : view === 'expense' ? 'All expense categories' : view === 'deposit' ? 'All deposits' : 'All types'}</option>
                   {cats.map(([k, c]) => <option key={`${k}|${c}`} value={c}>{view === 'all' ? `${KIND_LABEL[k]} — ${c}` : c.charAt(0).toUpperCase() + c.slice(1)}</option>)}
                 </select>
               )}
@@ -223,7 +223,7 @@ export default function BooksPage({ searchParams }: { searchParams: PageSearchPa
         )}
 
         <VatCard vat={data?.vat ?? null} onSaved={load} />
-        <p className="text-xs text-neutral-500">How it’s added up: rent and fees count in the month the rent is for; payments to landlords on the day paid; expenses are what was spent on a property and charged back, plus costs logged here (EXP…) not yet on a statement. Rent received and our fees are never expenses. Practice houses are left out. Totals always equal the statements.</p>
+        <p className="text-xs text-neutral-500">How it’s added up (cash basis): rent and agency fees count in the month the rent is for; landlord payments on the day paid; property expenses are costs paid on a landlord’s behalf and deducted on their statement, plus costs logged here (EXP…) not yet on a statement. Rent received and agency fees are never property expenses. Practice houses are left out. Totals always equal the statements.</p>
       </main>
     </div>
   )

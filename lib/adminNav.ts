@@ -148,10 +148,10 @@ const ZONES_AS_WRITTEN: Zone[] = [
       { emoji: '🧾', label: 'Statements',       href: '/admin/statements' },
       { emoji: '💸', label: 'Payment Run',      href: '/admin/payment-run' },
       { emoji: '🏦', label: 'Bank',             href: '/admin/bank-calendar' },
-      { emoji: '📒', label: 'Books',            href: '/admin/books' },   // every rent, fee, expense, payout and deposit — accountant and HMRC exports
+      { emoji: '📒', label: 'Transactions',     href: '/admin/books' },   // every rent, fee, expense, landlord payment and deposit — accountant and HMRC exports
       { emoji: '💷', label: 'Expenses',         href: '/admin/expense-log' },
-      { emoji: '💰', label: 'Income',           href: '/admin/income' },
-      { emoji: '⏰', label: 'Rent Owed',        href: '/admin/rents-due' },   // Rents due · Arrears · Rent chase
+      { emoji: '💰', label: 'Agency Income',    href: '/admin/income' },
+      { emoji: '⏰', label: 'Rent Arrears',     href: '/admin/rents-due' },   // Rents due · Arrears · Arrears reminders
       { emoji: '🔐', label: 'Client Money',     href: '/admin/client-money' },   // Client money · Deposits
       { emoji: '📊', label: 'Reports',          href: '/admin/reports' },
     ],

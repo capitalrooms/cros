@@ -11,7 +11,7 @@ const INK = '#132219', MUTED = '#5C6B62', LINE = '#E1E6E0', TILE = '#F1F3EF', FO
 const W = 841.89, H = 595.28, M = 40
 const gbp = (n: number) => (n < 0 ? '−£' : '£') + Math.abs(n).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const day = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' })
-const KIND: Record<BookKind, string> = { rent: 'Rent received', fee: 'Fees', expense: 'Expenses', payout: 'Paid to landlords', deposit: 'Deposits' }
+const KIND: Record<BookKind, string> = { rent: 'Rent received', fee: 'Agency fees', expense: 'Property expenses', payout: 'Landlord payments', deposit: 'Tenancy deposits' }
 const r2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100
 
 export async function renderBooksPdf(o: { title: string; chosen: string[]; rows: BookRow[]; vat: boolean }): Promise<Buffer> {
@@ -31,7 +31,7 @@ export async function renderBooksPdf(o: { title: string; chosen: string[]; rows:
 
   // ── what was chosen ──
   let y = 30
-  doc.font(B).fontSize(8.5).fillColor(GOLD).text('CAPITAL ROOMS · BOOKS', M, y, { characterSpacing: 1.2 })
+  doc.font(B).fontSize(8.5).fillColor(GOLD).text('CAPITAL ROOMS · TRANSACTIONS', M, y, { characterSpacing: 1.2 })
   doc.font(D).fontSize(22).fillColor(FOREST).text(o.title, M, y + 13, { width: COL - logoW - 20 })
   y = doc.y + 3
   doc.font(R).fontSize(9.5).fillColor(MUTED).text(o.chosen.join('  ·  '), M, y, { width: COL - logoW - 20 })

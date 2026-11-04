@@ -77,7 +77,7 @@ export default function ResoldReport() {
             </tbody>
           </table>
         </div>
-        <p className="text-xs text-neutral-500">Set “What it cost us” when adding an expense, or a different “Charge the landlord” when filing a line from the Operations account. Expenses without it were charged at cost.</p>
+        <p className="text-xs text-neutral-500">Set “What it cost us” when adding an expense, or a different “Charge the landlord” when filing a line from the office account. Expenses without it were charged at cost.</p>
       </div>
     </div>
   )

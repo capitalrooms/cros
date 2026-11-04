@@ -75,7 +75,7 @@ export default function AutoLedgerPage() {
   return (
     <div className="min-h-screen fin pb-3xl">
       <AppBar left={<BackButton href="/admin/finance" />} title="Expenses" />
-      <PageHero look="olive" title="Expenses" subtitle="AutoLedger: statements emailed to statements@ are read and their expense lines added" tabs={expenseTabs('autoledger')} />
+      <PageHero look="olive" title="Expenses" subtitle="Emailed statements: agent statements sent to statements@ are read and their expense lines added" tabs={expenseTabs('autoledger')} />
       <main className="mx-auto max-w-6xl px-lg py-xl space-y-xl">
 
         {/* Header */}
@@ -107,7 +107,7 @@ export default function AutoLedgerPage() {
 
           <div className="space-y-md">
             <div>
-              <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-xs">AutoLedger — expenses &amp; statements</p>
+              <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-xs">Emailed statements — expenses &amp; statements</p>
               <div className="flex items-center gap-sm rounded-xl bg-neutral-50 border border-neutral-200 px-md py-sm">
                 <code className="flex-1 text-sm font-mono text-neutral-900">{BCC_ADDRESS}</code>
                 <button
@@ -142,7 +142,7 @@ export default function AutoLedgerPage() {
           <ol className="space-y-sm text-sm text-neutral-700">
             {[
               '10ninety sends a monthly landlord statement → you BCC statements@capitalrooms.co.uk',
-              'Resend receives the email and posts it to the AutoLedger webhook instantly',
+              'Resend receives the email and posts it to the emailed-statements webhook instantly',
               'CROS identifies the landlord from the sender email address',
               'AI reads the email body or CSV attachment and extracts every expense line',
               'Each line is AI-categorised automatically (boiler, plumbing, management fee, etc.)',
@@ -194,7 +194,7 @@ export default function AutoLedgerPage() {
               </div>
               <div className="ml-7 space-y-sm">
                 <div>
-                  <p className="text-xs font-semibold text-neutral-600 mb-xs">Route 1 — AutoLedger</p>
+                  <p className="text-xs font-semibold text-neutral-600 mb-xs">Route 1 — Emailed statements</p>
                   <div className="space-y-xs">
                     <div className="flex items-center gap-sm rounded-lg bg-white border border-neutral-200 px-sm py-xs">
                       <span className="text-xs text-neutral-400 w-16 shrink-0">Recipient</span>
@@ -241,7 +241,7 @@ export default function AutoLedgerPage() {
                 <p className="text-sm font-semibold text-neutral-900">Test with a forwarded email</p>
               </div>
               <p className="text-xs text-neutral-500 ml-7">
-                Forward any statement email to <code className="font-mono bg-white border border-neutral-200 px-1 py-0.5 rounded">{BCC_ADDRESS}</code>. Within seconds it should appear below in Recent AutoLedger Imports, and you&apos;ll get a notification email.
+                Forward any statement email to <code className="font-mono bg-white border border-neutral-200 px-1 py-0.5 rounded">{BCC_ADDRESS}</code>. Within seconds it should appear below in Recent imports, and you&apos;ll get a notification email.
               </p>
             </div>
 
@@ -259,7 +259,7 @@ export default function AutoLedgerPage() {
           <h2 className="text-base font-bold text-neutral-900 mb-md">What&apos;s already live</h2>
           <div className="space-y-xs">
             {[
-              { label: 'AutoLedger webhook', url: WEBHOOK_URL, status: 'live' },
+              { label: 'Emailed statements webhook', url: WEBHOOK_URL, status: 'live' },
               { label: 'Document inbox webhook', url: DOCS_WEBHOOK_URL, status: 'live' },
               { label: 'Resend email sending (outbound)', status: 'live' },
               { label: 'AI extraction & categorisation', status: 'live' },
@@ -288,7 +288,7 @@ export default function AutoLedgerPage() {
         {/* Recent imports */}
         <div className="rounded-2xl bg-white p-xl space-y-md">
           <div className="flex items-center justify-between">
-            <h2 className="text-base font-bold text-neutral-900">Recent AutoLedger imports</h2>
+            <h2 className="text-base font-bold text-neutral-900">Recent imports</h2>
             <Link href="/admin/expense-review" className="text-xs text-neutral-500 hover:text-neutral-900 underline">
               Review all →
             </Link>

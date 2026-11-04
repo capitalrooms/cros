@@ -67,8 +67,8 @@ export default function RentChasePage() {
   const label = (id: string) => (rows ?? []).find(r => r.tenancyId === id)
   return (
     <div className="min-h-screen fin">
-      <AppBar left={<BackButton href="/admin/finance" />} title="Rent owed" />
-      <PageHero look="olive" title="Rent owed" subtitle="Rent chase: remind everyone who owes, in one send" tabs={rentOwedTabs('chase')} />
+      <AppBar left={<BackButton href="/admin/finance" />} title="Rent arrears" />
+      <PageHero look="olive" title="Rent arrears" subtitle="Arrears reminders: remind every tenant in arrears, in one send" tabs={rentOwedTabs('chase')} />
       <div className="mx-auto max-w-6xl px-lg py-xl space-y-lg">
         <div>
           <p className="text-sm text-neutral-600">Everyone whose rent account shows rent unpaid, from the payments matched so far. Import and match the bank statement first, then check the amounts, untick anyone you don’t want to chase, and send.</p>
