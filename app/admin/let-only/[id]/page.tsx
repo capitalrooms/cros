@@ -143,9 +143,11 @@ export default function LetOnlyDetailPage() {
       <AppBar left={<BackButton href={backHref} />} />
 
       <PageHero
-        eyebrow={<>Lettings · Let-only · <span className={listing.is_active ? 'text-[#6EAF8B]' : ''}>{listing.is_active ? 'Active' : 'Inactive'}</span></>}
+        // the same heading as every record (4 Nov 2026): where it is, the address, one status
+        trail={[{ label: 'Lettings', href: '/admin/lettings' }, { label: 'Available Rooms', href: '/admin/available-and-lettings' }]}
         title={listing.address}
-        subtitle={listing.postcode || undefined}
+        chip={listing.is_active ? { label: 'Active', tone: 'good' } : { label: 'Inactive', tone: 'plain' }}
+        subtitle={[listing.postcode, 'Let only — the landlord manages'].filter(Boolean).join(' · ')}
         actions={<HeroButton onClick={saving ? undefined : toggleActive}>{saving ? '…' : listing.is_active ? 'Mark inactive' : 'Mark active'}</HeroButton>}
       />
 

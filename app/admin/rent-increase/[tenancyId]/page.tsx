@@ -96,8 +96,8 @@ export default function RentIncreasePage() {
         .select(`
           id, start_date, rent_amount, rent_due_day,
           person:people!tenancies_person_id_fkey(full_name, salutation, first_name, last_name, email),
-          room:rooms!tenancies_room_id_fkey(name),
-          property:properties!tenancies_property_id_fkey(name, address)
+          room:rooms!tenancies_room_id_fkey(id, name),
+          property:properties!tenancies_property_id_fkey(id, name, address)
         `)
         .eq('id', tenancyId)
         .maybeSingle()
@@ -232,7 +232,15 @@ export default function RentIncreasePage() {
   if (step === 'form') return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar left={<BackButton href={`/admin/tenant/${tenancy.person ? (tenancy as any).person_id || '' : ''}`} />} />
-      <PageHero eyebrow="Lettings · Section 13 rent increase notice" title={person ? displayName(person) : 'Rent review'} subtitle={[tenancy.room?.name, tenancy.property?.address].filter(Boolean).join(' · ')} />
+      {/* the same heading as every record (4 Nov 2026) */}
+      <PageHero
+        trail={[{ label: 'Properties', href: '/admin/active-rooms' },
+          ...((tenancy.property as any)?.id ? [{ label: String(tenancy.property?.name || tenancy.property?.address || '').split(/,|\n/)[0], href: `/admin/properties/${(tenancy.property as any).id}` }] : []),
+          ...((tenancy.property as any)?.id && (tenancy.room as any)?.id ? [{ label: tenancy.room?.name ?? 'Room', href: `/admin/properties/${(tenancy.property as any).id}/rooms/${(tenancy.room as any).id}` }] : []),
+          { label: person ? displayName(person) : 'Tenant', href: `/admin/lettings/${tenancyId}` }]}
+        title="Rent increase notice"
+        chip={{ label: 'Section 13 · Form 4A', tone: 'plain' }}
+        subtitle={[person ? displayName(person) : null, tenancy.rent_amount ? `current rent £${Number(tenancy.rent_amount).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} per month` : null].filter(Boolean).join(' · ')} />
       <main className="mx-auto max-w-6xl px-lg py-xl">
 
         {/* Current tenancy summary */}
