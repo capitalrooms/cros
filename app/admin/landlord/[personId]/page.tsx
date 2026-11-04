@@ -10,7 +10,7 @@ import { getCurrentUser } from '@/lib/auth'
 import AppBar from '@/components/AppBar'
 import { adminFetch } from '@/lib/adminFetch'
 import LandlordCorrespondence from './LandlordCorrespondence'
-import PageHero from '@/components/PageHero'
+import PageHero, { HeroButton } from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import SidePanel, { PanelRow, PanelButton } from '@/app/components/SidePanel'
 import { useUrlTab } from '@/lib/useUrlTab'
@@ -538,7 +538,18 @@ export default function LandlordProfilePage({ params, searchParams }: { params: 
       <PageHero
         trail={[{ label: 'People', href: '/admin/people' }, { label: 'Landlords', href: '/admin/people?tab=landlords' }]}
         title={landlordName}
-        subtitle={[person.company && person.company !== landlordName ? person.company : null, person.email, person.phone].filter(Boolean).join(' · ') || undefined}
+        // the same heading as a house, a room or a tenancy (4 Nov 2026): one status and one line of facts — contact details
+        // live once, on the Contact card, not three times
+        chip={amlRecords.length === 0 ? { label: 'AML not done', tone: 'warn' } : amlRecords[0].identity_verified ? { label: 'AML verified', tone: 'good' } : { label: 'AML in progress', tone: 'info' }}
+        subtitle={(() => {
+          const props = cardData.properties ?? []
+          const pcts = [...new Set(props.map(p => p.managementFeePct).filter((x): x is number => x != null))].sort((a, b) => a - b)
+          return [person.company && person.company !== landlordName ? person.company : null,
+            `${props.length} propert${props.length === 1 ? 'y' : 'ies'}`,
+            pcts.length ? `${pcts.length > 1 ? `${pcts[0]}–${pcts.at(-1)}` : pcts[0]}% management` : null,
+            person.created_at ? `landlord since ${fmt(person.created_at)}` : null].filter(Boolean).join(' · ')
+        })()}
+        actions={<HeroButton onClick={handleInvite}>{inviting ? 'Sending…' : 'Send app invite'}</HeroButton>}
         tabs={TABS.map(tab => ({ key: tab.id, label: tab.label, active: activeTab === tab.id, onClick: () => setActiveTab(tab.id) }))}
       />
 
@@ -552,15 +563,6 @@ export default function LandlordProfilePage({ params, searchParams }: { params: 
               {inviteMsg}
             </div>
           )}
-          <LandlordCard
-            data={cardData}
-            actions={
-              <button onClick={handleInvite} disabled={inviting}
-                className="rounded-lg border border-neutral-200 px-md py-xs text-xs font-semibold text-neutral-600 hover:bg-neutral-50 disabled:opacity-40 transition">
-                {inviting ? 'Sending…' : 'Send invite'}
-              </button>
-            }
-          />
         </div>}
 
         {/* what they see in their app — administrators switch parts on as and when (14 Oct 2026); with the notifications */}
