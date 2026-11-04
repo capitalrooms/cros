@@ -62,7 +62,8 @@ async function loadBoard(s: S, board: any) {
   const photo = (p: string) => ({ path: p, url: urls.get(p) ?? null })
   return (entries ?? []).map(e => ({
     id: e.id, title: e.title, body: e.body, status: e.status, dueDate: e.due_date,
-    stage: e.stage ?? null, responsible: e.responsible ?? null, dueNote: e.due_note ?? null,   // migration 223 createdAt: e.created_at, doneAt: e.done_at,
+    stage: e.stage ?? null, responsible: e.responsible ?? null, dueNote: e.due_note ?? null,   // migration 223
+    createdAt: e.created_at, doneAt: e.done_at,   // (4 Nov 2026: these sat inside the comment above, so every board with entries crashed)
     property: e.properties?.name ? shortAddress(e.properties.name) : null, propertyId: e.property_id,
     author: name(e.people), links: e.links ?? [], photos: (e.photos ?? []).map(photo),
     replies: (replies ?? []).filter(r => r.entry_id === e.id).map(r => ({
