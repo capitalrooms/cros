@@ -18,6 +18,9 @@ export const dynamic = 'force-dynamic'
 const r2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100
 const isDate = (d: unknown) => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d)
 
+/** statement lines that are never a cost of the property: rent received and our fees */
+const NOT_EXPENSES = new Set(['rent_income', 'income', 'management_fee', 'letting_fee', 'deposit', 'holding_deposit'])
+
 export async function GET(req: NextRequest) {
   if (!(await requireAdmin(req))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const s = createServiceClient()
@@ -25,7 +28,7 @@ export async function GET(req: NextRequest) {
   const propertyId = u.get('property_id'), from = u.get('from'), to = u.get('to'), q = (u.get('q') || '').toLowerCase().trim()
 
   let logged = s.from('recharge_expenses').select('*, properties(name), landlord_statements:included_in_statement_id(statement_reference, statement_date, payment_run_id)').order('expense_date', { ascending: false }).limit(5000)
-  let imported = s.from('statement_line_items').select('id, property_id, description, amount, category, room_label, statement_date, statement_id, recharge_expense_id, source, properties(name), landlord_statements:statement_id(statement_reference)')
+  let imported = s.from('statement_line_items').select('id, property_id, description, amount, category, category_type, room_label, statement_date, statement_id, recharge_expense_id, source, properties(name), landlord_statements:statement_id(statement_reference)')
     .order('statement_date', { ascending: false }).limit(5000)
   if (propertyId) { logged = logged.eq('property_id', propertyId); imported = imported.eq('property_id', propertyId) }
   if (from && isDate(from)) { logged = logged.gte('expense_date', from); imported = imported.gte('statement_date', from) }
@@ -48,7 +51,9 @@ export async function GET(req: NextRequest) {
       deducted_on: e.landlord_statements?.statement_date ?? null, run_id: e.landlord_statements?.payment_run_id ?? null, reimbursed_on: null as string | null,
     })),
     // lines from statements (imported from 10ninety or made here) that aren't already one of the logged expenses above
-    ...((b.error ? [] : b.data ?? []) as any[]).filter(l => !l.recharge_expense_id).map(l => ({
+    // only money spent on the property: a statement's rent coming in and our own fees are on it too, but they aren't
+    // expenses (4 Nov 2026, Harry — the list showed 884 "expenses", £364,877, mostly rent and management fees)
+    ...((b.error ? [] : b.data ?? []) as any[]).filter(l => !l.recharge_expense_id && !NOT_EXPENSES.has(String(l.category ?? '')) && l.category_type !== 'income').map(l => ({
       id: l.id, kind: 'statement' as const, property_id: l.property_id, property: String(l.properties?.name || '').split('\n')[0],
       date: l.statement_date, description: l.description, amount: Number(l.amount), category: l.category ?? null, supplier: null,
       invoice_number: null, has_invoice: false, share_invoice: false, reference: null, voided: false, void_reason: null, deducted_on: l.statement_date ?? null, run_id: null, reimbursed_on: null as string | null,
