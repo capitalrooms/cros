@@ -11,6 +11,8 @@ import { isWholeLet, placeLabel } from '@/lib/lettings/letWording'
 import { propertyPaperworkAddress } from '@/lib/properties/names'
 import { dearFromText } from '@/lib/people'
 import { getBusinessSettings } from '@/lib/emailWrapper'
+import { greeting, para, paraHtml, hero, card, steps, checklist, button, EMAIL } from '@/lib/email/blocks'
+import { MOVE_OUT_CLEAN_RATE } from '@/lib/checkout/moveOutLink'
 
 export interface MoveOut {
   whole: boolean
@@ -43,37 +45,37 @@ export function moveOutChecklist(whole: boolean): { title: string; items: string
       ]
 }
 
-export function moveOutEmail(m: MoveOut): { subject: string; html: string } {
-  const what = m.whole ? 'the property' : 'your room'
-  const steps: [string, string][] = [
-    ['Before you go', `Have a look at the checklist below and the move-out form attached. Fill in the form when you can — it tells us where to reach you and ${m.whole ? 'the meter readings' : 'anything we should know'}.`],
-    ['Check-out', `On or just before ${day(m.moveOutDate)} we’ll check ${what} against the inventory from when you moved in. We’ll get in touch to agree a time — you’re welcome to be there.`],
-    ['Keys', 'Hand back every key on the day. If you can’t meet us, we’ll tell you where to leave them safely.'],
-    ['Your deposit', `${m.deposit ? `Your deposit of ${money(m.deposit)} ${m.depositProtected ? 'is held in a government-approved protection scheme' : 'is ready to come back to you'}. ` : ''}We’ll tell you about any deductions with photos, and once we’ve agreed the amount it’s paid back within 10 days.`],
+/** What can come off the deposit, in plain words — on the email and the online form (4 Nov 2026). */
+export function moveOutCharges(m: Pick<MoveOut, 'whole' | 'depositProtected'>): [string, string][] {
+  return [
+    ['Cleaning', `Book our cleaner for your last day at £${MOVE_OUT_CLEAN_RATE} an hour and it comes off your deposit — no need to arrange your own. If ${m.whole ? 'the property isn’t' : 'your room isn’t'} left clean and you haven’t booked, we’ll arrange a clean and tell you the cost before anything is taken.`],
+    ['Keys', 'Any key, fob or permit not handed back: what it costs us to replace it (and the lock, if it has to change).'],
+    ['Damage', 'Anything damaged beyond normal wear and tear since your move-in inventory: the cost of putting it right, with photos and the quote or receipt.'],
+    ['Things left behind', 'Belongings or rubbish left after you go: the cost of clearing them.'],
+    ['Rent', 'Any rent still owed up to your move-out date.'],
   ]
-  const lastRent = m.lastRent?.amount ? `<p style="margin:14px 0 0;font-size:14px;color:#3f3c38">Your last rent payment is <strong>${money(m.lastRent.amount)}</strong>${m.lastRent.days ? ` for ${m.lastRent.days} day${m.lastRent.days === 1 ? '' : 's'}` : ''}, up to your move-out date.</p>` : ''
-  const card = 'border:1px solid #E7E3DC;border-radius:14px;padding:18px 20px;margin:0 0 14px;background:#ffffff'
-  const html = `
-<p style="margin:0 0 14px;font-size:15px;color:#1f1d1a">Dear ${esc(m.dear)},</p>
-<p style="margin:0 0 18px;font-size:15px;line-height:1.6;color:#1f1d1a">Thank you for letting us know. We’ve recorded your notice for ${esc(m.place)}, and we’re sorry to see you go. Here’s everything you need for a smooth move-out.</p>
-<div style="${card};background:#F7F5F1;text-align:center">
-  <p style="margin:0;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#7b766e">Your move-out date</p>
-  <p style="margin:6px 0 0;font-size:24px;font-weight:700;color:#1f1d1a">${day(m.moveOutDate)}</p>
-  ${lastRent}
-</div>
-<div style="${card}">
-  <p style="margin:0 0 10px;font-size:13px;font-weight:700;color:#1f1d1a">What happens next</p>
-  ${steps.map(([h, t], i) => `<table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;margin:${i ? '12px' : '0'} 0 0"><tr>
-    <td style="width:28px;vertical-align:top"><span style="display:inline-block;width:22px;height:22px;border-radius:11px;background:#1f1d1a;color:#fff;font-size:12px;font-weight:700;line-height:22px;text-align:center">${i + 1}</span></td>
-    <td style="vertical-align:top;font-size:14px;line-height:1.55;color:#3f3c38"><strong style="color:#1f1d1a">${h}.</strong> ${t}</td></tr></table>`).join('')}
-</div>
-<div style="${card}">
-  <p style="margin:0 0 4px;font-size:13px;font-weight:700;color:#1f1d1a">Before you hand back the keys</p>
-  ${moveOutChecklist(m.whole).map(g => `<p style="margin:12px 0 4px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#7b766e">${g.title}</p>
-  <ul style="margin:0;padding-left:18px;font-size:14px;line-height:1.6;color:#3f3c38">${g.items.map(i => `<li>${i}</li>`).join('')}</ul>`).join('')}
-</div>
-<p style="margin:0 0 6px;font-size:14px;line-height:1.6;color:#3f3c38"><strong style="color:#1f1d1a">Attached:</strong> your move-out form. You can fill it in on your phone or computer and reply with it, or bring it on the day.</p>
-<p style="margin:14px 0 0;font-size:14px;line-height:1.6;color:#3f3c38">Any questions, just reply to this email${m.phone ? ` or call ${esc(m.phone)}` : ''}. Thank you for living with us.</p>`
+}
+
+export function moveOutEmail(m: MoveOut & { formUrl?: string | null }): { subject: string; html: string } {
+  const what = m.whole ? 'the property' : 'your room'
+  const lastRent = m.lastRent?.amount ? `Your last rent payment is <strong>${money(m.lastRent.amount)}</strong>${m.lastRent.days ? ` for ${m.lastRent.days} day${m.lastRent.days === 1 ? '' : 's'}` : ''}, up to your move-out date.` : ''
+  const html = [
+    greeting(m.dear),
+    para(`Thank you for letting us know. We’ve recorded your notice for ${m.place}, and we’re sorry to see you go. Here’s everything for a smooth move-out.`),
+    hero({ eyebrow: 'Your move-out date', title: day(m.moveOutDate), subHtml: lastRent || undefined }),
+    m.formUrl ? card('Your move-out form', `${paraHtml(`Two minutes on your phone: where to send your deposit letters, ${m.whole ? 'your meter readings, ' : ''}your keys, anything we should know — and you can book our cleaner for your last day.`)}${button(m.formUrl, 'Fill in my move-out form')}`, 'mint') : '',
+    card('What happens next', steps([
+      ['Your form', `Fill it in when you can — it’s saved as you go, and you can come back to change it.`],
+      ['Check-out', `On or just before ${day(m.moveOutDate)} we check ${what} against your move-in inventory. We’ll agree a time with you, and you’re welcome to be there.`],
+      ['Keys', 'Hand back every key on the day. If you can’t meet us, we’ll tell you where to leave them safely.'],
+      ['Your deposit', `${m.deposit ? `Your deposit of ${money(m.deposit)} ${m.depositProtected ? 'is held in a government-approved protection scheme' : 'is ready to come back to you'}. ` : ''}We’ll show you any deductions with photos, and once agreed it’s paid back within 10 days.`],
+    ])),
+    card(`Book our cleaner — £${MOVE_OUT_CLEAN_RATE} an hour`, paraHtml(`Save yourself the last-day scrub: book our cleaner on your move-out form, choose how many hours, and the cost comes off your deposit — nothing to pay now.${m.whole ? '' : ' Most rooms take two to three hours.'}`), 'cream'),
+    card('What can come off a deposit', moveOutCharges(m).map(([k, v]) => `<p style="margin:0 0 10px;font-family:${EMAIL.body};font-size:14px;line-height:1.6;color:${EMAIL.text}"><strong style="color:${EMAIL.ink}">${k}.</strong> ${v}</p>`).join('')
+      + `<p style="margin:4px 0 0;font-family:${EMAIL.body};font-size:13px;color:${EMAIL.muted}">Fair wear and tear is never charged.${m.depositProtected ? ' If you disagree with anything, the deposit scheme’s free dispute service decides.' : ''}</p>`),
+    card('Before you hand back the keys', checklist(moveOutChecklist(m.whole))),
+    paraHtml(`Any questions, just reply to this email${m.phone ? ` or call ${esc(m.phone)}` : ''}. Thank you for living with us.`),
+  ].join('\n')
   return { subject: `Your move-out — ${day(m.moveOutDate)}`, html }
 }
 
