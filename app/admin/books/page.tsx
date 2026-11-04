@@ -75,7 +75,7 @@ export default function BooksPage({ searchParams }: { searchParams: PageSearchPa
       if (r.kind === 'payout') x.paid += r.amount
       m.set(k, x)
     }
-    return [...m.values()].filter(x => x.rent || x.mgmt || x.letting || x.exp || x.paid).sort((a, b) => a.name.localeCompare(b.name))
+    return [...m.values()].filter(x => x.rent || x.mgmt || x.letting || x.exp || x.paid).sort((a, b) => String(a.name).localeCompare(String(b.name)))
   }, [data])
 
   const years = Array.from({ length: 4 }, (_, i) => thisTaxYear() - i)

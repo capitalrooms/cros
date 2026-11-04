@@ -53,13 +53,13 @@ export async function GET(req: NextRequest) {
   for (const [k, refs] of seen) if (refs.length > 1) checks.push({ level: 'look', text: `${k.split('|')[0]} has ${refs.length} statements for ${k.split('|')[1]}: ${refs.join(', ')} — fine if one is a correction; otherwise one is a duplicate.` })
 
   const [{ data: landlords }, { data: properties }] = await Promise.all([
-    s.from('people').select('id, salutation, first_name, last_name, full_name, company').eq('role', 'landlord'),
+    s.from('people').select('id, salutation, first_name, last_name, full_name, company, email').eq('role', 'landlord'),
     s.from('properties').select('id, name, is_demo'),
   ])
   return NextResponse.json({
     from: range.from, to: range.to, label: range.label, vat: books.vat, rows, totals, feeTotals, checks,
-    landlords: ((landlords ?? []) as any[]).map(p => ({ id: p.id, name: p.company || [p.salutation, p.first_name, p.last_name].filter(Boolean).join(' ') || p.full_name })).sort((a, b) => a.name.localeCompare(b.name)),
-    properties: ((properties ?? []) as any[]).filter(p => !p.is_demo).map(p => ({ id: p.id, name: String(p.name).split('\n')[0] })).sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true })),
+    landlords: ((landlords ?? []) as any[]).map(p => ({ id: p.id, name: String(p.company || [p.salutation, p.first_name, p.last_name].filter(Boolean).join(' ') || p.full_name || p.email || 'Landlord without a name') })).sort((a, b) => a.name.localeCompare(b.name)),
+    properties: ((properties ?? []) as any[]).filter(p => !p.is_demo).map(p => ({ id: p.id, name: String(p.name ?? '').split('\n')[0] })).sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true })),
   })
 }
 
