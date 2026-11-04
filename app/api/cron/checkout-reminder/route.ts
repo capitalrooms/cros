@@ -4,7 +4,12 @@ import { hiName } from '@/lib/people'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { expandJoint } from '@/lib/serverNotify'
 import { getTemplate, render } from '@/lib/messageTemplate'
-import { buildEmail } from '@/lib/emailWrapper'
+import { buildEmail, getBusinessSettings } from '@/lib/emailWrapper'
+import { hero, card, checklist, button, paraHtml, greeting } from '@/lib/email/blocks'
+import { moveOutChecklist } from '@/lib/checkout/moveOut'
+import { moveOutUrl, MOVE_OUT_CLEAN_RATE } from '@/lib/checkout/moveOutLink'
+import { dearName } from '@/lib/people'
+import { isWholeLet } from '@/lib/lettings/letWording'
 
 import { getCommsLive } from '@/lib/comms'
 
@@ -48,7 +53,7 @@ export async function GET(req: Request) {
       people:person_id (salutation, first_name, last_name, full_name, email),
       co:people!co_tenant_id(salutation, first_name, last_name, full_name, email),
       rooms(name),
-      properties(address)
+      properties(address, property_type)
     `)
     .not('notice_received_date', 'is', null)   // on notice
     .eq('end_date', targetDate)
@@ -67,6 +72,7 @@ export async function GET(req: Request) {
   }
 
   const tpl = await getTemplate('checkout-reminder-2weeks')
+  const biz = await getBusinessSettings()
   const sent: string[] = []
   const failed: string[] = []
 
@@ -84,16 +90,23 @@ export async function GET(req: Request) {
       move_out_date: moveOutDate,
       room_name: (t as any).rooms?.name || 'your room',
       property_address: (t as any).properties?.address || '',
-      contact_phone: '+44 (0)20 XXXX XXXX',
+      contact_phone: biz.phone,   // was a placeholder '+44 (0)20 XXXX XXXX' (fixed 4 Nov 2026)
     }
 
     const subject = tpl?.subject_line
       ? render(tpl.subject_line, vars, person)
       : `Reminder: your move-out is in 2 weeks — ${moveOutDate}`
 
-    const html = tpl?.template_text
-      ? await buildEmail(render(tpl.template_text, vars, person))
-      : await buildEmail(fallbackReminderBody(vars))
+    // the house look (lib/email/blocks, 4 Nov 2026): the date big, your wording from Message Templates (or ours), then
+    // the move-out form button and the checklist
+    const whole = isWholeLet((t as any).properties?.property_type, (t as any).rooms?.name)
+    const html = await buildEmail([
+      tpl?.template_text ? render(tpl.template_text, vars, person) : `${greeting(dearName(person))}${paraHtml(`Just a reminder that you move out in two weeks. If you haven’t yet, fill in your move-out form — and you can still book our cleaner for your last day at £${MOVE_OUT_CLEAN_RATE} an hour, taken from your deposit.`)}`,
+      hero({ eyebrow: 'Your move-out date', title: moveOutDate, sub: 'Two weeks today' }),
+      button(moveOutUrl(t.id), 'Open my move-out form'),
+      card('Before you hand back the keys', checklist(moveOutChecklist(whole))),
+      paraHtml(`Any questions, just reply to this email or call ${vars.contact_phone}.`),
+    ].join('\n'))
 
     const res = await deliverEmail({ to: email, subject, html })
 
@@ -113,18 +126,3 @@ export async function GET(req: Request) {
 }
 
 // Body-only fallback — shared wrapper applies the header/footer via buildEmail()
-function fallbackReminderBody(vars: Record<string, string>) {
-  return `
-    <h2 style="margin:0 0 18px;font-size:20px">Moving out soon</h2>
-    <p style="margin:0 0 12px">Hi ${vars.tenant_name},</p>
-    <p style="margin:0 0 12px">Just a reminder that your move-out date is <strong>${vars.move_out_date}</strong> — two weeks from today.</p>
-    <h3 style="margin:20px 0 8px;font-size:16px">Checkout checklist</h3>
-    <ul style="margin:0 0 16px;padding-left:20px;line-height:1.7">
-      <li>Clear all personal belongings from your room and communal storage</li>
-      <li>Leave the room clean and in the condition it was when you moved in</li>
-      <li>Return all keys by midday on your move-out date</li>
-      <li>Cancel any direct debits for rent</li>
-      <li>Update your address with HMRC, banks, and subscriptions</li>
-    </ul>
-    <p style="margin:0">Any questions? Call us on ${vars.contact_phone}.</p>`
-}

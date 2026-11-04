@@ -8,7 +8,8 @@ import { logTenancyEvent } from '@/lib/lettings/incomingTenancy'
 import { buildEmail } from '@/lib/emailWrapper'
 import { getTemplate, render } from '@/lib/messageTemplate'
 import { regularCleanerId } from '@/lib/cleaners/regular'
-import { moveOutEmail, moveOutFormPdf, prepareMoveOut } from '@/lib/checkout/moveOut'
+import { moveOutEmail, prepareMoveOut } from '@/lib/checkout/moveOut'
+import { moveOutUrl } from '@/lib/checkout/moveOutLink'
 
 
 const ukDay = (iso: string) => new Date(`${iso.slice(0, 10)}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })
@@ -126,17 +127,14 @@ export async function POST(request: Request) {
     // Load the cleaner's checkout template (graceful fallback)
     const cleanerCheckoutTpl = await getTemplate('checkout-cleaner-headsup')
 
-    // 4. The tenant's move-out email, with the fillable move-out form attached (lib/checkout/moveOut, 29 Oct 2026 —
-    //    the stored template was one line). A whole home (single let) gets the whole-property version.
+    // 4. The tenant's move-out email (lib/checkout/moveOut). Since 4 Nov 2026 it links to their online move-out form
+    //    (/moveout/<signed link>) — easy on a phone, answers straight into CROS, and they can book our cleaner —
+    //    instead of attaching a PDF to fill in. A whole home (single let) gets the whole-property version.
     let tenantEmailSent = false
     if (emailTenant && tenantEmail) {
       const m = await prepareMoveOut(supabase, { tenancyId, moveOutDate, tenantName, proRataAmount, proRataDays, roomName, propertyAddress })
-      const { subject, html } = moveOutEmail(m)
-      const form = await moveOutFormPdf(m).catch(e => { console.error('move-out form failed:', e); return null })
-      const res = await deliverEmail({
-        to: tenantEmail, subject, html: await buildEmail(html, { req: request }),
-        attachments: form ? [{ filename: 'Move-out form.pdf', content: form.toString('base64') }] : undefined,
-      }, { req: request })
+      const { subject, html } = moveOutEmail({ ...m, formUrl: moveOutUrl(tenancyId) })
+      const res = await deliverEmail({ to: tenantEmail, subject, html: await buildEmail(html, { req: request }) }, { req: request })
       tenantEmailSent = res.ok
       if (!res.ok) console.error('Resend error:', await res.text().catch(() => ''))
       if (tenantEmailSent) {

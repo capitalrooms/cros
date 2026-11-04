@@ -733,6 +733,43 @@ export function MonthByMonth({ tenancyId, rent, who }: { tenancyId: string; rent
   )
 }
 
+// ── The tenant's online move-out form (4 Nov 2026) ─────────────────────────
+// Their answers (forwarding address, meters, keys, anything broken, checklist) and the cleaner they booked for their
+// last day — £20 an hour from the deposit. Their link is here too, to send again if they've lost the email.
+
+function MoveOutFormAnswers({ tenancyId }: { tenancyId: string }) {
+  const [d, setD] = useState<any>(null)
+  const [copied, setCopied] = useState(false)
+  useEffect(() => { adminFetch(`/api/admin/lettings/${tenancyId}/move-out-form`).then(r => r.ok ? r.json() : null).then(setD).catch(() => setD(null)) }, [tenancyId])
+  if (!d) return null
+  const f = d.form, a = f?.answers ?? {}
+  const rows: [string, string][] = f ? [
+    ['Forwarding address', a.forwardingAddress || '—'], ['Phone after', a.phoneAfter || '—'], ['Email after', a.emailAfter || '—'],
+    ...(a.meters && (a.meters.gas || a.meters.electricity || a.meters.water) ? [['Meters', [a.meters.gas && `Gas ${a.meters.gas}`, a.meters.electricity && `Electricity ${a.meters.electricity}`, a.meters.water && `Water ${a.meters.water}`, a.meters.readAt].filter(Boolean).join(' · ')] as [string, string]] : []),
+    ['Keys', [a.keys, a.keysOn && `back ${day(a.keysOn)}`].filter(Boolean).join(' · ') || '—'],
+    ...(a.issues ? [['Broken or not working', a.issues] as [string, string]] : []),
+    ...(a.other ? [['Anything else', a.other] as [string, string]] : []),
+    ['Checklist', `${(a.ticked ?? []).length} ticked`],
+  ] : []
+  return (
+    <section className={card}>
+      <div className="mb-sm flex flex-wrap items-baseline justify-between gap-sm">
+        <h2 className="text-lg font-bold">Move-out form</h2>
+        <button type="button" onClick={() => { navigator.clipboard?.writeText(d.link); setCopied(true) }} className="text-xs font-semibold text-blue-700 hover:underline">{copied ? 'Link copied' : 'Copy their form link'}</button>
+      </div>
+      {d.setupNeeded ? <p className="text-sm text-amber-800">Run migration 262 in Supabase to start receiving move-out forms.</p>
+      : !f ? <p className="text-sm text-neutral-500">Not filled in yet. The move-out email links to it.</p>
+      : <>
+          {f.cleaner_hours
+            ? <p className="mb-sm rounded-xl bg-amber-50 px-md py-sm text-sm font-semibold text-amber-900">Cleaner booked for the last day: {f.cleaner_hours} hour{Number(f.cleaner_hours) === 1 ? '' : 's'} × {gbp(f.cleaner_rate)} = {gbp(Number(f.cleaner_hours) * Number(f.cleaner_rate))} from the deposit · agreed {day(f.cleaner_agreed_at)}</p>
+            : <p className="mb-sm text-sm text-neutral-600">No cleaner booked.</p>}
+          <dl className="divide-y divide-neutral-100 text-sm">{rows.map(([k, v]) => <div key={k} className="flex gap-md py-xs"><dt className="w-40 shrink-0 text-neutral-500">{k}</dt><dd className="whitespace-pre-wrap">{v}</dd></div>)}</dl>
+          <p className="mt-xs text-xs text-neutral-500">Sent {day(f.submitted_at)}{f.updated_at && f.updated_at !== f.submitted_at ? ` · last changed ${day(f.updated_at)}` : ''}</p>
+        </>}
+    </section>
+  )
+}
+
 // ── Documents ───────────────────────────────────────────────────────────────
 
 export function DocumentsTab({ file, reload }: { file: LettingFile; reload: () => Promise<void> }) {
@@ -868,6 +905,7 @@ export function NoticeTab({ file, patch, reload, startMarking }: { file: Letting
   }
   return (
     <div className="space-y-md">
+      {(t.notice_received_date || t.end_date) && <MoveOutFormAnswers tenancyId={t.id} />}
       <section className={`${card} space-y-sm`}>
         <h2 className="text-lg font-bold">Notice &amp; Rent</h2>
         <dl className="grid grid-cols-2 gap-sm text-sm sm:grid-cols-3">
