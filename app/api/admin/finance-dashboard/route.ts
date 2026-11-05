@@ -21,12 +21,22 @@ export async function GET(req: NextRequest) {
   const month = req.nextUrl.searchParams.get('month') || new Date().toISOString().slice(0, 7)
   const s = createServiceClient()
   try {
-    const [roll, { data: exps }, { data: stmts }, { data: batches }, position] = await Promise.all([
+    // everything that doesn't depend on anything else loads at once (5 Nov 2026: these used to queue one after another)
+    const since = new Date(Date.now() - 120 * 86_400_000).toISOString().slice(0, 10), until = new Date(Date.now() + 31 * 86_400_000).toISOString().slice(0, 10)
+    const todayL = london(new Date().toISOString())
+    const [roll, { data: exps }, { data: stmts }, { data: batches }, position, demo, { data: lo }, { data: hds }, { data: dq }, { data: kept }, { data: deps }] = await Promise.all([
       buildRentRoll(s, month),
       s.from('recharge_expenses').select('id, txn_no, property_id, description, supplier, amount, expense_date, properties(name)').is('included_in_statement_id', null).is('voided_at', null).order('expense_date', { ascending: false }).limit(200),
       s.from('landlord_statements').select('id, statement_reference, statement_date, net_to_landlord, paid_date, approved_at, source, landlord_id, property_id, properties(name), people:landlord_id(salutation, first_name, last_name, full_name, company)').order('statement_date', { ascending: false }).limit(400),
       s.from('bank_import_batches').select('period_from, period_to, imported_at, filename, is_practice').order('imported_at', { ascending: false }).limit(60),
       clientAccountPosition(s).catch(() => null),
+      demoPropertyIds(s),
+      s.from('tenancies').select('id, start_date, rent_amount, deposit_amount, let_cancelled_at, people!person_id(salutation, first_name, last_name), properties!inner(id, name, letting_type, landlord_id)')
+        .eq('properties.letting_type', 'let_only').gte('start_date', since).lte('start_date', until).is('let_cancelled_at', null),
+      s.from('holding_deposits').select('hold_no, amount, received_on, tenancy_id, tenancies(start_date, agreement_signed_at, people!person_id(salutation, first_name, last_name), properties(id, name))').eq('status', 'held'),
+      s.from('tenancies').select('id, property_id, deposit_received_on, deposit_received_amount, properties(name), people!person_id(salutation, first_name, last_name)').not('deposit_received_on', 'is', null).is('deposit_sent_on', null),
+      s.from('holding_deposits').select('hold_no, amount, outcome_on, applicant_id, tenancy_id, property_id, payer_name, notice_sent_at').eq('status', 'retained').is('notice_sent_at', null),
+      s.from('tenancies').select('id, deposit_amount, deposit_held_by, end_date, let_cancelled_at, property_id').gt('deposit_amount', 0).is('let_cancelled_at', null).is('deposit_held_by', null).or(`end_date.is.null,end_date.gte.${london(new Date().toISOString())}`),
     ])
 
     const ps = roll.properties
@@ -40,19 +50,19 @@ export async function GET(req: NextRequest) {
     // let-only lets (3 Nov 2026, Harry: "it should work this out from properties due to pay including let fee only
     // landlords"): a let-only tenancy that started in the last four months, or starts in the next month, owes its
     // landlord the move-in money less our fee — until that's recorded and paid (lib/finance/initialMonies) it's to do.
-    const since = new Date(Date.now() - 120 * 86_400_000).toISOString().slice(0, 10), until = new Date(Date.now() + 31 * 86_400_000).toISOString().slice(0, 10)
-    const { data: lo } = await s.from('tenancies').select('id, start_date, rent_amount, deposit_amount, let_cancelled_at, people!person_id(salutation, first_name, last_name), properties!inner(id, name, letting_type, landlord_id)')
-      .eq('properties.letting_type', 'let_only').gte('start_date', since).lte('start_date', until).is('let_cancelled_at', null)
-    const demo = await demoPropertyIds(s)
     const loRows = ((lo ?? []) as any[]).filter(t => !demo.has(t.properties?.id))
-    const { data: ims } = loRows.length ? await s.from('initial_monies').select('tenancy_id, to_landlord, paid_on, fee, id').in('tenancy_id', loRows.map(t => t.id)).is('voided_at', null) : { data: [] }
-    const { data: closedBits } = loRows.length ? await s.from('landlord_updates').select('tenancy_id').in('tenancy_id', loRows.map(t => t.id)).in('stage', ['signed_paid', 'summary']) : { data: [] }
+    const llIds = [...new Set(loRows.map(t => t.properties?.landlord_id).filter(Boolean))]
+    // the let-only lets' money, statements and landlords — together
+    const none = Promise.resolve({ data: [] as any[] })
+    const [{ data: ims }, { data: closedBits }, { data: lls }] = await Promise.all([
+      loRows.length ? s.from('initial_monies').select('tenancy_id, to_landlord, paid_on, fee, id').in('tenancy_id', loRows.map(t => t.id)).is('voided_at', null) : none,
+      loRows.length ? s.from('landlord_updates').select('tenancy_id').in('tenancy_id', loRows.map(t => t.id)).in('stage', ['signed_paid', 'summary']) : none,
+      llIds.length ? s.from('people').select('id, salutation, first_name, last_name, company').in('id', llIds) : none,
+    ])
     const stmtSent = new Set(((closedBits ?? []) as any[]).map(r => r.tenancy_id))
     const { data: trs } = (ims ?? []).length ? await s.from('office_transfers').select('initial_monies_id').in('initial_monies_id', (ims as any[]).map(i => i.id)).is('voided_at', null) : { data: [] }
     const feeMoved = new Set(((trs ?? []) as any[]).map(r => r.initial_monies_id))
     const imBy = new Map(((ims ?? []) as any[]).map(r => [r.tenancy_id, r]))
-    const llIds = [...new Set(loRows.map(t => t.properties?.landlord_id).filter(Boolean))]
-    const { data: lls } = llIds.length ? await s.from('people').select('id, salutation, first_name, last_name, company').in('id', llIds) : { data: [] }
     const llName = new Map(((lls ?? []) as any[]).map(p => [p.id, [p.salutation, p.first_name, p.last_name].filter(Boolean).join(' ') || p.company || '']))
     const letOnly = loRows.map(t => {
       const im = imBy.get(t.id) as any
@@ -65,8 +75,6 @@ export async function GET(req: NextRequest) {
 
     // client-money loose ends (3 Nov 2026 audit): a holding deposit still "held" after the tenant moved in should have
     // gone towards the move-in money; a live deposit with nobody recorded as holding it can't be checked as protected
-    const todayL = london(new Date().toISOString())
-    const { data: hds } = await s.from('holding_deposits').select('hold_no, amount, received_on, tenancy_id, tenancies(start_date, agreement_signed_at, people!person_id(salutation, first_name, last_name), properties(id, name))').eq('status', 'held')
     const holdingToApply = ((hds ?? []) as any[]).filter(h => h.tenancy_id && h.tenancies?.start_date && h.tenancies.start_date <= todayL && !demo.has(h.tenancies?.properties?.id))
       .map(h => ({ tenancyId: h.tenancy_id as string, number: h.hold_no as string, amount: Number(h.amount), house: first(h.tenancies?.properties?.name), tenant: [h.tenancies?.people?.salutation, h.tenancies?.people?.first_name, h.tenancies?.people?.last_name].filter(Boolean).join(' '), moved: h.tenancies.start_date as string }))
     // Tenant Fees Act 2019: 15 days from taking a holding deposit to sign (unless another date was agreed in writing);
@@ -75,18 +83,15 @@ export async function GET(req: NextRequest) {
     const holdingPastDeadline = ((hds ?? []) as any[]).filter(h => h.received_on && h.received_on < day15 && !h.tenancies?.agreement_signed_at && !(h.tenancies?.start_date && h.tenancies.start_date <= todayL) && !demo.has(h.tenancies?.properties?.id))
       .map(h => ({ tenancyId: h.tenancy_id as string | null, number: h.hold_no as string, amount: Number(h.amount), house: first(h.tenancies?.properties?.name), tenant: [h.tenancies?.people?.salutation, h.tenancies?.people?.first_name, h.tenancies?.people?.last_name].filter(Boolean).join(' '), received: h.received_on as string }))
     // managed deposits received but not yet sent to the DPS (migration 258) — 30 days from receiving to protect
-    const { data: dq } = await s.from('tenancies').select('id, property_id, deposit_received_on, deposit_received_amount, properties(name), people!person_id(salutation, first_name, last_name)').not('deposit_received_on', 'is', null).is('deposit_sent_on', null)
     const depositsToDps = ((dq ?? []) as any[]).filter(t => !demo.has(t.property_id)).map(t => ({ tenancyId: t.id as string, amount: Number(t.deposit_received_amount), house: first(t.properties?.name), tenant: [t.people?.salutation, t.people?.first_name, t.people?.last_name].filter(Boolean).join(' '), received: t.deposit_received_on as string, days: Math.round((Date.parse(todayL) - Date.parse(t.deposit_received_on)) / 86_400_000) }))
     // a kept holding deposit needs written reasons within 7 days (Tenant Fees Act; migration 259)
-    const { data: kept } = await s.from('holding_deposits').select('hold_no, amount, outcome_on, applicant_id, tenancy_id, property_id, payer_name, notice_sent_at').eq('status', 'retained').is('notice_sent_at', null)
     const retainNotices = ((kept ?? []) as any[]).filter(h => !demo.has(h.property_id)).map(h => ({ applicantId: h.applicant_id as string | null, tenancyId: h.tenancy_id as string | null, number: h.hold_no as string, amount: Number(h.amount), who: h.payer_name as string, decided: h.outcome_on as string, by: new Date(Date.parse(h.outcome_on) + 7 * 86_400_000).toISOString().slice(0, 10) }))
-    const { data: deps } = await s.from('tenancies').select('id, deposit_amount, deposit_held_by, end_date, let_cancelled_at, property_id').gt('deposit_amount', 0).is('let_cancelled_at', null).is('deposit_held_by', null).or(`end_date.is.null,end_date.gte.${todayL}`)
     const depositHolderMissing = ((deps ?? []) as any[]).filter(t => !demo.has(t.property_id)).length
 
     // expenses not yet on a statement, per house
     const byHouse = new Map<string, { propertyId: string; house: string; count: number; total: number }>()
     // practice houses' expenses (XEXP…) are never in the real figures (3 Nov 2026 audit: 4 practice expenses showed)
-    const demoIds = await demoPropertyIds(s)
+    const demoIds = demo   // fetched once, above
     const realExps = ((exps ?? []) as any[]).filter(e => !demoIds.has(e.property_id))
     for (const e of realExps) {
       const k = e.property_id ?? 'none'

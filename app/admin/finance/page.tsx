@@ -56,12 +56,10 @@ function FinanceHomeScreen({ initialMonth }: { initialMonth?: string }) {
     if (!r.ok) setError(j.error || 'Could not load'); else setD(j)
   }, [])
 
+  // the figures start loading straight away; who's signed in is checked alongside (the admin layout checks it too)
   useEffect(() => {
-    (async () => {
-      const u = await getCurrentUser()
-      if (!u || !isOfficeRole(u.assignment?.role)) { router.push('/login'); return }
-      load(month)
-    })()
+    load(month)
+    getCurrentUser().then(u => { if (!u || !isOfficeRole(u.assignment?.role)) router.push('/login') })
   }, [router, load, month])
 
   const go = (m: string) => { setMonth(m); setOpen(null); router.replace(`/admin/finance?month=${m}`) }
@@ -75,7 +73,7 @@ function FinanceHomeScreen({ initialMonth }: { initialMonth?: string }) {
       <div className="mx-auto max-w-6xl px-lg py-xl">
         <div className="mb-lg flex flex-wrap items-center justify-between gap-md">
           <div>
-            <span className="inline-flex rounded-full bg-[var(--band,#4A5320)] px-sm py-[2px]"><HeroMonthPicker month={month} onChange={go} /></span>
+            <span className="inline-flex rounded-full bg-[var(--band,#1F3B2E)]"><HeroMonthPicker month={month} onChange={go} /></span>
             <h1 className={`${display.className} mt-xs text-4xl font-extrabold tracking-tight ${C.ink}`}>Agency accounts</h1>
           </div>
           <div className="flex items-center gap-md">

@@ -6,9 +6,10 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 
 export async function importedChargeIds(s: SupabaseClient, chargeIds: string[]): Promise<Set<string>> {
   const out = new Set<string>()
-  for (let i = 0; i < chargeIds.length; i += 300) {
-    const { data } = await s.from('landlord_statement_rooms').select('rent_charge_id').in('rent_charge_id', chargeIds.slice(i, i + 300))
-    for (const r of (data ?? []) as any[]) if (r.rent_charge_id) out.add(r.rent_charge_id)
-  }
+  // the batches of 300 go at once, not one after another (5 Nov 2026: Finance home speed)
+  const chunks: string[][] = []
+  for (let i = 0; i < chargeIds.length; i += 300) chunks.push(chargeIds.slice(i, i + 300))
+  const results = await Promise.all(chunks.map(ids => s.from('landlord_statement_rooms').select('rent_charge_id').in('rent_charge_id', ids)))
+  for (const { data } of results) for (const r of (data ?? []) as any[]) if (r.rent_charge_id) out.add(r.rent_charge_id)
   return out
 }
