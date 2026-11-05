@@ -16,7 +16,7 @@ import EditPersonModal from '../components/EditPersonModal'
 import { displayName, landlordName, nameFields, initials as avatarInitials } from '@/lib/people'
 import NameInput, { emptyName, toFullName, type NameValue } from '@/app/components/NameInput'
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
-import { AREAS, ROLE_PRESETS, ALL_AREAS } from '@/lib/access/areas'
+import { AREAS, ROLE_PRESETS, ALL_AREAS, JOB_TITLES } from '@/lib/access/areas'
 import AddressField from '@/app/components/AddressField'
 
 type Tab = 'tenants' | 'contractors' | 'cleaners' | 'landlords' | 'office'
@@ -26,6 +26,7 @@ interface Person {
   id: string
   email: string
   salutation?: string
+  job_title?: string | null   // office staff: Director, Lettings Manager, …
   phone?: string
   company?: string
   trade_types?: string[] | null
@@ -115,6 +116,7 @@ export default function PeopleManagement({ searchParams }: { searchParams: PageS
 
   // Add Person form
   const [showAddPerson, setShowAddPerson] = useState(false)
+  const [jobTitle, setJobTitle] = useState('')   // office members: Director, Lettings Manager, …
   const [formData, setFormData] = useState({
     email: '', role: 'tenant', property_id: '', salutation: '', first_name: '', middle_name: '', last_name: '', phone: '',
     // Extended details
@@ -254,6 +256,7 @@ export default function PeopleManagement({ searchParams }: { searchParams: PageS
       setError('Email and role are required')
       return
     }
+    if (activeTab === 'office' && !jobTitle) { setError('Choose their job title'); return }
 
     // already on file? (Harry, 17 Oct 2026: re-registering Erin Pollard just said "Failed to add user" — one person per
     // email, so say who it is and link to them instead)
@@ -278,6 +281,8 @@ export default function PeopleManagement({ searchParams }: { searchParams: PageS
           annual_income: formData.annual_income || null,
           role: formData.role,
           property_id: formData.property_id || null,
+          // office staff: their job title (letters, sign-offs) and the access that job starts with
+          ...(activeTab === 'office' && jobTitle ? { job_title: jobTitle, access_areas: JOB_TITLES.find(j => j.title === jobTitle)?.areas ?? null } : {}),
         },
       ]).select('id').single()
 
@@ -475,7 +480,7 @@ export default function PeopleManagement({ searchParams }: { searchParams: PageS
   const LABEL: Record<Tab, string> = { tenants: 'Tenants', contractors: 'Contractors', cleaners: 'Cleaners', landlords: 'Landlords', office: 'Office' }
   const viewAs = (p: Person) => p.role === 'tenant' ? `/tenant?as=${p.id}` : p.role === 'contractor' ? `/contractor?as=${p.id}` : p.role === 'cleaner' ? `/cleaner?as=${p.id}` : p.role === 'lettings' ? `/lettings?as=${p.id}` : p.role === 'landlord' ? `/landlord?as=${p.id}` : null
   const profile = (p: Person) => p.role === 'tenant' ? `/admin/tenant/${p.id}` : p.role === 'landlord' ? `/admin/landlord/${p.id}` : p.role === 'contractor' ? `/admin/contractor/${p.id}` : `/admin/person/${p.id}`
-  const startAdd = (role: string) => { setFormData({ ...formData, email: '', role, property_id: '', salutation: '', first_name: '', middle_name: '', last_name: '', phone: '' }); setShowAddPerson(true); setShowAddLandlord(false) }
+  const startAdd = (role: string) => { setFormData({ ...formData, email: '', role, property_id: '', salutation: '', first_name: '', middle_name: '', last_name: '', phone: '' }); setJobTitle(''); setShowAddPerson(true); setShowAddLandlord(false) }
   const tone = (role: string) => role === 'tenant' ? 'bg-sky-100 text-sky-800' : role === 'contractor' ? 'bg-amber-100 text-amber-800' : role === 'cleaner' ? 'bg-teal-100 text-teal-800' : role === 'landlord' ? 'bg-violet-100 text-violet-800' : 'bg-neutral-200 text-neutral-800'
   const initials = (p: any) => avatarInitials(p) !== '?' ? avatarInitials(p) : (p.email || '?')[0].toUpperCase()   // lib/people
 
@@ -976,9 +981,20 @@ export default function PeopleManagement({ searchParams }: { searchParams: PageS
             <div className="grid gap-md sm:grid-cols-3">
               <label className="block text-xs font-semibold text-neutral-600">Email *<input type="email" required value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} className="mt-xs w-full rounded-lg border border-neutral-300 px-md py-sm text-sm font-normal" /></label>
               <label className="block text-xs font-semibold text-neutral-600">Mobile<input type="tel" value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} className="mt-xs w-full rounded-lg border border-neutral-300 px-md py-sm text-sm font-normal" placeholder="07…" /></label>
-              {activeTab === 'office' && (
-                <label className="block text-xs font-semibold text-neutral-600">Role<select value={formData.role} onChange={e => setFormData({ ...formData, role: e.target.value })} className="mt-xs w-full rounded-lg border border-neutral-300 bg-white px-md py-sm text-sm font-normal"><option value="lettings">Lettings</option><option value="administrator">Administrator</option></select></label>
-              )}
+              {activeTab === 'office' && (() => {
+                // the job title sets their starting access (lib/access/areas JOB_TITLES); change it later on their page
+                const job = JOB_TITLES.find(j => j.title === jobTitle)
+                const access = job ? (job.role === 'administrator' ? 'Everything (administrator)' : AREAS.filter(a => job.areas?.includes(a.key)).map(a => a.label).join(', ')) : ''
+                return (
+                  <label className="block text-xs font-semibold text-neutral-600">Job title *
+                    <select required value={jobTitle} onChange={e => { const j = JOB_TITLES.find(x => x.title === e.target.value); setJobTitle(e.target.value); setFormData({ ...formData, role: j?.role ?? 'lettings' }) }} className="mt-xs w-full rounded-lg border border-neutral-300 bg-white px-md py-sm text-sm font-normal">
+                      <option value="">Choose…</option>
+                      {JOB_TITLES.map(j => <option key={j.title} value={j.title}>{j.title}</option>)}
+                    </select>
+                    {access && <span className="mt-xs block text-[11px] font-normal text-neutral-500">Can use: {access}</span>}
+                  </label>
+                )
+              })()}
             </div>
             <div className="flex gap-sm">
               <button type="submit" className="rounded-xl bg-neutral-900 px-lg py-sm text-sm font-bold text-white">Add</button>
@@ -1030,7 +1046,7 @@ export default function PeopleManagement({ searchParams }: { searchParams: PageS
         {activeTab === 'office' && List(office.filter(p => match(p)).map(p => {
           const ax = acct?.access?.[p.id]
           const what = !ax ? null : ax.administrator ? 'Everything' : AREAS.filter(a => ax.areas.includes(a.key)).map(a => a.label).join(', ') || 'Nothing yet'
-          return Row({ p, detail: <>{p.role === 'lettings' ? 'Lettings' : 'Administrator'}{what && <span className="ml-sm text-xs text-neutral-500" title="What they can use in the office app">· {what}</span>}</> })
+          return Row({ p, detail: <>{p.job_title || (p.role === 'lettings' ? 'Office' : 'Administrator')}{p.job_title && p.role !== 'lettings' ? ' · administrator' : ''}{what && <span className="ml-sm text-xs text-neutral-500" title="What they can use in the office app">· {what}</span>}</> })
         }), 'No office team yet.')}
         {activeTab === 'office' && acct?.access && <p className="text-xs text-neutral-500">Administrators can use everything. For anyone else, ⋯ › Access… chooses the parts of CROS they can use — the rest is hidden from them and refused if they try.</p>}
 
