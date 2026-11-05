@@ -12,6 +12,10 @@ import ExportButtons from '@/app/components/ExportButtons'
 import { adminFetch } from '@/lib/adminFetch'
 import { createClient } from '@/lib/supabase'
 import { financeTabs, expenseTabs } from '@/lib/financeTabs'
+import { PROPERTY_WIDE_CATEGORIES, ROOM_SPECIFIC_CATEGORY_TYPES } from '@/lib/expense-categories'
+import { guessCategory } from '@/lib/expenses/quickAdd'
+
+const EXPENSE_TYPES = [...PROPERTY_WIDE_CATEGORIES.filter(c => c.type !== 'income' && !['management_fee', 'letting_fee'].includes(c.slug)).map(c => ({ slug: c.slug, label: c.label })), ...ROOM_SPECIFIC_CATEGORY_TYPES.map(c => ({ slug: c.slug, label: `Room: ${c.label}` }))]
 
 interface Prop { id: string; name: string; code: string | null; letOnly: boolean }
 interface Room { id: string; name: string; property_id: string }
@@ -156,6 +160,8 @@ function LineRow({ line, props, rooms, categories, propName, post, reload }: {
   const [propertyId, setPropertyId] = useState(pre?.propertyId ?? '')
   const [roomId, setRoomId] = useState(pre?.roomId ?? '')
   const [description, setDescription] = useState(pre?.description ?? '')
+  // the type of a landlord expense — remembered from last time, else guessed from what it was for
+  const [expCat, setExpCat] = useState(pre && pre.as !== 'company' && pre.category ? pre.category : '')
   const [charge, setCharge] = useState('')
   const [category, setCategory] = useState(pre?.category ?? 'Other')
   const [vat, setVat] = useState('')   // VAT on a company cost's receipt — reclaimable once VAT registered (migration 263)
@@ -179,6 +185,7 @@ function LineRow({ line, props, rooms, categories, propName, post, reload }: {
     if (as === 'landlord') Object.assign(body, { propertyId, roomId: roomId || null, charge: charge === '' ? null : Number(charge) })
     if (as === 'split') body.splits = splitShown.map(x => ({ propertyId: x.propertyId, amount: Number(x.amount), charge: x.charge === '' ? null : Number(x.charge) }))
     if (as === 'company') Object.assign(body, { category, vat: vat === '' ? null : Number(vat) })
+    if (as === 'landlord' || as === 'split') body.expenseCategory = expCat || guessCategory(description, !!roomId)
     if (as === 'not_expense') body.note = note
     const { ok, d } = await post(body)
     setBusy(false)
@@ -238,6 +245,15 @@ function LineRow({ line, props, rooms, categories, propName, post, reload }: {
           {as !== 'not_expense' && (
             <label className="block text-xs font-semibold text-neutral-600">What it was for
               <input className={`${inp} mt-xs w-full`} value={description} onChange={e => setDescription(e.target.value)} placeholder={as === 'company' ? 'e.g. Laptop for the office' : 'e.g. Broadband, October'} />
+            </label>
+          )}
+
+          {(as === 'landlord' || as === 'split') && (
+            <label className="block text-xs font-semibold text-neutral-600">Type
+              <select className={`${inp} mt-xs w-full md:w-80`} value={expCat || guessCategory(description, !!roomId) || ''} onChange={e => setExpCat(e.target.value)}>
+                <option value="">Choose…</option>{EXPENSE_TYPES.map(c => <option key={c.slug} value={c.slug}>{c.label}</option>)}
+              </select>
+              <span className="mt-xs block font-normal text-neutral-500">Groups the same cost over the years on the landlord’s statements and expense history — e.g. Internet, Cleaning, Room: Decorating.</span>
             </label>
           )}
 

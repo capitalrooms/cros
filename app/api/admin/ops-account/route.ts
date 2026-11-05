@@ -24,6 +24,7 @@ import { matchKey, payeeKey } from '@/lib/ops/keys'
 import { addLandlordExpense, expenseDuplicates } from '@/lib/expenses/create'
 import { COMPANY_CATEGORIES } from '@/lib/capture/ai'
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
+import { ALL_CATEGORY_SLUGS } from '@/lib/expense-categories'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -166,6 +167,9 @@ export async function POST(req: NextRequest) {
     if (splits.some(x => !x.description)) return NextResponse.json({ error: 'Say what it was for' }, { status: 400 })
   }
   if (as === 'company' && !description) return NextResponse.json({ error: 'Say what it was for' }, { status: 400 })
+  // a landlord expense's type (Internet, Cleaning, Room: Decorating…) — so years of the same cost group together on the
+  // landlord's statements, annual statement and expense history (5 Nov 2026)
+  const expCat = as === 'landlord' || as === 'split' ? (ALL_CATEGORY_SLUGS.includes(String(b.expenseCategory ?? b.category)) ? String(b.expenseCategory ?? b.category) : null) : null
   if ((as === 'landlord' || as === 'split') && !b.confirmDuplicate) {
     for (const x of splits) {
       const d = await expenseDuplicates(s, { property_id: x.propertyId, description: x.description, amount: x.charge, expense_date: line.line_date, invoice_number: null, room_id: x.roomId })
@@ -205,7 +209,7 @@ export async function POST(req: NextRequest) {
       for (let n = 0; n < splits.length; n++) {
         const x = splits[n]
         const r = await addLandlordExpense(s, {
-          property_id: x.propertyId, room_id: x.roomId, description: x.description, amount: x.charge, cost_amount: x.charge !== x.amount ? x.amount : null,
+          property_id: x.propertyId, room_id: x.roomId, description: x.description, category: expCat, amount: x.charge, cost_amount: x.charge !== x.amount ? x.amount : null,
           expense_date: line.line_date, supplier, deduct_month: as === 'landlord' ? b.deductMonth || null : null,
           paid_to_supplier_on: line.line_date, invoice_path: line.receipt_path ?? null, invoice_name: line.receipt_name ?? null,
           notes: `Operations account${splits.length > 1 ? ` — ${n + 1} of ${splits.length} shares of £${cost.toFixed(2)}` : ''}: ${line.description}`.slice(0, 1000),
@@ -234,7 +238,7 @@ export async function POST(req: NextRequest) {
       match_key: line.match_key, payee_key: line.payee_key, filed_as: as,
       property_id: as === 'landlord' ? splits[0].propertyId : null, room_id: as === 'landlord' ? splits[0].roomId : null,
       splits: as === 'split' ? splits.map(x => ({ propertyId: x.propertyId, roomId: x.roomId, share: r2(x.amount / cost), description: x.description })) : null,
-      category: as === 'company' ? (COMPANY_CATEGORIES as readonly string[]).includes(String(b.category)) ? String(b.category) : 'Other' : null,
+      category: as === 'company' ? (COMPANY_CATEGORIES as readonly string[]).includes(String(b.category)) ? String(b.category) : 'Other' : expCat,
       description: description || splits[0]?.description || null, last_amount: cost, times_used: (prev?.times_used ?? 0) + 1,
       updated_by: admin.personId, updated_at: now,
     })
