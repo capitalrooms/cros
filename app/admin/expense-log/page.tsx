@@ -25,6 +25,7 @@ import { expenseTabs } from '@/lib/financeTabs'
 import BackButton from '@/app/components/BackButton'
 import ExportButtons, { type ExportColumn } from '@/app/components/ExportButtons'
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
+import QuickAdd from './QuickAdd'
 import { PROPERTY_WIDE_CATEGORIES, ROOM_SPECIFIC_CATEGORY_TYPES, categoryLabel } from '@/lib/expense-categories'
 
 interface Row {
@@ -73,6 +74,7 @@ export default function ExpensesPage() {
   // add form
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState({ ...EMPTY_FORM })
+  const [showQuick, setShowQuick] = useState(false)   // Quick add: a house and its items, pasted
   const [rooms, setRooms] = useState<{ id: string; name: string }[]>([])
   const [file, setFile] = useState<File | null>(null)
   const [saving, setSaving] = useState(false)
@@ -208,7 +210,7 @@ export default function ExpensesPage() {
       <AppBar left={<BackButton href="/admin/finance" />} title="Expenses" />
       <PageHero look="olive" title="Expenses" subtitle="Money spent on a property that comes off the landlord’s statement — each is numbered (EXP…) and never deleted; mistakes are voided"
         stats={[{ label: 'To deduct from landlord', value: pending.length, tone: pending.length ? 'warn' : undefined }]}
-        actions={<><HeroButton href="/admin/ops-account">Office account CSV</HeroButton><HeroButton href="/admin/reports/resold">Mark-ups</HeroButton><HeroButton primary onClick={() => { setShowForm(true); setDups(null); setFormError('') }}>+ Add expense</HeroButton></>}
+        actions={<><HeroButton href="/admin/ops-account">Office account CSV</HeroButton><HeroButton href="/admin/reports/resold">Mark-ups</HeroButton><HeroButton onClick={() => { setShowQuick(true); setShowForm(false) }}>Quick add</HeroButton><HeroButton primary onClick={() => { setShowForm(true); setShowQuick(false); setDups(null); setFormError('') }}>+ Add expense</HeroButton></>}
         tabs={expenseTabs('log')} />
       <div className="mx-auto max-w-6xl px-lg py-xl">
 
@@ -346,6 +348,12 @@ export default function ExpensesPage() {
           </>
         )}
       </div>
+
+      {showQuick && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-md">
+          <div className="my-lg w-full max-w-6xl"><QuickAdd onClose={() => setShowQuick(false)} onAdded={load} /></div>
+        </div>
+      )}
 
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-md" onClick={() => !saving && setShowForm(false)}>

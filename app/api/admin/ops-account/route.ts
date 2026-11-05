@@ -14,10 +14,10 @@
  *   POST { action: 'receipt_url', id, fileName } → { path, token } upload the receipt straight from the browser
  *   POST { action: 'receipt_done', id, path, fileName } → attached to the line and every expense made from it
  *   POST { action: 'no_receipt', id, value }  → "no receipt needed" (bank charges…) on or off
- * Administrators only. Every expense goes through lib/expenses/create (duplicates, statement month, numbering).
+ * Directors only (lib/adminAuth requireDirector, 5 Nov 2026). Every expense goes through lib/expenses/create (duplicates, statement month, numbering).
  */
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAdmin } from '@/lib/adminAuth'
+import { requireDirector } from '@/lib/adminAuth'
 import { createServiceClient } from '@/lib/supabase'
 import { parseBankDebits } from '@/lib/parseBank'
 import { matchKey, payeeKey } from '@/lib/ops/keys'
@@ -49,8 +49,8 @@ function suggest(line: any, byKey: Map<string, any>, byPayee: Map<string, any[]>
 const ruleOut = (r: any) => ({ as: r.filed_as, propertyId: r.property_id, roomId: r.room_id, splits: r.splits, category: r.category, description: r.description, lastAmount: r.last_amount, times: r.times_used })
 
 export async function GET(req: NextRequest) {
-  const admin = await requireAdmin(req)
-  if (!admin) return NextResponse.json({ error: 'Administrators only' }, { status: 403 })
+  const admin = await requireDirector(req)
+  if (!admin) return NextResponse.json({ error: 'The office account is for directors only' }, { status: 403 })
   const s = createServiceClient()
   const [{ data: props }, { data: rooms }] = await Promise.all([
     s.from('properties').select('id, name, address, property_code, letting_type').order('name'),
@@ -76,8 +76,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const admin = await requireAdmin(req)
-  if (!admin) return NextResponse.json({ error: 'Administrators only' }, { status: 403 })
+  const admin = await requireDirector(req)
+  if (!admin) return NextResponse.json({ error: 'The office account is for directors only' }, { status: 403 })
   const s = createServiceClient()
   const b = await req.json().catch(() => ({}))
 
@@ -186,12 +186,19 @@ export async function POST(req: NextRequest) {
       await s.from('ops_bank_lines').update({ status: 'not_expense', filed_as: 'not_expense', note: String(b.note ?? '').slice(0, 300) || null, filed_by: admin.personId, filed_at: now }).eq('id', id)
     } else if (as === 'company') {
       const category = (COMPANY_CATEGORIES as readonly string[]).includes(String(b.category)) ? String(b.category) : 'Other'
-      const { data: doc, error } = await s.from('company_documents').insert({
+      // the VAT on the receipt (migration 263): reclaimable once Capital Rooms is VAT registered — never more than the cost
+      const vat = b.vat == null || b.vat === '' ? null : r2(Number(b.vat))
+      if (vat != null && !(vat >= 0 && vat < cost)) { await release(); return NextResponse.json({ error: 'The VAT must be less than the amount' }, { status: 400 }) }
+      const docRow: Record<string, unknown> = {
         title: description, category: 'bill', file_path: line.receipt_path ?? null, file_name: line.receipt_name ?? null, received_on: now.slice(0, 10),
         amount: cost, supplier: supplier || null, expense_date: line.line_date, expense_category: category, paid_on: line.line_date,
-        source_ref: `ops:${id}`, created_by: admin.personId, notes: `Operations account: ${line.description}`.slice(0, 1000),
-      }).select('id, cex_no').single()
+        source_ref: `ops:${id}`, created_by: admin.personId, notes: `Office account: ${line.description}`.slice(0, 1000),
+        ...(vat != null ? { vat_amount: vat } : {}),
+      }
+      let { data: doc, error } = await s.from('company_documents').insert(docRow).select('id, cex_no').single()
+      if (error && /vat_amount/.test(error.message)) { delete docRow.vat_amount; ({ data: doc, error } = await s.from('company_documents').insert(docRow).select('id, cex_no').single()) }
       if (error) { await release(); return NextResponse.json({ error: /source_ref|file_path/.test(error.message) ? SETUP : error.message }, { status: 400 }) }
+      if (!doc) { await release(); return NextResponse.json({ error: 'Not saved' }, { status: 500 }) }
       refs.push({ kind: 'company', id: doc.id, no: doc.cex_no, amount: cost })
       messages.push(`Company expense ${doc.cex_no ?? ''} — £${cost.toFixed(2)}, ${category}`)
     } else {
