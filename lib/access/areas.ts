@@ -100,6 +100,16 @@ export const ROLE_PRESETS: Record<string, AreaKey[]> = {
   lettings: ['lettings', 'diary', 'properties'],   // properties: rooms, photos and let-only houses are lettings work
 }
 
+/** Office job titles (5 Nov 2026, Harry: "where is Lettings Manager, Accounts Manager, Director, Property Manager"):
+ *  the title goes on their letters and sign-offs; each starts with the access that job needs — Harry can change it
+ *  per person afterwards. role 'lettings' = office staff who aren't administrators. */
+export const JOB_TITLES: { title: string; role: 'administrator' | 'lettings'; areas: AreaKey[] | null }[] = [
+  { title: 'Accounts Manager', role: 'lettings', areas: ['dashboard', 'finance', 'properties', 'people'] },
+  { title: 'Director', role: 'administrator', areas: null },
+  { title: 'Lettings Manager', role: 'lettings', areas: ['dashboard', 'properties', 'lettings', 'diary', 'people', 'comms'] },
+  { title: 'Property Manager', role: 'lettings', areas: ['dashboard', 'properties', 'maintenance', 'compliance', 'diary', 'people', 'comms'] },
+]
+
 /** Two-step sign-in compulsory for administrators? Off by Harry's choice (14 Oct 2026: "one password fine — the app
  *  itself needs to be secure, not user logins"). Two-step (Face ID or an app) stays available to everyone on /account,
  *  and new-device sign-ins email the account owner (app/api/auth/sign-in-alert). Turn this on to require it again —

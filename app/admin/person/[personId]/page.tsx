@@ -13,6 +13,7 @@ import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
 import LineIcon from '@/components/LineIcon'
+import { JOB_TITLES } from '@/lib/access/areas'
 import PageHero, { HeroButton } from '@/components/PageHero'
 import PersonPlannerPanel from '@/components/PersonPlannerPanel'
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -244,7 +245,7 @@ export default function PersonPage({ params }: { params: Promise<{ personId: str
       <PageHero
         trail={[{ label: 'People', href: '/admin/people' }, { label: meta.label, href: '/admin/people?tab=office' }]}
         title={name}
-        subtitle={person.email}
+        subtitle={[person.job_title, person.email].filter(Boolean).join(' · ')}
         actions={<HeroButton href={`/admin/view-as/${person.id}`}>View as</HeroButton>}
         tabs={tabs.length > 1 ? tabs.map(t => ({ key: t.key, label: t.label, active: activeTab === t.key, onClick: () => setActiveTab(t.key) })) : undefined}
       />
@@ -301,7 +302,8 @@ export default function PersonPage({ params }: { params: Promise<{ personId: str
                     </div>
                     <div>
                       <label className="text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-xs block">Job title</label>
-                      <input value={editJob} onChange={e => setEditJob(e.target.value)} placeholder="Lettings Negotiator" className="w-full rounded-lg border border-neutral-300 px-md py-sm text-sm" />
+                      <input value={editJob} onChange={e => setEditJob(e.target.value)} list="job-titles" placeholder="Choose or type a job title" className="w-full rounded-lg border border-neutral-300 px-md py-sm text-sm" />
+                      <datalist id="job-titles">{JOB_TITLES.map(j => <option key={j.title} value={j.title} />)}</datalist>
                     </div>
                     <div>
                       <label className="text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-xs block">Mobile for their signature</label>
