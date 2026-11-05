@@ -74,7 +74,7 @@ export default function ClientMoneyPage() {
   return (
     <div className="min-h-screen fin">
       <AppBar left={<BackButton href="/admin" label="Dashboard" />} title="Client money" />
-      <PageHero look="olive" title="Client money" subtitle={<>What the client account (20-18-93 · 4016 2574) holds for each landlord{data ? `, from ${d(data.start)}` : ''} — no landlord’s balance should ever go below zero</>}
+      <PageHero look="olive" title="Client money" subtitle={<>Client account 20-18-93 · 4016 2574 — funds held on behalf of landlords, tenants and applicants{data ? ` since ${d(data.start)}` : ''}. No client ledger may be overdrawn.</>}
         tabs={clientMoneyTabs('client')} />
       <div className="mx-auto max-w-6xl px-lg py-xl space-y-lg">
         {data?.setupNeeded && <p className="rounded-xl border border-amber-200 bg-amber-50 px-md py-sm text-sm text-amber-900">{data.setupNeeded}</p>}
@@ -84,10 +84,10 @@ export default function ClientMoneyPage() {
           <>
             <div className="grid grid-cols-2 gap-md sm:grid-cols-4">
               {[
-                ['Cash book', gbp(data.position.cashbook.total), 'Should equal the bank balance'],
-                ['Held for landlords', gbp(data.ledgersTotal), `${data.balances.length} ledgers`],
-                ['Negative ledgers', String(data.negative), data.negative ? 'Must be fixed' : 'None'],
-                ['Last reconciled', data.reconciliations[0] ? d(data.reconciliations[0].as_at) : 'Never', data.reconciliations[0] ? `Difference ${gbp(data.reconciliations[0].difference)}` : 'Do one monthly'],
+                ['Cash book balance', gbp(data.position.cashbook.total), 'Must agree with the bank statement'],
+                ['Client ledger balances', gbp(data.ledgersTotal), `${data.balances.length} landlord ledgers`],
+                ['Overdrawn ledgers', String(data.negative), data.negative ? 'Correct before any payment' : 'None'],
+                ['Last reconciliation', data.reconciliations[0] ? d(data.reconciliations[0].as_at) : 'None yet', data.reconciliations[0] ? `Difference ${gbp(data.reconciliations[0].difference)}` : 'Required monthly'],
               ].map(([k, v, n], i) => (
                 <div key={k} className="rounded-2xl border border-neutral-200 bg-white px-lg py-md">
                   <p className="text-xs uppercase tracking-wide text-neutral-500">{k}</p>
@@ -100,19 +100,19 @@ export default function ClientMoneyPage() {
             <section className="rounded-2xl bg-white p-lg">
               <div className="mb-sm flex flex-wrap items-center justify-between gap-sm">
                 <div>
-                  <h2 className="font-bold text-neutral-900">What’s in the client account, and whose it is</h2>
-                  <p className="text-xs text-neutral-500">Every penny should belong to someone. These lines must add up to the cash book — and the cash book to the bank statement.</p>
+                  <h2 className="font-bold text-neutral-900">Analysis of client funds</h2>
+                  <p className="text-xs text-neutral-500">Every balance attributed to a client. The analysis must agree with the cash book, and the cash book with the bank statement (three-way reconciliation).</p>
                 </div>
-                <ExportButtons title="Client account breakdown" subtitle={`As at ${d(data.position.asAt)}`} filename={`client-account-${data.position.asAt}`}
-                  columns={[{ key: 'label', label: 'Held for' }, { key: 'amount', label: 'Amount', money: true }]}
-                  rows={data.position.breakdown.map(b => ({ label: b.label, amount: b.amount }))} totals={{ label: 'Total', amount: data.position.breakdownTotal }} />
+                <ExportButtons title="Analysis of client funds" subtitle={`As at ${d(data.position.asAt)}`} filename={`client-account-${data.position.asAt}`}
+                  columns={[{ key: 'label', label: 'Fund' }, { key: 'amount', label: 'Balance', money: true }]}
+                  rows={data.position.breakdown.map(b => ({ label: b.label, amount: b.amount }))} totals={{ label: 'Total client funds', amount: data.position.breakdownTotal }} />
               </div>
               <table className="w-full text-sm">
                 <tbody className="divide-y divide-neutral-100">
                   {data.position.breakdown.map(b => (
                     <tr key={b.key}><td className="py-sm text-neutral-800">{b.label}{b.detail && b.amount ? <span className="ml-sm text-xs text-amber-700">{b.detail}</span> : null}</td><td className="py-sm text-right tabular-nums font-semibold">{gbp(b.amount)}</td></tr>
                   ))}
-                  <tr className="border-t-2 border-neutral-900"><td className="py-sm font-bold">Total held</td><td className="py-sm text-right font-bold tabular-nums">{gbp(data.position.breakdownTotal)}</td></tr>
+                  <tr className="border-t-2 border-neutral-900"><td className="py-sm font-bold">Total client funds</td><td className="py-sm text-right font-bold tabular-nums">{gbp(data.position.breakdownTotal)}</td></tr>
                   <tr><td className="py-xs text-xs text-neutral-500">Cash book: rent in {gbp(data.position.cashbook.rentIn)} + unmatched in {gbp(data.position.cashbook.suspenseIn)}{data.position.cashbook.holdingIn ? <> + holding deposits {gbp(data.position.cashbook.holdingIn)}</> : null} + adjustments {gbp(data.position.cashbook.adjustments)} − paid to landlords {gbp(data.position.cashbook.paidToLandlords)} − moved to the office {gbp(data.position.cashbook.toOffice)}</td>
                     <td className={`py-xs text-right text-xs font-semibold ${data.position.agrees ? 'text-green-700' : 'text-red-700'}`}>{data.position.agrees ? '✓ agrees' : '✗ doesn’t agree — tell support'}</td></tr>
                 </tbody>
@@ -126,14 +126,14 @@ export default function ClientMoneyPage() {
             )}
 
             <div className="flex justify-end">
-              <ExportButtons title="Client money held per landlord" subtitle={`As at ${d(data.position.asAt)}`} filename={`client-money-landlords-${data.position.asAt}`}
-                columns={[{ key: 'name', label: 'Landlord' }, { key: 'awaitingStatement', label: 'Not yet on a statement', money: true }, { key: 'awaitingPayment', label: 'Statement to pay', money: true }, { key: 'advance', label: 'Rent in advance', money: true }, { key: 'float', label: 'Float', money: true }, { key: 'balance', label: 'Total held', money: true }]}
+              <ExportButtons title="Client ledger balances" subtitle={`As at ${d(data.position.asAt)}`} filename={`client-money-landlords-${data.position.asAt}`}
+                columns={[{ key: 'name', label: 'Landlord' }, { key: 'awaitingStatement', label: 'Awaiting statement', money: true }, { key: 'awaitingPayment', label: 'Payment due', money: true }, { key: 'advance', label: 'Rent in advance', money: true }, { key: 'float', label: 'Float', money: true }, { key: 'balance', label: 'Ledger balance', money: true }]}
                 rows={data.position.landlords as any[]} totals={{ name: 'Total', balance: data.position.landlords.reduce((t, l) => t + l.balance, 0) }} />
             </div>
             <section className="overflow-x-auto rounded-2xl bg-white">
               <table className="w-full min-w-[640px] text-sm">
                 <thead><tr className="border-b border-neutral-100 text-left text-xs uppercase tracking-wide text-neutral-500">
-                  <th className="px-lg py-sm">Landlord</th><th className="px-lg py-sm text-right">In</th><th className="px-lg py-sm text-right">Out</th><th className="px-lg py-sm text-right">Balance held</th>
+                  <th className="px-lg py-sm">Landlord</th><th className="px-lg py-sm text-right">Receipts</th><th className="px-lg py-sm text-right">Payments</th><th className="px-lg py-sm text-right">Balance</th>
                 </tr></thead>
                 <tbody className="divide-y divide-neutral-100">
                   {data.balances.length === 0 && <tr><td colSpan={4} className="px-lg py-lg text-neutral-500">Nothing recorded since {d(data.start)} yet. Rent received, statements and payouts appear here as they happen.</td></tr>}
@@ -174,8 +174,8 @@ export default function ClientMoneyPage() {
 
             <div className="grid gap-lg lg:grid-cols-2">
               <section className="rounded-2xl bg-white p-lg space-y-sm">
-                <h2 className="font-bold text-neutral-900">Monthly reconciliation</h2>
-                <p className="text-xs text-neutral-500">From the client account bank statement: enter the closing balance. CROS compares it with its cash book and the landlord ledgers. Sign off once a month and keep any difference explained in the notes.</p>
+                <h2 className="font-bold text-neutral-900">Three-way reconciliation</h2>
+                <p className="text-xs text-neutral-500">Enter the closing balance from the client account bank statement. CROS agrees it to the cash book and the client ledgers. Sign off monthly and record an explanation for any difference.</p>
                 <div className="grid grid-cols-2 gap-sm">
                   <label className="text-xs font-semibold text-neutral-700">Balance as at<input type="date" className={input} value={rec.asAt} onChange={e => setRec({ ...rec, asAt: e.target.value })} /></label>
                   <label className="text-xs font-semibold text-neutral-700">Bank statement balance (£)<input inputMode="decimal" className={input} value={rec.bankBalance} onChange={e => setRec({ ...rec, bankBalance: e.target.value })} /></label>
@@ -184,8 +184,8 @@ export default function ClientMoneyPage() {
                 <label className="block text-xs font-semibold text-neutral-700">Notes<textarea rows={2} className={input} value={rec.notes} onChange={e => setRec({ ...rec, notes: e.target.value })} /></label>
                 <button disabled={!!busy} onClick={() => post('reconcile', rec, '')} className="rounded-lg bg-neutral-900 px-lg py-sm text-sm font-bold text-white disabled:bg-neutral-300">{busy === 'reconcile' ? 'Saving…' : 'Sign off reconciliation'}</button>
                 <div className="mt-md rounded-lg border border-neutral-200 p-md">
-                  <p className="text-sm font-semibold text-neutral-900">Close a month</p>
-                  <p className="text-xs text-neutral-500">Once the month-end reconciliation has no difference, close the month: nothing can then be dated into it. Corrections go in the next open month (or reopen it, with a reason).</p>
+                  <p className="text-sm font-semibold text-neutral-900">Month-end close</p>
+                  <p className="text-xs text-neutral-500">Once the reconciliation shows no difference, close the month so nothing more can be posted to it. Corrections go in the next open month, or reopen it with a recorded reason.</p>
                   <div className="mt-sm flex flex-wrap items-center gap-sm">
                     <input type="month" value={closeMonth} onChange={e => setCloseMonth(e.target.value)} className="rounded-lg border border-neutral-300 bg-white px-md py-xs text-sm" />
                     <button disabled={!!busy} onClick={() => post('close_month', { month: closeMonth }, `${closeMonth} closed.`)} className="rounded-lg bg-neutral-900 px-md py-xs text-xs font-bold text-white disabled:bg-neutral-300">Close month</button>
