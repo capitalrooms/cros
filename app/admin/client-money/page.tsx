@@ -113,7 +113,7 @@ export default function ClientMoneyPage() {
                     <tr key={b.key}><td className="py-sm text-neutral-800">{b.label}{b.detail && b.amount ? <span className="ml-sm text-xs text-amber-700">{b.detail}</span> : null}</td><td className="py-sm text-right tabular-nums font-semibold">{gbp(b.amount)}</td></tr>
                   ))}
                   <tr className="border-t-2 border-neutral-900"><td className="py-sm font-bold">Total client funds</td><td className="py-sm text-right font-bold tabular-nums">{gbp(data.position.breakdownTotal)}</td></tr>
-                  <tr><td className="py-xs text-xs text-neutral-500">Cash book: rent in {gbp(data.position.cashbook.rentIn)} + unmatched in {gbp(data.position.cashbook.suspenseIn)}{data.position.cashbook.holdingIn ? <> + holding deposits {gbp(data.position.cashbook.holdingIn)}</> : null} + adjustments {gbp(data.position.cashbook.adjustments)} − paid to landlords {gbp(data.position.cashbook.paidToLandlords)} − moved to the office {gbp(data.position.cashbook.toOffice)}</td>
+                  <tr><td className="py-xs text-xs text-neutral-500">Cash book: rent receipts {gbp(data.position.cashbook.rentIn)} + unidentified receipts {gbp(data.position.cashbook.suspenseIn)}{data.position.cashbook.holdingIn ? <> + holding deposits {gbp(data.position.cashbook.holdingIn)}</> : null} + adjustments {gbp(data.position.cashbook.adjustments)} − landlord payments {gbp(data.position.cashbook.paidToLandlords)} − transfers to office account {gbp(data.position.cashbook.toOffice)}</td>
                     <td className={`py-xs text-right text-xs font-semibold ${data.position.agrees ? 'text-green-700' : 'text-red-700'}`}>{data.position.agrees ? '✓ agrees' : '✗ doesn’t agree — tell support'}</td></tr>
                 </tbody>
               </table>
@@ -121,7 +121,7 @@ export default function ClientMoneyPage() {
 
             {data.negative > 0 && (
               <p className="rounded-xl border border-red-200 bg-red-50 px-lg py-md text-sm text-red-900">
-                {data.negative} landlord ledger{data.negative === 1 ? ' is' : 's are'} below zero. Either rent received hasn’t been recorded in CROS, an opening balance is missing, or more was paid out than was held. Open the ledger to see which.
+                {data.negative} client ledger{data.negative === 1 ? ' is' : 's are'} overdrawn. Either a receipt hasn’t been recorded, an opening balance is missing, or more was paid out than was held. Open the ledger to find the cause and correct it before making any further payment.
               </p>
             )}
 
@@ -215,8 +215,8 @@ export default function ClientMoneyPage() {
               </section>
 
               <section className="rounded-2xl bg-white p-lg space-y-sm">
-                <h2 className="font-bold text-neutral-900">Opening balance or correction</h2>
-                <p className="text-xs text-neutral-500">For money held before {d(data.start)}, or anything not recorded elsewhere. Use a minus for money out. Every entry is logged; mistakes are voided, never deleted.</p>
+                <h2 className="font-bold text-neutral-900">Opening balance or adjustment</h2>
+                <p className="text-xs text-neutral-500">For funds held before {d(data.start)}, or a movement not recorded elsewhere. Enter payments out as a negative amount. Every entry is kept in the audit trail; errors are voided, never deleted.</p>
                 <label className="block text-xs font-semibold text-neutral-700">Landlord
                   <select className={input} value={adj.landlordId} onChange={e => setAdj({ ...adj, landlordId: e.target.value })}>
                     <option value="">— choose —</option>
