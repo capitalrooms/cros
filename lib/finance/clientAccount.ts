@@ -100,14 +100,14 @@ export async function clientAccountPosition(s: SupabaseClient, asAt?: string): P
   })
   const L = (k: 'advance' | 'awaitingStatement' | 'awaitingPayment' | 'float') => r2(landlords.reduce((t, l) => t + l[k], 0))
   const breakdown: BreakdownLine[] = [
-    { key: 'awaitingStatement', label: 'Rent received, not yet on a landlord statement', amount: L('awaitingStatement') },
-    { key: 'awaitingPayment', label: 'Statements made, waiting to be paid to landlords', amount: L('awaitingPayment') },
-    { key: 'advance', label: 'Rent paid in advance by tenants', amount: L('advance') },
-    { key: 'float', label: 'Floats held for landlords', amount: L('float') },
-    { key: 'holding', label: 'Holding deposits held for applicants', amount: holdingIn, detail: held.length ? `${held.length} held` : undefined },
-    { key: 'deposits', label: 'Tenancy deposits received, not yet sent to the DPS', amount: depositsHeld, detail: depositsWaiting ? `${depositsWaiting} waiting · send within 30 days of receiving` : undefined },
-    { key: 'office', label: 'Our fees and expenses, not yet moved to the office account', amount: officeDue },
-    { key: 'suspense', label: 'Money in that isn’t matched to anyone yet (suspense)', amount: suspenseIn, detail: 'Match these in Reconciliation' },
+    { key: 'awaitingStatement', label: 'Rent received, awaiting statement', amount: L('awaitingStatement') },
+    { key: 'awaitingPayment', label: 'Landlord payments due (statements issued)', amount: L('awaitingPayment') },
+    { key: 'advance', label: 'Rent received in advance', amount: L('advance') },
+    { key: 'float', label: 'Landlord floats', amount: L('float') },
+    { key: 'holding', label: 'Holding deposits (applicants)', amount: holdingIn, detail: held.length ? `${held.length} held` : undefined },
+    { key: 'deposits', label: 'Tenancy deposits awaiting protection (DPS)', amount: depositsHeld, detail: depositsWaiting ? `${depositsWaiting} to protect · within 30 days of receipt` : undefined },
+    { key: 'office', label: 'Agency fees and recharged costs due to the office account', amount: officeDue },
+    { key: 'suspense', label: 'Unidentified receipts (suspense)', amount: suspenseIn, detail: 'Allocate in Reconciliation' },
   ]
   const breakdownTotal = r2(breakdown.reduce((t, b) => t + b.amount, 0))
   return {
