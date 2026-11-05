@@ -14,6 +14,7 @@ import QuickNotifyModal from '@/app/admin/components/QuickNotifyModal'
 import UnitsTab from './components/UnitsTab'
 import RemoveProperty from './components/RemoveProperty'
 import PeopleTab from './components/PeopleTab'
+import ServicesTab from './components/ServicesTab'
 import MaintenanceTab from './components/MaintenanceTab'
 import DeepCleanRecord from '@/app/components/cleaning/DeepCleanRecord'
 import LettingsTab from './components/LettingsTab'
@@ -40,7 +41,7 @@ const fullDate = (iso: string) => new Date(`${iso.slice(0, 10)}T12:00:00Z`).toLo
 const todayIso = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
 const addDaysIso = (n: number) => { const d = new Date(`${todayIso()}T12:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10) }
 
-type TabType = 'details' | 'units' | 'people' | 'maintenance' | 'lettings' | 'compliance' | 'documents' | 'tenant_app'
+type TabType = 'details' | 'units' | 'people' | 'maintenance' | 'services' | 'lettings' | 'compliance' | 'documents' | 'tenant_app'
 
 // Sub-tab types for merged tabs
 type PeopleSubTab = 'tenants' | 'housemates' | 'messages'
@@ -270,6 +271,7 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
     { id: 'units', label: whole ? 'Tenancy' : 'Rooms' },
     { id: 'people', label: 'People' },
     { id: 'maintenance', label: 'Maintenance' },
+    { id: 'services', label: 'Bills & services' },   // the accounts at the house (migration 264)
     { id: 'lettings', label: 'Lettings' },
     { id: 'compliance', label: 'Compliance' },
     { id: 'documents', label: 'Documents' },
@@ -405,6 +407,8 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
           )}
 
           {/* ── Lettings ─────────────────────────────────────────────────── */}
+          {activeTab === 'services' && <ServicesTab propertyId={id} />}
+
           {activeTab === 'lettings' && (
             <div className="p-lg">
               <LettingsTab propertyId={id} rooms={property.rooms || []} propertyName={property.name} propertyAddress={property.address} />

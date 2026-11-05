@@ -9,7 +9,10 @@ interface HouseInfoItem {
   label: string
   value: string
   sensitive?: boolean
+  from?: string   // 'bills-and-services': written from the internet account on Bills & services — edited there, not here
 }
+const LINKED = 'bills-and-services'
+const WIFI = /wi-?fi|internet|broadband/i
 
 const QUICK_ADD: HouseInfoItem[] = [
   { icon: '📶', label: 'WiFi', value: 'Network: \nPassword: \nProvider: ', sensitive: false },
@@ -108,7 +111,8 @@ export default function HouseInfoEditor({ propertyId, initialItems }: Props) {
       setImportPreview(
         json.items.map((it: HouseInfoItem) => ({
           ...it,
-          selected: !existing.includes(it.label.toLowerCase()),
+          // WiFi details come from Bills & services once the internet account is recorded — not a second copy here
+          selected: !existing.includes(it.label.toLowerCase()) && !(items.some(i => i.from === LINKED) && WIFI.test(it.label)),
         }))
       )
     } catch (err: any) {
@@ -217,7 +221,7 @@ export default function HouseInfoEditor({ propertyId, initialItems }: Props) {
             {/* Row header */}
             <div
               className="flex items-center gap-sm px-md py-sm cursor-pointer hover:bg-neutral-50 transition-colors"
-              onClick={() => setEditingIdx(editingIdx === idx ? null : idx)}
+              onClick={() => item.from !== LINKED && setEditingIdx(editingIdx === idx ? null : idx)}
             >
               <span className="text-lg shrink-0">{<LineIcon glyph={item.icon || '📌'} />}</span>
               <div className="flex-1 min-w-0">
@@ -227,6 +231,7 @@ export default function HouseInfoEditor({ propertyId, initialItems }: Props) {
                     {item.sensitive ? '••••••••' : item.value}
                   </span>
                 )}
+                {item.from === LINKED && <span className="ml-sm rounded-full bg-neutral-100 px-sm py-0.5 text-[11px] font-semibold text-neutral-600">From Bills & services — change it there</span>}
               </div>
               <div className="flex items-center gap-xs shrink-0">
                 <button onClick={e => { e.stopPropagation(); moveItem(idx, -1) }} disabled={idx === 0}
