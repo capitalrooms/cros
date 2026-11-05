@@ -15,7 +15,7 @@
 // The two totals are built from the same records, so they must agree; the bank balance is the independent check.
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { importedChargeIds } from '@/lib/finance/importedCharges'
-import { loadLedger, landlordBalances } from '@/lib/clientLedger'
+import { loadLedger, landlordBalances, ledgerStart } from '@/lib/clientLedger'
 import { demoPropertyIds } from '@/lib/demoProperties'
 
 const r2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100
@@ -31,11 +31,13 @@ export interface ClientAccountPosition {
 }
 
 export async function clientAccountPosition(s: SupabaseClient, asAt?: string): Promise<ClientAccountPosition> {
-  const ledger = await loadLedger(s, { asAt })
-  const { start } = ledger
-  const D = ledger.asAt
-  const demo = await demoPropertyIds(s)
-  const [props, charges, statements, transfers, bank, holding, deps] = await Promise.all([
+  // the ledger and everything else load side by side (5 Nov 2026: one after the other took ~1s on Finance home) —
+  // only the records start and the as-at date are needed first, and those are what the ledger uses too
+  const start = await ledgerStart(s)
+  const D = asAt || new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
+  const [ledger, demo, props, charges, statements, transfers, bank, holding, deps] = await Promise.all([
+    loadLedger(s, { asAt: D }),
+    demoPropertyIds(s),
     s.from('properties').select('id, landlord_id'),
     s.from('rent_charges').select('id, property_id, charge_month, amount_received, remitted_amount, received_date, voided').gte('charge_month', start).gt('amount_received', 0),
     s.from('landlord_statements').select('*').gte('statement_date', start).lte('statement_date', D),

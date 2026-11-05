@@ -73,18 +73,23 @@ export async function loadLedger(s: SupabaseClient, opts: { asAt?: string; from?
 
   // rent "received" on a charge from a previous agent's imported statement was never in our account (3 Nov 2026 audit:
   // Redstart's £4,120 of November rent counted as client money held, which a landlord payment is checked against)
-  const imported = await importedChargeIds(s, ((charges.data ?? []) as any[]).map(c => c.id))
+  const importedP = importedChargeIds(s, ((charges.data ?? []) as any[]).map(c => c.id))   // awaited below, alongside the refunds
   // a refund to the tenant leaves the account on the day it was paid (3 Nov 2026): the rent stays in on the day it came,
   // gross, and the refund goes out on its own date — so the cash book matches the bank day by day
   const refunds = new Map<string, { amount: number; on: string; reference: string | null }[]>()
   const chargeIds = ((charges.data ?? []) as any[]).map(c => c.id)
-  for (let i = 0; i < chargeIds.length; i += 300) {
-    const { data: ra } = await s.from('payment_audit_log').select('rent_charge_id, performed_at, new_value').eq('action', 'refunded').in('rent_charge_id', chargeIds.slice(i, i + 300))
-    for (const a of (ra ?? []) as any[]) {
+  // the batches of 300 go at once, not one after another (5 Nov 2026: Finance home speed)
+  const chunks: string[][] = []
+  for (let i = 0; i < chargeIds.length; i += 300) chunks.push(chargeIds.slice(i, i + 300))
+  const refundRows = (await Promise.all(chunks.map(ids => s.from('payment_audit_log').select('rent_charge_id, performed_at, new_value').eq('action', 'refunded').in('rent_charge_id', ids)))).flatMap(r => (r.data ?? []) as any[])
+  {
+    const ra = refundRows
+    for (const a of ra) {
       const amt = Number(a.new_value?.refunded || 0)
       if (amt > 0) refunds.set(a.rent_charge_id, [...(refunds.get(a.rent_charge_id) ?? []), { amount: amt, on: String(a.new_value?.refunded_on || a.performed_at).slice(0, 10), reference: a.new_value?.reference ?? null }])
     }
   }
+  const imported = await importedP
   const entries: LedgerEntry[] = []
   for (const c of (charges.data ?? []) as any[]) {
     if (c.voided || !ok(c.property_id) || imported.has(c.id)) continue
