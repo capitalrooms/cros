@@ -123,6 +123,18 @@ export async function servicesFor(s: SupabaseClient, propertyId: string): Promis
     const sg: Suggestion = { kind: 'internet', why: i >= 0 ? `${suggestions[i].why}; WiFi details are in the house information` : 'WiFi details are in the house information', perMonth: i >= 0 ? suggestions[i].perMonth : null, supplier: wifi.supplier ?? (i >= 0 ? suggestions[i].supplier : null), wifi: { network: wifi.network, password: wifi.password, phone: wifi.phone } }
     if (i >= 0) suggestions[i] = sg; else suggestions.unshift(sg)
   }
+  // suppliers named in the house information (e.g. "Gas & Electric Utility: Utility Warehouse - 0333 777 0777")
+  for (const [kind, re] of [['energy', /gas|electric|energy/i], ['water', /water/i]] as [ServiceKind, RegExp][]) {
+    if (active.has(kind) || (kind === 'energy' && (active.has('gas') || active.has('electricity')))) continue
+    const item = (((prop as any)?.house_info?.items ?? []) as any[]).find(i => re.test(String(i.label)) && !/wi-?fi/i.test(String(i.label)))
+    if (!item) continue
+    const v = String(item.value ?? '').trim()
+    const phone = v.match(/(0\d[\d\s]{8,12}\d)/)?.[1] ?? null
+    const supplier = v.replace(/\s*[-–—]\s*0\d[\d\s]+.*$/, '').replace(/\s*0\d[\d\s]{8,12}\d.*$/, '').trim() || null
+    const i = suggestions.findIndex(x => x.kind === kind)
+    if (i >= 0) suggestions[i] = { ...suggestions[i], supplier: suggestions[i].supplier ?? supplier, why: `${suggestions[i].why}; ${supplier ?? 'the supplier'} is named in the house information`, wifi: { network: null, password: null, phone } }
+    else suggestions.push({ kind, why: `${supplier ?? 'The supplier'} is named in the house information`, perMonth: null, supplier, wifi: { network: null, password: null, phone } })
+  }
   return { ready, services, suggestions }
 }
 
