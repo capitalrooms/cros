@@ -1,6 +1,7 @@
 /**
  * /api/admin/property-services — a property's bills & services (migration 264, lib/properties/services).
  *   GET  ?propertyId=                    → { ready, services (with what's been paid), suggestions }
+ *   GET  ?all=1                          → { ready, rows } every live account across the houses (the overview)
  *   POST { propertyId, service }         → add (service.id → update)
  *   POST { action: 'end', id }           → the account was closed or moved (kept for the record)
  *   POST { action: 'delete', id }        → removed (a mistake)
@@ -9,7 +10,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/adminAuth'
 import { createServiceClient } from '@/lib/supabase'
-import { servicesFor, syncHouseInfo, SERVICE_KINDS, WHO_PAYS } from '@/lib/properties/services'
+import { servicesFor, syncHouseInfo, allServices, SERVICE_KINDS, WHO_PAYS } from '@/lib/properties/services'
 
 export const dynamic = 'force-dynamic'
 const SETUP = 'Run migration 264 in Supabase first (bills & services) — then refresh.'
@@ -19,6 +20,7 @@ const date = (v: unknown) => /^\d{4}-\d{2}-\d{2}$/.test(String(v ?? '')) ? Strin
 
 export async function GET(req: NextRequest) {
   if (!(await requireAdmin(req))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (req.nextUrl.searchParams.get('all') === '1') return NextResponse.json(await allServices(createServiceClient()))
   const id = req.nextUrl.searchParams.get('propertyId')
   if (!id) return NextResponse.json({ error: 'propertyId required' }, { status: 400 })
   return NextResponse.json(await servicesFor(createServiceClient(), id))

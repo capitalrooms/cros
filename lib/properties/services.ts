@@ -140,3 +140,33 @@ export async function syncHouseInfo(s: SupabaseClient, propertyId: string): Prom
   items.unshift({ icon: '📶', label: 'WiFi', value, sensitive: false, from: 'bills-and-services' })
   await s.from('properties').update({ house_info: { ...((prop as any)?.house_info ?? {}), items } }).eq('id', propertyId)
 }
+
+/** Every live account across the houses (the Bills & services overview, the dashboard and the Today list). Practice
+ *  houses left out. `ready` is false until migration 264 has run — callers then show nothing rather than an error. */
+export async function allServices(s: SupabaseClient): Promise<{ ready: boolean; rows: (ServiceRow & { property: string; endsInDays: number | null })[] }> {
+  const { data, error } = await s.from('property_services').select('*, properties(name, address, is_demo)').is('ended_at', null)
+  if (error) return { ready: !/property_services|does not exist|schema cache/i.test(error.message), rows: [] }
+  const t = today()
+  return {
+    ready: true,
+    rows: ((data ?? []) as any[]).filter(r => !r.properties?.is_demo).map(r => ({
+      ...r, monthly_cost: r.monthly_cost != null ? Number(r.monthly_cost) : null,
+      property: String(r.properties?.name || r.properties?.address || '').split(/\n/)[0],
+      endsInDays: r.contract_end ? Math.round((Date.parse(r.contract_end) - Date.parse(t)) / 86_400_000) : null,
+    })),
+  }
+}
+export type ServiceRow = Omit<ServiceView, 'paid' | 'contractEndsSoon'> & { property_id: string }
+/** Contracts that end within `days` (or have ended and are still live — likely now on a higher out-of-contract price). */
+export const endingSoon = <T extends { endsInDays: number | null }>(rows: T[], days = 60) => rows.filter(r => r.endsInDays != null && r.endsInDays <= days).sort((a, b) => a.endsInDays! - b.endsInDays!)
+
+/** The account a bank payment is for: the one whose supplier is named in the bank line (e.g. "COMMUNITY FIBRE LTD
+ *  DD 12345" → the internet account with Community Fibre). Words like "Ltd" and "the" don't count. */
+export function matchService<T extends { supplier: string | null; ended_at?: string | null }>(services: T[], bankText: string): T | null {
+  const text = ` ${bankText.toLowerCase().replace(/[^a-z0-9]+/g, ' ')} `
+  const words = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, ' ').split(' ').filter(w => w.length > 2 && !['ltd', 'limited', 'the', 'plc', 'and', 'uk', 'services', 'energy', 'water'].includes(w))
+  return services.filter(x => !x.ended_at && x.supplier).find(x => { const w = words(x.supplier!); return w.length > 0 && w.every(k => text.includes(` ${k} `)) })
+    ?? services.filter(x => !x.ended_at && x.supplier).find(x => { const w = words(x.supplier!); return w.length > 0 && text.includes(` ${w[0]} `) }) ?? null
+}
+/** The expense type a bill for this kind of account is filed under (Internet → broadband). */
+export const categoryForKind = (k: string) => SERVICE_KINDS.find(x => x.key === k)?.categories[0] ?? null

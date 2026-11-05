@@ -20,7 +20,7 @@ export const AREAS: Area[] = [
     // 23 Oct 2026 audit: each area may READ what its own screens show from another area; changing it stays there
     apiRead: ['/api/admin/rent-charges', '/api/admin/finance-dates'] },
   { key: 'properties', label: 'Properties', hint: 'All Properties, property pages, adding properties',
-    pages: ['/admin/active-rooms', '/admin/overview', '/admin/property-tasks', '/admin/properties', '/admin/property-documents', '/admin/property-notes'],
+    pages: ['/admin/active-rooms', '/admin/bills-and-services', '/admin/overview', '/admin/property-tasks', '/admin/properties', '/admin/property-documents', '/admin/property-notes'],
     // (removing a property is administrators only — not in any area)
     api: ['/api/admin/property-tasks', '/api/admin/rooms', '/api/admin/house-docs', '/api/admin/hmo-notice', '/api/admin/files',
       '/api/admin/ensure-storage', '/api/admin/create-property', '/api/admin/delete-photo', '/api/admin/house-info-extract', '/api/admin/property-insights', '/api/admin/property-services',
