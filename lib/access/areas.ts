@@ -37,7 +37,7 @@ export const AREAS: Area[] = [
       // what lettings work reaches into (12 Oct 2026 check): holding deposit receipts, landlords' bank details on agreements, letters
       '/api/admin/documents/generated', '/api/admin/document-generator',
       // 23 Oct 2026 audit: Tell the landlord, letter templates, let-only initial monies
-      '/api/admin/landlord-updates', '/api/admin/letter-templates', '/api/admin/initial-monies',
+      '/api/admin/landlord-updates', '/api/admin/letter-templates', '/api/admin/initial-monies', '/api/admin/holding-for',
       // 24 Oct 2026: viewing and visit messages to tenants (the route only takes those)
       '/api/admin/quick-notify/visits'],
     // read only (GET): landlords' bank details for agreements — changing where a landlord is paid stays with Finance;

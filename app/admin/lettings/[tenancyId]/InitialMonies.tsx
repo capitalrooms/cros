@@ -48,6 +48,8 @@ export default function InitialMonies({ tenancyId, onChanged }: { tenancyId: str
     const r = await adminFetch('/api/admin/initial-monies', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tenancyId, ...body }) })
     const j = await r.json().catch(() => ({}))
     setBusy(false)
+    // a balance that isn't what's due: show the sum and record it only if the office confirms (lib/finance/initialMonies)
+    if (r.status === 409 && j.confirm) { if (window.confirm(`${j.error}\n\nRecord £${Number(body.balanceAmount).toFixed(2)} anyway?`)) return act({ ...body, confirmDifferent: true }); return }
     if (!r.ok) { setError(j.error ?? 'That didn’t save'); return }
     await load(); onChanged?.()
   }

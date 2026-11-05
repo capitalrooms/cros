@@ -2,6 +2,7 @@
 // our letting fee, and the balance paid to the landlord's account. Pulled from the tenancy, the room, the property's
 // bank details and fee, the tenant and the landlord. Used by /api/lettings-statement/[tenancyId] and by the landlord's
 // "Signed & paid" update, which attaches it (17 Oct 2026).
+import { holdingFor } from '@/lib/lettings/holdingFor'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { generateLettingsStatementPDF, lettingsStatementFileName } from '@/lib/lettingsStatement/generatePDF'
 import { fetchPDFBizSettings } from '@/lib/pdfLetterhead'
@@ -52,6 +53,8 @@ export async function lettingsStatementFor(s: SupabaseClient, tenancyId: string)
   // a statement with a blank rent or deposit would show the landlord £0 — say what's missing instead (it used to crash)
   // once initial monies are recorded (migration 231), the statement shows exactly what came in and the fee taken
   const { data: im } = await supabase.from('initial_monies').select('first_rent, deposit, fee, holding_amount, paid_on, paid_reference').eq('tenancy_id', tenancyId).is('voided_at', null).maybeSingle()
+  // without initial monies on record, the holding deposit comes from the one source (lib/lettings/holdingFor)
+  if (!im) (tenancy as any).holding_deposit_received = (await holdingFor(s, { tenancyId })).amount || null
   if (im) {
     ;(tenancy as any).rent_amount = Number((im as any).first_rent)
     ;(tenancy as any).deposit_amount = Number((im as any).deposit)

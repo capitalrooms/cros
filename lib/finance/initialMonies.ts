@@ -7,6 +7,7 @@
 import { lettingFeeRule } from '@/lib/fees/lettingFee'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { loadPackContext, moneySummary } from '@/lib/movein/pack'
+import { holdingFor } from '@/lib/lettings/holdingFor'
 import { logTenancyEvent } from '@/lib/lettings/incomingTenancy'
 import { demoPropertyIds } from '@/lib/demoProperties'
 
@@ -14,7 +15,9 @@ const r2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100
 
 export interface InitialExpected {
   letOnly: boolean
-  firstRent: number; deposit: number; holding: number; holdingId: string | null
+  firstRent: number; deposit: number; holding: number; holdingId: string | null; holdingIds: string[]
+  /** the holding deposit can't be trusted yet (lib/lettings/holdingFor) — nothing is recorded until it's sorted */
+  holdingProblem: string | null
   balanceDue: number; feeSuggested: number | null; feeBasis: string
   landlordId: string | null; propertyId: string | null; tenantName: string; paymentRef: string | null; startDate: string | null
 }
@@ -24,11 +27,11 @@ export async function expectedFor(s: SupabaseClient, tenancyId: string): Promise
   if (!t) return { error: 'Tenancy not found' }
   const ctx = await loadPackContext(s, tenancyId).catch(() => null)
   const m = ctx ? moneySummary(ctx) : null
-  const { data: held } = await s.from('holding_deposits').select('id, amount, status').eq('tenancy_id', tenancyId).in('status', ['held', 'applied']).order('recorded_at').limit(1)
-  const hold = (held ?? [])[0] as any
+  // every holding deposit, from the one source (lib/lettings/holdingFor) — not just the first one found
+  const hf = await holdingFor(s, { tenancyId })
   const firstRent = r2(Number(m?.firstRent ?? t.rent_amount ?? 0))
   const deposit = r2(Number(m?.deposit ?? t.deposit_amount ?? 0))
-  const holding = r2(Number(hold?.amount ?? m?.holdingDeposit ?? 0))
+  const holding = hf.amount
   const p = t.properties ?? {}
   // the house's own fee, else the landlord's (lib/fees/lettingFee)
   const { data: ll } = p.landlord_id ? await s.from('people').select('letting_fee_pct, letting_fee_flat').eq('id', p.landlord_id).maybeSingle() : { data: null }
@@ -40,7 +43,7 @@ export async function expectedFor(s: SupabaseClient, tenancyId: string): Promise
   else if (rule.pct != null && t.rent_amount) { feeSuggested = r2(Number(t.rent_amount) * rule.pct / 100); feeBasis = `${rule.pct}% of a month’s rent${rule.from === 'landlord' ? ' (the landlord’s fee)' : ''}` }
   return {
     letOnly: p.letting_type === 'let_only',
-    firstRent, deposit, holding, holdingId: hold?.id ?? null,
+    firstRent, deposit, holding, holdingId: hf.holds[0]?.id ?? null, holdingIds: hf.holds.filter(h => h.status === 'held').map(h => h.id), holdingProblem: hf.problem,
     balanceDue: r2(Math.max(0, firstRent + deposit - holding)),
     feeSuggested, feeBasis,
     landlordId: p.landlord_id ?? null, propertyId: t.property_id ?? null,
@@ -96,6 +99,13 @@ export async function receive(s: SupabaseClient, tenancyId: string, b: any, by: 
   if (balance == null) return { error: 'Enter the balance received', status: 400 }
   if (fee == null) return { error: 'Enter the tenant-find fee (0 if none)', status: 400 }
   if (!isDate(b.receivedOn)) return { error: 'Enter the date the balance arrived', status: 400 }
+  // the holding deposit must be certain before final funds are allocated (5 Nov 2026)
+  if (e.holdingProblem) return { error: `Not recorded — ${e.holdingProblem}`, status: 409 }
+  // a balance that isn't what's due is the classic mistake (the holding deposit forgotten, or counted twice): stop and
+  // show the sum; it goes through only when the office confirms the different figure is right
+  if (Math.abs(balance - e.balanceDue) > 0.009 && !b.confirmDifferent) {
+    return { status: 409, confirm: true, error: `The balance entered (£${balance.toFixed(2)}) isn’t what’s due: first rent £${e.firstRent.toFixed(2)} + deposit £${e.deposit.toFixed(2)} − holding deposit £${e.holding.toFixed(2)} = £${e.balanceDue.toFixed(2)}. ${balance > e.balanceDue && Math.abs(balance - e.balanceDue - e.holding) <= 0.009 ? 'It looks like the holding deposit hasn’t been taken off. ' : ''}Record it anyway only if that’s what actually arrived.` }
+  }
   const toLandlord = r2(e.holding + balance - fee)
   if (toLandlord < 0) return { error: 'The fee is more than the money received', status: 400 }
   let bankId: string | null = null
@@ -114,7 +124,7 @@ export async function receive(s: SupabaseClient, tenancyId: string, b: any, by: 
   // the bank line is now accounted for (no longer in suspense); the holding deposit is used up; the fee is the
   // tenancy's letting fee (numbered LETF); the move-in money step is done
   if (bankId) await s.from('bank_transactions').update({ status: 'matched', matched_at: new Date().toISOString(), matched_by: by.personId }).eq('id', bankId)
-  if (e.holdingId) await s.from('holding_deposits').update({ status: 'applied', outcome_on: b.receivedOn, outcome_by: by.email, outcome_at: new Date().toISOString(), outcome_reason: `Part of initial monies ${(rec as any).txn_no}` }).eq('id', e.holdingId).eq('status', 'held')
+  if (e.holdingIds.length) await s.from('holding_deposits').update({ status: 'applied', outcome_on: b.receivedOn, outcome_by: by.email, outcome_at: new Date().toISOString(), outcome_reason: `Part of initial monies ${(rec as any).txn_no}` }).in('id', e.holdingIds).eq('status', 'held')
   await s.from('tenancies').update({ letting_fee_charged: fee || null, move_in_monies_received_at: b.receivedOn }).eq('id', tenancyId)
   await logTenancyEvent(s, tenancyId, 'initial_monies', `Initial monies ${(rec as any).txn_no}: £${(e.holding + balance).toFixed(2)} received (holding £${e.holding.toFixed(2)} + balance £${balance.toFixed(2)}${bankId ? ', matched to the bank' : ''}) · tenant-find fee £${fee.toFixed(2)} · £${toLandlord.toFixed(2)} for the landlord`, by.email)
   return { ok: true, id: (rec as any).id, number: (rec as any).txn_no }

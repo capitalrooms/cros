@@ -3,6 +3,7 @@
 //   • the property's gas safety certificate, EICR and EPC — the latest uploaded to that property
 //   • the statutory and house guides — public/tenancy-pack/*
 // The tenant gets one link (/pack/<token>) to view or download each, and confirms they've read them.
+import { holdingFor } from '@/lib/lettings/holdingFor'
 import { healPropertyCerts } from '@/lib/compliance/certFromDocument'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { firstRentPayment, parseTenancyDate, ukLongDate, type FirstRent } from '@/lib/tenancy/firstRent'
@@ -76,6 +77,8 @@ export interface PackContext {
   amountDue: number
   payBy: string | null              // YYYY-MM-DD — cleared funds 24h before check-in
   warnings: string[]
+  /** the holding deposit can't be trusted (lib/lettings/holdingFor) — the pack and the move-in money must wait */
+  holdingProblem: string | null
   landlordId: string | null
   houseLettingType: string | null // the house's own setting (Details), before any per-pack choice
   lettingType: string | null      // 'let_only' → the let-only agreement; otherwise the Capital Rooms one
@@ -126,7 +129,10 @@ export async function loadPackContext(s: SupabaseClient, tenancyId: string, opts
   const rentMonthly = Number(t.rent_amount || 0)
   const rentDueDay = Number(t.rent_due_day || 1)
   const deposit = Number(t.deposit_amount || 0)
-  const holdingDeposit = Number(t.holding_deposit_received || 0)
+  // the holding deposit: the register first, the typed figure only for lets from before it (lib/lettings/holdingFor) —
+  // 5 Nov 2026: final funds allocated wrongly elsewhere because the holding deposit wasn't on the system yet
+  const holding = await holdingFor(s, { tenancyId })
+  const holdingDeposit = holding.amount
   const first = t.start_date ? firstRentPayment(t.start_date, rentMonthly, rentDueDay) : null
   const generatedRef = buildPaymentRef(prop?.name || prop?.address || '', room.name)
   const start = parseTenancyDate(t.start_date)
@@ -139,6 +145,7 @@ export async function loadPackContext(s: SupabaseClient, tenancyId: string, opts
   if (!p.email) warnings.push('The tenant has no email address.')
   if (!deposit) warnings.push('No deposit amount — check whether one is being taken.')
   if (deposit > Math.round(weekly * 5 * 100) / 100 + 0.01) warnings.push(`The deposit is more than 5 weeks’ rent (${gbp(weekly * 5)}) — the legal cap.`)
+  if (holding.problem) warnings.unshift(holding.problem)
   if (holdingDeposit > Math.round(weekly * 100) / 100 + 0.01) warnings.push(`The holding deposit is more than 1 week’s rent (${gbp(weekly)}) — the legal cap.`)
 
   // no gas at the property → no gas safety certificate in the pack (properties.has_gas)
@@ -195,7 +202,7 @@ export async function loadPackContext(s: SupabaseClient, tenancyId: string, opts
     paymentRefStored: !!t.payment_reference,
     first,
     amountDue: Math.round(((first?.amount ?? 0) + deposit - holdingDeposit) * 100) / 100,
-    payBy, warnings, documents,
+    payBy, warnings, documents, holdingProblem: holding.problem,
   }
 }
 

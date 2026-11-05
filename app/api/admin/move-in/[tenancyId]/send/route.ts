@@ -45,6 +45,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ ten
     return NextResponse.json({ html, from: sender.from, subject: defaultPackSubject(ctx) })
   }
   if (!['link', 'test', 'send'].includes(action)) return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
+  // the move-in money depends on the holding deposit: nothing goes to the tenant while it's in doubt (lib/lettings/holdingFor)
+  if (action === 'send' && ctx.holdingProblem) return NextResponse.json({ error: `Not sent — ${ctx.holdingProblem}` }, { status: 409 })
 
   const missing = [!ctx.startDate && 'move-in date', !ctx.rentMonthly && 'monthly rent', !ctx.tenant.email && 'tenant email'].filter(Boolean)
   if (missing.length) return NextResponse.json({ error: `Add the ${missing.join(', ')} first.` }, { status: 400 })

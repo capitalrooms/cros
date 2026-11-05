@@ -17,6 +17,7 @@
  * Office and lettings staff only. Nothing here sends anything.
  */
 import { NextRequest, NextResponse } from 'next/server'
+import { holdingFor } from '@/lib/lettings/holdingFor'
 import { extractReference } from '@/lib/references/extract'
 import { previewEndDate, applyEndDate } from '@/lib/tenancy/endDate'
 import { requireStaff } from '@/lib/portalAuth'
@@ -81,6 +82,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ te
     // (Mr Raphael Wassermann's was saved as "recheck by 5 Oct 2026", the day of the check)
     if (step === 'right_to_rent' && !b.undo && b.rightToRentUntil && String(b.rightToRentUntil) <= date!)
       return NextResponse.json({ error: 'The recheck date is the day their permission to stay runs out, so it must be after the check date' }, { status: 400 })
+    // move-in monies can't be marked received while the holding deposit is in doubt — that's how final funds get
+    // allocated wrongly (5 Nov 2026; lib/lettings/holdingFor)
+    if (step === 'monies' && !b.undo) {
+      const hf = await holdingFor(s, { tenancyId })
+      if (hf.problem) return NextResponse.json({ error: `Not marked — ${hf.problem}` }, { status: 409 })
+    }
     const update: Record<string, unknown> = { [col]: date }
     if (step === 'deposit_protected' && !b.undo) {
       if (b.scheme) update.deposit_scheme = String(b.scheme).slice(0, 60)

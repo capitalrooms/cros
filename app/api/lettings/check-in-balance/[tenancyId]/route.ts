@@ -17,6 +17,7 @@ import { placeLabel, isWholeLet } from '@/lib/lettings/letWording'
 import { NextRequest, NextResponse } from 'next/server'
 import { requireStaff } from '@/lib/portalAuth'
 import { createClient } from '@supabase/supabase-js'
+import { holdingFor } from '@/lib/lettings/holdingFor'
 import { generateCheckInBalancePDF } from '@/lib/checkInBalance/generatePDF'
 import { fetchPDFBizSettings } from '@/lib/pdfLetterhead'
 import { contentDisposition } from '@/lib/contentDisposition'
@@ -122,7 +123,10 @@ export async function GET(
   // Payment reference: use tenancy-level ref if set, else property base ref
   const paymentRef = tenancy.payment_reference || property.bank_payment_ref || ''
 
-  const holdingDeposit = Number(tenancy.holding_deposit_received ?? 0)
+  // the holding deposit from the one source (lib/lettings/holdingFor); no balance letter while it's in doubt
+  const hf = await holdingFor(sb as any, { tenancyId })
+  if (hf.problem) return NextResponse.json({ error: hf.problem }, { status: 409 })
+  const holdingDeposit = hf.amount
   const depositAmount  = Number(tenancy.deposit_amount ?? 0)
   const rentMonthly    = Number(tenancy.rent_amount ?? 0)
 
