@@ -57,6 +57,10 @@ export async function GET(req: NextRequest) {
   const tenantName = person ? [person.salutation, person.first_name, person.last_name].filter(Boolean).join(' ') : 'Tenant'
   const firstName  = person?.first_name || tenantName
   const outstanding = Math.max(0, Number(charge.amount_due) - Number(charge.amount_received || 0))
+  // never a letter about arrears that aren't there
+  if (outstanding < 0.01) return NextResponse.json({ error: 'Nothing is owed on this month’s rent — no arrears letter needed' }, { status: 400 })
+  const rentMonth = String(charge.charge_month ?? '').slice(0, 7)
+  const forMonth = rentMonth ? new Date(`${rentMonth}-01T12:00:00Z`).toLocaleDateString('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' }) : null
 
   const [assets, biz] = await Promise.all([
     Promise.resolve(loadPDFLetterheadAssets()),
@@ -75,9 +79,8 @@ export async function GET(req: NextRequest) {
   let ay = MARGIN
   doc.font(fontBold).fontSize(9.5).fillColor(BLACK)
     .text(tenantName, MARGIN, ay, { width: PAGE_W - MARGIN * 2 - 100 - 20 }); ay += 13
-  if (prop?.name) { doc.font(fontReg).fontSize(9).fillColor(GREY).text(prop.name, MARGIN, ay, { width: 250 }); ay += 12 }
-  if (room?.name) { doc.font(fontReg).fontSize(9).fillColor(GREY).text(room.name, MARGIN, ay, { width: 250 }); ay += 12 }
-  if (prop?.address) { doc.font(fontReg).fontSize(9).fillColor(GREY).text(prop.address, MARGIN, ay, { width: 250 }); ay += 12 }
+  // their postal address once: the room, then the house's address line by line (5 Nov 2026: the street printed twice)
+  for (const l of postalLines(room?.name, prop?.address || prop?.name)) { doc.font(fontReg).fontSize(9).fillColor(GREY).text(l, MARGIN, ay, { width: 250 }); ay += 12 }
 
   const afterAddr = Math.max(ay + 12, MARGIN + LOGO_H + 20)
   doc.font(fontReg).fontSize(9).fillColor(GREY)
@@ -99,7 +102,7 @@ export async function GET(req: NextRequest) {
   y = doc.y + 18
 
   // Arrears box
-  const boxH = 56
+  const boxH = 66
   doc.rect(MARGIN, y, COL_W, boxH).fillColor(PDF.tint).fill()
   doc.strokeColor(PDF.tint).lineWidth(1).rect(MARGIN, y, COL_W, boxH).stroke()
 
@@ -108,7 +111,7 @@ export async function GET(req: NextRequest) {
   doc.font(fontBold).fontSize(22).fillColor(PDF.alert)
     .text(gbp(outstanding), MARGIN + 16, y + 24, { width: COL_W - 32 })
   doc.font(fontReg).fontSize(8).fillColor(PDF.alert)
-    .text([`Due ${fmtDate(charge.due_date)}`, charge.tenancy?.payment_reference ? `Payment reference ${charge.tenancy.payment_reference}` : null].filter(Boolean).join('   ·   '), MARGIN + 16, y + 44, { width: COL_W - 32 })
+    .text([forMonth ? `Rent for ${forMonth}` : charge.due_date ? `Due ${fmtDate(charge.due_date)}` : null, charge.tenancy?.payment_reference ? `Payment reference ${charge.tenancy.payment_reference}` : null].filter(Boolean).join('   ·   '), MARGIN + 16, y + 50, { width: COL_W - 32 })
   y += boxH + 18
 
   // Payment instructions
@@ -120,7 +123,7 @@ export async function GET(req: NextRequest) {
   ]
   for (const line of instructions) {
     doc.font(fontReg).fontSize(9).fillColor(GREY)
-      .text(`▸  ${line}`, MARGIN, y, { width: COL_W, lineGap: 2, indent: 14 })
+      .text(`•  ${line}`, MARGIN, y, { width: COL_W, lineGap: 2, indent: 14 })
     y = doc.y + 8
   }
 
@@ -151,4 +154,10 @@ export async function GET(req: NextRequest) {
       'Content-Length':      String(pdf.byteLength),
     },
   })
+}
+
+/** The tenant's postal address: their room, then the house's address one line per part, each line once. */
+function postalLines(room?: string | null, address?: string | null): string[] {
+  const parts = [room, ...String(address ?? '').split(/\n|,\s*/)].map(x => String(x ?? '').trim()).filter(Boolean)
+  return parts.filter((x, i) => parts.findIndex(y => y.toLowerCase() === x.toLowerCase()) === i)
 }

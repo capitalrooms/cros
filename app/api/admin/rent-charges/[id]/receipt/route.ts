@@ -94,15 +94,8 @@ export async function GET(req: NextRequest, { params: paramsPromise }: { params:
   doc.font(fontBold).fontSize(9.5).fillColor(BLACK)
     .text(tenantName, MARGIN, ay, { width: PAGE_W - MARGIN * 2 - 100 - 20 })
   ay += 13
-  if (prop?.name) {
-    doc.font(fontReg).fontSize(9).fillColor(GREY).text(prop.name, MARGIN, ay, { width: 250 }); ay += 12
-  }
-  if (prop?.address) {
-    doc.font(fontReg).fontSize(9).fillColor(GREY).text(prop.address, MARGIN, ay, { width: 250 }); ay += 12
-  }
-  if (person?.email) {
-    doc.font(fontReg).fontSize(9).fillColor(GREY).text(person.email, MARGIN, ay, { width: 250 }); ay += 12
-  }
+  // their postal address once: the room, then the house's address line by line (5 Nov 2026: the street printed twice)
+  for (const l of postalLines(room?.name, prop?.address || prop?.name)) { doc.font(fontReg).fontSize(9).fillColor(GREY).text(l, MARGIN, ay, { width: 250 }); ay += 12 }
 
   const afterAddr = Math.max(ay + 12, MARGIN + LOGO_H + 20)
   doc.font(fontReg).fontSize(9).fillColor(GREY)
@@ -120,7 +113,7 @@ export async function GET(req: NextRequest, { params: paramsPromise }: { params:
   y = drawPDFSalutation(doc, y, person ? dearName(person as any) : dearFromText(tenantName), fontReg)   // "Dear Miss Pious" (lib/people)
 
   doc.font(fontReg).fontSize(9).fillColor(GREY)
-    .text('Thank you — we have received your rent payment. Please retain this receipt for your records.', MARGIN, y, { width: COL_W, lineGap: 2 })
+    .text('Thank you — we have received your rent payment. Please keep this receipt for your records.', MARGIN, y, { width: COL_W, lineGap: 2 })
   y = doc.y + 20
 
   // ── Receipt details table ────────────────────────────────────────────────────
@@ -130,8 +123,9 @@ export async function GET(req: NextRequest, { params: paramsPromise }: { params:
     ...(Number(charge.amount_due) !== Number(charge.amount_received)
       ? [{ label: 'Balance outstanding', value: gbp(Math.max(0, Number(charge.amount_due) - Number(charge.amount_received))) }]
       : [{ label: 'Balance outstanding', value: '£0.00 — fully cleared' }]),
-    { label: 'Date received',    value: fmtDate(charge.paid_at) },
-    { label: 'Payment method',   value: METHOD_LABEL[charge.payment_method] || charge.payment_method || '—' },
+    // only what we know — no rows of dashes
+    ...(charge.paid_at || charge.received_date ? [{ label: 'Date received', value: fmtDate(charge.paid_at || charge.received_date) }] : []),
+    ...(charge.payment_method ? [{ label: 'Payment method', value: METHOD_LABEL[charge.payment_method] || charge.payment_method }] : []),
     { label: 'Payment period',   value: charge.charge_month ? fmtDate(charge.charge_month + '-01').replace(/^\d+ /, '').replace(/^(\w+ )(\w+ )/, '$1 $2') : fmtDate(charge.due_date) },
     { label: 'Property',         value: prop?.name || prop?.address || '—' },
     { label: 'Room',             value: room?.name || '—' },
@@ -183,4 +177,10 @@ export async function GET(req: NextRequest, { params: paramsPromise }: { params:
       'Content-Length':      String(pdf.byteLength),
     },
   })
+}
+
+/** The tenant's postal address: their room, then the house's address one line per part, each line once. */
+function postalLines(room?: string | null, address?: string | null): string[] {
+  const parts = [room, ...String(address ?? '').split(/\n|,\s*/)].map(x => String(x ?? '').trim()).filter(Boolean)
+  return parts.filter((x, i) => parts.findIndex(y => y.toLowerCase() === x.toLowerCase()) === i)
 }
