@@ -5,6 +5,8 @@
 //     unless the admin has looked at the match and said it's not the same
 //   · it comes off the first statement for that property that hasn't gone out (or the month chosen, if still open)
 //   · source + source_ref (migration 208): a database-unique key, so one document can never become two expenses
+import { chargeFor, type VatTreatment } from '@/lib/expenses/vat'
+import { vatSetting } from '@/lib/finance/books'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { findDuplicates, type ExpenseLike } from '@/lib/expenses/duplicates'
 import { deductionMonth, monthName, closedMonths, firstOpenMonth, addMonths } from '@/lib/expenses/period'
@@ -21,6 +23,10 @@ export interface NewExpense {
   source?: 'manual' | 'supplier_invoice' | 'capture' | 'ops_bank'; source_ref?: string | null
   /** what it actually cost us, when the landlord is charged a different amount (goods resold) — migration 195 */
   cost_amount?: number | null
+  /** VAT (migration 263): how it's handled for this landlord, and the VAT shown on the receipt. With 'recharge',
+   *  `amount` is the receipt total and the landlord is charged net + VAT (lib/expenses/vat). */
+  vat_treatment?: VatTreatment | null
+  vat_on_receipt?: number | null
 }
 export type AddResult =
   | { ok: true; expense: any; deductMonth: string; message: string }
@@ -73,9 +79,25 @@ export async function addLandlordExpense(s: SupabaseClient, e: NewExpense, opts:
     const duplicates = await expenseDuplicates(s, { ...e, amount, description })
     if (duplicates.length) return { ok: false, status: 409, duplicates }
   }
+  // VAT: a recharge needs Capital Rooms to be VAT registered on the expense date; a disbursement is charged at cost
+  const treatment: VatTreatment | null = e.vat_treatment === 'recharge' || e.vat_treatment === 'disbursement' ? e.vat_treatment : null
+  const vatIn = e.vat_on_receipt == null || (e.vat_on_receipt as any) === '' ? null : r2(Number(e.vat_on_receipt))
+  if (vatIn != null && !(vatIn >= 0 && vatIn < amount)) return { ok: false, status: 400, error: 'The VAT on the receipt must be less than the amount' }
+  let charged = amount, vatCharged: number | null = null
+  if (treatment === 'recharge') {
+    const reg = await vatSetting(s)
+    if (!reg || e.expense_date < reg.from) return { ok: false, status: 400, error: 'Recharging with VAT starts once Capital Rooms is VAT registered — set the date in Finance › Transactions, or add this at cost' }
+    if (cost != null) return { ok: false, status: 400, error: 'A recharge is worked out from the receipt — leave “what it cost us” blank' }
+    const c = chargeFor(amount, vatIn ?? 0, 'recharge', reg.rate)
+    charged = c.charged; vatCharged = c.vatCharged
+  }
+  if (treatment === 'disbursement' && cost != null && cost !== amount) {
+    const reg = await vatSetting(s)
+    if (reg && e.expense_date >= reg.from) return { ok: false, status: 400, error: 'A disbursement is passed on at cost — the landlord is charged exactly what it cost' }
+  }
   const when = await deductionMonth(s, e.property_id, e.expense_date, e.deduct_month || null)
   const row: Record<string, unknown> = {
-    property_id: e.property_id, description, amount, expense_date: e.expense_date,
+    property_id: e.property_id, description, amount: charged, expense_date: e.expense_date,
     notes: String(e.notes || '').trim() || null, created_by: opts.by,   // txn_no (EXP000123) is given by the database
     category: e.category || null, supplier: String(e.supplier || '').trim() || null, invoice_number: String(e.invoice_number || '').trim() || null,
     // always the statement it was promised for (the message below), so a follow-on statement for an earlier month
@@ -88,8 +110,17 @@ export async function addLandlordExpense(s: SupabaseClient, e: NewExpense, opts:
     supplier_payment_ref: String(e.supplier_payment_ref || '').trim() || null,
   }
   if (cost != null && cost !== amount) row.cost_amount = cost   // the difference is profit (or a loss) on goods resold
+  if (treatment === 'recharge' && charged !== amount) row.cost_amount = amount   // what the receipt said; the landlord pays net + VAT
+  const vatCols: Record<string, unknown> = treatment || vatIn != null ? { vat_treatment: treatment, vat_on_receipt: vatIn, vat_charged: vatCharged } : {}
+  Object.assign(row, vatCols)
   if (e.source_ref) Object.assign(row, { source: e.source ?? 'manual', source_ref: e.source_ref })
   let { data: expense, error } = await s.from('recharge_expenses').insert(row).select('*').single()
+  // before migration 263 the VAT columns don't exist — a recharge can't be saved without them; a disbursement can
+  if (error && /vat_/.test(error.message) && /column|schema cache/i.test(error.message)) {
+    if (treatment === 'recharge') return { ok: false, status: 409, error: 'Run migration 263 in Supabase first (VAT on expenses)' }
+    for (const k of Object.keys(vatCols)) delete row[k]
+    ;({ data: expense, error } = await s.from('recharge_expenses').insert(row).select('*').single())
+  }
   // before migration 208 the source columns don't exist yet — save without them (the claim still stops doubles)
   if (error && /source/.test(error.message) && /column|schema cache/i.test(error.message)) {
     delete row.source; delete row.source_ref
@@ -102,6 +133,6 @@ export async function addLandlordExpense(s: SupabaseClient, e: NewExpense, opts:
   const where = String(prop.name || '').split('\n')[0]
   return {
     ok: true, expense, deductMonth: when.month,
-    message: `Added ${expense.txn_no ?? ''} — £${amount.toFixed(2)}${cost != null && cost !== amount ? ` (cost £${cost.toFixed(2)})` : ''} will come off the ${monthName(when.month)} statement for ${where}.${when.adjusted ? ' (That month’s statement has already gone out, so it moves to the next one.)' : ''}`.replace('Added  —', 'Added —'),
+    message: `Added ${expense.txn_no ?? ''} — £${charged.toFixed(2)}${vatCharged ? ` (£${(charged - vatCharged).toFixed(2)} + £${vatCharged.toFixed(2)} VAT)` : cost != null && cost !== amount ? ` (cost £${cost.toFixed(2)})` : ''} will come off the ${monthName(when.month)} statement for ${where}.${when.adjusted ? ' (That month’s statement has already gone out, so it moves to the next one.)' : ''}`.replace('Added  —', 'Added —'),
   }
 }

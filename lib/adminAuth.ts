@@ -17,3 +17,13 @@ export async function requireAdministrator(req: NextRequest): Promise<{ email: s
   const who = await officeCaller(bearer(req.headers))
   return who && isAdministrator(who.role) ? { email: who.email, personId: who.personId } : null
 }
+
+/** Directors only (5 Nov 2026, Harry: the office account and the company's profit and loss are for directors): an
+ *  administrator whose job title is Director (People › Office). */
+export async function requireDirector(req: NextRequest): Promise<{ email: string; personId: string } | null> {
+  const who = await officeCaller(bearer(req.headers))
+  if (!who || !isAdministrator(who.role)) return null
+  const { createServiceClient } = await import('@/lib/supabase')
+  const { data } = await createServiceClient().from('people').select('job_title').eq('id', who.personId).maybeSingle()
+  return /director/i.test(String((data as any)?.job_title ?? '')) ? { email: who.email, personId: who.personId } : null
+}

@@ -11,6 +11,7 @@ import AppBar from '@/components/AppBar'
 import { adminFetch } from '@/lib/adminFetch'
 import LandlordCorrespondence from './LandlordCorrespondence'
 import PageHero, { HeroButton } from '@/components/PageHero'
+import LandlordVat from '@/app/components/LandlordVat'
 import BackButton from '@/app/components/BackButton'
 import SidePanel, { PanelRow, PanelButton } from '@/app/components/SidePanel'
 import { useUrlTab } from '@/lib/useUrlTab'
@@ -631,6 +632,9 @@ export default function LandlordProfilePage({ params, searchParams }: { params: 
                 )}
               </div>
             </div>
+
+            {/* VAT: registered or not, and how we handle VAT on costs we pay for them (migration 263) */}
+            <LandlordVat landlordId={personId} />
 
             {/* Management agreement summary */}
             <div className="rounded-xl border border-neutral-200 bg-white overflow-hidden">

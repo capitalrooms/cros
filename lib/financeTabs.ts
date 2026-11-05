@@ -40,8 +40,9 @@ export const expenseTabs = (active: 'log' | 'contractor' | 'review' | 'autoledge
   EXPENSES.map(([key, label, href]) => ({ label, href, active: key === active }))
 
 // Income is one place (3 Nov 2026): what the agency earns — the monthly dashboard, and the fees report for any dates.
-export const incomeTabs = (active: 'income' | 'fees'): HeroTab[] =>
-  ([['income', 'Agency income', '/admin/income'], ['fees', 'Fee income', '/admin/reports/fees']] as const).map(([key, label, href]) => ({ label, href, active: key === active }))
+// Profit and loss (5 Nov 2026): directors only — the page itself says so to anyone else.
+export const incomeTabs = (active: 'income' | 'fees' | 'pnl'): HeroTab[] =>
+  ([['income', 'Agency income', '/admin/income'], ['fees', 'Fee income', '/admin/reports/fees'], ['pnl', 'Profit and loss', '/admin/company-pnl']] as const).map(([key, label, href]) => ({ label, href, active: key === active }))
 
 // Rent owed is one place (3 Nov 2026 tidy-up): who hasn't paid this month, older arrears, and chasing them.
 export const rentOwedTabs = (active: 'due' | 'arrears' | 'chase'): HeroTab[] =>

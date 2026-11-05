@@ -158,6 +158,7 @@ function LineRow({ line, props, rooms, categories, propName, post, reload }: {
   const [description, setDescription] = useState(pre?.description ?? '')
   const [charge, setCharge] = useState('')
   const [category, setCategory] = useState(pre?.category ?? 'Other')
+  const [vat, setVat] = useState('')   // VAT on a company cost's receipt — reclaimable once VAT registered (migration 263)
   const [note, setNote] = useState('')
   const [splits, setSplits] = useState<{ propertyId: string; amount: string; charge: string }[]>(() =>
     pre?.splits?.length ? pre.splits.map((x, i, all) => ({ propertyId: x.propertyId, amount: i === all.length - 1 ? '' : String(r2(line.amount * x.share)), charge: '' })) : [{ propertyId: '', amount: '', charge: '' }, { propertyId: '', amount: '', charge: '' }])
@@ -177,7 +178,7 @@ function LineRow({ line, props, rooms, categories, propName, post, reload }: {
     const body: Record<string, unknown> = { action: 'file', id: line.id, as, description, remember, confirmDuplicate }
     if (as === 'landlord') Object.assign(body, { propertyId, roomId: roomId || null, charge: charge === '' ? null : Number(charge) })
     if (as === 'split') body.splits = splitShown.map(x => ({ propertyId: x.propertyId, amount: Number(x.amount), charge: x.charge === '' ? null : Number(x.charge) }))
-    if (as === 'company') body.category = category
+    if (as === 'company') Object.assign(body, { category, vat: vat === '' ? null : Number(vat) })
     if (as === 'not_expense') body.note = note
     const { ok, d } = await post(body)
     setBusy(false)
@@ -282,6 +283,15 @@ function LineRow({ line, props, rooms, categories, propName, post, reload }: {
           {as === 'company' && (
             <label className="block text-xs font-semibold text-neutral-600">Category
               <select className={`${inp} mt-xs w-full md:w-80`} value={category} onChange={e => setCategory(e.target.value)}>{categories.map(c => <option key={c}>{c}</option>)}</select>
+            </label>
+          )}
+          {as === 'company' && (
+            <label className="block text-xs font-semibold text-neutral-600">VAT on the receipt (optional)
+              <span className="mt-xs flex items-center gap-sm">
+                <input className={`${inp} w-32`} inputMode="decimal" value={vat} onChange={e => setVat(e.target.value)} placeholder="none" />
+                <button type="button" onClick={() => setVat((Math.round(line.amount / 6 * 100) / 100).toFixed(2))} className="text-xs font-semibold text-blue-700 hover:underline">20% inside</button>
+                <span className="font-normal text-neutral-500">Only what the receipt shows — insurance and bank charges have none; overseas software (e.g. Vercel) usually none.</span>
+              </span>
             </label>
           )}
 

@@ -126,6 +126,7 @@ const ZONES_AS_WRITTEN: Zone[] = [
       '/admin/payment-run',
       '/admin/accounts',
       '/admin/income',
+      '/admin/company-pnl',
       '/admin/expense-log',
       '/admin/ops-account',
       '/admin/expense-review',
