@@ -14,6 +14,7 @@ import { createClient } from '@/lib/supabase'
 import { financeTabs, expenseTabs } from '@/lib/financeTabs'
 import { PROPERTY_WIDE_CATEGORIES, ROOM_SPECIFIC_CATEGORY_TYPES } from '@/lib/expense-categories'
 import { guessCategory } from '@/lib/expenses/quickAdd'
+import { matchService, categoryForKind, kindLabel } from '@/lib/properties/services'
 
 const EXPENSE_TYPES = [...PROPERTY_WIDE_CATEGORIES.filter(c => c.type !== 'income' && !['management_fee', 'letting_fee'].includes(c.slug)).map(c => ({ slug: c.slug, label: c.label })), ...ROOM_SPECIFIC_CATEGORY_TYPES.map(c => ({ slug: c.slug, label: `Room: ${c.label}` }))]
 
@@ -163,6 +164,20 @@ function LineRow({ line, props, rooms, categories, propName, post, reload }: {
   // the type of a landlord expense — remembered from last time, else guessed from what it was for
   const [expCat, setExpCat] = useState(pre && pre.as !== 'company' && pre.category ? pre.category : '')
   const [charge, setCharge] = useState('')
+  // the house's bills & services (migration 264): a payment that names an account's supplier is that account's bill —
+  // it's filed as that type, so it shows against the account on the house's Bills & services tab
+  const [svc, setSvc] = useState<{ id: string; kind: string; supplier: string | null; account_number: string | null } | null>(null)
+  useEffect(() => {
+    if (!open || as !== 'landlord' || !propertyId) { setSvc(null); return }
+    let live = true
+    adminFetch(`/api/admin/property-services?propertyId=${propertyId}`).then(r => r.ok ? r.json() : null).then(j => {
+      if (!live || !j?.services) return
+      const m = matchService(j.services as { id: string; kind: string; supplier: string | null; account_number: string | null; ended_at: string | null }[], `${line.description} ${line.payee_key ?? ''}`)
+      setSvc(m)
+      if (m && !expCat) setExpCat(categoryForKind(m.kind) ?? '')
+    }).catch(() => {})
+    return () => { live = false }
+  }, [open, as, propertyId])   // eslint-disable-line react-hooks/exhaustive-deps
   const [category, setCategory] = useState(pre?.category ?? 'Other')
   const [vat, setVat] = useState('')   // VAT on a company cost's receipt — reclaimable once VAT registered (migration 263)
   const [note, setNote] = useState('')
@@ -255,6 +270,10 @@ function LineRow({ line, props, rooms, categories, propName, post, reload }: {
               </select>
               <span className="mt-xs block font-normal text-neutral-500">Groups the same cost over the years on the landlord’s statements and expense history — e.g. Internet, Cleaning, Room: Decorating.</span>
             </label>
+          )}
+
+          {as === 'landlord' && svc && (
+            <p className="rounded-lg bg-green-50 px-md py-xs text-xs text-green-900">This is the house’s <b>{kindLabel(svc.kind)}</b> bill — {svc.supplier}{svc.account_number ? `, account ${svc.account_number}` : ''}. It will show against that account on <a href={`/admin/properties/${propertyId}?tab=services`} className="font-semibold underline">Bills & services</a>.</p>
           )}
 
           {as === 'landlord' && (

@@ -7,12 +7,13 @@ import { PROPERTY_CERTIFICATES, quietCertificates, chaseCert } from '@/lib/prope
 import { demoPropertyIds } from '@/lib/demoProperties'
 import { ledgerStart } from '@/lib/clientLedger'
 import { onboardingName } from '@/lib/people'
+import { allServices, endingSoon, kindLabel } from '@/lib/properties/services'
 
 export const dynamic = 'force-dynamic'
 
 export interface TodayItem {
   id: string
-  kind: 'job_approve' | 'quote_review' | 'rent_overdue' | 'aml_review' | 'viewing' | 'appointment' | 'certificate' | 'move_out' | 'move_in'
+  kind: 'job_approve' | 'quote_review' | 'rent_overdue' | 'aml_review' | 'viewing' | 'appointment' | 'certificate' | 'move_out' | 'move_in' | 'contract'
   group: 'needs_you' | 'today' | 'coming_up'
   title: string
   detail: string
@@ -163,6 +164,18 @@ export async function GET(req: NextRequest) {
       id: `movein-${t.id}`, kind: 'move_in', group: left <= 3 && todo.length ? 'needs_you' : 'coming_up', rank: (left <= 3 && todo.length ? 40 : 79) + left / 100,
       title: `Move-in · ${who}`, detail: `${where(t.rooms, t.properties)} · ${left === 0 ? 'today' : `in ${left} day${left === 1 ? '' : 's'}`}${todo.length ? ` · still to do: ${todo.join(', ')}` : ''}`,
       tag: { text: left === 0 ? 'Today' : `${left}d`, tone: todo.length && left <= 3 ? 'amber' : 'green' }, href: `/admin/lettings/${t.id}?from=/admin`,
+    })
+  }
+
+  // bills & services (migration 264): a contract ending within 60 days, or already past its end and still running —
+  // time to renegotiate or switch before the out-of-contract price kicks in
+  for (const c of endingSoon((await allServices(s as any)).rows)) {
+    const left = c.endsInDays!
+    items.push({
+      id: `contract-${c.id}`, kind: 'contract', group: left < 0 ? 'needs_you' : 'coming_up', rank: left < 0 ? 45 : 75 + left / 100,
+      title: `${kindLabel(c.kind)} contract ${left < 0 ? 'ended' : 'ends'}${c.supplier ? ` · ${c.supplier}` : ''}`,
+      detail: `${c.property} · ${left < 0 ? `${-left} days ago — still running` : left === 0 ? 'today' : `in ${left} days`}`,
+      tag: { text: left < 0 ? 'Ended' : `${left}d`, tone: left < 0 ? 'amber' : 'grey' }, href: `/admin/properties/${c.property_id}?tab=services`,
     })
   }
 

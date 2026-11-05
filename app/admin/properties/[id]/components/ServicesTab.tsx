@@ -119,6 +119,15 @@ export default function ServicesTab({ propertyId }: { propertyId: string }) {
             </div>
             <div className="flex gap-sm">
               {x.contractEndsSoon && <span className="rounded-full bg-amber-100 px-sm py-0.5 text-[11px] font-bold text-amber-900">Contract ends {day(x.contract_end!)}</span>}
+              {/* the tick-off: bills we pay should be charged every month — CROS checks the expenses and statements */}
+              {(x.who_pays === 'we_recharge' || x.who_pays === 'included') && (() => {
+                const last = x.paid.last?.date
+                const thisMonth = new Date().toISOString().slice(0, 7)
+                const gap = last ? Math.round((Date.now() - Date.parse(`${last}T12:00:00Z`)) / 86_400_000) : null
+                return last && last.slice(0, 7) >= thisMonth ? <span className="rounded-full bg-green-100 px-sm py-0.5 text-[11px] font-bold text-green-900">Charged this month</span>
+                  : gap != null && gap > 45 ? <span className="rounded-full bg-amber-100 px-sm py-0.5 text-[11px] font-bold text-amber-900" title="Is it being paid and recharged?">No charge for {gap} days</span>
+                  : null
+              })()}
               <button type="button" onClick={() => edit(x)} className="text-sm font-semibold text-blue-700 hover:underline">Edit</button>
             </div>
           </div>

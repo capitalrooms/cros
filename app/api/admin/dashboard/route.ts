@@ -1,5 +1,6 @@
 // GET /api/admin/dashboard — the desktop dashboard's figures in one request: rooms, rent, tenancy ends,
 // lettings, repairs, deposits, certificates and what's waiting. Managed houses only (let-only and demo left out).
+import { allServices, endingSoon } from '@/lib/properties/services'
 import { NextRequest, NextResponse } from 'next/server'
 import { importedChargeIds } from '@/lib/finance/importedCharges'
 import { requireAdmin } from '@/lib/adminAuth'
@@ -149,6 +150,7 @@ export async function GET(req: NextRequest) {
 
   const aml = ((amlR?.data ?? []) as any[])
   const quiet = await quietCertificates(s)
+  const contractsEnding = endingSoon((await allServices(s as any)).rows).length   // migration 264; 0 until it's run
   const waiting = [
     { label: 'Tenancy end dates to sort', count: endNoNotice.length, href: '/admin/finance-check', bad: true },
     { label: 'Deposits not protected', count: withDeposit.length - protectedN, href: '/admin/deposits', bad: true },
@@ -159,6 +161,7 @@ export async function GET(req: NextRequest) {
     { label: 'Rent overdue', count: overdue.length, href: '/admin/arrears', bad: false },
     { label: 'Notice dates missing', count: onNotice.filter(n => !n.noticeRecorded).length, href: '/admin/tenancies', bad: false },
     { label: 'Rooms marked let with no tenancy', count: checks.length, href: '/admin/voids', bad: false },
+    { label: 'Contracts ending (bills & services)', count: contractsEnding, href: '/admin/bills-and-services?show=ending', bad: false },
     { label: 'Bills & invoices to file', count: ((captureR?.data ?? []) as any[]).filter(c => ['bill', 'receipt'].includes(c.guess?.kind)).length, href: '/admin/capture', bad: false },
     { label: 'Other paperwork to file', count: ((captureR?.data ?? []) as any[]).filter(c => !['bill', 'receipt'].includes(c.guess?.kind)).length, href: '/admin/capture', bad: false },
     // a landlord's AML form, once submitted, waits here (and on the phone's Today) until it's reviewed
