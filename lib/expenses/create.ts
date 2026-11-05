@@ -110,7 +110,8 @@ export async function addLandlordExpense(s: SupabaseClient, e: NewExpense, opts:
     supplier_payment_ref: String(e.supplier_payment_ref || '').trim() || null,
   }
   if (cost != null && cost !== amount) row.cost_amount = cost   // the difference is profit (or a loss) on goods resold
-  if (treatment === 'recharge' && charged !== amount) row.cost_amount = amount   // what the receipt said; the landlord pays net + VAT
+  // a recharge's extra over the receipt is VAT (vat_charged), never a mark-up — so cost_amount stays unset and the
+  // Mark-ups report doesn't count VAT as profit; the receipt total is kept as vat_on_receipt + the net
   const vatCols: Record<string, unknown> = treatment || vatIn != null ? { vat_treatment: treatment, vat_on_receipt: vatIn, vat_charged: vatCharged } : {}
   Object.assign(row, vatCols)
   if (e.source_ref) Object.assign(row, { source: e.source ?? 'manual', source_ref: e.source_ref })
