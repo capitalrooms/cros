@@ -5,6 +5,7 @@
 // off the market, carries the applicant's documents across and marks the applicant converted. Idempotent: a second
 // call finds the same tenancy. Server-only (service client).
 
+import { holdingFor } from '@/lib/lettings/holdingFor'
 import { agreedRent } from '@/lib/lettings/holdingDeposit'
 import { isLetOnly } from '@/lib/tenancy/depositHolder'
 import { recordsStart } from '@/lib/finance/dates'
@@ -101,6 +102,10 @@ export async function createIncomingTenancy(sb: SupabaseClient, applicantId: str
     else {
       const { data: room } = await sb.from('rooms').select('name, is_let_only').eq('id', roomId).maybeSingle()
       const { data: prop } = await sb.from('properties').select('name, letting_type').eq('id', propertyId).maybeSingle()
+      // the holding deposit is what the register holds for this applicant — never a typed or guessed figure when
+      // there's a record (5 Nov 2026: the create-tenancy form pre-filled a week's rent whether or not one was paid)
+      const registered = await holdingFor(sb as any, { applicantId: applicant.id })
+      const holdingTyped = registered.source === 'register' ? registered.amount : (body.holding_deposit_received ?? null)
       const { data: newTenancy, error: tErr } = await sb.from('tenancies').insert({
         person_id: personId,
         room_id: roomId,
@@ -118,7 +123,7 @@ export async function createIncomingTenancy(sb: SupabaseClient, applicantId: str
         deposit_scheme_ref: body.deposit_scheme_ref || null,
         // began before your records (Settings › Your records): deposit taken as protected by the previous agent
         deposit_protection_assumed: (body.start_date || applicant.preferred_start_date || today) < (await recordsStart(sb)) && !body.deposit_scheme_ref,
-        holding_deposit_received: body.holding_deposit_received ?? null,
+        holding_deposit_received: holdingTyped,
         agreement_type: body.agreement_type || 'assured_periodic',
         is_periodic: body.is_periodic ?? true,
         // amount: blank = property's usual fee, 0 = no fee; a number passed through as an override
@@ -132,6 +137,8 @@ export async function createIncomingTenancy(sb: SupabaseClient, applicantId: str
       }).select('id').single()
       if (tErr) return { personId, error: `The tenancy couldn’t be created: ${tErr.message}`, status: 500 }
       tenancyId = newTenancy.id
+      // the applicant's holding deposit belongs to this tenancy from now on (one record, linked — lib/lettings/holdingFor)
+      if (registered.holds.length) await sb.from('holding_deposits').update({ tenancy_id: newTenancy.id, person_id: personId }).eq('applicant_id', applicant.id).is('tenancy_id', null).in('status', ['held', 'applied'])
       created = true
       // let agreed: the room comes off the market
       await sb.from('rooms').update({ status: 'occupied' }).eq('id', roomId)

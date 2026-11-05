@@ -4,6 +4,7 @@ import { lettingFeeRule } from '@/lib/fees/lettingFee'
 import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
+import { adminFetch } from '@/lib/adminFetch'
 import { getCurrentUser } from '@/lib/auth'
 import AppBar from '@/components/AppBar'
 import PageHero from '@/components/PageHero'
@@ -50,6 +51,7 @@ export default function CreateTenancyPage() {
   const [depositHeldBy, setDepositHeldBy]   = useState<'agent'|'landlord'>('agent')
   const [depositRef, setDepositRef]         = useState('')
   const [holdingDeposit, setHoldingDeposit] = useState('')
+  const [holdingNote, setHoldingNote] = useState('')   // where the figure came from — or what's wrong with it
   const [agreementType, setAgreementType]   = useState('assured_periodic')
   const [lettingFeeCharged, setLettingFeeCharged] = useState(true)
   // Fee config loaded from property (letting_fee_pct or letting_fee_flat)
@@ -92,12 +94,16 @@ export default function CreateTenancyPage() {
       setRent(agreedRent ? String(agreedRent) : '')
       if (data.preferred_start_date) setStartDate(data.preferred_start_date)
 
-      // Pre-fill holding deposit (floor of 1 week's rent)
-      if (agreedRent) {
-        setHoldingDeposit(oneWeekRent(Number(agreedRent)).toFixed(2))
-        // Default deposit to 5 weeks
-        setDeposit(fiveWeeksDeposit(Number(agreedRent)).toFixed(2))
-      }
+      // the holding deposit is what's recorded for this applicant — never a guess (5 Nov 2026: this used to fill in a
+      // week's rent whether or not one was paid, so the tenant would be asked for too little). The server uses the
+      // register anyway when there's a record (lib/lettings/incomingTenancy).
+      adminFetch(`/api/admin/holding-for?applicantId=${applicantId}`).then(r => r.ok ? r.json() : null).then(h => {
+        if (!h) return
+        setHoldingDeposit(h.amount ? Number(h.amount).toFixed(2) : '')
+        setHoldingNote(h.problem ?? (h.source === 'register' ? `From ${h.holds.map((x: any) => x.number).filter(Boolean).join(', ')} on record` : 'No holding deposit recorded for this applicant'))
+      }).catch(() => {})
+      // Default deposit to 5 weeks
+      if (agreedRent) setDeposit(fiveWeeksDeposit(Number(agreedRent)).toFixed(2))
 
       // Parse preferred term into months
       if (data.preferred_term) {
@@ -463,13 +469,9 @@ export default function CreateTenancyPage() {
                     <input type="number" value={holdingDeposit} onChange={e => setHoldingDeposit(e.target.value)} placeholder="0"
                       className="w-full pl-6 pr-sm py-sm border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900" />
                   </div>
-                  {agreedRent > 0 && (
-                    <button type="button" onClick={() => setHoldingDeposit(String(oneWeek))}
-                      className="px-sm py-sm border border-neutral-200 rounded-lg text-xs text-neutral-600 hover:bg-neutral-50 whitespace-nowrap">
-                      Set max (1 wk)
-                    </button>
-                  )}
                 </div>
+                {/* what's on record, not a suggestion — the amount actually received (lib/lettings/holdingFor) */}
+                {holdingNote && <p className={`mt-xs text-xs ${/doesn|not linked|shows a holding/.test(holdingNote) ? 'font-semibold text-red-700' : 'text-neutral-500'}`}>{holdingNote}</p>}
                 {deposit && holdingDeposit && (
                   <p className="text-[11px] text-neutral-500 mt-xs">
                     Deposit balance due on move-in: <span className="font-semibold text-neutral-900">£{depositBalance.toLocaleString()}</span>

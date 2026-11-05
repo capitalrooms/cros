@@ -55,5 +55,5 @@ export async function POST(req: NextRequest) {
     : b.action === 'transfer_fee' ? await transferFee(s, b.tenancyId, b, by)
     : b.action === 'void' ? await voidRecord(s, b.tenancyId, b, by)
     : { error: 'Unknown action', status: 400 }
-  return 'error' in r && r.error ? NextResponse.json({ error: r.error }, { status: (r as any).status ?? 400 }) : NextResponse.json(r)
+  return 'error' in r && r.error ? NextResponse.json({ error: r.error, ...((r as any).confirm ? { confirm: true } : {}) }, { status: (r as any).status ?? 400 }) : NextResponse.json(r)
 }
