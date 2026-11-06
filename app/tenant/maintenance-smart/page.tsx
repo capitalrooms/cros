@@ -36,6 +36,10 @@ export default function SmartTroubleshootingPage() {
   const [diagnosis, setDiagnosis]     = useState<any>(null);
   const [submitting, setSubmitting]   = useState(false);
   const [error, setError]             = useState('');
+  // the house's appliances (migration 268): "by washing machine, do you mean the Bosch WAN28281GB?" — the exact model
+  // goes to the troubleshooting and onto the job
+  const [appliances, setAppliances]   = useState<{ id: string; kind: string; label: string; brand: string | null; model: string | null; location: string | null; bought_on: string | null }[]>([]);
+  const [applianceId, setApplianceId] = useState('');
 
   useEffect(() => {
     async function init() {
@@ -48,6 +52,7 @@ export default function SmartTroubleshootingPage() {
         setPropertyId(tenancy.property_id);
         setRoomId(tenancy.room_id);
       }
+      fetch('/api/tenant/appliances').then(r => r.ok ? r.json() : { appliances: [] }).then(j => setAppliances(j.appliances ?? [])).catch(() => {});
       setLoading(false);
     }
     init();
@@ -74,7 +79,7 @@ export default function SmartTroubleshootingPage() {
       const res = await fetch('/api/maintenance/generate-diagnostic-questions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ category: selectedCategory, description }),
+        body: JSON.stringify({ category: selectedCategory, description: fullDescription }),
       });
       if (!res.ok) throw new Error('Failed to generate questions');
       const data = await res.json();
@@ -96,7 +101,7 @@ export default function SmartTroubleshootingPage() {
       const res = await fetch('/api/maintenance/generate-diagnosis', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ category: selectedCategory, description, questions, answers }),
+        body: JSON.stringify({ category: selectedCategory, description: fullDescription, questions, answers }),
       });
       if (!res.ok) throw new Error('Failed to generate diagnosis');
       const data = await res.json();
@@ -118,7 +123,7 @@ export default function SmartTroubleshootingPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           tenant_id: personId, tenancy_id: tenancyId, property_id: propertyId, room_id: roomId,
-          category: selectedCategory, initial_description: description,
+          category: selectedCategory, initial_description: fullDescription,
           ai_questions: questions, user_answers: answers,
           ai_recommendation: diagnosis.recommendation, ai_guidance: diagnosis.guidance,
           user_choice: choice,
@@ -126,7 +131,7 @@ export default function SmartTroubleshootingPage() {
       });
       if (!res.ok) throw new Error('Failed to save diagnostic');
       if (choice === 'escalate_to_pro') {
-        router.push(`/tenant/maintenance?category=${selectedCategory}&description=${encodeURIComponent(description)}&diagnostic=true`);
+        router.push(`/tenant/maintenance?category=${selectedCategory}&description=${encodeURIComponent(fullDescription)}&diagnostic=true`);
       } else {
         setStep('choice');
       }
@@ -147,6 +152,9 @@ export default function SmartTroubleshootingPage() {
   }
 
   const catLabel = CATEGORIES.find(c => c.key === selectedCategory)?.label.toLowerCase() || '';
+  const chosen = appliances.find(a => a.id === applianceId);
+  const applianceText = chosen ? `${[chosen.brand, chosen.label.toLowerCase(), chosen.model].filter(Boolean).join(' ')}${chosen.bought_on ? ` (bought ${chosen.bought_on.slice(0, 7)})` : ''}${chosen.location ? `, ${chosen.location}` : ''}` : '';
+  const fullDescription = applianceText ? `${description}\n\nAppliance: ${applianceText}` : description;
 
   const STEP_TITLES: Record<DiagStep, string> = {
     category:    'Smart Troubleshooting',
@@ -209,6 +217,21 @@ export default function SmartTroubleshootingPage() {
             <h2 className="text-base font-bold text-neutral-900 mb-md">
               What's happening with your {catLabel}?
             </h2>
+            {/* which appliance — the exact make and model helps the troubleshooting and the engineer */}
+            {appliances.length > 0 && ['appliances', 'heating', 'plumbing', 'electrical'].includes(selectedCategory) && (
+              <div className="mb-md">
+                <p className="mb-xs text-sm font-semibold text-neutral-800">Is it one of these?</p>
+                <div className="flex flex-col gap-xs">
+                  {appliances.filter(a => selectedCategory === 'appliances' || (selectedCategory === 'heating' ? ['boiler', 'heater', 'water_heater'].includes(a.kind) : selectedCategory === 'plumbing' ? ['washing_machine', 'washer_dryer', 'dishwasher', 'boiler', 'water_heater', 'shower'].includes(a.kind) : true)).map(a => (
+                    <button key={a.id} type="button" onClick={() => setApplianceId(applianceId === a.id ? '' : a.id)} aria-pressed={applianceId === a.id}
+                      className={`rounded-xl border-2 px-md py-sm text-left text-sm ${applianceId === a.id ? 'border-neutral-900 bg-neutral-50' : 'border-neutral-200 bg-white'}`}>
+                      <span className="font-semibold text-neutral-900">{a.label}</span> <span className="text-neutral-600">{[a.brand, a.model].filter(Boolean).join(' ')}</span>
+                      {a.location && <span className="block text-xs text-neutral-500">{a.location}</span>}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             <textarea
               value={description}
               onChange={e => setDescription(e.target.value)}

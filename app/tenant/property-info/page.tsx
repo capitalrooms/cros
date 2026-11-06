@@ -46,6 +46,9 @@ export default function PropertyInfoPage() {
   const [documents, setDocuments] = useState<PropertyDocument[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  // the appliances in the house the office has recorded (migration 268)
+  const [appliances, setAppliances] = useState<{ id: string; label: string; brand: string | null; model: string | null; location: string | null }[]>([])
+  useEffect(() => { fetch('/api/tenant/appliances').then(r => r.ok ? r.json() : { appliances: [] }).then(j => setAppliances(j.appliances ?? [])).catch(() => {}) }, [])
 
   useEffect(() => {
     async function load() {
@@ -146,6 +149,22 @@ export default function PropertyInfoPage() {
             <li><strong>Non-urgent repairs →</strong> use the Maintenance section</li>
           </ul>
         </div>
+
+        {/* Appliances — make and model, so a fault can be looked up (and reported) for the exact one */}
+        {appliances.length > 0 && (
+          <section className="mt-lg">
+            <h2 className="mb-xs text-base font-bold text-neutral-900">Appliances</h2>
+            <p className="mb-sm text-xs text-neutral-500">The make and model of each — handy for manuals, and choose the right one when you report a fault.</p>
+            <ul className="divide-y divide-neutral-100 rounded-2xl border border-neutral-200 bg-white">
+              {appliances.map(a => (
+                <li key={a.id} className="px-lg py-sm text-sm">
+                  <span className="font-semibold text-neutral-900">{a.label}</span> <span className="text-neutral-600">{[a.brand, a.model].filter(Boolean).join(' ')}</span>
+                  {a.location && <span className="block text-xs text-neutral-500">{a.location}</span>}
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
 
         {/* Document categories */}
         <div className="mt-lg space-y-lg">
