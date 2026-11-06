@@ -1,5 +1,6 @@
 'use client'
 
+import AppliancesSection from './AppliancesSection'
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
 
@@ -208,6 +209,9 @@ export default function TenantAppTab({ propertyId, property, onUpdate }: Props) 
         </p>
         <HouseInfoEditor items={houseInfoItems} onChange={setHouseInfoItems} />
       </section>
+
+      {/* ── Appliances (migration 268) — added from photos ───────────────── */}
+      <AppliancesSection propertyId={propertyId} />
 
       {/* ── Heating schedule ─────────────────────────────────────────────── */}
       <section className="border-t border-neutral-100 pt-2xl">

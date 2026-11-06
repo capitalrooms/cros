@@ -33,6 +33,7 @@ Questions should be:
 - Focused on observable facts (what they can see/hear/feel)
 - Non-technical (use plain language, no jargon)
 - Help narrow down the root cause
+- If the appliance's make and model are given ("Appliance: …"), ask about things specific to that model — e.g. which error code or light is showing
 
 Return ONLY the questions as a JSON array of strings, nothing else. Example format:
 ["Question 1?", "Question 2?", "Question 3?"]`;

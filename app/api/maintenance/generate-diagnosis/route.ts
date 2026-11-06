@@ -34,6 +34,7 @@ export async function POST(request: NextRequest) {
 
 Issue Category: ${category}
 Initial Description: "${description}"
+If the description names the appliance's make and model ("Appliance: …"), use what you know about that exact model — its error codes, common faults, reset or filter-cleaning steps — and say when advice is specific to it.
 
 Tenant's Answers:
 ${qaText}
