@@ -93,6 +93,7 @@ export default function ApplicantForm() {
   const [profession, setProfession] = useState('')
   const [salary, setSalary] = useState('')
   const [incomeDetails, setIncomeDetails] = useState('')   // several incomes, self-employed… (29 Oct 2026)
+  const [savings, setSavings] = useState('')               // held 3 months or more — the other way to pass (6 Nov 2026)
   const [linkedinUrl, setLinkedinUrl] = useState('')
 
   // Rental preferences
@@ -143,6 +144,9 @@ export default function ApplicantForm() {
   const [company, setCompany] = useState('')   // employer — landlords ask for "profession & company" (17 Oct 2026)
   const [studyYear, setStudyYear] = useState('')
   const [guarantorConfirmed, setGuarantorConfirmed] = useState(false)
+  // they've asked their guarantor: UK-based, earns 36 × the rent a year and can prove it (6 Nov 2026, Harry: so we
+  // don't find out at referencing and delay the move-in)
+  const [guarantorChecked, setGuarantorChecked] = useState(false)
 
   // Guarantor (Homeppl's affordability: yearly income 30 × the monthly rent, or savings of 36 × held for 3 months;
   // a guarantor needs 36 × the monthly rent a year)
@@ -174,7 +178,7 @@ export default function ApplicantForm() {
       setSalutation(a.salutation ?? ''); setFirstName(a.first_name ?? ''); setMiddleName(a.middle_name ?? ''); setLastName(a.last_name ?? '')
       setEmail(a.email ?? ''); setPhone(a.phone ?? ''); setDateOfBirth(a.date_of_birth ?? ''); setCurrentAddress(a.current_address ?? '')
       setProfession(a.profession ?? ''); setSalary(a.salary ?? ''); setLinkedinUrl(a.linkedin_url ?? ''); setProfessionDescription(a.profession_description ?? '')
-      { const pr = a.applicant_profile?.application ?? {}; setCompany(pr.company ?? ''); setIncomeDetails(pr.income_details ?? ''); if (pr.student) { setIsStudent(true); setUniversity(pr.university ?? ''); setCourseStudied(pr.course ?? ''); setStudyYear(pr.year ?? '') } }
+      { const pr = a.applicant_profile?.application ?? {}; setCompany(pr.company ?? ''); setIncomeDetails(pr.income_details ?? ''); setSavings(pr.savings ? String(pr.savings) : ''); if (pr.guarantor_checked_at) setGuarantorChecked(true); if (pr.student) { setIsStudent(true); setUniversity(pr.university ?? ''); setCourseStudied(pr.course ?? ''); setStudyYear(pr.year ?? '') } }
       setPreferredStartDate(a.preferred_start_date ?? ''); setPreferredTerm(a.preferred_term ?? '')
       setBio(a.bio ?? ''); setInterests(a.interests ?? ''); setSociability(a.sociability ?? 'flexible')
       setHousePreferences(a.house_preferences ?? ''); setCommunicationStyle(a.communication_style ?? '')
@@ -240,16 +244,26 @@ export default function ApplicantForm() {
     return Math.round(Math.min(...amounts))
   }
 
+  // savings typed as "£25,000" / "25k" — a plain amount, never × 12
+  const savingsAmount = (): number | null => {
+    const m = savings.toLowerCase().replace(/,/g, '').match(/(\d+(?:\.\d+)?)\s*(k\b|thousand)?/)
+    return m ? Math.round(parseFloat(m[1]) * (m[2] ? 1000 : 1)) : null
+  }
+
   const getAffordability = () => {
     if (isStudent) return { status: 'student' as const }
     if (!advertiserRent) return { status: 'unknown' as const }
     const parsedSalary = parseSalaryLow(salary)
-    if (!parsedSalary) return { status: 'unknown' as const }
     const rent = rentOfferType === 'below_asking' && offeredRent ? offeredRent : advertiserRent
     const minSalary = rent * 30
     const minSavings = rent * 36
     const guarantorMinSalary = rent * 36
     const fmt = (n: number) => `£${Math.round(n).toLocaleString()}`
+    const saved = savingsAmount()
+    if (saved != null && saved >= minSavings) {
+      return { status: 'pass' as const, message: `✓ Your savings meet standard referencing criteria (${fmt(minSavings)} held for 3 months or more).` }
+    }
+    if (!parsedSalary) return { status: 'unknown' as const }
     if (parsedSalary >= minSalary) {
       return {
         status: 'pass' as const,
@@ -259,18 +273,15 @@ export default function ApplicantForm() {
     if (parsedSalary >= Math.round(minSalary * 0.8)) {
       return {
         status: 'borderline' as const,
-        message: `Your salary is slightly below the usual threshold of ${fmt(minSalary)}/yr. You may be asked to show savings of ${fmt(minSavings)} (held for at least 3 months) or to add a UK guarantor earning at least ${fmt(guarantorMinSalary)}/yr.`,
+        message: `Your income is slightly below the usual threshold of ${fmt(minSalary)}/yr. Unless you have savings of ${fmt(minSavings)} (held for at least 3 months), you’ll need a UK guarantor earning at least ${fmt(guarantorMinSalary)}/yr — add them in the guarantor section below.`,
         minSavings: fmt(minSavings),
         guarantorMinSalary: fmt(guarantorMinSalary),
       }
     }
     return {
       status: 'fail' as const,
-      message: `Based on the salary entered, you are unlikely to pass standard referencing for ${w.thisUnit} (threshold: ${fmt(minSalary)}/yr). To proceed you will need one of the following:`,
-      options: [
-        `Savings of ${fmt(minSavings)}, held for at least 3 months`,
-        `A UK-based guarantor earning at least ${fmt(guarantorMinSalary)}/yr`,
-      ],
+      message: `Based on the income${saved ? ' and savings' : ''} you’ve entered, you won’t pass standard referencing for ${w.thisUnit} on your own (threshold: ${fmt(minSalary)}/yr, or ${fmt(minSavings)} in savings). You’ll need a UK-based guarantor earning at least ${fmt(guarantorMinSalary)}/yr — add them in the guarantor section below.`,
+      options: [] as string[],
     }
   }
 
@@ -287,14 +298,21 @@ export default function ApplicantForm() {
     }
 
     // Guarantor: asked of everyone; details needed when they'll use one (students always)
-    const needsGuarantorDetails = guarantorNeeded === 'yes' || isStudent
-    if (!guarantorNeeded && !isStudent) {
+    const affNow = getAffordability()
+    const mustHaveGuarantor = isStudent || affNow.status === 'fail' || affNow.status === 'borderline'
+    const needsGuarantorDetails = guarantorNeeded === 'yes' || mustHaveGuarantor
+    if (!guarantorNeeded && !mustHaveGuarantor) {
       setError('Please tell us whether you will need a guarantor')
       setLoading(false)
       return
     }
     if (needsGuarantorDetails && (!guarantorNm.salutation || !guarantorNm.first_name.trim() || !guarantorNm.last_name.trim() || !guarantorPhone.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(guarantorEmail.trim()))) {
       setError('Please add your guarantor’s full name, mobile number and email address')
+      setLoading(false)
+      return
+    }
+    if (needsGuarantorDetails && !guarantorChecked) {
+      setError('Please check with your guarantor that they live in the UK and earn enough, then tick the box in the guarantor section')
       setLoading(false)
       return
     }
@@ -331,6 +349,9 @@ export default function ApplicantForm() {
           linkedinUrl,
           company: company.trim(),
           incomeDetails: incomeDetails.trim(),
+          savings: savingsAmount(),
+          affordability: (() => { const a = getAffordability(); return { result: a.status, rent: rentOfferType === 'below_asking' && offeredRent ? offeredRent : advertiserRent } })(),
+          guarantorChecked: needsGuarantorDetails && guarantorChecked,
           student: isStudent ? { university: university.trim(), course: courseStudied.trim(), year: studyYear } : null,
           professionDescription,
           preferredStartDate,
@@ -348,7 +369,7 @@ export default function ApplicantForm() {
           previousAddresses: previousAddresses.filter((a) => a.address.trim()),
           roomId,
           propertyId,
-          guarantorNeeded: isStudent ? 'yes' : guarantorNeeded,
+          guarantorNeeded: mustHaveGuarantor ? 'yes' : guarantorNeeded,
           guarantorName: needsGuarantorDetails ? guarantorName : '',
           guarantorEmail: needsGuarantorDetails ? guarantorEmail : '',
           guarantorPhone: needsGuarantorDetails ? guarantorPhone : '',
@@ -450,8 +471,10 @@ export default function ApplicantForm() {
       gIncome: rent ? fmt(rent * 36) : '36 × the monthly rent',
     }
   })()
-  const showGuarantorDetails = guarantorNeeded === 'yes' || isStudent
   const aff = getAffordability()
+  // short on income and savings → a guarantor isn't optional (6 Nov 2026)
+  const mustHaveGuarantor = isStudent || aff.status === 'fail' || aff.status === 'borderline'
+  const showGuarantorDetails = guarantorNeeded === 'yes' || mustHaveGuarantor
 
   return (
     <PublicShell label={editState === 'ready' ? 'Editing your application' : 'Application'}>
@@ -566,13 +589,15 @@ export default function ApplicantForm() {
                 </label>
                 <div className="pub-note flex flex-col gap-2">
                   <span>Student applications require a UK guarantor earning at least <strong>£{advertiserRent ? Math.round(advertiserRent * 36).toLocaleString('en-GB') : '---'}/yr</strong>. This is typically a parent or guardian.</span>
-                  <Choice square on={guarantorConfirmed} onClick={() => setGuarantorConfirmed(!guarantorConfirmed)}>I have a UK guarantor who can meet this requirement</Choice>
                 </div>
               </>
             ) : (
               <>
               <label className="pub-label">Total yearly income before tax
                 <input className="pub-input" type="text" value={salary} onChange={e => setSalary(e.target.value)} placeholder="e.g., £38,000 — or £2,800 a month" />
+              </label>
+              <label className="pub-label">Savings you’ve held for 3 months or more (optional)
+                <input className="pub-input" type="text" inputMode="decimal" value={savings} onChange={e => setSavings(e.target.value)} placeholder="e.g., £25,000 — leave blank if none" />
               </label>
               <label className="pub-label">Where it comes from (optional)
                 <textarea className="pub-input min-h-[84px]" value={incomeDetails} onChange={e => setIncomeDetails(e.target.value.slice(0, 600))}
@@ -653,30 +678,32 @@ export default function ApplicantForm() {
               <div className="pub-note flex flex-col gap-2" style={{ borderLeft: `2px solid ${aff.status === 'pass' ? '#2F6B45' : aff.status === 'borderline' ? '#A86A12' : '#9B2C1F'}` }}>
                 <strong>Referencing check</strong>
                 <span>{aff.message}</span>
-                {aff.status === 'fail' && 'options' in aff && (
+                {aff.status === 'fail' && 'options' in aff && aff.options.length > 0 && (
                   <ul className="m-0 pl-5">{aff.options.map((o: string) => <li key={o}>{o}</li>)}</ul>
                 )}
                 {(aff.status === 'fail' || aff.status === 'borderline') && (
-                  <span className="text-[13px] pub-muted">Salary threshold: 30× monthly rent. Savings: 36× monthly rent, held 3 months. Guarantor: 36× monthly rent a year. You can still submit your application — our team will be in touch about next steps.</span>
+                  <span className="text-[13px] pub-muted">Income: 30× the monthly rent a year. Savings: 36× the monthly rent, held 3 months. Guarantor: 36× the monthly rent a year, UK-based.</span>
                 )}
               </div>
             )}
           </Section>
 
-          <Section n={7} id="a7" title={`Will you need a guarantor?${isStudent ? '' : ' *'}`}>
+          <Section n={7} id="a7" title={mustHaveGuarantor ? 'Your guarantor *' : 'Will you need a guarantor? *'}>
             <p className="m-0 text-[15px] leading-relaxed" style={{ color: '#4A4741' }}>
               To pass referencing for {w.thisUnit} you’ll need to show <strong>earnings of at least {guarantorFigures.income} a year</strong>, or <strong>savings of at least {guarantorFigures.savings}</strong> held for 3 months or more.
               If not, a UK guarantor earning at least <strong>{guarantorFigures.gIncome} a year</strong> can support your application.
             </p>
             {isStudent ? (
               <p className="m-0 text-[15px]">As a student you’ll need a guarantor — please add their details below.</p>
+            ) : mustHaveGuarantor ? (
+              <p className="m-0 text-[15px]">From the income{savings ? ' and savings' : ''} you’ve told us, you’ll need a guarantor to pass referencing — please add their details below. Adding them now means referencing can start straight away and your move-in isn’t held up.</p>
             ) : (
               <div>
                 {([
                   ['no', `No — I earn ${guarantorFigures.income}+ a year or have ${guarantorFigures.savings}+ in savings`],
                   ['yes', 'Yes — I’ll have a guarantor'],
                   ['not_sure', 'Not sure yet'],
-                ] as const).map(([v, l]) => (
+                ] as const).filter(([v]) => !(aff.status === 'pass' && v === 'not_sure')).map(([v, l]) => (
                   <Choice key={v} on={guarantorNeeded === v} onClick={() => setGuarantorNeeded(v)}>{l}</Choice>
                 ))}
               </div>
@@ -691,6 +718,15 @@ export default function ApplicantForm() {
                   <label className="pub-label">Email *
                     <input className="pub-input" type="email" value={guarantorEmail} onChange={e => setGuarantorEmail(e.target.value)} autoComplete="off" />
                   </label>
+                </div>
+                <div className="pub-note flex flex-col gap-2">
+                  <span>Before you go on, please check with your guarantor that they:</span>
+                  <ul className="m-0 pl-5">
+                    <li>live in the UK, and</li>
+                    <li>earn at least <strong>{guarantorFigures.gIncome} a year</strong> before tax, and can prove it (payslips, a tax return or bank statements).</li>
+                  </ul>
+                  <span className="text-[13px] pub-muted">You don’t need to tell us what they earn — only that you’ve checked. If they don’t earn this much, they can’t be your guarantor; please talk to us before applying.</span>
+                  <Choice square on={guarantorChecked} onClick={() => setGuarantorChecked(!guarantorChecked)}>I’ve checked — my guarantor lives in the UK and earns at least {guarantorFigures.gIncome} a year</Choice>
                 </div>
                 <p className="m-0 text-[13px] pub-muted">We’ll pass these to our referencing provider, Homeppl, who will contact your guarantor directly. Please let them know to expect it.</p>
               </div>

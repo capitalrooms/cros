@@ -101,6 +101,10 @@ export async function POST(request: Request) {
     const application = {
       ...(String(data.company ?? '').trim() ? { company: String(data.company).trim().slice(0, 160) } : {}),
       ...(String(data.incomeDetails ?? '').trim() ? { income_details: String(data.incomeDetails).trim().slice(0, 600) } : {}),
+      // savings held 3 months+, what the form worked out, and that they checked with their guarantor (6 Nov 2026)
+      ...(Number(data.savings) > 0 && Number(data.savings) < 1e8 ? { savings: Math.round(Number(data.savings)) } : {}),
+      ...(data.affordability && ['pass', 'borderline', 'fail', 'unknown', 'student'].includes(data.affordability.result) ? { affordability: { result: data.affordability.result, rent: Number(data.affordability.rent) || null, at: new Date().toISOString() } } : {}),
+      ...(data.guarantorChecked === true ? { guarantor_checked_at: new Date().toISOString() } : {}),
       ...(data.student && typeof data.student === 'object' ? { student: true, university: String(data.student.university ?? '').trim().slice(0, 160) || null, course: String(data.student.course ?? '').trim().slice(0, 160) || null, year: String(data.student.year ?? '').trim().slice(0, 40) || null } : {}),
     }
     const { data: prof } = existing ? await supabase.from('applicants').select('applicant_profile').eq('id', existing.id).maybeSingle() : { data: null }
