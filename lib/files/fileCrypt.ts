@@ -50,7 +50,9 @@ export function openBytes(b: Buffer): Buffer {
 /** The AML documents in landlord-docs: "<form token>/<type>_<time>_<rand>.<ext>". */
 const IDENTITY_TYPES = ['id_document', 'proof_of_address', 'joint_id_document', 'joint_proof_of_address', 'director_id', 'director_address', 'proof_of_ownership', 'ownership_structure', 'certificate_of_incorporation', 'articles_of_association', 'other_document']
 const IDENTITY_RE = new RegExp(`^[^/]+/(?:${IDENTITY_TYPES.join('|')})_\\d+_[a-z0-9]+\\.[a-z0-9]+$`, 'i')
-export const isIdentityPath = (bucket: string, path: string) => bucket === 'landlord-docs' && IDENTITY_RE.test(path)
+// …and everything copied in from Homeppl (passports, right to rent, bank statements, payslips — lib/homeppl/sync)
+export const isIdentityPath = (bucket: string, path: string) =>
+  (bucket === 'landlord-docs' && IDENTITY_RE.test(path)) || (bucket === 'property-documents' && /^homeppl\/[0-9a-f-]{36}\/[^/]+$/i.test(path))
 
 // ── links that open (and decrypt) through our server ───────────────────────────────────────────────────────────────────
 const secret = () => `file-view:${process.env.CROS_FIELD_KEY ?? ''}:${process.env.SUPABASE_SERVICE_ROLE_KEY ?? ''}`

@@ -22,6 +22,7 @@ import { extractReference } from '@/lib/references/extract'
 import { previewEndDate, applyEndDate } from '@/lib/tenancy/endDate'
 import { requireStaff } from '@/lib/portalAuth'
 import { createServiceClient } from '@/lib/supabase'
+import { readStoredFile } from '@/lib/files/server'
 import { loadLettingFile, stageOf, STEP_COLUMNS, STEP_NAMES, type StepKey } from '@/lib/lettings/lettingFile'
 import { logTenancyEvent } from '@/lib/lettings/incomingTenancy'
 import { alertLettingsRoomUp } from '@/lib/lettings/roomAlert'
@@ -141,10 +142,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ te
     if (!doc?.storage_url) return NextResponse.json({ error: 'There’s no referencing report on this letting file yet.' }, { status: 409 })
     const m = String(doc.storage_url).match(/\/storage\/v1\/object\/(?:public|sign)\/([^/]+)\/([^?]+)/)
     if (!m) return NextResponse.json({ error: 'Couldn’t find the report file.' }, { status: 500 })
-    const { data: blob, error: dErr } = await s.storage.from(m[1]).download(decodeURIComponent(m[2]))
-    if (dErr || !blob) return NextResponse.json({ error: 'Couldn’t open the report file.' }, { status: 500 })
+    // readStoredFile decrypts (a report brought in from Homeppl is encrypted at rest — lib/files/fileCrypt)
+    const got = await readStoredFile(String(doc.storage_url)).catch(() => null)
+    if (!got) return NextResponse.json({ error: 'Couldn’t open the report file.' }, { status: 500 })
     let x: Record<string, any>
-    try { x = await extractReference([{ name: doc.file_name ?? 'report.pdf', type: blob.type || 'application/pdf', bytes: await blob.arrayBuffer() }]) }
+    try { x = await extractReference([{ name: doc.file_name ?? 'report.pdf', type: got.contentType || 'application/pdf', bytes: new Uint8Array(got.bytes).buffer }]) }
     catch (e) { return NextResponse.json({ error: e instanceof Error ? e.message : 'Couldn’t read the report' }, { status: 500 }) }
     const p = tt?.people ?? {}
     const job = [x.occupation, x.employer].filter(Boolean).join(' at ')
