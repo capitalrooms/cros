@@ -33,7 +33,7 @@ async function applyEmailHtml(vars: { firstName: string; roomName: string; propA
 <p style="margin:0 0 22px">Thanks for coming to see ${vars.whole ? `<strong>${vars.propAddress || 'the property'}</strong>` : `<strong>${vars.roomName}</strong>${vars.propAddress ? ` at ${vars.propAddress}` : ''}`}. We’d love you to apply — it takes about five minutes on your phone.</p>
 <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 22px"><tr><td style="border-radius:24px;background:#1b1a18"><a href="${vars.applyUrl}" style="display:inline-block;padding:13px 28px;border-radius:24px;background:#1b1a18;color:#ffffff !important;font-size:15px;font-weight:600;line-height:20px;text-decoration:none">Apply now</a></td></tr></table>
 <p style="margin:0">Any questions, just reply to this email.</p>
-`, { req })
+`, { kind: 'invite-to-apply', req })
 }
 
 
@@ -268,7 +268,7 @@ export async function POST(request: NextRequest) {
     if (tpl) {
       subject = render(tpl.subject_line, tokenVars, visitorName !== 'there' ? personFromText(visitorName) : null)
       const b = render(tpl.template_text, tokenVars, visitorName !== 'there' ? personFromText(visitorName) : null)
-      html = /<html/i.test(b) ? b : await buildEmail(b.includes('<') ? b : b.split(/\n{2,}/).map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`).join(''), { req: request })
+      html = /<html/i.test(b) ? b : await buildEmail(b.includes('<') ? b : b.split(/\n{2,}/).map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`).join(''), { kind: 'invite-to-apply', req: request })
     } else {
       subject = whole ? `Your application for ${place}` : `Your application for ${roomLabel}${propAddress ? ` at ${propAddress}` : ''}`
       html = await applyEmailHtml({ firstName, roomName: roomLabel, propAddress, applyUrl: isFastTrack ? fastUrl : applyUrl, whole }, request)

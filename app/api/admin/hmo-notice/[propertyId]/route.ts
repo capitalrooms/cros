@@ -68,7 +68,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pro
 
   if (b.action === 'test') {
     const sender = await senderFor(req)
-    const r = await sendEmail(sender.replyTo, `[TEST] ${subject}`, emailBody(sender.name.split(' ')[0] || 'there', f), { req, attachments })
+    const r = await sendEmail(sender.replyTo, `[TEST] ${subject}`, emailBody(sender.name.split(' ')[0] || 'there', f), { kind: 'hmo-notice', req, attachments })
     return r.ok ? NextResponse.json({ ok: true, sentTo: sender.replyTo }) : NextResponse.json({ error: r.error || 'The email could not be sent.' }, { status: 502 })
   }
   if (b.action !== 'send') return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
@@ -79,7 +79,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pro
   if (!chosen.length) return NextResponse.json({ error: 'Pick at least one tenant.' }, { status: 400 })
   const recipients = []
   for (const t of chosen) {        // one email each — tenants never see each other's addresses
-    const r = await sendEmail(t.email, subject, emailBody(t.dear, f), { req, attachments })
+    const r = await sendEmail(t.email, subject, emailBody(t.dear, f), { kind: 'hmo-notice', req, attachments })
     recipients.push({ person_id: t.personId, name: t.name, email: t.email, ok: r.ok, ...(r.ok ? {} : { error: r.error }) })
   }
   // the record keeps the exact wording, so the letter each tenant got can be reproduced (proof the notice was served)

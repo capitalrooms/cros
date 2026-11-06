@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
       to:      [supplier_email],
       subject,
       text:    emailBody,
-      html:    await buildEmail(String(emailBody).replace(/[&<>]/g, (c: string) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]!)).split(/\n{2,}/).map((p: string) => `<p>${p.replace(/\n/g, '<br>')}</p>`).join(''), { sender: await senderFor(req) }),
+      html:    await buildEmail(String(emailBody).replace(/[&<>]/g, (c: string) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]!)).split(/\n{2,}/).map((p: string) => `<p>${p.replace(/\n/g, '<br>')}</p>`).join(''), { kind: 'supplier-cert', sender: await senderFor(req) }),
     }, { req: req })
 
   if (!res.ok) {

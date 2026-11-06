@@ -51,7 +51,7 @@ ${note ? `<p style="margin:0 0 16px">${esc(note).replace(/\n/g, '<br>')}</p>` : 
 <p style="margin:0 0 22px"><a href="${link}" style="display:inline-block;background:#1b1a18;color:#ffffff;padding:13px 24px;border-radius:24px;text-decoration:none;font-weight:600">Add them to your form</a></p>
 <p style="margin:0 0 6px;font-size:13px;color:#6b6760">We ask for these because UK money-laundering rules require letting agents to confirm who their landlords are and that they own the property. Everything you send is stored securely and encrypted.</p>`
   const to = [r.email, typeof f.j_contact_email === 'string' && f.j_contact_email.includes('@') ? f.j_contact_email : null].filter(Boolean) as string[]
-  const sent = await sendEmail(to, 'A few more things to finish your landlord checks', html, { req })
+  const sent = await sendEmail(to, 'A few more things to finish your landlord checks', html, { kind: 'landlord-onboarding', req })
   if (!sent.ok) return NextResponse.json({ error: `The form was reopened but the email didn’t send: ${sent.error ?? 'unknown'}` }, { status: 502 })
   return NextResponse.json({ ok: true, to })
 }

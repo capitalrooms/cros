@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
         Open dashboard
       </a>`
 
-  const html = await emailHtml(body, { req: request })
+  const html = await emailHtml(body, { kind: 'job-on-hold', req: request })
 
   const res = await deliverEmail({ to: [reporter.email], subject, html }, { req: request })
 

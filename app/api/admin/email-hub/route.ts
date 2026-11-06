@@ -1,6 +1,7 @@
 // The Email hub (6 Nov 2026 — lib/email/themes, lib/email/registry). Administrators only (in no access area).
 //   GET                         → { look, themes, kinds }
-//   GET ?preview=<theme>[&kind] → the sample email in that theme (HTML), for the gallery
+//   GET ?preview=<theme>[&kind] → that email in that theme (HTML): its latest real copy (lib/email/samples), or a
+//                                 stand-in until one has been sent
 //   POST { look }               → saves which theme is used: for all, on dates, per email
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdministrator } from '@/lib/adminAuth'
@@ -8,6 +9,7 @@ import { createServiceClient } from '@/lib/supabase'
 import { buildEmail } from '@/lib/emailWrapper'
 import { THEMES, themeByKey, currentLook, forgetLook, LOOK_SETTING, type EmailLook } from '@/lib/email/themes'
 import { EMAIL_KINDS, AUDIENCES, kindByKey } from '@/lib/email/registry'
+import { samplesFor } from '@/lib/email/samples'
 
 export const dynamic = 'force-dynamic'
 
@@ -30,10 +32,12 @@ export async function GET(req: NextRequest) {
   const preview = q.get('preview')
   if (preview) {
     const kind = q.get('kind') ? kindByKey(String(q.get('kind'))) : null
-    const html = await buildEmail(sample(kind?.name ?? null), { req, theme: themeByKey(preview) })
+    const real = kind ? (await samplesFor([kind.key]))[kind.key] : null
+    const html = await buildEmail(real ? real.body : sample(kind?.name ?? null), { req, theme: themeByKey(preview), hero: real?.hero ?? undefined })
     return new NextResponse(html, { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' } })
   }
-  return NextResponse.json({ look: await currentLook(), themes: THEMES.map(t => ({ key: t.key, name: t.name, from: t.from, bar: t.bar, page: t.page, rule: t.rule, band: t.band?.bg ?? null })), kinds: EMAIL_KINDS, audiences: AUDIENCES })
+  const real = await samplesFor().catch(() => ({} as Record<string, any>))
+  return NextResponse.json({ examples: Object.fromEntries(Object.entries(real).map(([k, v]) => [k, v.updated_at])), look: await currentLook(), themes: THEMES.map(t => ({ key: t.key, name: t.name, from: t.from, bar: t.bar, page: t.page, rule: t.rule, band: t.band?.bg ?? null })), kinds: EMAIL_KINDS, audiences: AUDIENCES })
 }
 
 export async function POST(req: NextRequest) {
@@ -46,7 +50,7 @@ export async function POST(req: NextRequest) {
     default: keys.has(l.default) ? l.default : 'house',
     schedule: (Array.isArray(l.schedule) ? l.schedule : []).filter((x: any) => keys.has(x?.theme) && ISO.test(x?.from) && ISO.test(x?.to) && x.from <= x.to).slice(0, 12)
       .map((x: any) => ({ theme: x.theme, from: x.from, to: x.to })),
-    perEmail: Object.fromEntries(Object.entries(l.perEmail ?? {}).filter(([k, v]) => kindByKey(k)?.own && keys.has(String(v))).map(([k, v]) => [k, String(v)])),
+    perEmail: Object.fromEntries(Object.entries(l.perEmail ?? {}).filter(([k, v]) => kindByKey(k) && keys.has(String(v))).map(([k, v]) => [k, String(v)])),
   }
   const { error } = await createServiceClient().from('system_settings').upsert({ key: LOOK_SETTING, value: JSON.stringify(look), updated_at: new Date().toISOString() })
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

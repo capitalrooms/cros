@@ -235,7 +235,7 @@ export async function POST(req: NextRequest) {
             <li style="margin-bottom:8px;"><strong>Cover letter</strong> — explains the increase and your options in plain English</li>
             <li><strong>Form 4A</strong> — the statutory Section 13 notice required by law</li>
           </ol>
-          <p>Please read both documents carefully. If you have any questions, reply to this email or call us on <strong>0207 112 9163</strong>.</p>`, { sender: await senderFor(req) }),
+          <p>Please read both documents carefully. If you have any questions, reply to this email or call us on <strong>0207 112 9163</strong>.</p>`, { kind: 'rent-increase', sender: await senderFor(req) }),
     }, { req: req })
   } catch (emailErr: any) {
     console.error('Email send failed', emailErr)

@@ -197,7 +197,7 @@ export async function POST(request: Request) {
           <table style="width:100%;border-collapse:collapse;margin:8px 0 16px;font-size:14px;">
             ${row('Email', data.email)}${row('Phone', data.phone)}${row('Move in', data.preferredStartDate)}${row('Plans to stay', data.preferredTerm)}${row('Job', data.profession)}
           </table>
-          <p><a href="${app}/admin/applicants" style="display:inline-block;background:#1a1a1a;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:700;">Open Applicants</a></p>`)
+          <p><a href="${app}/admin/applicants" style="display:inline-block;background:#1a1a1a;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:700;">Open Applicants</a></p>`, { kind: 'office-new-offer' })
       }
     } catch (e) {
       console.error('apply: staff notification failed', e)

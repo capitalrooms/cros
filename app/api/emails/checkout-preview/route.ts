@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
   try {
     const m = await prepareMoveOut(createServiceClient(), { tenancyId: d.tenancyId, moveOutDate: d.moveOutDate, tenantName: d.tenantName, proRataAmount: d.proRataRent, proRataDays: d.proRataDays, roomName: d.roomName, propertyAddress: d.propertyAddress })
     const e = moveOutEmail({ ...m, formUrl: moveOutUrl(d.tenancyId) })
-    return NextResponse.json({ html: await buildEmail(e.html, { req }), subject: e.subject, attachment: null })
+    return NextResponse.json({ html: await buildEmail(e.html, { kind: 'move-out', req }), subject: e.subject, attachment: null })
   } catch (err) {
     return NextResponse.json({ error: err instanceof Error ? err.message : 'Could not build the email' }, { status: 500 })
   }

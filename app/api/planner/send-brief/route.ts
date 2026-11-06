@@ -82,7 +82,7 @@ export async function POST(request: Request) {
 
     if (!contractorEmail) return Response.json({ error: 'contractorEmail is required' }, { status: 400 })
 
-    const html = await buildEmail(buildBriefHtml({ contractorName: contractorName || '', personalMsg: personalMsg || '', boardTitle, itemTitle, groupName, status, responsible, updates: updates || [] }), { sender: await senderFor(request) })
+    const html = await buildEmail(buildBriefHtml({ contractorName: contractorName || '', personalMsg: personalMsg || '', boardTitle, itemTitle, groupName, status, responsible, updates: updates || [] }), { kind: 'project-brief', sender: await senderFor(request) })
 
     const allLinks  = (updates || []).flatMap((u: Update) => u.links  || [])
     const allImages = (updates || []).flatMap((u: Update) => u.images || [])

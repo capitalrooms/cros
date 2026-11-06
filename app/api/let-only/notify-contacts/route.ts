@@ -173,11 +173,11 @@ export async function POST(req: NextRequest) {
           const vars = { event_subject: eventSubject, address, contact_name: contactName, event_intro: eventIntro, sender_name }
           subject = render(letOnlyTpl.subject_line, vars)
           const bodyText = render(letOnlyTpl.template_text, vars)
-          html = await buildEmail(`<div style="white-space:pre-line;">${bodyText}</div>`, { req: req })
+          html = await buildEmail(`<div style="white-space:pre-line;">${bodyText}</div>`, { kind: 'let-only-viewing', req: req })
         } else {
           const result = buildEmailBody({ event, viewing_date, viewing_time, visitor_name, room_name, address, sender_name, contact_name: contactName })
           subject = result.subject
-          html = await buildEmail(result.body, { req: req })
+          html = await buildEmail(result.body, { kind: 'let-only-viewing', req: req })
         }
 
         const res = await deliverEmail({

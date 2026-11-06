@@ -117,7 +117,7 @@ export async function POST(req: NextRequest) {
     await deliverEmail({
         to: adminEmail,
         subject: oneLine(`Notice given — ${roomName}, ${propertyAddress}`),
-        html: await buildEmail(notifyBody),
+        html: await buildEmail(notifyBody, { kind: 'office-notice-given' }),
       }).catch(e => console.error('Admin notify failed:', e))
   }
 

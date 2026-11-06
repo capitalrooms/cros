@@ -153,7 +153,7 @@ export async function buildOfferLetterEmail(context: OfferEmailContext, req?: Re
     <p style="margin:12px 0 0;font-family:${SANS};font-size:13px;color:${MUTED};">This link lasts 30 days.</p>
     ${contact()}
   `
-  return buildEmail(inner, { req })
+  return buildEmail(inner, { kind: 'offer-letter', req })
 }
 
 /**
@@ -229,5 +229,5 @@ export async function buildSearchIsOverEmail(context: OfferEmailContext, req?: R
     ${contact()}
   `
 
-  return buildEmail(inner, { req })
+  return buildEmail(inner, { kind: 'search-is-over', req })
 }

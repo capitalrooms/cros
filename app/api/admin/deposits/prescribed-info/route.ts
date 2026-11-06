@@ -67,7 +67,7 @@ export async function POST(req: NextRequest) {
     <p>Dear ${esc(c.tenants.map(t => t.dear).join(' and '))},</p>
     <p>Your deposit of <strong>£${c.deposit.toFixed(2)}</strong> for ${esc(c.property)} is protected with the Deposit Protection Service, reference <strong>${esc(c.schemeRef ?? '')}</strong>.</p>
     <p>Attached is the <strong>prescribed information</strong> about your deposit, which we are required by law to give you, together with the DPS Terms and Conditions and the DPS guide for tenants. Please read them and keep them safe with your tenancy agreement.</p>
-    <p>If anything in it isn’t right, or you’d like to give us a contact address for the end of your tenancy, just reply to this email.</p>`, { req, attachments })
+    <p>If anything in it isn’t right, or you’d like to give us a contact address for the end of your tenancy, just reply to this email.</p>`, { kind: 'prescribed-info', req, attachments })
   if (!res.ok) return NextResponse.json({ error: res.error || 'The email could not be sent.' }, { status: 502 })
   await s.from('tenancies').update({ prescribed_info_served_at: today() }).eq('id', c.tenancyId)
   await s.from('audit_logs').insert({ user_id: admin.personId, action: 'prescribed_info_served', details: `Prescribed information emailed to ${to.join(', ')} — ${c.property} (${c.schemeRef})` })

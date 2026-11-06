@@ -120,7 +120,7 @@ export async function POST(request: NextRequest) {
         <a href="${PORTAL_URL}${isViewing ? '/lettings/viewings' : conf.related_id ? `/admin/maintenance?ticket=${conf.related_id}` : '/admin/maintenance'}"
            style="display:inline-block;background:#1c1917;color:#fff;font-size:14px;font-weight:600;padding:11px 20px;border-radius:8px;text-decoration:none;">
           ${isViewing ? 'Open the viewings' : 'Open this job'} →
-        </a>`)
+        </a>`, { kind: 'office-texts' })
     )
 
     if (isViewing) {
@@ -153,7 +153,7 @@ export async function POST(request: NextRequest) {
         <a href="${PORTAL_URL}${isViewing ? '/lettings/viewings' : conf.related_id ? `/admin/maintenance?ticket=${conf.related_id}` : '/admin/maintenance'}"
            style="display:inline-block;background:#d97706;color:#fff;font-size:14px;font-weight:600;padding:11px 20px;border-radius:8px;text-decoration:none;">
           ${isViewing ? 'Open the viewings' : 'Open this job'} →
-        </a>`)
+        </a>`, { kind: 'office-texts' })
     )
 
     if (isViewing) {
@@ -172,7 +172,7 @@ export async function POST(request: NextRequest) {
       <p style="font-size:15px;color:#1c1917;margin:0 0 8px;">${context}</p>
       <p style="font-size:14px;color:#78716c;margin:0 0 4px;">From: <strong>${from}</strong></p>
       <p style="font-size:14px;color:#1c1917;background:#f5f4f2;padding:12px;border-radius:6px;margin:0 0 20px;">"${rawMsg}"</p>
-      <p style="font-size:13px;color:#78716c;">This couldn't be handled automatically — please call or reply to them directly.</p>`)
+      <p style="font-size:13px;color:#78716c;">This couldn't be handled automatically — please call or reply to them directly.</p>`, { kind: 'office-texts' })
   )
 
   return twiml(`Thanks for your message — our team will be in touch shortly. If urgent please call us. — Capital Rms`)

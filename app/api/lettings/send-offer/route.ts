@@ -16,7 +16,7 @@ import { isWholeLet, oneLine, placeLabel } from '@/lib/lettings/letWording'
 // saved message templates hold the body only — give them the house email (an old full-page one is sent as is)
 async function wrapTemplate(body: string, req: Request) {
   if (/<html/i.test(body)) return body
-  return buildEmail(body.includes('<') ? body : body.split(/\n{2,}/).map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`).join(''), { req })
+  return buildEmail(body.includes('<') ? body : body.split(/\n{2,}/).map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`).join(''), { kind: 'offer-letter', req })
 }
 
 const weeklyRent = (monthly: number) => oneWeekRent(monthly)   // monthly × 12 ÷ 52, to the penny

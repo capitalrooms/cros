@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
     if (b.preview) return NextResponse.json(rc)
     if (!rc.to) return NextResponse.json({ error: 'No email address for the tenant.' }, { status: 422 })
     if (!(await getElectedCommsLive())) return NextResponse.json({ error: 'Messages you send are switched off in Settings. Nothing was sent.' }, { status: 409 })
-    const { ok, error } = await sendEmail(rc.to, rc.subject, messageHtml(rc.text), { req })
+    const { ok, error } = await sendEmail(rc.to, rc.subject, messageHtml(rc.text), { kind: 'move-in-receipt', req })
     if (!ok) return NextResponse.json({ error: error ?? 'The email didn’t send' }, { status: 502 })
     const rec = await current(s, b.tenancyId)
     await s.from('initial_monies').update({ receipt_sent_at: new Date().toISOString(), receipt_sent_to: rc.to }).eq('id', rec.id)

@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
     const docs = h?.documents.filter(d => d.url && d.uploadedAt && d.uploadedAt.slice(0, 10) >= since) ?? []
     if (!h || !docs.length) return NextResponse.json({ error: 'That house has no certificates uploaded since the date chosen.' }, { status: 400 })
     const sender = await senderFor(req)
-    const r = await sendEmail(sender.replyTo, `[TEST] ${defaultHouseSubject(h.property.address)}`, houseEmailHtml(sender.name.split(' ')[0] || 'there', h.property.address, docs, message), { req })
+    const r = await sendEmail(sender.replyTo, `[TEST] ${defaultHouseSubject(h.property.address)}`, houseEmailHtml(sender.name.split(' ')[0] || 'there', h.property.address, docs, message), { kind: 'house-docs', req })
     return r.ok ? NextResponse.json({ ok: true, sentTo: sender.replyTo }) : NextResponse.json({ error: r.error || 'The email could not be sent.' }, { status: 502 })
   }
   if (b.action !== 'send') return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
     const subject = defaultHouseSubject(h.property.address)
     const recipients = []
     for (const t of h.tenants) {
-      const r = await sendEmail(t.email, subject, houseEmailHtml(t.dear, h.property.address, docs, message), { req })
+      const r = await sendEmail(t.email, subject, houseEmailHtml(t.dear, h.property.address, docs, message), { kind: 'house-docs', req })
       recipients.push({ person_id: t.personId, name: t.name, email: t.email, ok: r.ok, ...(r.ok ? {} : { error: r.error }) })
     }
     await s.from('house_document_sends').insert({

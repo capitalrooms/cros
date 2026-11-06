@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
     if (!v.visitor_email) out.emailError = 'No email address on this viewing'
     else {
       const place = v.properties?.address || v.properties?.name || ''
-      const { ok, error } = await sendEmail(v.visitor_email, `Your viewing${place ? ` at ${place}` : ''}`, messageHtml(`Hi ${first},\n\n${message}`), { req })
+      const { ok, error } = await sendEmail(v.visitor_email, `Your viewing${place ? ` at ${place}` : ''}`, messageHtml(`Hi ${first},\n\n${message}`), { kind: 'viewing-booked', req })
       if (ok) out.emailSent = true
       else out.emailError = error ?? 'Email failed'
     }

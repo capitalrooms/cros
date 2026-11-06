@@ -183,7 +183,7 @@ export async function sendToTenancy(f: TenancyFacts, o: { subject: string; email
     const subject = fillMessage(o.subject, f, who)
     if (o.channels.includes('email')) {
       if (!who.email) r.email = 'no email on file'
-      else { const e = await sendEmail(who.email, subject, emailHtml(fillMessage(o.email, f, who), who.dear), { req: o.req ?? undefined }); r.email = e.ok ? 'sent' : `failed: ${e.error}` }
+      else { const e = await sendEmail(who.email, subject, emailHtml(fillMessage(o.email, f, who), who.dear), { kind: 'quick-message', req: o.req ?? undefined }); r.email = e.ok ? 'sent' : `failed: ${e.error}` }
     }
     if (o.channels.includes('sms')) {
       const t = await sendSms(who.phone, fillMessage(o.sms, f, who), { asName: true }); r.sms = t.ok ? 'sent' : t.error ?? 'failed'

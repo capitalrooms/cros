@@ -35,7 +35,8 @@ function Preview({ theme, kind, height = 360 }: { theme: string; kind?: string; 
 }
 
 export default function EmailHubPage() {
-  const [d, setD] = useState<{ look: Look; themes: Theme[]; kinds: Kind[]; audiences: string[] } | null>(null)
+  const [d, setD] = useState<{ look: Look; themes: Theme[]; kinds: Kind[]; audiences: string[]; examples: Record<string, string> } | null>(null)
+  const [wall, setWall] = useState<string | null>(null)   // a theme: every email shown in it
   const [look, setLook] = useState<Look | null>(null)
   const [tab, setTab] = useState<'themes' | 'emails'>('themes')
   const [saving, setSaving] = useState(false)
@@ -85,6 +86,7 @@ export default function EmailHubPage() {
                 <div className="flex flex-wrap gap-xs">
                   <button type="button" className={btnDark} disabled={saving || look.default === t.key} onClick={() => save({ ...look, default: t.key }, `Every email now uses ${t.name}${look.schedule.length ? ' (outside the dates below)' : ''}.`)}>Use for all emails</button>
                   <button type="button" className={btn} onClick={() => setBig({ theme: t.key, title: t.name })}>Preview</button>
+                  <button type="button" className={btn} onClick={() => setWall(t.key)}>See every email</button>
                 </div>
               </div>
             ))}
@@ -116,7 +118,7 @@ export default function EmailHubPage() {
           </section>
         </> : (
           <section className="space-y-md">
-            <p className="text-sm text-neutral-600">Every kind of email CROS sends. Those with a theme menu can have their own look; the rest use the theme for all emails (or the dated one) until they’re moved across.</p>
+            <p className="text-sm text-neutral-600">Every kind of email CROS sends, each with its own theme menu — leave it on “Theme for all emails” to follow the main one. Previews use the latest real copy of each email (private links taken out); until one has gone out, a stand-in shows.</p>
             {byAudience.map(({ a, kinds }) => (
               <div key={a} className={card}>
                 <h2 className="text-base font-bold text-neutral-900">{a} <span className="text-sm font-normal text-neutral-500">· {kinds.length}</span></h2>
@@ -125,8 +127,8 @@ export default function EmailHubPage() {
                     const own = look.perEmail[k.key]
                     return (
                       <li key={k.key} className="flex flex-wrap items-center gap-sm py-sm text-sm">
-                        <span className="min-w-[220px] flex-1"><span className="font-semibold text-neutral-900">{k.name}</span><span className="block text-xs text-neutral-500">{k.when}</span></span>
-                        {k.own ? (
+                        <span className="min-w-[220px] flex-1"><span className="font-semibold text-neutral-900">{k.name}</span><span className="block text-xs text-neutral-500">{k.when}{d.examples?.[k.key] ? ` · example from ${new Date(d.examples[k.key]).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })}` : ' · no example yet'}</span></span>
+                        {true ? (
                           <select className={input} value={own ?? ''} disabled={saving}
                             onChange={e => { const per = { ...look.perEmail }; if (e.target.value) per[k.key] = e.target.value; else delete per[k.key]; save({ ...look, perEmail: per }, `${k.name}: ${e.target.value ? name(e.target.value) : `follows the theme for all emails`}.`) }}>
                             <option value="">Theme for all emails ({name(nowTheme ?? look.default)})</option>
@@ -143,6 +145,31 @@ export default function EmailHubPage() {
           </section>
         )}
       </main>
+
+      {wall && d && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 md:items-center md:p-lg" onClick={() => setWall(null)}>
+          <div className="flex max-h-[94dvh] w-full max-w-7xl flex-col overflow-hidden rounded-t-2xl bg-white shadow-xl md:rounded-2xl" onClick={e => e.stopPropagation()}>
+            <div className="flex flex-wrap items-center justify-between gap-md border-b border-neutral-200 px-lg py-md">
+              <h3 className="text-lg font-bold text-neutral-900">Every email in {name(wall)}</h3>
+              <div className="flex items-center gap-sm">
+                <select className={input} value={wall} onChange={e => setWall(e.target.value)}>{d.themes.map(t => <option key={t.key} value={t.key}>{t.name}</option>)}</select>
+                <button type="button" onClick={() => setWall(null)} className="text-sm font-semibold text-neutral-500">Close</button>
+              </div>
+            </div>
+            <div className="overflow-y-auto p-md">
+              <p className="mb-sm text-xs text-neutral-500">{Object.keys(d.examples ?? {}).length} of {d.kinds.length} emails have a real example so far — the rest appear here as they go out.</p>
+              <div className="grid gap-md sm:grid-cols-2 lg:grid-cols-3">
+                {d.kinds.filter(k => d.examples?.[k.key]).map(k => (
+                  <div key={k.key} className="space-y-xs">
+                    <p className="text-sm font-semibold text-neutral-900">{k.name} <span className="font-normal text-neutral-500">· {k.audience}</span></p>
+                    <Preview theme={wall} kind={k.key} height={420} />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {big && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 md:items-center md:p-lg" onClick={() => setBig(null)}>

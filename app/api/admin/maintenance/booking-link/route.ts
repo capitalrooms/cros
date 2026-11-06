@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
       <p>Could you book your visit for this job? Choose a day and time slot at the link — there’s nothing to sign up for. The tenants are told when you’re coming and given your mobile number, in case they need to arrange access.</p>
       <p style="margin:18px 0;padding:14px 16px;background:#f5f4f2;border-radius:10px"><strong>${esc(job?.title ?? 'Repair')}</strong><br>${esc(job?.propertyAddress ?? where)}${job?.roomName ? `<br>${esc(job.roomName)}` : ''}</p>
       <p><a href="${link}" style="display:inline-block;background:#181614;color:#fff;text-decoration:none;font-weight:700;padding:12px 22px;border-radius:10px">Book my visit →</a></p>
-      <p style="color:#6b6a64;font-size:13px">Need to move it later? Use the same link. If you can’t do the job at all, please use the link to say so.</p>`, { sender })
+      <p style="color:#6b6a64;font-size:13px">Need to move it later? Use the same link. If you can’t do the job at all, please use the link to say so.</p>`, { kind: 'booking-link', sender })
     if (r.ok) via.push('email')
   }
   return NextResponse.json({ ok: true, link, via, contractorId: who.id })

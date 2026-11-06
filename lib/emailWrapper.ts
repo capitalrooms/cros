@@ -25,6 +25,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { fullSignatureHtml, SIGNATURE_ASSET_BASE } from '@/lib/brand/signature'
 import { THEMES, currentLook, themeFor, type EmailTheme } from '@/lib/email/themes'
+import { keepSample } from '@/lib/email/samples'
 import { nameDisplayWidth } from '@/lib/brand/nameImage'
 import { defaultSender, senderFor, type EmailSender } from '@/lib/email/sender'
 
@@ -214,6 +215,8 @@ export async function buildEmail(content: string, opts: { sender?: EmailSender; 
   const [biz, look] = await Promise.all([getBusinessSettings(), currentLook()])
   // the theme: one asked for (the Email hub's previews), else this kind of email's own, a dated one, or the default
   const theme = opts.theme ?? themeFor(look, opts.kind)
+  // the hub's real-life example of this kind of email (not for its own previews, which pass a theme)
+  if (!opts.theme) keepSample(opts.kind, content, opts.hero)
   // hero: a full-width band straight under the logo bar (the landlord's new-let email — lib/landlordUpdates/email)
   if (opts.signature === false) return wrapEmail(content, biz, undefined, opts.hero, theme)
   // the signed-in staff member behind the request signs it (same person as the From address); otherwise the main administrator

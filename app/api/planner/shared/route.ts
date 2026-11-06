@@ -184,8 +184,8 @@ export async function POST(req: NextRequest) {
       note(test && !show ? `<strong>Test copy for you.</strong> ${esc(name(p))}’s button signs them straight into their planner; yours opens the board as you see it.` : 'The button signs you straight in — no password needed. It works once; next time, sign in at ' + esc(PORTAL_URL) + ' or ask us for a new link.'),
     ].join('')
     const to = test ? caller.email : (other || p.email)
-    if (show) return NextResponse.json({ to, subject: 'Your shared planner with Capital Rooms', html: await buildEmail(body, { req }) })
-    const sent = await deliverEmail({ to, subject: `${test ? 'TEST · ' : ''}Your shared planner with Capital Rooms`, html: await buildEmail(body, { req }) }, { req })
+    if (show) return NextResponse.json({ to, subject: 'Your shared planner with Capital Rooms', html: await buildEmail(body, { kind: 'planner-shared', req }) })
+    const sent = await deliverEmail({ to, subject: `${test ? 'TEST · ' : ''}Your shared planner with Capital Rooms`, html: await buildEmail(body, { kind: 'planner-shared', req }) }, { req })
     if (!sent.ok) return NextResponse.json({ error: 'The email didn’t send — try again' }, { status: 502 })
     if (!test) await s.from('audit_logs').insert({ user_id: caller.personId, action: 'planner_board_emailed', details: `${board.id} → ${to}` })
     return NextResponse.json({ ok: true, to })

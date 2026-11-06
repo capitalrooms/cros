@@ -311,7 +311,7 @@ export async function POST(req: NextRequest) {
             <p><strong>New document${storedResults.length > 1 ? 's' : ''} received</strong></p>
             <p style="color:#78716c;font-size:13px;">From: <strong>${fromEmail}</strong><br>Subject: ${subject}</p>
             ${docCards}
-            <p style="font-size:13px;"><a href="https://cros-sigma.vercel.app/admin/ai-upload" style="color:#1a1a1a;">View all pending documents</a></p>`),
+            <p style="font-size:13px;"><a href="https://cros-sigma.vercel.app/admin/ai-upload" style="color:#1a1a1a;">View all pending documents</a></p>`, { kind: 'office-inbound' }),
       })
     } catch (e) {
       console.warn('docs-inbound: notify failed', e)

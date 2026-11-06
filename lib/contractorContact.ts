@@ -39,7 +39,7 @@ export async function tellContractor(p: any, personId: string, msg: ContractorMe
     if (!p?.email) errs.push('no email address')
     else {
       const html = msg.emailBodyHtml ?? `<p>${esc(msg.text).replace(/\n/g, '<br>')}</p><p><a href="${msg.link}">Open it</a></p>`
-      const r = await sendEmail(p.email, msg.emailSubject ?? `${msg.title.replace(/^[^A-Za-z]+/, '')} — Capital Rooms`, html, { signature: false })
+      const r = await sendEmail(p.email, msg.emailSubject ?? `${msg.title.replace(/^[^A-Za-z]+/, '')} — Capital Rooms`, html, { kind: 'contractor-message', signature: false })
       if (r.ok) via.push('email'); else errs.push(`email failed: ${r.error}`)
     }
   }
