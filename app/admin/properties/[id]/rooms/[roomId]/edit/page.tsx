@@ -1,5 +1,6 @@
 'use client'
 import AdvertStudio from '@/components/AdvertStudio'
+import ImprovementsPanel from '@/components/ImprovementsPanel'
 import { displayName, nameFields } from '@/lib/people'
 import { isOfficeRole } from '@/lib/access/areas'
 
@@ -1546,6 +1547,11 @@ export default function RoomDashboardPage({
           {/* ── NOTES ───────────────────────────────────────────────────────── */}
           {activeTab === 'notes' && (
             <div className="space-y-xl">
+              {/* things noted that could be better in this room (migration 272) */}
+              <div>
+                <h2 className="mb-md text-xs font-bold uppercase tracking-widest text-neutral-400">Improvements</h2>
+                <ImprovementsPanel propertyId={propertyId} roomId={roomId} />
+              </div>
               {/* Add note */}
               <div>
                 <h2 className="text-xs font-bold uppercase tracking-widest text-neutral-400 mb-md">Add a note</h2>

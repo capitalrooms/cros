@@ -88,6 +88,8 @@ export const EMAIL_KINDS: EmailKind[] = [
   { key: 'letter', name: 'Letters & invoices', audience: 'Everyone', from: 'Office', when: 'From Letters & Invoices' },
   { key: 'calendar-invite', name: 'Calendar invitation', audience: 'Everyone', from: 'Office', when: 'When you send a calendar invite' },
   { key: 'app-notification', name: 'Notifications from the app', audience: 'Everyone', from: 'CROS', when: 'When someone gets an alert in the app (also by email)' },
+  { key: 'improvements-landlord', name: 'Things we noticed that could be improved', audience: 'Landlords', from: 'Office', when: 'After a visit, from the house’s Improvements' },
+  { key: 'improvements-quote', name: 'Request for a quote — improvements', audience: 'Contractors & suppliers', from: 'Office', when: 'From the house’s Improvements' },
   { key: 'aml-invite', name: 'Landlord onboarding — invitation to the form', audience: 'Landlords', from: 'Office', when: 'When a new landlord is invited to complete their details' },
   { key: 'aml-invite-with-agreement', name: 'Landlord onboarding — invitation with the agreement', audience: 'Landlords', from: 'Office', when: 'When the form goes out with the management agreement' },
   { key: 'aml-reminder', name: 'Landlord onboarding — reminder', audience: 'Landlords', from: 'Office', when: 'When the form hasn’t been finished' },

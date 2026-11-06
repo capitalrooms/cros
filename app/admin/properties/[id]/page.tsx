@@ -23,6 +23,7 @@ import CommunicationsTab from './components/CommunicationsTab'
 import DocumentsTab from './components/DocumentsTab'
 import PurchasesTab from './components/PurchasesTab'
 import UpkeepTab from './components/UpkeepTab'
+import ImprovementsPanel from '@/components/ImprovementsPanel'
 import PhotosTab from './components/PhotosTab'
 import PropertyTabComponent from './components/PropertyTab'
 import { blockAddress, inlineAddress } from '@/lib/formatAddress'
@@ -46,7 +47,7 @@ type TabType = 'details' | 'units' | 'people' | 'maintenance' | 'services' | 'le
 
 // Sub-tab types for merged tabs
 type PeopleSubTab = 'tenants' | 'housemates' | 'messages'
-type MaintenanceSubTab = 'jobs' | 'purchases' | 'tasks' | 'cleaning' | 'upkeep'
+type MaintenanceSubTab = 'jobs' | 'purchases' | 'tasks' | 'cleaning' | 'upkeep' | 'improvements'
 type ComplianceSubTab = 'compliance' | 'communications'
 type DocumentsSubTab = 'documents' | 'photos' | 'financials'
 
@@ -385,7 +386,7 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
           {activeTab === 'maintenance' && (
             <div>
               <div className="flex gap-xs px-lg pt-lg pb-0 border-b border-neutral-100">
-                {([['cleaning', 'Cleaning'], ['jobs', 'Jobs'], ['purchases', 'Purchases'], ['tasks', 'Tasks'], ['upkeep', 'Upkeep']] as [MaintenanceSubTab, string][]).map(([key, label]) => (
+                {([['cleaning', 'Cleaning'], ['jobs', 'Jobs'], ['purchases', 'Purchases'], ['tasks', 'Tasks'], ['upkeep', 'Upkeep'], ['improvements', 'Improvements']] as [MaintenanceSubTab, string][]).map(([key, label]) => (
                   <button
                     key={key}
                     onClick={() => setMaintenanceSubTab(key)}
@@ -401,6 +402,7 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
                 {maintenanceSubTab === 'jobs' && <MaintenanceTab propertyId={id} tickets={tickets} />}
                 {maintenanceSubTab === 'purchases' && <PurchasesTab propertyId={id} />}
                 {maintenanceSubTab === 'upkeep' && <UpkeepTab propertyId={id} />}
+                {maintenanceSubTab === 'improvements' && <ImprovementsPanel propertyId={id} />}
                 {maintenanceSubTab === 'tasks' && <TasksTab propertyId={id} />}
                 {/* the house's deep-clean record — the extra jobs ticked as cleans are finished (26 Oct 2026) */}
                 {maintenanceSubTab === 'cleaning' && <DeepCleanRecord propertyId={id} />}
