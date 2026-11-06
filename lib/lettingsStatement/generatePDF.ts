@@ -105,6 +105,23 @@ export function lettingsStatementFileName(d: Pick<LettingsStatementData, 'unitCo
   return [code, 'Lettings Statement', who].filter(Boolean).join(' - ').replace(/[\\/:*?"<>|]+/g, '').replace(/\s+/g, ' ').trim() + '.pdf'
 }
 
+/** The statement's sums — the PDF and the landlord's email (lib/landlordUpdates/email) show the same figures. */
+export function lettingsSums(data: Pick<LettingsStatementData, 'depositWeeks' | 'rentInAdvance' | 'lettingFeeFlat' | 'lettingFeePct' | 'lettingFeeLabel' | 'rentAmount' | 'depositAmount' | 'holdingDepositReceived'>) {
+  const depositWeeks = data.depositWeeks ?? 5
+  const rentMonths = data.rentInAdvance ?? 1
+  let feeAmount = 0, feeLabel = ''
+  if (data.lettingFeeFlat) { feeAmount = data.lettingFeeFlat; feeLabel = `Flat fee` }
+  else if (data.lettingFeePct) {
+    feeAmount = Math.round((data.rentAmount * data.lettingFeePct / 100) * 100) / 100
+    feeLabel = `${data.lettingFeeLabel ?? `${pctToFraction(data.lettingFeePct)} of the monthly rent`}`
+  }
+  // Harry, 17 Oct 2026: "all we take from Nigel is a fee off the rent, the holding deposit is part of the deposit"
+  const rentIn = data.rentAmount * rentMonths
+  const holdingPaid = data.holdingDepositReceived ?? 0
+  const due = data.depositAmount + rentIn - feeAmount
+  return { depositWeeks, rentMonths, feeAmount, feeLabel, rentIn, holdingPaid, due }
+}
+
 export async function generateLettingsStatementPDF(data: LettingsStatementData): Promise<Buffer> {
   const assets = await loadPDFLetterheadAssets()
   const R = assets.fontReg, B = assets.fontBold, D = assets.fontDisplay
@@ -120,20 +137,8 @@ export async function generateLettingsStatementPDF(data: LettingsStatementData):
   doc.on('pageAdded', decorate)
   const bottom = PAGE_H - FOOTER_BAND_H - 30
 
-  // ── the sums (unchanged) ─────────────────────────────────────────────────
-  const depositWeeks = data.depositWeeks ?? 5
-  const rentMonths = data.rentInAdvance ?? 1
-  let feeAmount = 0, feeLabel = ''
-  if (data.lettingFeeFlat) { feeAmount = data.lettingFeeFlat; feeLabel = `Flat fee` }
-  else if (data.lettingFeePct) {
-    feeAmount = Math.round((data.rentAmount * data.lettingFeePct / 100) * 100) / 100
-    feeLabel = `${data.lettingFeeLabel ?? `${pctToFraction(data.lettingFeePct)} of the monthly rent`}`
-  }
-  // Harry, 17 Oct 2026: "all we take from Nigel is a fee off the rent, the holding deposit is part of the deposit"
-  const rentIn = data.rentAmount * rentMonths
-  const totalIn = data.depositAmount + rentIn
-  const holdingPaid = data.holdingDepositReceived ?? 0
-  const due = totalIn - feeAmount
+  // ── the sums (unchanged — lettingsSums, shared with the landlord's email) ─
+  const { depositWeeks, rentMonths, feeAmount, feeLabel, rentIn, holdingPaid, due } = lettingsSums(data)
   const paid = data.paidOn ? fmtDate(`${data.paidOn}T12:00:00`) : null
 
   // ── heading: the room and street, then the statement's particulars in one quiet line ──────────────

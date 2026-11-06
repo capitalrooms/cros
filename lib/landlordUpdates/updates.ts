@@ -22,7 +22,9 @@ export const STAGE_LABEL: Record<UpdateStage, string> = {
   offer: 'Offer to review', reserved: 'Room reserved', referenced: 'Referencing passed', signed_paid: 'Signed & paid', summary: 'New tenant report',
 }
 /** documents that may go with each stage; ID ones only for let-only by default */
-const ALL_DOCS = ['tenancy_agreement', 'reference_report', 'employment_letter', 'payslip', 'bank_statement', 'guarantor', 'student', 'right_to_rent', 'id_proof', 'deposit_certificate', 'other']
+const ALL_DOCS = ['tenancy_agreement', 'reference_report', 'employment_letter', 'payslip', 'bank_statement', 'guarantor', 'student', 'right_to_rent', 'id_proof', 'deposit_certificate', 'inventory', 'referencing_evidence', 'guarantor_document', 'other']
+// the applicant's own evidence (bank statements, payslips…) — offered, never ticked by default (6 Nov 2026)
+const PRIVATE_DOCS = ['referencing_evidence', 'bank_statement', 'payslip', 'guarantor', 'guarantor_document', 'other']
 const STAGE_DOCS: Record<UpdateStage, string[]> = {
   // an offer can carry what they've sent us so far — offered, never ticked by default
   offer: ALL_DOCS, reserved: ALL_DOCS,
@@ -36,6 +38,7 @@ export const DOC_LABEL: Record<string, string> = {
   reference_report: 'Referencing report', employment_letter: 'Employment / income letter', id_proof: 'Passport or ID',
   right_to_rent: 'Right to Rent check', tenancy_agreement: 'Signed tenancy agreement', deposit_certificate: 'Deposit protection certificate',
   payslip: 'Payslip', bank_statement: 'Bank statement', guarantor: 'Guarantor document', student: 'Student enrolment',
+  referencing_evidence: 'Referencing evidence', guarantor_document: 'Guarantor document', inventory: 'Inventory', other: 'Other document',
 }
 export const SHARE_DAYS = 7
 /** what the document scan called it (lib/ai-classify) → our document types */
@@ -173,7 +176,9 @@ export async function loadUpdateContext(s: SupabaseClient, ids: { applicantId?: 
     agreementSigned: t?.agreement_signed_at ?? null,
     moniesIn: t?.move_in_monies_received_at ?? null,
     docs: [
-      ...(((docsQ as any).data ?? []) as any[]).filter(d => DOC_LABEL[d.document_type]).map(d => ({ id: d.id, type: d.document_type, label: DOC_LABEL[d.document_type], fileName: d.file_name ?? '', source: 'tenancy' as const })),
+      // the same file listed twice (Homeppl sends some twice) is offered once
+      ...(((docsQ as any).data ?? []) as any[]).filter(d => DOC_LABEL[d.document_type] && !/\.json$/i.test(d.file_name ?? ''))
+        .filter((d, i, all) => all.findIndex(x => x.document_type === d.document_type && x.file_name === d.file_name) === i).map(d => ({ id: d.id, type: d.document_type, label: DOC_LABEL[d.document_type], fileName: d.file_name ?? '', source: 'tenancy' as const })),
       ...(((appDocsQ as any).data ?? []) as any[]).map(d => { const type = applicantDocType(d.doc_type); return { id: d.id, type, label: DOC_LABEL[type] ?? (d.ai_summary ? String(d.ai_summary).slice(0, 60) : 'Document'), fileName: d.file_name ?? '', source: 'applicant' as const } }),
     ],
     sent: ((sentQ as any).data ?? []) as UpdateContext['sent'],
@@ -281,9 +286,23 @@ export function draftFor(c: UpdateContext, stage: UpdateStage): Draft {
       break
   }
   const docs = c.docs.filter(d => STAGE_DOCS[stage].includes(d.type))
-    .map(d => ({ id: d.id, type: d.type, label: d.label, fileName: d.fileName, idDoc: ID_DOCS.includes(d.type), on: stage === 'offer' || stage === 'reserved' ? false : ID_DOCS.includes(d.type) ? c.letOnly : true }))
+    .map(d => ({ id: d.id, type: d.type, label: d.label, fileName: d.fileName, idDoc: ID_DOCS.includes(d.type), on: stage === 'offer' || stage === 'reserved' || PRIVATE_DOCS.includes(d.type) ? false : ID_DOCS.includes(d.type) ? c.letOnly : true }))
   const message = [dear, `Re: ${c.place}`, ...body, 'Should you need anything further, please do not hesitate to contact us.', 'Kind regards,'].join('\n\n')
   return { subject, message, facts, docs }
 }
 
 export const newShareToken = () => randomBytes(18).toString('base64url')
+
+/** The dark band at the top of the email: the property and the tenancy's key terms (lib/landlordUpdates/email). */
+export function headlineFor(c: UpdateContext, stage: UpdateStage): { eyebrow: string; place: string; terms: { label: string; value: string }[] } {
+  const money = (n: number) => `£${n.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  const eyebrow = ({ offer: 'An offer for your review', reserved: 'Applicant secured', referenced: 'References passed', signed_paid: c.letOnly ? 'New let · signed & paid' : 'Tenancy signed', summary: 'Your new tenant' } as Record<UpdateStage, string>)[stage]
+  return {
+    eyebrow, place: c.place,
+    terms: [
+      ...(c.startDate ? [{ label: stage === 'offer' ? 'Move-in' : 'Start date', value: long(c.startDate) }] : []),
+      ...(c.rent ? [{ label: stage === 'offer' ? 'Rent offered' : 'Rent', value: `${money(c.rent)} pcm` }] : []),
+      ...(c.deposit && stage !== 'offer' ? [{ label: 'Deposit', value: money(c.deposit) }] : []),
+    ],
+  }
+}
