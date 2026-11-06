@@ -47,7 +47,7 @@ export default function PropertyInfoPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   // the appliances in the house the office has recorded (migration 268)
-  const [appliances, setAppliances] = useState<{ id: string; label: string; brand: string | null; model: string | null; location: string | null }[]>([])
+  const [appliances, setAppliances] = useState<{ id: string; label: string; brand: string | null; model: string | null; location: string | null; guide: any | null }[]>([])
   useEffect(() => { fetch('/api/tenant/appliances').then(r => r.ok ? r.json() : { appliances: [] }).then(j => setAppliances(j.appliances ?? [])).catch(() => {}) }, [])
 
   useEffect(() => {
@@ -160,6 +160,24 @@ export default function PropertyInfoPage() {
                 <li key={a.id} className="px-lg py-sm text-sm">
                   <span className="font-semibold text-neutral-900">{a.label}</span> <span className="text-neutral-600">{[a.brand, a.model].filter(Boolean).join(' ')}</span>
                   {a.location && <span className="block text-xs text-neutral-500">{a.location}</span>}
+                  {/* the care guide the office approved: batteries, filters, resets, what the codes mean */}
+                  {a.guide && (
+                    <details className="mt-xs">
+                      <summary className="cursor-pointer text-xs font-semibold text-blue-700">How to look after it</summary>
+                      <div className="mt-xs space-y-sm text-sm text-neutral-700">
+                        {a.guide.summary && <p>{a.guide.summary}</p>}
+                        {(a.guide.sections ?? []).map((sec: any) => (
+                          <div key={sec.title}><p className="font-semibold text-neutral-900">{sec.title}</p>
+                            <ol className="mt-0.5 list-decimal space-y-0.5 pl-lg">{sec.steps.map((t: string, i: number) => <li key={i}>{t}</li>)}</ol></div>
+                        ))}
+                        {(a.guide.errorCodes ?? []).length > 0 && <div><p className="font-semibold text-neutral-900">Error codes</p>
+                          <ul className="mt-0.5 space-y-0.5">{a.guide.errorCodes.map((e: any) => <li key={e.code}><strong>{e.code}</strong> — {e.meaning}. {e.whatToDo}</li>)}</ul></div>}
+                        {(a.guide.reportIf ?? []).length > 0 && <div><p className="font-semibold text-neutral-900">Report it to us if</p>
+                          <ul className="mt-0.5 list-disc pl-lg">{a.guide.reportIf.map((t: string) => <li key={t}>{t}</li>)}</ul></div>}
+                        {a.guide.manualUrl && <a href={a.guide.manualUrl} target="_blank" rel="noreferrer" className="text-xs font-semibold text-blue-700 underline">The manufacturer’s manual ↗</a>}
+                      </div>
+                    </details>
+                  )}
                 </li>
               ))}
             </ul>

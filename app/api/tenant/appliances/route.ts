@@ -16,6 +16,7 @@ export async function GET(req: NextRequest) {
   const { data: t } = await s.from('tenancies').select('property_id').or(`person_id.eq.${who.personId},co_tenant_id.eq.${who.personId}`)
     .is('let_cancelled_at', null).or(`end_date.is.null,end_date.gte.${today}`).order('start_date', { ascending: false }).limit(1).maybeSingle()
   if (!t) return NextResponse.json({ appliances: [] })
-  const { data } = await s.from('property_appliances').select('id, kind, brand, model, location, bought_on').eq('property_id', (t as any).property_id).eq('visible_to_tenants', true).is('removed_at', null).order('kind')
-  return NextResponse.json({ appliances: ((data ?? []) as any[]).map(a => ({ ...a, label: APPLIANCE_KINDS[a.kind] ?? 'Appliance' })) })
+  const { data } = await s.from('property_appliances').select('id, kind, brand, model, location, bought_on, guide, guide_status').eq('property_id', (t as any).property_id).eq('visible_to_tenants', true).is('removed_at', null).order('kind')
+  // only a care guide the office has approved (migration 269) ever reaches a tenant
+  return NextResponse.json({ appliances: ((data ?? []) as any[]).map(({ guide, guide_status, ...a }) => ({ ...a, label: APPLIANCE_KINDS[a.kind] ?? 'Appliance', guide: guide_status === 'approved' ? guide : null })) })
 }
