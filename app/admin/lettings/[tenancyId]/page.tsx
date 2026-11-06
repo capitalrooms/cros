@@ -18,6 +18,7 @@ import { isWholeLet } from '@/lib/lettings/letWording'
 import type { LettingFile, StepId } from '@/lib/lettings/lettingFile'
 import { TenantProfileView } from '@/app/admin/tenant/[personId]/TenantProfileView'
 import LandlordUpdates from '@/app/components/LandlordUpdates'
+import IntroduceHousemates from '@/app/components/IntroduceHousemates'
 import TenantMessages from '@/app/components/TenantMessages'
 import { ProgressTab, TermsTab, MoneyTab, DocumentsTab, LettersTab, NoticeTab, ActivityTab, activityItems, openPdf, gbp, day } from './parts'
 
@@ -179,6 +180,8 @@ function LettingFileScreen({ tenancyId, from, initialTab, done, mark }: { tenanc
               file.stage === 'let_agreed' ? 'letting'
               : file.stage === 'live' && tn.start_date && (Date.parse(file.today) - Date.parse(tn.start_date)) / 86_400_000 <= 60 ? 'settling'
               : 'established'} />}
+            {/* managed houses: tell the people already living there who's moving in (their "say hello" profile) */}
+            {file.stage !== 'fell_through' && (file.stage === 'let_agreed' || (tn.start_date && (Date.parse(file.today) - Date.parse(tn.start_date)) / 86_400_000 <= 30)) && <IntroduceHousemates tenancyId={tenancyId} />}
             {activeTab !== 'letters' && (
               <section className="rounded-2xl border border-neutral-200 bg-white p-md">
                 <div className="mb-sm flex items-baseline justify-between gap-sm">

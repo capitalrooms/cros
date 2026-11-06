@@ -2,6 +2,7 @@
 
 // The new tenant's move-in pack: what to pay, every document to read, then "I've read everything".
 // Look: the shared public frame (components/public/PublicShell, design "C").
+import AboutYou from './AboutYou'
 import { use, useEffect, useState } from 'react'
 import PublicShell from '@/components/public/PublicShell'
 
@@ -9,6 +10,7 @@ interface PackView {
   firstName: string
   address: string
   summary: {
+    wholeLet?: boolean
     startDate: string | null; rentMonthly: number; rentDueDay: number; firstRent: number | null; firstFrom: string | null; firstTo: string | null
     firstFull: boolean | null; deposit: number; holdingDeposit: number; amountDue: number; payBy: string | null; paymentRef: string
     bank: { name: string; bank: string; sortCode: string; accountNo: string; iban: string; swift: string }
@@ -169,6 +171,11 @@ export default function MoveInPackPage({ params }: { params: Promise<{ token: st
             )
           })}
         </div>
+      </section>
+
+      {/* ── Say hello (housemate profile — optional) ─────── */}
+      <section className={`${wrap} pt-16 md:pt-20`}>
+        <AboutYou token={token} firstName={pack.firstName} wholeLet={!!pack.summary?.wholeLet} />
       </section>
 
       {/* ── Confirm ───────────────────────────────────────── */}

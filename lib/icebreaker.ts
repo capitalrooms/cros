@@ -1,13 +1,15 @@
 /**
- * The tenant icebreaker question set.
+ * "Say hello to your housemates" — the profile a new tenant fills in (tenant_icebreakers.answers, JSONB keyed by
+ * question id, so the set can grow without a migration). NEVER reuse an old id for a different question.
  *
- * Light, informal, dating-app-style prompts a tenant answers after signing up
- * and before move-in. Answers are stored as { [question.id]: text } on
- * tenant_icebreakers.answers (JSONB) so this set can grow without a migration.
- *
- * Keep it to 5-6 questions — it must feel disarming, not like a form. Adding a
- * new question here is safe (old rows just won't have that key); NEVER reuse an
- * old id for a different question or existing answers will mislabel.
+ * 6 Nov 2026 — reworked for the move-in pack (Harry: "the easiest to fill in questions that make people comfortable if
+ * they are shy"). What the research on icebreakers for shy people says, and what this follows:
+ *   · everything optional, written not spoken, no wrong answers — they choose how much to share
+ *   · tap-to-answer first ("this or that", pick a few), a line of text only if they want
+ *   · light, specific talking points (a film, an album, a dish) over "describe yourself"
+ *   · nothing too personal; a "something people wouldn't guess" for the ones who like to
+ * Kinds: 'text' (one line), 'pick' (choose any — stored as "a, b, c", typing your own allowed), 'choice' (one of).
+ * The photo is answers.photo (a storage path — lib/housemates/profile), never shown here as a question.
  */
 
 export interface IcebreakerQuestion {
@@ -17,64 +19,58 @@ export interface IcebreakerQuestion {
   prompt: string
   /** Ghost text nudging the kind of answer we're after. */
   placeholder: string
-  /** Short label used in compact summaries (housemates grid, admin view). */
+  /** Short label used in compact summaries (housemates grid, admin view, emails). */
   short: string
+  kind?: 'text' | 'pick' | 'choice'
+  options?: string[]
 }
 
 export const ICEBREAKER_QUESTIONS: IcebreakerQuestion[] = [
-  {
-    id: 'about_me',
-    emoji: '👋',
-    prompt: 'In a sentence — who are you?',
-    placeholder: 'e.g. Nurse, coffee obsessive, always up for a board game night',
-    short: 'About them',
-  },
-  {
-    id: 'music',
-    emoji: '🎧',
-    prompt: "What's on your playlist?",
-    placeholder: 'e.g. A bit of everything, but mostly 90s hip-hop and Fleetwood Mac',
-    short: 'Music',
-  },
-  {
-    id: 'ideal_sunday',
-    emoji: '☀️',
-    prompt: 'Your ideal Sunday looks like…',
-    placeholder: 'e.g. Long lie-in, roast dinner, and a walk if the weather behaves',
-    short: 'Ideal Sunday',
-  },
-  {
-    id: 'around_house',
-    emoji: '🏠',
-    prompt: "Around the house, I'm more…",
-    placeholder: 'e.g. Tidy but relaxed — happy to share a cuppa or keep to myself',
-    short: 'Around the house',
-  },
-  {
-    id: 'rhythm',
-    emoji: '🌙',
-    prompt: 'Early bird or night owl?',
-    placeholder: "e.g. Night owl — you'll find me in the kitchen at midnight",
-    short: 'Early bird / night owl',
-  },
-  {
-    id: 'fun_fact',
-    emoji: '✨',
-    prompt: 'One interesting thing about you',
-    placeholder: 'e.g. I once cycled from London to Paris for charity',
-    short: 'Fun fact',
-  },
+  { id: 'about_me', emoji: '👋', short: 'About them', kind: 'text',
+    prompt: 'What do you do, in a few words?', placeholder: 'e.g. Nurse at the Royal London, or studying architecture at UCL' },
+  { id: 'from', emoji: '📍', short: 'From', kind: 'text',
+    prompt: 'Where are you from?', placeholder: 'e.g. Manchester, or Lisbon by way of Leeds' },
+  { id: 'weekends', emoji: '☀️', short: 'Weekends', kind: 'pick',
+    prompt: 'At the weekend you’ll usually find me…',
+    placeholder: 'Or add your own',
+    options: ['Cooking', 'At the gym', 'Running', 'Football', 'Walking & parks', 'Gaming', 'Films & series', 'Reading', 'Live music', 'Art & galleries', 'Brunch', 'Out with friends', 'Travelling', 'Recharging at home'] },
+  { id: 'film', emoji: '🎬', short: 'Favourite film or series', kind: 'text',
+    prompt: 'A film or series you’d recommend', placeholder: 'e.g. Paddington 2 — no notes' },
+  { id: 'music', emoji: '🎧', short: 'Music', kind: 'text',
+    prompt: 'An album or artist on repeat', placeholder: 'e.g. Rumours by Fleetwood Mac' },
+  { id: 'food', emoji: '🍜', short: 'Go-to food', kind: 'text',
+    prompt: 'Your go-to meal to cook (or order)', placeholder: 'e.g. A very serious Sunday roast' },
+  { id: 'rhythm', emoji: '🌙', short: 'Early bird / night owl', kind: 'choice',
+    prompt: 'Early bird or night owl?', placeholder: '', options: ['Early bird', 'Somewhere in between', 'Night owl'] },
+  { id: 'house_vibe', emoji: '🏠', short: 'With housemates', kind: 'choice',
+    prompt: 'With housemates, I’m usually…', placeholder: '',
+    options: ['Up for a chat and the odd film night', 'Friendly but keep to myself', 'Busy — mostly out and about'] },
+  { id: 'fun_fact', emoji: '✨', short: 'Something you wouldn’t guess', kind: 'text',
+    prompt: 'Something people wouldn’t guess about you', placeholder: 'e.g. I can solve a Rubik’s cube in under a minute' },
 ]
+
+/** Questions from the first set (Aug 2026) — still shown if someone answered them, never asked again. */
+export const OLD_QUESTIONS: IcebreakerQuestion[] = [
+  { id: 'ideal_sunday', emoji: '☀️', short: 'Ideal Sunday', prompt: 'Your ideal Sunday looks like…', placeholder: '' },
+  { id: 'around_house', emoji: '🏠', short: 'Around the house', prompt: 'Around the house, I’m more…', placeholder: '' },
+]
+export const ALL_QUESTIONS = [...ICEBREAKER_QUESTIONS, ...OLD_QUESTIONS]
 
 export type IcebreakerAnswers = Record<string, string>
 
-/** How many of the set have a non-empty answer. */
+/** How many questions have an answer (the photo doesn't count). */
 export function answeredCount(answers: IcebreakerAnswers | null | undefined): number {
   if (!answers) return 0
-  return ICEBREAKER_QUESTIONS.filter((q) => (answers[q.id] || '').trim().length > 0).length
+  return ALL_QUESTIONS.filter((q) => String(answers[q.id] ?? '').trim().length > 0).length
 }
 
 /** True once the tenant has given at least a couple of answers — enough to show. */
 export function hasEnoughToShow(answers: IcebreakerAnswers | null | undefined): boolean {
   return answeredCount(answers) >= 2
+}
+
+/** The answered questions in order, for emails and summaries. */
+export function answeredList(answers: IcebreakerAnswers | null | undefined): { q: IcebreakerQuestion; a: string }[] {
+  if (!answers) return []
+  return ALL_QUESTIONS.map(q => ({ q, a: String(answers[q.id] ?? '').trim() })).filter(x => x.a)
 }

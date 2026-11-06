@@ -20,9 +20,9 @@ interface Data {
   landlord: { id: string; name: string; emails: string[]; commsOn: boolean; tenantUpdatesOff: boolean } | null
   letOnly: boolean; place: string; tenant: string; stages: StageRow[]; sent: Sent[]; tenancyId: string | null
 }
-interface Draft { subject: string; message: string; facts: { label: string; value: string; on: boolean }[]; docs: { id: string; type?: string; label: string; fileName: string; on: boolean; idDoc: boolean }[] }
+interface Draft { subject: string; message: string; photo: boolean | null; facts: { label: string; value: string; on: boolean }[]; docs: { id: string; type?: string; label: string; fileName: string; on: boolean; idDoc: boolean }[] }
 
-const LABEL: Record<string, string> = { offer: 'Offer to review', reserved: 'Room reserved', referenced: 'Referencing passed', signed_paid: 'Signed & paid', summary: 'New tenant report' }
+const LABEL: Record<string, string> = { offer: 'Offer to review', reserved: 'Room reserved', referenced: 'Referencing passed', signed_paid: 'Signed & paid', summary: 'New tenant report', housemate: 'Meet your new housemate' }
 const day = (iso: string | null) => iso ? new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', timeZone: 'Europe/London' }) : ''
 const input = 'w-full rounded-lg border border-neutral-300 bg-white px-sm py-xs text-sm text-neutral-900'
 
@@ -57,7 +57,7 @@ export default function LandlordUpdates({ applicantId, tenancyId, only, bare = f
     setDraft(j.draft); setTo((j.landlord?.emails ?? []).join(', ')); setExtra([]); setPreview(null); setAttachDocs(true)
     setStatement(!!j.letOnly && !!j.tenancyId && (stage === 'signed_paid' || stage === 'summary'))
   }
-  const payload = (extraBody: Record<string, unknown> = {}) => JSON.stringify({ applicantId, tenancyId, stage: open, to, subject: draft?.subject, message: draft?.message, facts: draft?.facts.filter(f => f.on), docIds: draft?.docs.filter(x => x.on).map(x => x.id), attachStatement: statement, attachDocs, extra: extra.map(({ name, data }) => ({ name, data })), ...extraBody })
+  const payload = (extraBody: Record<string, unknown> = {}) => JSON.stringify({ applicantId, tenancyId, stage: open, to, subject: draft?.subject, message: draft?.message, facts: draft?.facts.filter(f => f.on), docIds: draft?.docs.filter(x => x.on).map(x => x.id), attachStatement: statement, attachDocs, photo: draft?.photo !== false, extra: extra.map(({ name, data }) => ({ name, data })), ...extraBody })
   // the preview follows every change (a moment after typing stops)
   useEffect(() => {
     if (!open || !draft) return
@@ -93,7 +93,7 @@ export default function LandlordUpdates({ applicantId, tenancyId, only, bare = f
   if (d?.setupNeeded) return <section className={wrapCls}><h2 className="text-xs font-bold uppercase tracking-wider text-neutral-500">Landlord updates</h2><p className="text-xs text-amber-800">Needs migration 228 running in Supabase first.</p></section>
   if (!d) return <section className={wrapCls}><h2 className="text-xs font-bold uppercase tracking-wider text-neutral-500">Landlord updates</h2><p className="text-xs text-neutral-500">{error || 'Loading…'}</p></section>
 
-  const stages = d.stages.filter(s => (!only || only.includes(s.stage)) && (phase === 'letting' || (phase === 'settling' && s.stage === 'summary')))
+  const stages = d.stages.filter(s => (!only || only.includes(s.stage)) && (phase === 'letting' || (phase === 'settling' && ['summary', 'housemate'].includes(s.stage))))
   // an established tenancy: nothing to send — only a note of what was sent, and nothing at all if nothing was
   if (phase === 'established' && !d.sent.length) return null
   const answers = d.sent.filter(s => s.stage === 'offer')
@@ -158,6 +158,14 @@ export default function LandlordUpdates({ applicantId, tenancyId, only, bare = f
                   <label className="block text-xs font-bold uppercase tracking-wide text-neutral-500">Message
                     <textarea value={draft.message} onChange={e => setDraft({ ...draft, message: e.target.value })} rows={9} className={`${input} mt-1 normal-case leading-relaxed tracking-normal`} />
                   </label>
+
+                  {draft.photo !== null && (
+                    <label className="flex items-center gap-sm rounded-lg border border-neutral-200 px-sm py-xs text-sm">
+                      <input type="checkbox" checked={!!draft.photo} onChange={() => setDraft({ ...draft, photo: !draft.photo })} />
+                      <span><span className="font-semibold">Show their photo</span> <span className="text-neutral-500">— the one they shared in their move-in pack, in a circle beside “Your tenant”</span></span>
+                    </label>
+                  )}
+                  {open === 'housemate' && <p className="rounded-lg bg-neutral-50 px-sm py-xs text-xs text-neutral-600">Only what the tenant chose to share in their move-in pack — their photo and talking points. No contact, rent or deposit details, so the landlord can forward it to the other tenants.</p>}
 
                   {/* attachments first — it's what this email is for */}
                   <div>

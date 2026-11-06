@@ -19,7 +19,7 @@ import { PORTAL_URL } from '@/lib/emailWrapper'
 import { landlordUpdateHtml } from '@/lib/landlordUpdates/email'
 import { lettingsStatementFor } from '@/lib/lettingsStatement/forTenancy'
 import { logTenancyEvent } from '@/lib/lettings/incomingTenancy'
-import { loadUpdateContext, stageStatus, draftFor, headlineFor, newShareToken, STAGES, STAGE_LABEL, SHARE_DAYS, type UpdateStage } from '@/lib/landlordUpdates/updates'
+import { loadUpdateContext, stageStatus, draftFor, headlineFor, housemateCard, newShareToken, STAGES, STAGE_LABEL, SHARE_DAYS, type UpdateStage } from '@/lib/landlordUpdates/updates'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -117,7 +117,9 @@ export async function POST(req: NextRequest) {
   if (extraBytes > 3 * 1024 * 1024) return NextResponse.json({ error: 'Files added from your computer come to more than 3 MB — add large ones to the letting file’s documents instead and tick them here.' }, { status: 400 })
 
   const headline = headlineFor(c, stage)
-  const emailParts = { stage, message, facts, headline, statement: statement && !('error' in statement) ? statement.figures : null, attached: names }
+  // their photo beside "Your tenant" (when they shared one and it's left ticked); the housemate card for 'housemate'
+  const photoUrl = b.photo !== false && c.profile?.photoUrl ? c.profile.photoUrl : null
+  const emailParts = { stage, message, facts, headline, statement: statement && !('error' in statement) ? statement.figures : null, attached: names, photoUrl: stage === 'housemate' ? null : photoUrl, card: stage === 'housemate' ? housemateCard(c) : null }
   if (preview) {
     const html = await landlordUpdateHtml({ ...emailParts, link: withPage ? `${PORTAL_URL}/lu/preview` : null, until: withPage ? new Date(Date.now() + SHARE_DAYS * 86_400_000).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/London' }) : null, req })
     return NextResponse.json({ html, attachments: names, to, subject })

@@ -74,7 +74,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ ten
   }))
   const { error: insErr } = await s.from('tenancy_packs').insert({
     id: packId, tenancy_id: tenancyId, token, tenant_name: ctx.tenant.name, tenant_email: ctx.tenant.email,
-    documents: snapshot, summary: { ...moneySummary(ctx), address: ctx.address, firstName: ctx.tenant.firstName }, message: message || null,
+    documents: snapshot, summary: { ...moneySummary(ctx), address: ctx.address, firstName: ctx.tenant.firstName, wholeLet: ctx.wholeLet }, message: message || null,
     sent_by: admin.personId, status: 'sent',
   })
   if (insErr) {

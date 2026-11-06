@@ -97,10 +97,11 @@ export default function HousematesTab({ propertyId }: { propertyId: string }) {
     setError('')
     try {
       const supabase = createClient()
-      const cleaned: IcebreakerAnswers = {}
+      // keep what this form doesn't show (the photo, answers to older questions)
+      const cleaned: IcebreakerAnswers = { ...draft }
       for (const q of ICEBREAKER_QUESTIONS) {
         const v = (draft[q.id] || '').trim()
-        if (v) cleaned[q.id] = v
+        if (v) cleaned[q.id] = v; else delete cleaned[q.id]
       }
       const { error: e } = await supabase.from('tenant_icebreakers').upsert(
         {

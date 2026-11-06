@@ -15,11 +15,14 @@ import { dearName, displayName } from '@/lib/people'
 import { isWholeLet, placeLabel } from '@/lib/lettings/letWording'
 import { fullAddressLine } from '@/lib/formatAddress'
 import { agreedRent } from '@/lib/lettings/holdingDeposit'
+import { profileFor, type HousemateProfile } from '@/lib/housemates/profile'
+import { answeredList, hasEnoughToShow } from '@/lib/icebreaker'
 
-export const STAGES = ['offer', 'reserved', 'referenced', 'signed_paid', 'summary'] as const
+export const STAGES = ['offer', 'reserved', 'referenced', 'signed_paid', 'summary', 'housemate'] as const
 export type UpdateStage = typeof STAGES[number]
 export const STAGE_LABEL: Record<UpdateStage, string> = {
   offer: 'Offer to review', reserved: 'Room reserved', referenced: 'Referencing passed', signed_paid: 'Signed & paid', summary: 'New tenant report',
+  housemate: 'Meet your new housemate',
 }
 /** documents that may go with each stage; ID ones only for let-only by default */
 const ALL_DOCS = ['tenancy_agreement', 'reference_report', 'employment_letter', 'payslip', 'bank_statement', 'guarantor', 'student', 'right_to_rent', 'id_proof', 'deposit_certificate', 'inventory', 'referencing_evidence', 'guarantor_document', 'other']
@@ -32,6 +35,7 @@ const STAGE_DOCS: Record<UpdateStage, string[]> = {
   // signed & paid is the full pack — everything on file (Harry, 17 Oct 2026: "containing everything")
   signed_paid: ALL_DOCS,
   summary: ALL_DOCS,
+  housemate: [],   // a card to forward to the other tenants — never documents
 }
 const ID_DOCS = ['id_proof', 'right_to_rent']
 export const DOC_LABEL: Record<string, string> = {
@@ -90,6 +94,8 @@ export interface UpdateContext {
   /** the tenant's documents: filed on the tenancy, or uploaded against the application during referencing */
   docs: { id: string; type: string; label: string; fileName: string; source: 'tenancy' | 'applicant' }[]
   sent: { id: string; stage: UpdateStage; sent_at: string; sent_to: string[]; answer: string | null; answer_note: string | null; first_viewed_at: string | null }[]
+  /** their "say hello" profile from the move-in pack (lib/housemates/profile) — only when they chose to share it */
+  profile: (HousemateProfile & { firstName: string }) | null
 }
 
 /** Everything known about the incoming tenant, from the application and (once there is one) the tenancy. */
@@ -132,6 +138,7 @@ export async function loadUpdateContext(s: SupabaseClient, ids: { applicantId?: 
   ])
   const l: any = (landlordQ as any).data
   const person = t?.people
+  const prof = person?.id ? await profileFor(s, person.id).catch(() => null) : null
   const rent = t?.rent_amount != null ? Number(t.rent_amount) : a ? await agreedRent(s, a, (offerQ as any).data).catch(() => null) : null
   const asking = a?.rooms?.current_asking_rent != null ? Number(a.rooms.current_asking_rent) : null
   const hold: any = (holdQ as any).data
@@ -185,6 +192,7 @@ export async function loadUpdateContext(s: SupabaseClient, ids: { applicantId?: 
       ...(((appDocsQ as any).data ?? []) as any[]).map(d => { const type = applicantDocType(d.doc_type); return { id: d.id, type, label: DOC_LABEL[type] ?? (d.ai_summary ? String(d.ai_summary).slice(0, 60) : 'Document'), fileName: d.file_name ?? '', source: 'applicant' as const } }),
     ],
     sent: ((sentQ as any).data ?? []) as UpdateContext['sent'],
+    profile: prof && prof.visible && (prof.hasPhoto || hasEnoughToShow(prof.answers)) ? { ...prof, firstName: person?.first_name ?? '' } : null,
   }
 }
 
@@ -197,18 +205,19 @@ export function stageStatus(c: UpdateContext): { stage: UpdateStage; ready: bool
     { stage: 'referenced', ready: !!c.referencingPassed, why: c.referencingPassed ? `Passed ${long(c.referencingPassed)}` : 'Once referencing has passed' },
     { stage: 'signed_paid', ready: !!c.agreementSigned && !!c.moniesIn, why: c.agreementSigned && c.moniesIn ? `Signed ${long(c.agreementSigned)}, paid ${long(c.moniesIn)}` : 'Once signed and the move-in money is in' },
     { stage: 'summary', ready: true, why: 'Everything so far, in one' },
+    { stage: 'housemate', ready: !!c.profile && !!c.tenancyId, why: c.profile ? 'A card they can forward to the other tenants' : 'Once the tenant has said hello in their move-in pack' },
   ]
   // Due: a step that's done which the landlord hasn't heard about — only before move-in. When more than one has been
   // missed, the full report is the one to send (Harry: "a full summary … if the other processes were missed").
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
   const beforeMoveIn = !c.startDate || c.startDate.slice(0, 10) >= today
   const later = (st: UpdateStage) => STAGES.slice(STAGES.indexOf(st) + 1).some(x => x !== 'summary' && sentAt(x))
-  const missed = rows.filter(r => r.ready && r.stage !== 'summary' && r.stage !== 'offer' && !sentAt(r.stage) && !sentAt('summary') && !later(r.stage)).map(r => r.stage)
+  const missed = rows.filter(r => r.ready && r.stage !== 'summary' && r.stage !== 'offer' && r.stage !== 'housemate' && !sentAt(r.stage) && !sentAt('summary') && !later(r.stage)).map(r => r.stage)
   const due = new Set<UpdateStage>(!beforeMoveIn ? [] : missed.length > 1 ? ['summary'] : missed)
   return rows.map(r => ({ ...r, sentAt: sentAt(r.stage), due: due.has(r.stage), why: r.stage === 'summary' && due.has('summary') ? 'Earlier updates were missed — send them all in one' : r.why }))
 }
 
-export interface Draft { subject: string; message: string; facts: { label: string; value: string; on: boolean }[]; docs: { id: string; type: string; label: string; fileName: string; on: boolean; idDoc: boolean }[] }
+export interface Draft { subject: string; message: string; photo: boolean | null; facts: { label: string; value: string; on: boolean }[]; docs: { id: string; type: string; label: string; fileName: string; on: boolean; idDoc: boolean }[] }
 
 /** The draft for one stage: a letter in our usual voice, the facts underneath, and which documents go with it. */
 export function draftFor(c: UpdateContext, stage: UpdateStage): Draft {
@@ -282,6 +291,16 @@ export function draftFor(c: UpdateContext, stage: UpdateStage): Draft {
       ].filter(Boolean)
       facts = everything()
       break
+    case 'housemate': {
+      const first = c.profile?.firstName || n
+      subject = `Meet your new housemate — ${first}, moving into ${c.whole ? c.place : c.place.split(',')[0]}`
+      body = [
+        `Here’s a short introduction to ${first}, who is moving into ${at}${c.startDate ? ` on ${long(c.startDate)}` : ''} — in their own words.`,
+        `If you’d like your other tenants to know a little about who’s joining them, you’re welcome to forward this email. The card below holds only what ${first} chose to share — no contact or financial details.`,
+      ]
+      facts = []
+      break
+    }
     case 'summary':
       subject = `Your new tenant — ${c.place}`
       body = [
@@ -294,7 +313,8 @@ export function draftFor(c: UpdateContext, stage: UpdateStage): Draft {
   const docs = c.docs.filter(d => STAGE_DOCS[stage].includes(d.type))
     .map(d => ({ id: d.id, type: d.type, label: d.label, fileName: d.fileName, idDoc: ID_DOCS.includes(d.type), on: stage === 'offer' || stage === 'reserved' || PRIVATE_DOCS.includes(d.type) ? false : ID_DOCS.includes(d.type) ? c.letOnly : true }))
   const message = [dear, ...body, 'Should you need anything further, please do not hesitate to contact us.', 'Kind regards,'].join('\n\n')
-  return { subject, message, facts, docs }
+  // their photo beside "Your tenant" — offered only when they added one and are happy to share it (null = none)
+  return { subject, message, facts, docs, photo: c.profile?.hasPhoto ? stage !== 'offer' : null }
 }
 
 export const newShareToken = () => randomBytes(18).toString('base64url')
@@ -302,13 +322,18 @@ export const newShareToken = () => randomBytes(18).toString('base64url')
 /** The dark band at the top of the email: the property and the tenancy's key terms (lib/landlordUpdates/email). */
 export function headlineFor(c: UpdateContext, stage: UpdateStage): { eyebrow: string; place: string; lead: string; street: string; sub: string; terms: { label: string; value: string }[] } {
   const money = (n: number) => `£${n.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-  const eyebrow = ({ offer: 'An offer for your review', reserved: 'Applicant secured', referenced: 'References passed', signed_paid: c.letOnly ? 'New let · signed & paid' : 'Tenancy signed', summary: 'Your new tenant' } as Record<UpdateStage, string>)[stage]
+  const eyebrow = ({ offer: 'An offer for your review', reserved: 'Applicant secured', referenced: 'References passed', signed_paid: c.letOnly ? 'New let · signed & paid' : 'Tenancy signed', summary: 'Your new tenant', housemate: 'Meet your new housemate' } as Record<UpdateStage, string>)[stage]
   // "Room 1, 95 Rope Street, London, SE16 7TF" → the street for the headline, the rest underneath
   const parts = c.place.split(/,\s*/)
   const roomPart = !c.whole && parts.length > 1 && /^(room|flat|studio|unit)\b/i.test(parts[0]) ? parts.shift()! : ''
   const street = parts.shift() ?? c.place
   const rest = parts.filter(x => !/^london$/i.test(x)).join(' ')
-  const lead = ({ offer: 'An offer for', reserved: 'Reserved at', referenced: 'References passed at', signed_paid: 'Your new tenant at', summary: 'Your new tenant at' } as Record<UpdateStage, string>)[stage]
+  const lead = ({ offer: 'An offer for', reserved: 'Reserved at', referenced: 'References passed at', signed_paid: 'Your new tenant at', summary: 'Your new tenant at', housemate: 'Say hello to' } as Record<UpdateStage, string>)[stage]
+  // the housemate card is for forwarding to the other tenants: their name, never the rent or deposit
+  if (stage === 'housemate') {
+    const first = c.profile?.firstName || c.tenant.name.split(' ').slice(-2, -1)[0] || c.tenant.name
+    return { eyebrow, place: c.place, lead, street: first, sub: [[roomPart, street].filter(Boolean).join(', '), c.startDate ? `Moving in ${long(c.startDate)}` : ''].filter(Boolean).join('\n'), terms: [] }
+  }
   const sub = [[roomPart, rest ? `London ${rest}` : ''].filter(Boolean).join(' · '), c.startDate ? `${stage === 'offer' ? 'Hoping to move in' : 'Moving in'} ${long(c.startDate)}` : ''].filter(Boolean).join('\n')
   return {
     eyebrow, place: c.place, lead, street, sub,
@@ -318,4 +343,10 @@ export function headlineFor(c: UpdateContext, stage: UpdateStage): { eyebrow: st
       ...(c.startDate ? [{ label: stage === 'offer' ? 'Move-in' : 'Start date', value: long(c.startDate) }] : []),
     ],
   }
+}
+
+/** The card for "Meet your new housemate": their photo and what they chose to share — nothing else. */
+export function housemateCard(c: UpdateContext): { first: string; photoUrl: string | null; items: { label: string; value: string }[] } | null {
+  if (!c.profile) return null
+  return { first: c.profile.firstName || c.tenant.name, photoUrl: c.profile.photoUrl, items: answeredList(c.profile.answers).map(x => ({ label: x.q.prompt, value: x.a })) }
 }
