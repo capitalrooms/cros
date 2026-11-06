@@ -16,5 +16,10 @@ export default function UpkeepTab({ propertyId }: { propertyId: string }) {
     if (!r.ok) return j.error ?? 'Couldn’t save'
     await load(); return null
   }
-  return d ? <UpkeepPanel data={d} onSplit={onSplit} /> : <p className="text-sm text-neutral-400">Loading…</p>
+  const onSuggest = async (line: any) => {
+    const r = await adminFetch('/api/admin/upkeep', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'suggest', source: line.source, lineId: line.id, areas: line.areas }) })
+    const j = await r.json().catch(() => ({}))
+    return r.ok ? j : (j.error ?? 'Couldn’t suggest a split')
+  }
+  return d ? <UpkeepPanel data={d} onSplit={onSplit} onSuggest={onSuggest} /> : <p className="text-sm text-neutral-400">Loading…</p>
 }

@@ -7,11 +7,12 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 export const AREAS: { key: string; label: string; re: RegExp; communal: boolean }[] = [
-  { key: 'kitchen', label: 'Kitchen', re: /kitchen|cooker|oven|hob|extractor|worktop/i, communal: true },
-  { key: 'bathroom', label: 'Bathrooms & toilets', re: /bath|shower|toilet|\bwc\b|loo|basin|en-?suite/i, communal: true },
-  { key: 'hallway', label: 'Hallway & stairs', re: /hall|stair|landing|corridor|entrance|front door|communal/i, communal: true },
-  { key: 'living', label: 'Living room', re: /living|lounge|sitting room|reception/i, communal: true },
-  { key: 'outside', label: 'Outside & garden', re: /garden|gate|fence|tree|hedge|roof|gutter|exterior|outside|bins?\b|drive|patio|window clean/i, communal: true },
+  { key: 'kitchen', label: 'Kitchen', re: /\b(kitchen|cooker|oven|hob|extractor|worktops?)\b/i, communal: true },
+  { key: 'bathroom', label: 'Bathrooms & toilets', re: /\b(bath(room)?s?|shower|toilets?|wc|loo|basin|en-?suite)\b/i, communal: true },
+  { key: 'hallway', label: 'Hallway & stairs', re: /\b(hall(way)?|stairs?|staircase|landing|corridor|entrance|front door|communal)\b/i, communal: true },
+  { key: 'living', label: 'Living room', re: /\b(living room|lounge|sitting room|reception room)\b/i, communal: true },
+  { key: 'house', label: 'Whole house', re: /\b(boiler|heating|radiators?|electrics?|rewir\w*|fuse ?box|consumer unit|pest|mice|rats?|smoke alarms?|fire alarm|locksmith|locks?|keys?|damp|mould|windows?|gas)\b/i, communal: true },
+  { key: 'outside', label: 'Outside & garden', re: /\b(garden|gate|fence|trees?|hedge|roof|gutters?|exterior|outside|bins?|driveway|patio|window clean(ing)?)\b/i, communal: true },
 ]
 export const WORK: { key: string; label: string; re: RegExp }[] = [
   { key: 'decorating', label: 'Decorating', re: /paint|decorat|repaint|emulsion|wallpaper|touch[- ]?up|plaster|skim/i },
@@ -22,6 +23,7 @@ export const WORK: { key: string; label: string; re: RegExp }[] = [
   { key: 'appliances', label: 'Appliances', re: /washing machine|dishwasher|fridge|freezer|microwave|dryer|kettle|toaster|appliance/i },
   { key: 'cleaning', label: 'Cleaning', re: /clean|deep clean|carpet clean/i },
   { key: 'garden', label: 'Garden', re: /garden|hedge|tree|lawn|weed/i },
+  { key: 'supplies', label: 'Supplies', re: /\b(hoover|vacuum|mop|bin bags?|cleaning products?|toilet rolls?|plants?|pots?|light bulbs?|batter(y|ies)|dust ?pan|brush(es)?)\b/i },
 ]
 /** how long before a communal area's decorating is worth looking at again (years) */
 const DECORATE_EVERY = 4
@@ -50,7 +52,7 @@ export async function upkeepFor(s: SupabaseClient, propertyId: string): Promise<
   const raw = [
     ...((ex ?? []) as any[]).map(e => ({ id: e.id as string, date: e.expense_date, amount: Math.abs(Number(e.amount)), description: `${e.description ?? ''}${e.room_id && roomName.get(e.room_id) ? ` (${roomName.get(e.room_id)})` : ''}`, notes: e.notes ?? '', source: 'expense' as const })),
     ...((st ?? []) as any[]).map(l => ({ id: l.id as string, date: l.statement_date, amount: Math.abs(Number(l.amount)), description: String(l.description ?? ''), notes: '', source: 'statement' as const })),
-  ].filter(l => l.date && l.amount > 0 && !/\brent\b|management fee|letting fee|commission|insurance|licen[cs]e|certificate|gas safe|eicr|epc|council tax|service charge|ground rent/i.test(l.description))
+  ].filter(l => l.date && l.amount > 0 && !/\brent\b|management fee|letting fee|commission|insurance|licen[cs]e|certificate|gas safe|eicr|epc|council tax|service charge|ground rent|deposit|forfeit|refund|reimburs|plusnet|virgin media|\bbt\b|broadband|internet|community fibre|hyperoptic|sky\b|octopus|british gas|\bedf\b|e\.?on\b|ovo\b|thames water|water bill|electricity bill|gas bill|tv licen|netflix|spotify|subscription|risk assessment|voucher|gift card/i.test(l.description))
 
   const areas = new Map<string, UpkeepArea>()
   const area = (key: string, label: string, communal: boolean) => {
@@ -64,7 +66,8 @@ export async function upkeepFor(s: SupabaseClient, propertyId: string): Promise<
     if (room) where.push({ key: `room-${room}`, label: `Room ${room}`, communal: false })
     // can't tell where: shown as "Not yet placed" (never dropped — every pound spent appears somewhere); the office
     // places it by setting its split
-    if (!where.length) where.push({ key: 'unplaced', label: 'Not yet placed', communal: false })
+    // a recognisable kind of work with no place named ("fix leaking tap") is the whole house; nothing recognisable → not placed
+    if (!where.length) where.push(WORK.some(w => w.re.test(text)) ? { key: 'house', label: 'Whole house', communal: true } : { key: 'unplaced', label: 'Not yet placed', communal: false })
     const work = WORK.filter(w => w.re.test(text)).map(w => w.key)
     const set = splitOf.get(`${l.source}:${l.id}`)
     // a split the office set decides the areas outright — even ones the description doesn't name
@@ -96,7 +99,7 @@ export async function upkeepFor(s: SupabaseClient, propertyId: string): Promise<
   for (const a of AREAS) area(a.key, a.label, a.communal)
   const out = [...areas.values()].map(a => ({
     ...a, total: Math.round(a.total * 100) / 100,
-    decoratingDue: a.communal && a.key !== 'outside' && (!a.lastDecorated || a.lastDecorated < cutoff),
+    decoratingDue: a.communal && !['outside', 'house'].includes(a.key) && (!a.lastDecorated || a.lastDecorated < cutoff),
     lines: a.lines.sort((x, y) => y.date.localeCompare(x.date)),
   }))
   out.sort((a, b) => Number(a.key === 'unplaced') - Number(b.key === 'unplaced') || Number(b.communal) - Number(a.communal) || Number(b.decoratingDue) - Number(a.decoratingDue) || a.label.localeCompare(b.label, undefined, { numeric: true }))
