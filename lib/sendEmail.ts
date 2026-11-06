@@ -31,6 +31,8 @@ export const COPY_TO = (process.env.EMAIL_COPY_TO ?? 'harry@capitalrooms.co.uk')
 const copyOn = () => !!COPY_TO && COPY_TO.toLowerCase() !== 'off'
 
 interface SendOptions {
+  /** which kind of email this is (lib/email/registry) — so the Email hub can give it its own theme */
+  kind?: string
   /** The request that triggered this email — the signed-in staff member becomes the sender */
   req?: Request | null
   /** Explicit sender (overrides req); defaults to the main administrator */
@@ -85,7 +87,7 @@ export async function sendEmail(
   const sender = opts.sender ?? await senderFor(opts.req)
   let html: string
   try {
-    html = await buildEmail(bodyHtml, { sender, signature: opts.signature })
+    html = await buildEmail(bodyHtml, { sender, signature: opts.signature, kind: opts.kind })   // kind → its theme (lib/email/themes)
   } catch (err: any) {
     console.error('[sendEmail] buildEmail failed:', err?.message)
     return { ok: false, error: 'Failed to build email HTML' }

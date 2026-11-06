@@ -38,9 +38,9 @@ type UpdateEmail = {
 }
 
 /** The full email, in the house wrapper (the sender's signature at the foot). */
-export async function landlordUpdateHtml(o: UpdateEmail & { req?: Request | null; sender?: EmailSender }): Promise<string> {
+export async function landlordUpdateHtml(o: UpdateEmail & { req?: Request | null; sender?: EmailSender; kind?: string }): Promise<string> {
   // the hero runs full width under the logo bar; the rest sits in the wrapper's padded body
-  return buildEmail(landlordUpdateBody(o, { heroApart: true }), { req: o.req ?? null, sender: o.sender, hero: o.headline ? hero(o.headline) : undefined })
+  return buildEmail(landlordUpdateBody(o, { heroApart: true }), { req: o.req ?? null, sender: o.sender, hero: o.headline ? hero(o.headline) : undefined, kind: o.kind ?? `landlord-update-${o.stage}` })   // its theme (Email hub)
 }
 
 function hero(h: Headline): string {
