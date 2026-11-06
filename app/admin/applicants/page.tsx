@@ -1016,6 +1016,8 @@ function DetailsToCopy({ a, onSaved }: { a: Applicant; onSaved?: () => void }) {
     ['Date of birth', dob],
     ['Current address', a.current_address ?? ''],
     ['Work', [a.profession, (a as any).applicant_profile?.application?.company, a.salary ? `income ${a.salary}` : '', (a as any).applicant_profile?.application?.income_details ?? ''].filter(Boolean).join(' · ')],
+    ['Savings', (() => { const ap = (a as any).applicant_profile?.application; return ap?.savings ? `£${Number(ap.savings).toLocaleString('en-GB')} held 3 months+` : '' })()],
+    ['Affordability', (() => { const r = (a as any).applicant_profile?.application?.affordability?.result; return ({ pass: 'Passes on income or savings', borderline: 'Just short — guarantor needed', fail: 'Short — guarantor needed', student: 'Student — guarantor needed' } as Record<string, string>)[r] ?? '' })()],
     ['Study', (() => { const st = (a as any).applicant_profile?.application; return st?.student ? [st.university, st.course, st.year].filter(Boolean).join(' · ') : '' })()],
     ['Planned stay', (a as any).preferred_term ?? ''],
     ['LinkedIn', (a as any).linkedin_url ?? ''],
@@ -1024,7 +1026,7 @@ function DetailsToCopy({ a, onSaved }: { a: Applicant; onSaved?: () => void }) {
     ['Rent · start', [rent ? `£${Number(rent).toLocaleString('en-GB', { minimumFractionDigits: 2 })} per month` : '', start ? `from ${start}` : ''].filter(Boolean).join(' · ')],
   ]
   const g = a.guarantor_needed
-  if (g) rows.push(['Guarantor', g === 'no' ? 'Not needed' : g === 'not_sure' && !a.guarantor_name ? 'Not sure yet' : [a.guarantor_name, a.guarantor_phone, a.guarantor_email].filter(Boolean).join(' · ')])
+  if (g) rows.push(['Guarantor', g === 'no' ? 'Not needed' : g === 'not_sure' && !a.guarantor_name ? 'Not sure yet' : [a.guarantor_name, a.guarantor_phone, a.guarantor_email, (a as any).applicant_profile?.application?.guarantor_checked_at ? 'applicant checked they’re UK-based and earn enough' : ''].filter(Boolean).join(' · ')])
   const all = rows.filter(([, v]) => v).map(([k, v]) => `${k}: ${v}`).join('\n')
   return (
     <div className="rounded-xl bg-neutral-50 px-md py-sm">

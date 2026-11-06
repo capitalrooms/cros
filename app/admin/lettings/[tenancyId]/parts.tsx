@@ -98,6 +98,29 @@ function HomepplLive({ tenancyId, reload, disabled }: { tenancyId: string; reloa
     setDone([x.copied.length ? `${x.copied.length} brought in` : 'Nothing new to bring in', ...x.ticked.map((t: string) => `${t} ticked`), ...(x.failed.length ? [`${x.failed.length} couldn’t be copied: ${x.failed.join('; ')}`] : [])].join(' · '))
     await Promise.all([load(), reload()])
   }
+  // set the check up at Homeppl from here: show exactly what goes, then send (Homeppl emails the link)
+  const send = async () => {
+    setErr(null); setDone(null)
+    const post = (preview: boolean) => adminFetch(`/api/admin/lettings/${tenancyId}/homeppl`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'send', preview }) })
+    const r = await post(true); const d = await r.json().catch(() => ({}))
+    if (!r.ok) { setErr(d.error ?? 'Couldn’t prepare it'); return }
+    const p = d.plan
+    const ok = window.confirm([
+      'Send to Homeppl — full referencing check', '',
+      `Tenant: ${p.tenant}`, `Email: ${p.email}`, `Mobile: ${p.phone}`,
+      `Rent: £${Number(p.rent).toLocaleString('en-GB', { minimumFractionDigits: 2 })} a month from ${day(p.moveIn)}`,
+      `Address: ${p.room ? `${p.room}, ` : ''}${p.address}`,
+      p.guarantor ? `Guarantor: ${p.guarantor}` : 'Guarantor: none', '',
+      `Homeppl will email ${p.guarantor ? 'the tenant and guarantor' : 'the tenant'} their referencing link straight away.`,
+    ].join('\n'))
+    if (!ok) return
+    setBusy(true)
+    const r2 = await post(false); const d2 = await r2.json().catch(() => ({}))
+    setBusy(false)
+    if (!r2.ok) { setErr(d2.error ?? 'Couldn’t send to Homeppl'); return }
+    setDone('Sent — Homeppl is emailing the referencing link. “Sent to Homeppl” is ticked.')
+    await Promise.all([load(), reload()])
+  }
   if (v && !v.connected) return null
   const c = v?.check
   return (
@@ -109,7 +132,11 @@ function HomepplLive({ tenancyId, reload, disabled }: { tenancyId: string; reloa
       {!v && !err && <p className="text-xs text-neutral-500">Checking Homeppl…</p>}
       {err && <p className="text-xs text-red-700">{err} <button type="button" onClick={load} className="font-semibold underline">Try again</button></p>}
       {v?.noEmail && <p className="text-sm text-neutral-600">Add the tenant’s email address and surname to find them at Homeppl.</p>}
-      {v && !v.noEmail && !c && <p className="text-sm text-neutral-600">No referencing at Homeppl for this tenant’s email yet.</p>}
+      {v && !v.noEmail && (!c || String(c.status).startsWith('CANCELLED')) && <>
+        <p className="text-sm text-neutral-600">{c ? 'Their last check was cancelled.' : 'No referencing at Homeppl for this tenant’s email yet.'}</p>
+        {!disabled && <button type="button" className={btnDark} disabled={busy} onClick={send}>{busy ? 'Sending…' : 'Send to Homeppl'}</button>}
+        {!disabled && <p className="text-xs text-neutral-500">Sets up the full referencing check{c ? ' again' : ''} with the details on this file — you’ll see exactly what goes before it’s sent.</p>}
+      </>}
       {c && <>
         <p className="text-sm text-neutral-700">
           {c.firstName} {c.lastName} · invited {day(c.created)}{c.moveIn ? ` · moving in ${day(c.moveIn)}` : ''}
@@ -295,7 +322,7 @@ export function ProgressTab({ file, step, setStep, patch, reload }: { file: Lett
                 <h2 className="text-lg font-bold">Referencing with Homeppl</h2>
                 <a href="https://www.homeppl.com" target="_blank" rel="noreferrer" className={btn}>Open Homeppl ↗</a>
               </div>
-              <p className="text-sm text-neutral-600">Everything Homeppl asks for, ready to copy. Mark it sent once the invite has gone.</p>
+              <p className="text-sm text-neutral-600">Send it from the panel below, or copy the details into Homeppl yourself.</p>
               <div className="rounded-xl bg-neutral-50 px-md py-xs">
                 <CopyRow name="Full name" value={file.tenant.name} />
                 <CopyRow name="Email" value={file.tenant.email ?? ''} />
