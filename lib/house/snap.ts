@@ -135,8 +135,9 @@ export async function purchaseMatches(s: SupabaseClient, propertyId: string, ap:
 export interface Approved { snap: Snap; location?: string | null; roomId?: string | null; visible: boolean; bought?: { source: 'expense' | 'statement'; id: string; date: string; note: string } | null }
 
 /** Write what the office approved into the house. Returns a line per item saying where it went. */
-export async function applySnaps(s: SupabaseClient, propertyId: string, approved: Approved[], byEmail: string | null): Promise<string[]> {
+export async function applySnaps(s: SupabaseClient, propertyId: string, approved: Approved[], byEmail: string | null): Promise<{ done: string[]; applianceIds: string[] }> {
   const done: string[] = []
+  const applianceIds: string[] = []   // each gets a care guide researched in the background (lib/house/careGuide)
   const { data: prop } = await s.from('properties').select('house_info').eq('id', propertyId).maybeSingle() as { data: any }
   let items: any[] = [...((prop?.house_info?.items ?? []) as any[])]
   let infoChanged = false
@@ -166,12 +167,13 @@ export async function applySnaps(s: SupabaseClient, propertyId: string, approved
       }
     } else if (sn.kind === 'appliance' && sn.appliance) {
       const ap = sn.appliance
-      const { error } = await s.from('property_appliances').insert({
+      const { data: added, error } = await s.from('property_appliances').insert({
         property_id: propertyId, room_id: a.roomId ?? null, kind: ap.kind, brand: ap.brand, model: ap.model,
         location: a.location ?? null, visible_to_tenants: a.visible, added_by: byEmail,
         ...(a.bought ? { bought_on: a.bought.date, bought_note: a.bought.note.slice(0, 200), ...(a.bought.source === 'expense' ? { expense_id: a.bought.id } : { statement_line_id: a.bought.id }) } : {}),
-      })
+      }).select('id').single()
       if (error) throw new Error(/property_appliances/.test(error.message) ? 'Appliances need migration 268 running in Supabase first' : error.message)
+      if ((added as any)?.id) applianceIds.push((added as any).id)
       done.push(`${[ap.brand, APPLIANCE_KINDS[ap.kind] ?? 'Appliance', ap.model].filter(Boolean).join(' ')} — appliances`)
     } else if (sn.kind === 'meter' && sn.meter) {
       const m = sn.meter
@@ -185,7 +187,7 @@ export async function applySnaps(s: SupabaseClient, propertyId: string, approved
     }
   }
   if (infoChanged) await s.from('properties').update({ house_info: { ...(prop?.house_info ?? {}), items } }).eq('id', propertyId)
-  return done
+  return { done, applianceIds }
 }
 
 export const applianceName = (a: { brand?: string | null; kind: string; model?: string | null }) => [a.brand, (APPLIANCE_KINDS[a.kind] ?? 'appliance').toLowerCase(), a.model].filter(Boolean).join(' ')

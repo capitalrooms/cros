@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireSignedIn } from '@/lib/portalAuth'
 import Anthropic from '@anthropic-ai/sdk';
+import { approvedGuide } from '@/lib/house/applianceGuide';
 import { AI_MODEL } from '@/lib/ai-classify';
 
 const client = new Anthropic();
@@ -9,7 +10,9 @@ export async function POST(request: NextRequest) {
   // signed-in users only — this calls the AI (paid per use)
   if (!(await requireSignedIn(request as any))) return NextResponse.json({ error: 'Please sign in again.' }, { status: 401 })
   try {
-    const { category, description, questions, answers } = await request.json();
+    const { category, description, questions, answers, applianceId } = await request.json();
+    // the appliance's approved care guide (migration 269) — fixes and codes for this exact model
+    const guide = await approvedGuide(applianceId);
 
     if (!category || !description || !questions || !answers) {
       return NextResponse.json(
@@ -34,7 +37,7 @@ export async function POST(request: NextRequest) {
 
 Issue Category: ${category}
 Initial Description: "${description}"
-If the description names the appliance's make and model ("Appliance: …"), use what you know about that exact model — its error codes, common faults, reset or filter-cleaning steps — and say when advice is specific to it.
+${guide ? `\nThe office's checked care guide for this appliance (prefer its steps and error-code meanings; keep to what a tenant can safely do):\n${guide}\n` : ''}If the description names the appliance's make and model ("Appliance: …"), use what you know about that exact model — its error codes, common faults, reset or filter-cleaning steps — and say when advice is specific to it.
 
 Tenant's Answers:
 ${qaText}

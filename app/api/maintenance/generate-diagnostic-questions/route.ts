@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireSignedIn } from '@/lib/portalAuth'
 import Anthropic from '@anthropic-ai/sdk';
+import { approvedGuide } from '@/lib/house/applianceGuide';
 import { AI_MODEL } from '@/lib/ai-classify';
 
 const client = new Anthropic();
@@ -9,7 +10,9 @@ export async function POST(request: NextRequest) {
   // signed-in users only — this calls the AI (paid per use)
   if (!(await requireSignedIn(request as any))) return NextResponse.json({ error: 'Please sign in again.' }, { status: 401 })
   try {
-    const { category, description } = await request.json();
+    const { category, description, applianceId } = await request.json();
+    // the appliance's approved care guide (migration 269) — the AI asks about what this exact model shows
+    const guide = await approvedGuide(applianceId);
 
     if (!category || !description) {
       return NextResponse.json(
@@ -22,7 +25,7 @@ export async function POST(request: NextRequest) {
 
 Category: ${category}
 Tenant's description: "${description}"
-
+${guide ? `\nThe office's checked care guide for this appliance (use it — ask about its error codes and lights):\n${guide}\n` : ''}
 Based on this ${category} issue, generate exactly 3-4 diagnostic questions that would help determine:
 1. The severity of the problem
 2. Whether this is something they can safely fix themselves

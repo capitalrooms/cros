@@ -79,7 +79,7 @@ export default function SmartTroubleshootingPage() {
       const res = await fetch('/api/maintenance/generate-diagnostic-questions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ category: selectedCategory, description: fullDescription }),
+        body: JSON.stringify({ category: selectedCategory, description: fullDescription, applianceId: applianceId || undefined }),
       });
       if (!res.ok) throw new Error('Failed to generate questions');
       const data = await res.json();
@@ -101,7 +101,7 @@ export default function SmartTroubleshootingPage() {
       const res = await fetch('/api/maintenance/generate-diagnosis', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ category: selectedCategory, description: fullDescription, questions, answers }),
+        body: JSON.stringify({ category: selectedCategory, description: fullDescription, questions, answers, applianceId: applianceId || undefined }),
       });
       if (!res.ok) throw new Error('Failed to generate diagnosis');
       const data = await res.json();
