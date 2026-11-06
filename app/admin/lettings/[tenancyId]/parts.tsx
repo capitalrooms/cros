@@ -64,6 +64,68 @@ const DOC_LABEL: Record<string, string> = {
   reference_report: 'Referencing report', employment_letter: 'Employment / income letter', id_proof: 'Passport or ID',
   right_to_rent: 'Right to Rent check', tenancy_agreement: 'Signed agreement', deposit_certificate: 'Deposit certificate',
   inventory: 'Inventory / check-in report', other: 'Other document',
+  referencing_evidence: 'Referencing evidence', guarantor_document: 'Guarantor document',
+}
+
+// ── Homeppl: the live referencing check and its documents (lib/homeppl) ─────
+
+const HP_STATUS: Record<string, [string, string]> = {
+  PENDING: ['Invite sent', 'bg-neutral-100 text-neutral-700'], SUBMITTED: ['Submitted — Homeppl reviewing', 'bg-amber-50 text-amber-800'],
+  APPROVED: ['Approved', 'bg-emerald-50 text-emerald-800'], UNAPPROVED: ['Not approved', 'bg-red-50 text-red-800'],
+  CANCELLED: ['Cancelled', 'bg-neutral-100 text-neutral-500'], CANCELLED_NOT_BILLABLE: ['Cancelled', 'bg-neutral-100 text-neutral-500'],
+}
+const HpChip = ({ status }: { status: string }) => { const [t, c] = HP_STATUS[status] ?? [status.toLowerCase(), 'bg-neutral-100 text-neutral-700']; return <span className={`rounded-full px-sm py-[2px] text-xs font-semibold ${c}`}>{t}</span> }
+
+function HomepplLive({ tenancyId, reload, disabled }: { tenancyId: string; reload: () => Promise<void>; disabled?: boolean }) {
+  const [v, setV] = useState<any>(null)
+  const [err, setErr] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [done, setDone] = useState<string | null>(null)
+  const load = async () => {
+    setErr(null)
+    const r = await adminFetch(`/api/admin/lettings/${tenancyId}/homeppl`)
+    const d = await r.json().catch(() => ({}))
+    if (r.ok) setV(d.view); else setErr(d.error ?? 'Couldn’t reach Homeppl')
+  }
+  useEffect(() => { load() }, [tenancyId])   // eslint-disable-line react-hooks/exhaustive-deps
+  const bringIn = async () => {
+    setBusy(true); setErr(null); setDone(null)
+    const r = await adminFetch(`/api/admin/lettings/${tenancyId}/homeppl`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'bring_in' }) })
+    const d = await r.json().catch(() => ({}))
+    setBusy(false)
+    if (!r.ok) { setErr(d.error ?? 'Couldn’t bring the documents in'); return }
+    const x = d.result
+    setDone([x.copied.length ? `${x.copied.length} brought in` : 'Nothing new to bring in', ...x.ticked.map((t: string) => `${t} ticked`), ...(x.failed.length ? [`${x.failed.length} couldn’t be copied: ${x.failed.join('; ')}`] : [])].join(' · '))
+    await Promise.all([load(), reload()])
+  }
+  if (v && !v.connected) return null
+  const c = v?.check
+  return (
+    <div className="rounded-xl border border-neutral-200 px-md py-sm space-y-xs">
+      <div className="flex flex-wrap items-center justify-between gap-sm">
+        <p className={label}>At Homeppl</p>
+        {c && <HpChip status={c.status} />}
+      </div>
+      {!v && !err && <p className="text-xs text-neutral-500">Checking Homeppl…</p>}
+      {err && <p className="text-xs text-red-700">{err} <button type="button" onClick={load} className="font-semibold underline">Try again</button></p>}
+      {v?.noEmail && <p className="text-sm text-neutral-600">Add the tenant’s email address and surname to find them at Homeppl.</p>}
+      {v && !v.noEmail && !c && <p className="text-sm text-neutral-600">No referencing at Homeppl for this tenant’s email yet.</p>}
+      {c && <>
+        <p className="text-sm text-neutral-700">
+          {c.firstName} {c.lastName} · invited {day(c.created)}{c.moveIn ? ` · moving in ${day(c.moveIn)}` : ''}
+          {c.status === 'PENDING' && <span className="block text-xs text-neutral-500">{c.started ? 'They’ve started filling it in.' : 'They haven’t started yet.'}</span>}
+        </p>
+        {c.guarantor && <p className="text-sm text-neutral-700">Guarantor {c.guarantor.name} <HpChip status={c.guarantor.status} /></p>}
+        <p className="text-sm text-neutral-700">{v.documents ? `${v.inCros} of ${v.documents} document${v.documents === 1 ? '' : 's'} in CROS` : 'No documents uploaded yet'}{v.reportReady ? ' · report ready' : ''}</p>
+        {v.others > 0 && <p className="text-xs text-neutral-500">{v.others} older or cancelled check{v.others === 1 ? '' : 's'} for the same email — this is the latest.</p>}
+        {!disabled && (v.documents > v.inCros || v.reportReady) && (
+          <button type="button" className={btnDark} disabled={busy} onClick={bringIn}>{busy ? 'Bringing in…' : 'Bring documents into CROS'}</button>
+        )}
+        {done && <p className="text-xs text-emerald-800">{done}</p>}
+        <p className="text-xs text-neutral-500">Copies are kept on this letting file, encrypted, and never shown to the tenant.</p>
+      </>}
+    </div>
+  )
 }
 
 function StepDocs({ file, types, reload, disabled }: { file: LettingFile; types: string[]; reload: () => Promise<void>; disabled?: boolean }) {
@@ -252,9 +314,10 @@ export function ProgressTab({ file, step, setStep, patch, reload }: { file: Lett
                 `Rent: ${gbp(t.rent_amount)} per month from ${day(t.start_date)}`, `Property: ${placeLabel(isWholeLet(null, file.room.name), file.room.name, file.property.address || file.property.name)}`,
                 ...(file.applicant?.guarantor_name ? [`Guarantor: ${file.applicant.guarantor_name}, ${file.applicant.guarantor_phone ?? ''}, ${file.applicant.guarantor_email ?? ''}`] : []),
               ].join('\n'))}>Copy all for Homeppl</button>
+              <HomepplLive tenancyId={t.id} reload={reload} disabled={ended} />
               <Tick title="Sent to Homeppl" step="referencing_sent" value={t.referencing_sent_at} patch={patch} disabled={ended} />
               <Tick title="Referencing passed" help="Add any guarantor in the tenant’s profile." step="referencing_passed" value={t.referencing_passed_at} patch={patch} disabled={ended} />
-              <StepDocs file={file} types={['reference_report', 'employment_letter']} reload={reload} disabled={ended} />
+              <StepDocs file={file} types={['reference_report', 'employment_letter', 'referencing_evidence', 'guarantor_document']} reload={reload} disabled={ended} />
             </>
           )}
 
