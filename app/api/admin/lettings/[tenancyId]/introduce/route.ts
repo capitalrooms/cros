@@ -42,7 +42,7 @@ async function build(tenancyId: string, req: NextRequest) {
   const room = c.place.split(',')[0]
   const message = [`Hello,`, `We wanted to introduce you to ${first}, who is moving into ${room}${when}. Here’s a little about them, in their own words — something to chat about when you meet.`, `Please do make them feel welcome.`, `Kind regards,`].join('\n\n')
   const headline = { eyebrow: 'Your new housemate', place: c.place, lead: 'Say hello to', street: first, sub: `${room}${c.startDate ? ` · moving in ${long(c.startDate)}` : ''}`, terms: [] }
-  const html = await landlordUpdateHtml({ stage: 'housemate', message, facts: [], link: null, until: null, headline, card, req })
+  const html = await landlordUpdateHtml({ stage: 'housemate', message, facts: [], link: null, until: null, headline, card, req, kind: 'housemate-intro' })
   return { ready: true, first, subject: `Meet your new housemate, ${first}`, recipients, html }
 }
 

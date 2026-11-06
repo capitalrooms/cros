@@ -24,6 +24,7 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { fullSignatureHtml, SIGNATURE_ASSET_BASE } from '@/lib/brand/signature'
+import { THEMES, currentLook, themeFor, type EmailTheme } from '@/lib/email/themes'
 import { nameDisplayWidth } from '@/lib/brand/nameImage'
 import { defaultSender, senderFor, type EmailSender } from '@/lib/email/sender'
 
@@ -163,7 +164,11 @@ export function senderFooter(sender: EmailSender): string {
  * Wrap body HTML in the Capital Rooms email.
  * Always call via buildEmail() (or sendEmail()) so the right sender's footer is used.
  */
-export function wrapEmail(content: string, biz: BusinessSettings = BUSINESS_DEFAULTS, footerHtml?: string, hero?: string): string {
+export function wrapEmail(content: string, biz: BusinessSettings = BUSINESS_DEFAULTS, footerHtml?: string, hero?: string, theme: EmailTheme = THEMES[0]): string {
+  // the theme (lib/email/themes) dresses the page, the logo bar, an optional seasonal band and the body type
+  const T = theme
+  const logo = T.logo === 'white' ? 'lockup-white-full.png' : 'lockup-ink-on-white.png'
+  const band = T.band ? `<tr><td align="center" bgcolor="${T.band.bg}" style="background:${T.band.bg};padding:9px 20px;font-family:${T.font};font-size:12px;letter-spacing:.06em;color:${T.band.text};">${T.band.line}</td></tr>` : ''
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -178,14 +183,15 @@ export function wrapEmail(content: string, biz: BusinessSettings = BUSINESS_DEFA
 a[x-apple-data-detectors] { color: inherit !important; text-decoration: none !important; font: inherit !important; }  /* only links the mail app made itself — never our own links or buttons */</style>
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=Instrument+Serif:ital@0;1&family=Bricolage+Grotesque:wght@800&display=swap" rel="stylesheet">
 </head>
-<body id="body" style="margin:0;padding:0;background:#f5f4f2;-webkit-text-size-adjust:100%;">
-<table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#f5f4f2;padding:24px 0;">
+<body id="body" style="margin:0;padding:0;background:${T.page};-webkit-text-size-adjust:100%;">
+<table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:${T.page};padding:24px 0;">
 <tr><td align="center">
-<table cellpadding="0" cellspacing="0" role="presentation" style="max-width:600px;width:100%;background:#ffffff;">
-  <tr><td bgcolor="#ffffff" style="padding:12px 20px 6px;border-bottom:1px solid #efedea;background:#ffffff;"><img src="${SIGNATURE_ASSET_BASE}/brand/lockup-ink-on-white.png" width="174" alt="${biz.company_name}" style="display:block;border:0;width:174px;max-width:62%;height:auto;"></td></tr>
+<table cellpadding="0" cellspacing="0" role="presentation" style="max-width:600px;width:100%;background:${T.body};">
+  <tr><td bgcolor="${T.bar}" style="padding:${T.logo === 'white' ? '16px 20px 12px' : '12px 20px 6px'};border-bottom:${T.key === 'couture' ? '2px' : T.rule === T.bar ? '0' : '2px'} solid ${T.rule};background:${T.bar};"><img src="${SIGNATURE_ASSET_BASE}/brand/${logo}" width="174" alt="${biz.company_name}" style="display:block;border:0;width:174px;max-width:62%;height:auto;"></td></tr>
+  ${band}
   ${hero ? `<tr><td style="padding:0;">${hero}</td></tr>` : ''}
   <tr>
-    <td style="padding:${hero ? '0 32px 30px' : '34px 32px 30px'};font-family:${BODY_FONT};font-size:14.5px;line-height:1.7;color:#2b2a27;">
+    <td style="padding:${hero ? '0 32px 30px' : '34px 32px 30px'};font-family:${T.font};font-size:14.5px;line-height:1.7;color:${T.text};">
       ${content}
     </td>
   </tr>
@@ -204,11 +210,13 @@ a[x-apple-data-detectors] { color: inherit !important; text-decoration: none !im
  * Pass `req` (or `sender`) so the person who triggered it signs it; with neither, the main administrator does.
  * `signature: false` → company footer instead (e.g. the marketing mailer, which signs itself).
  */
-export async function buildEmail(content: string, opts: { sender?: EmailSender; signature?: boolean; req?: Request | null; hero?: string } = {}): Promise<string> {
-  const biz = await getBusinessSettings()
+export async function buildEmail(content: string, opts: { sender?: EmailSender; signature?: boolean; req?: Request | null; hero?: string; kind?: string; theme?: EmailTheme } = {}): Promise<string> {
+  const [biz, look] = await Promise.all([getBusinessSettings(), currentLook()])
+  // the theme: one asked for (the Email hub's previews), else this kind of email's own, a dated one, or the default
+  const theme = opts.theme ?? themeFor(look, opts.kind)
   // hero: a full-width band straight under the logo bar (the landlord's new-let email — lib/landlordUpdates/email)
-  if (opts.signature === false) return wrapEmail(content, biz, undefined, opts.hero)
+  if (opts.signature === false) return wrapEmail(content, biz, undefined, opts.hero, theme)
   // the signed-in staff member behind the request signs it (same person as the From address); otherwise the main administrator
   const sender = opts.sender ?? (opts.req ? await senderFor(opts.req) : await defaultSender())
-  return wrapEmail(content, biz, senderFooter(sender), opts.hero)
+  return wrapEmail(content, biz, senderFooter(sender), opts.hero, theme)
 }

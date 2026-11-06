@@ -183,10 +183,12 @@ const ZONES_AS_WRITTEN: Zone[] = [
       '/admin/message-templates',
       '/admin/acknowledgment-notes',
       '/admin/feedback',
+      '/admin/email-hub',
     ],
     subnav: [
       { emoji: '💬', label: 'Messages',           href: '/admin/communications' },   // All · Send to a house · Acknowledgments · Feedback · Templates
       { emoji: '📄', label: 'Letters & Invoices', href: '/admin/document-generator' },
+      { emoji: '✉️', label: 'Email hub',          href: '/admin/email-hub' },   // themes for every email (lib/email/themes) — administrators
     ],
   },
   {
