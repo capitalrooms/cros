@@ -260,8 +260,8 @@ export function draftFor(c: UpdateContext, stage: UpdateStage): Draft {
       body = [
         `Good news: ${n} has passed referencing for ${at}.`,
         c.letOnly
-          ? 'Their contact details are below, and their referencing report and identity documents are on the private page linked below. As the landlord on a let-only tenancy, please keep a copy of the Right to Rent documents for your records.'
-          : 'Their contact details are below, and their referencing report is on the private page linked below. We have carried out the Right to Rent check and keep the identity documents on file.',
+          ? 'Their contact details are below, and their referencing report and identity documents come with this email. As the landlord on a let-only tenancy, please keep a copy of the Right to Rent documents for your records.'
+          : 'Their contact details are below, and their referencing report comes with this email. We have carried out the Right to Rent check and keep the identity documents on file.',
       ]
       facts = [...profile, ...rentF, ...F('References', c.referencingPassed ? `Passed ${long(c.referencingPassed)}` : ''), ...F('Right to Rent', rtr), ...F('Guarantor', t.guarantor), ...F('Nationality', t.nationality, false)]
       break
@@ -272,7 +272,7 @@ export function draftFor(c: UpdateContext, stage: UpdateStage): Draft {
         c.startDate ? `The tenancy starts on ${long(c.startDate)}.` : '',
         c.depositProtected ? `The deposit is protected with ${c.depositProtected.scheme ?? 'the scheme'}.` : c.deposit ? 'The deposit will be protected within 30 days, and we will confirm once it is.' : '',
         ...(c.letOnly ? ['Please find attached your lettings statement, showing the rent and deposit received, our letting fee and the balance paid to you.'] : []),
-        'Everything we hold for the tenancy — the signed agreement, references and documents — is on the private page linked below, where you can view each one or download the lot as a single report.',
+        'The signed agreement, references and documents come with this email for your records.',
       ].filter(Boolean)
       facts = everything()
       break
@@ -280,14 +280,14 @@ export function draftFor(c: UpdateContext, stage: UpdateStage): Draft {
       subject = `Your new tenant — ${c.place}`
       body = [
         `Please find below a summary of your new tenant at ${c.place}, with everything we have on file so far.`,
-        c.letOnly ? 'Their documents, including the Right to Rent documents for your records, are on the private page linked below, where you can view each one or download the lot as a single report.' : 'Their documents are on the private page linked below, where you can view each one or download the lot as a single report. We have carried out the Right to Rent check and keep the identity documents on file.',
+        c.letOnly ? 'Their documents, including the Right to Rent documents for your records, come with this email.' : 'Their documents come with this email. We have carried out the Right to Rent check and keep the identity documents on file.',
       ]
       facts = everything()
       break
   }
   const docs = c.docs.filter(d => STAGE_DOCS[stage].includes(d.type))
     .map(d => ({ id: d.id, type: d.type, label: d.label, fileName: d.fileName, idDoc: ID_DOCS.includes(d.type), on: stage === 'offer' || stage === 'reserved' || PRIVATE_DOCS.includes(d.type) ? false : ID_DOCS.includes(d.type) ? c.letOnly : true }))
-  const message = [dear, `Re: ${c.place}`, ...body, 'Should you need anything further, please do not hesitate to contact us.', 'Kind regards,'].join('\n\n')
+  const message = [dear, ...body, 'Should you need anything further, please do not hesitate to contact us.', 'Kind regards,'].join('\n\n')
   return { subject, message, facts, docs }
 }
 

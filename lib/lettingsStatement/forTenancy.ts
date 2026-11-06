@@ -140,7 +140,7 @@ export async function lettingsStatementFor(s: SupabaseClient, tenancyId: string)
   const acct = String(pdfData.bankAccountNumber ?? '').replace(/\D/g, '')
   const figures: StatementFigures = {
     deposit: pdfData.depositAmount, depositWeeks: sums.depositWeeks, holding: sums.holdingPaid, rentIn: sums.rentIn, rentMonths: sums.rentMonths,
-    fee: sums.feeAmount, feeLabel: sums.feeLabel, due: sums.due, paidOn: (im as any)?.paid_on ?? null, payRef: paymentRef,
+    fee: sums.feeAmount, feeLabel: sums.feeLabel, due: sums.due, paidOn: (im as any)?.paid_on ?? null, payRef: (im as any)?.paid_on && (im as any)?.paid_reference ? String((im as any).paid_reference) : paymentRef,
     // the account number is never written out in full in an email — the last four are enough to recognise it
     bank: { bank: pdfData.bankName ?? null, name: pdfData.bankAccountName, sortCode: pdfData.bankSortCode ?? null, last4: acct ? acct.slice(-4) : null },
   }
