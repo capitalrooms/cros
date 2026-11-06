@@ -19,8 +19,8 @@ export async function sharedDocs(s: ReturnType<typeof createServiceClient>, ids:
     s.from('applicant_documents').select('id, doc_type, file_name, file_url, ai_summary, mime_type').in('id', ids),
   ])
   const all = [
-    ...((pd ?? []) as any[]).map(d => ({ id: d.id as string, label: DOC_LABEL[d.document_type] ?? 'Document', fileName: String(d.file_name ?? ''), url: d.storage_url as string | null, mime: '' })),
-    ...((ad ?? []) as any[]).map(d => { const t = applicantDocType(d.doc_type); return { id: d.id as string, label: DOC_LABEL[t] ?? (d.ai_summary ? String(d.ai_summary).slice(0, 60) : 'Document'), fileName: String(d.file_name ?? ''), url: d.file_url as string | null, mime: String(d.mime_type ?? '') } }),
+    ...((pd ?? []) as any[]).map(d => ({ id: d.id as string, type: String(d.document_type ?? ''), label: DOC_LABEL[d.document_type] ?? 'Document', fileName: String(d.file_name ?? ''), url: d.storage_url as string | null, mime: '' })),
+    ...((ad ?? []) as any[]).map(d => { const t = applicantDocType(d.doc_type); return { id: d.id as string, type: t, label: DOC_LABEL[t] ?? (d.ai_summary ? String(d.ai_summary).slice(0, 60) : 'Document'), fileName: String(d.file_name ?? ''), url: d.file_url as string | null, mime: String(d.mime_type ?? '') } }),
   ]
   const kindOf = (d: { fileName: string; mime: string }) => /pdf/i.test(d.mime) || /\.pdf$/i.test(d.fileName) ? 'pdf' : /image\//i.test(d.mime) || /\.(jpe?g|png|gif|webp|heic)$/i.test(d.fileName) ? 'image' : 'other'
   // agreement first, then the order the office ticked them

@@ -8,6 +8,8 @@
 //   established  — after that: nothing to send, just what was sent (if anything)
 // Each update opens as a draft: change the wording, untick any line or document, then Send. Nothing goes by itself.
 // "Due" marks a step that's done but the landlord hasn't heard about yet. Data: /api/admin/landlord-updates.
+// The draft opens full width (6 Nov 2026, Harry: "a pop up should come up with what we are sending and how it will
+// look"): what to send on the left, the email exactly as the landlord will get it on the right, attachments listed.
 import { useCallback, useEffect, useState } from 'react'
 import { adminFetch } from '@/lib/adminFetch'
 
@@ -34,6 +36,9 @@ export default function LandlordUpdates({ applicantId, tenancyId, only, bare = f
   const [attachDocs, setAttachDocs] = useState(true)  // the chosen documents on the email itself, or on a 7-day private page
   const [busy, setBusy] = useState(false)
   const [done, setDone] = useState('')
+  const [extra, setExtra] = useState<{ name: string; data: string; size: number }[]>([])   // files from the computer
+  const [preview, setPreview] = useState<{ html: string; attachments: string[] } | null>(null)
+  const [previewErr, setPreviewErr] = useState('')
   const q = tenancyId ? `tenancyId=${tenancyId}` : `applicantId=${applicantId}`
 
   const load = useCallback(async () => {
@@ -49,16 +54,35 @@ export default function LandlordUpdates({ applicantId, tenancyId, only, bare = f
     const r = await adminFetch(`/api/admin/landlord-updates?${q}&stage=${stage}`)
     const j = await r.json().catch(() => ({}))
     if (!r.ok || !j.draft) { setError(j.error ?? 'Couldn’t draft that'); setOpen(null); return }
-    setDraft(j.draft); setTo((j.landlord?.emails ?? []).join(', '))
+    setDraft(j.draft); setTo((j.landlord?.emails ?? []).join(', ')); setExtra([]); setPreview(null); setAttachDocs(true)
     setStatement(!!j.letOnly && !!j.tenancyId && (stage === 'signed_paid' || stage === 'summary'))
+  }
+  const payload = (extraBody: Record<string, unknown> = {}) => JSON.stringify({ applicantId, tenancyId, stage: open, to, subject: draft?.subject, message: draft?.message, facts: draft?.facts.filter(f => f.on), docIds: draft?.docs.filter(x => x.on).map(x => x.id), attachStatement: statement, attachDocs, extra: extra.map(({ name, data }) => ({ name, data })), ...extraBody })
+  // the preview follows every change (a moment after typing stops)
+  useEffect(() => {
+    if (!open || !draft) return
+    const t = setTimeout(async () => {
+      const r = await adminFetch('/api/admin/landlord-updates', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload({ preview: true }) })
+      const j = await r.json().catch(() => ({}))
+      if (r.ok) { setPreview({ html: j.html, attachments: j.attachments ?? [] }); setPreviewErr('') } else setPreviewErr(j.error ?? 'Couldn’t show the preview')
+    }, 600)
+    return () => clearTimeout(t)
+  }, [open, draft, to, statement, attachDocs, extra])   // eslint-disable-line react-hooks/exhaustive-deps
+  async function addFiles(files: FileList | null) {
+    if (!files) return
+    const add: { name: string; data: string; size: number }[] = []
+    for (const f of Array.from(files)) {
+      const data = await new Promise<string>((res, rej) => { const fr = new FileReader(); fr.onload = () => res(String(fr.result).split(',')[1] ?? ''); fr.onerror = rej; fr.readAsDataURL(f) })
+      add.push({ name: f.name, data, size: f.size })
+    }
+    const next = [...extra, ...add]
+    if (next.reduce((n, x) => n + x.size, 0) > 3 * 1024 * 1024) { setError('Files from your computer can come to 3 MB in all — add bigger ones to the letting file’s documents and tick them instead.'); return }
+    setError(''); setExtra(next)
   }
   async function send() {
     if (!draft || !open) return
     setBusy(true); setError('')
-    const r = await adminFetch('/api/admin/landlord-updates', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ applicantId, tenancyId, stage: open, to, subject: draft.subject, message: draft.message, facts: draft.facts.filter(f => f.on), docIds: draft.docs.filter(x => x.on).map(x => x.id), attachStatement: statement, attachDocs }),
-    })
+    const r = await adminFetch('/api/admin/landlord-updates', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload() })
     const j = await r.json().catch(() => ({}))
     setBusy(false)
     if (!r.ok) { setError(j.error ?? 'It didn’t send'); return }
@@ -115,49 +139,45 @@ export default function LandlordUpdates({ applicantId, tenancyId, only, bare = f
       ))}
 
       {open && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 md:items-center" onClick={() => !busy && setOpen(null)}>
-          <div className="max-h-[92dvh] w-full max-w-2xl overflow-y-auto rounded-t-2xl bg-white p-lg shadow-xl md:rounded-2xl" onClick={e => e.stopPropagation()}>
-            <div className="mb-md flex items-baseline justify-between gap-md">
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 md:items-center md:p-lg" onClick={() => !busy && setOpen(null)}>
+          <div className="flex max-h-[94dvh] w-full max-w-6xl flex-col overflow-hidden rounded-t-2xl bg-white shadow-xl md:rounded-2xl" onClick={e => e.stopPropagation()}>
+            <div className="flex items-baseline justify-between gap-md border-b border-neutral-200 px-lg py-md">
               <h3 className="text-lg font-bold text-neutral-900">{LABEL[open]} · {d.tenant || d.place}</h3>
               <button type="button" onClick={() => setOpen(null)} className="text-sm font-semibold text-neutral-500">Close</button>
             </div>
-            {!draft ? <p className="text-sm text-neutral-500">Drafting…</p> : (
-              <div className="space-y-md">
-                <label className="block text-xs font-bold uppercase tracking-wide text-neutral-500">To
-                  <input value={to} onChange={e => setTo(e.target.value)} className={`${input} mt-1 normal-case tracking-normal`} placeholder="landlord@example.com" />
-                </label>
-                <label className="block text-xs font-bold uppercase tracking-wide text-neutral-500">Subject
-                  <input value={draft.subject} onChange={e => setDraft({ ...draft, subject: e.target.value })} className={`${input} mt-1 normal-case tracking-normal`} />
-                </label>
-                <label className="block text-xs font-bold uppercase tracking-wide text-neutral-500">Message
-                  <textarea value={draft.message} onChange={e => setDraft({ ...draft, message: e.target.value })} rows={11} className={`${input} mt-1 normal-case leading-relaxed tracking-normal`} />
-                </label>
-                {draft.facts.length > 0 && (
-                  <div>
-                    <p className="text-xs font-bold uppercase tracking-wide text-neutral-500">Details under the message</p>
-                    <ul className="mt-1 divide-y divide-neutral-100 rounded-lg border border-neutral-200">
-                      {draft.facts.map((f, i) => (
-                        <li key={f.label} className="flex items-start gap-sm px-sm py-xs text-sm">
-                          <input type="checkbox" checked={f.on} onChange={() => setDraft({ ...draft, facts: draft.facts.map((x, j) => j === i ? { ...x, on: !x.on } : x) })} className="mt-1" />
-                          <span className="w-32 shrink-0 text-neutral-500">{f.label}</span>
-                          <span className={`min-w-0 break-words ${f.on ? 'text-neutral-900' : 'text-neutral-400 line-through'}`}>{f.value}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-                {draft.docs.length > 0 ? (
+            {!draft ? <p className="p-lg text-sm text-neutral-500">Drafting…</p> : (
+              <div className="grid min-h-0 flex-1 md:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
+                {/* ── what to send ── */}
+                <div className="min-h-0 space-y-md overflow-y-auto p-lg">
+                  <label className="block text-xs font-bold uppercase tracking-wide text-neutral-500">To
+                    <input value={to} onChange={e => setTo(e.target.value)} className={`${input} mt-1 normal-case tracking-normal`} placeholder="landlord@example.com" />
+                  </label>
+                  <label className="block text-xs font-bold uppercase tracking-wide text-neutral-500">Subject
+                    <input value={draft.subject} onChange={e => setDraft({ ...draft, subject: e.target.value })} className={`${input} mt-1 normal-case tracking-normal`} />
+                  </label>
+                  <label className="block text-xs font-bold uppercase tracking-wide text-neutral-500">Message
+                    <textarea value={draft.message} onChange={e => setDraft({ ...draft, message: e.target.value })} rows={9} className={`${input} mt-1 normal-case leading-relaxed tracking-normal`} />
+                  </label>
+
+                  {/* attachments first — it's what this email is for */}
                   <div>
                     <div className="flex flex-wrap items-center justify-between gap-sm">
-                      <p className="text-xs font-bold uppercase tracking-wide text-neutral-500">Documents</p>
-                      {/* one tap for the usual choices (4 Nov 2026) */}
-                      <span className="flex flex-wrap gap-xs text-xs font-semibold">
-                        {([['All', () => true], ['Reference', (t?: string) => t === 'reference_report'], ['ID', (t?: string) => t === 'id_proof'], ['Right to Rent', (t?: string) => t === 'right_to_rent'], ['None', () => false]] as [string, (t?: string) => boolean][])
-                          .filter(([l, f]) => l === 'All' || l === 'None' || draft.docs.some(x => f(x.type)))
-                          .map(([l, f]) => <button key={l} type="button" onClick={() => setDraft({ ...draft, docs: draft.docs.map(x => ({ ...x, on: f(x.type) })) })} className="rounded-full border border-neutral-300 px-sm py-0.5 hover:bg-neutral-50">{l === 'All' || l === 'None' ? l : `Just ${l === 'ID' ? 'the ID' : l === 'Reference' ? 'the reference' : 'Right to Rent'}`}</button>)}
-                      </span>
+                      <p className="text-xs font-bold uppercase tracking-wide text-neutral-500">Attachments</p>
+                      {draft.docs.length > 0 && (
+                        <span className="flex flex-wrap gap-xs text-xs font-semibold">
+                          {([['All', () => true], ['Agreement + RTR', (t?: string) => ['tenancy_agreement', 'right_to_rent', 'id_proof'].includes(t ?? '')], ['None', () => false]] as [string, (t?: string) => boolean][])
+                            .map(([l, f]) => <button key={l} type="button" onClick={() => setDraft({ ...draft, docs: draft.docs.map(x => ({ ...x, on: f(x.type) })) })} className="rounded-full border border-neutral-300 px-sm py-0.5 hover:bg-neutral-50">{l}</button>)}
+                        </span>
+                      )}
                     </div>
                     <ul className="mt-1 divide-y divide-neutral-100 rounded-lg border border-neutral-200">
+                      {d.letOnly && d.tenancyId && ['signed_paid', 'summary'].includes(open) && (
+                        <li className="flex items-start gap-sm px-sm py-xs text-sm">
+                          <input type="checkbox" checked={statement} onChange={() => setStatement(v => !v)} className="mt-1" />
+                          <span className="min-w-0"><span className="font-semibold">Lettings statement</span> <span className="text-neutral-500">made now — rent and deposit received, our fee, the balance</span>{' '}
+                            <button type="button" onClick={() => previewStatement(d.tenancyId!)} className="text-xs font-semibold text-blue-700 hover:underline">Open</button></span>
+                        </li>
+                      )}
                       {draft.docs.map((x, i) => (
                         <li key={x.id} className="flex items-start gap-sm px-sm py-xs text-sm">
                           <input type="checkbox" checked={x.on} onChange={() => setDraft({ ...draft, docs: draft.docs.map((y, j) => j === i ? { ...y, on: !y.on } : y) })} className="mt-1" />
@@ -166,30 +186,63 @@ export default function LandlordUpdates({ applicantId, tenancyId, only, bare = f
                           </span>
                         </li>
                       ))}
+                      {extra.map((x, i) => (
+                        <li key={`${x.name}-${i}`} className="flex items-center gap-sm px-sm py-xs text-sm">
+                          <span className="font-semibold">{x.name}</span><span className="text-xs text-neutral-500">from your computer · {Math.max(1, Math.round(x.size / 1024))} KB</span>
+                          <button type="button" onClick={() => setExtra(extra.filter((_, j) => j !== i))} className="ml-auto text-xs font-semibold text-red-700 hover:underline">Remove</button>
+                        </li>
+                      ))}
+                      <li className="px-sm py-xs text-sm">
+                        <label className="cursor-pointer text-xs font-semibold text-blue-700 hover:underline">+ Add a file from your computer
+                          <input type="file" multiple className="hidden" onChange={e => { addFiles(e.target.files); e.target.value = '' }} />
+                        </label>
+                      </li>
                     </ul>
                     {draft.docs.some(x => x.on) && (
                       <div className="mt-xs flex flex-wrap gap-md text-sm">
                         <label className="flex items-center gap-xs"><input type="radio" checked={attachDocs} onChange={() => setAttachDocs(true)} /> Attach to the email</label>
-                        <label className="flex items-center gap-xs"><input type="radio" checked={!attachDocs} onChange={() => setAttachDocs(false)} /> On a private page for {7} days</label>
+                        <label className="flex items-center gap-xs"><input type="radio" checked={!attachDocs} onChange={() => setAttachDocs(false)} /> On a private page for 7 days</label>
                       </div>
                     )}
+                    {draft.docs.length === 0 && ['referenced', 'signed_paid', 'summary'].includes(open) && <p className="mt-1 text-xs text-neutral-500">No documents filed on this tenancy yet — add them in the letting file’s steps to share them.</p>}
                   </div>
-                ) : ['referenced', 'signed_paid', 'summary'].includes(open) && (
-                  <p className="text-xs text-neutral-500">No documents filed on this tenancy yet — add them in the letting file’s steps to share them.</p>
-                )}
-                {d.letOnly && d.tenancyId && (open === 'signed_paid' || open === 'summary') && (
-                  <label className="flex items-start gap-sm rounded-lg border border-neutral-200 px-sm py-xs text-sm">
-                    <input type="checkbox" checked={statement} onChange={() => setStatement(v => !v)} className="mt-1" />
-                    <span><span className="font-semibold">Attach the lettings statement (PDF)</span> — rent and deposit received, our letting fee, the balance paid to them.{' '}
-                      <button type="button" onClick={() => previewStatement(d.tenancyId!)} className="font-semibold text-blue-700 hover:underline">Preview</button></span>
-                  </label>
-                )}
-                {open === 'offer' && <p className="text-xs text-neutral-500">The landlord gets a private page with the details and two buttons: “Happy to go ahead” or “Not this one”. You’ll get an email as soon as they answer.</p>}
-                <div className="flex flex-wrap items-center gap-sm border-t border-neutral-100 pt-md">
-                  <button type="button" onClick={send} disabled={busy || !to.trim()} className="rounded-lg bg-neutral-900 px-lg py-sm text-sm font-bold text-white hover:bg-neutral-700 disabled:opacity-40">{busy ? 'Sending…' : 'Send to the landlord'}</button>
-                  <button type="button" onClick={() => setOpen(null)} disabled={busy} className="text-sm font-semibold text-neutral-600 underline">Cancel</button>
-                  <span className="text-xs text-neutral-500">You get a copy.</span>
+
+                  {draft.facts.length > 0 && (
+                    <details>
+                      <summary className="cursor-pointer text-xs font-bold uppercase tracking-wide text-neutral-500">Tenant details in the email · {draft.facts.filter(f => f.on).length}</summary>
+                      <ul className="mt-1 divide-y divide-neutral-100 rounded-lg border border-neutral-200">
+                        {draft.facts.map((f, i) => (
+                          <li key={f.label} className="flex items-start gap-sm px-sm py-xs text-sm">
+                            <input type="checkbox" checked={f.on} onChange={() => setDraft({ ...draft, facts: draft.facts.map((x, j) => j === i ? { ...x, on: !x.on } : x) })} className="mt-1" />
+                            <span className="w-32 shrink-0 text-neutral-500">{f.label}</span>
+                            <span className={`min-w-0 break-words ${f.on ? 'text-neutral-900' : 'text-neutral-400 line-through'}`}>{f.value}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </details>
+                  )}
+                  {open === 'offer' && <p className="text-xs text-neutral-500">The landlord gets a private page with the details and two buttons: “Happy to go ahead” or “Not this one”. You’ll get an email as soon as they answer.</p>}
                 </div>
+
+                {/* ── the email as the landlord gets it ── */}
+                <div className="flex min-h-[420px] flex-col border-t border-neutral-200 bg-neutral-100 md:border-l md:border-t-0">
+                  <div className="space-y-0.5 border-b border-neutral-200 bg-white px-md py-sm text-xs text-neutral-600">
+                    <p><span className="inline-block w-16 text-neutral-400">To</span>{to || '—'}</p>
+                    <p><span className="inline-block w-16 text-neutral-400">Subject</span><span className="font-semibold text-neutral-900">{draft.subject}</span></p>
+                    <p><span className="inline-block w-16 text-neutral-400">Attached</span>{preview ? (preview.attachments.length ? preview.attachments.join(' · ') : 'nothing') : '…'}</p>
+                  </div>
+                  {previewErr ? <p className="m-md rounded-lg bg-red-50 px-sm py-xs text-xs text-red-800">{previewErr}</p>
+                    : preview ? <iframe title="Email preview" srcDoc={preview.html} sandbox="" className="min-h-0 w-full flex-1 bg-white" />
+                    : <p className="p-md text-sm text-neutral-500">Making the preview…</p>}
+                </div>
+              </div>
+            )}
+            {draft && (
+              <div className="flex flex-wrap items-center gap-sm border-t border-neutral-200 px-lg py-md">
+                <button type="button" onClick={send} disabled={busy || !to.trim()} className="rounded-lg bg-neutral-900 px-lg py-sm text-sm font-bold text-white hover:bg-neutral-700 disabled:opacity-40">{busy ? 'Sending…' : `Send to ${d.landlord?.name || 'the landlord'}`}</button>
+                <button type="button" onClick={() => setOpen(null)} disabled={busy} className="text-sm font-semibold text-neutral-600 underline">Cancel</button>
+                <span className="text-xs text-neutral-500">You get a copy. {preview?.attachments.length ? `${preview.attachments.length} attachment${preview.attachments.length === 1 ? '' : 's'}.` : ''}</span>
+                {error && <span className="text-xs text-red-800">{error}</span>}
               </div>
             )}
           </div>

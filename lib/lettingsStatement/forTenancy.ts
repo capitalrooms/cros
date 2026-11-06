@@ -4,14 +4,20 @@
 // "Signed & paid" update, which attaches it (17 Oct 2026).
 import { holdingFor } from '@/lib/lettings/holdingFor'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { generateLettingsStatementPDF, lettingsStatementFileName } from '@/lib/lettingsStatement/generatePDF'
+import { generateLettingsStatementPDF, lettingsStatementFileName, lettingsSums } from '@/lib/lettingsStatement/generatePDF'
 import { fetchPDFBizSettings } from '@/lib/pdfLetterhead'
 import { inlineAddress } from '@/lib/formatAddress'
 import { lettingFeeRule } from '@/lib/fees/lettingFee'
 import { resolvePropertyAccount } from '@/lib/banking/propertyAccount'
 import { open, openFields, openRows, seal, BANK_FIELDS } from '@/lib/crypto/fieldCrypt'
 
-export async function lettingsStatementFor(s: SupabaseClient, tenancyId: string): Promise<{ buffer: Buffer; filename: string } | { error: string }> {
+/** The statement's figures, for the landlord's email (lib/landlordUpdates/email) — the same sums as the PDF. */
+export interface StatementFigures {
+  deposit: number; depositWeeks: number; holding: number; rentIn: number; rentMonths: number; fee: number; feeLabel: string; due: number
+  paidOn: string | null; payRef: string; bank: { bank: string | null; name: string; sortCode: string | null; last4: string | null }
+}
+
+export async function lettingsStatementFor(s: SupabaseClient, tenancyId: string): Promise<{ buffer: Buffer; filename: string; figures: StatementFigures } | { error: string }> {
   const supabase = s
 
   // ── Fetch tenancy with all related data ──────────────────────────────────
@@ -99,7 +105,7 @@ export async function lettingsStatementFor(s: SupabaseClient, tenancyId: string)
   // ── Generate PDF ─────────────────────────────────────────────────────────
   const bizSettings = await fetchPDFBizSettings()
 
-  const buffer = await generateLettingsStatementPDF({
+  const pdfData = {
     landlordName,
     landlordAddress,
     roomName: room.name,
@@ -128,11 +134,20 @@ export async function lettingsStatementFor(s: SupabaseClient, tenancyId: string)
     paidOn: (im as any)?.paid_on ?? undefined,   // once the landlord's payment is recorded the statement says it went
     statementDate: new Date().toISOString(),
     bizSettings,
-  })
+  }
+  const buffer = await generateLettingsStatementPDF(pdfData)
+  const sums = lettingsSums(pdfData)
+  const acct = String(pdfData.bankAccountNumber ?? '').replace(/\D/g, '')
+  const figures: StatementFigures = {
+    deposit: pdfData.depositAmount, depositWeeks: sums.depositWeeks, holding: sums.holdingPaid, rentIn: sums.rentIn, rentMonths: sums.rentMonths,
+    fee: sums.feeAmount, feeLabel: sums.feeLabel, due: sums.due, paidOn: (im as any)?.paid_on ?? null, payRef: paymentRef,
+    // the account number is never written out in full in an email — the last four are enough to recognise it
+    bank: { bank: pdfData.bankName ?? null, name: pdfData.bankAccountName, sortCode: pdfData.bankSortCode ?? null, last4: acct ? acct.slice(-4) : null },
+  }
 
   // "095ROS01 - Lettings Statement - Mr Ziqing Wang.pdf" — how Capital Rooms files them (4 Nov 2026)
   const filename = lettingsStatementFileName({ unitCode: (room as any).unit_code ?? undefined, paymentReference: paymentRef, tenantSalutation: tenant?.salutation, tenantFirstName: tenant?.first_name ?? '', tenantLastName: tenant?.last_name ?? '' })
-  return { buffer, filename }
+  return { buffer, filename, figures }
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────

@@ -102,6 +102,8 @@ export async function bringInFromHomeppl(s: SupabaseClient, tenancyId: string, b
     if (!src.applicantUuid) continue
     for (const d of await documentsFor(src.applicantUuid)) {
       if (have.has(d.uuid)) { res.skipped++; continue }
+      // raw open-banking data (TrueLayer JSON) — machine-readable, of no use to anyone reading the file
+      if (/TRUELAYER|TRANSACTIONS/.test(d.type) || /\.json(\?|$)/i.test(d.link ?? '')) { res.skipped++; continue }
       const name = `${src.who ? `${src.who} — ` : ''}${words(d.type)}`
       try {
         if (!d.link || !/^https:\/\/([a-z0-9-]+\.)*homeppl\.com\//i.test(d.link)) throw new Error('no download link')
