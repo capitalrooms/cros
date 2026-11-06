@@ -24,7 +24,7 @@ export async function hp(path: string, init: RequestInit = {}): Promise<Response
   if (!r.ok) {
     const body = await r.text().catch(() => '')
     let msg = body.slice(0, 400)
-    try { const j = JSON.parse(body); msg = j.detail ?? JSON.stringify(j).slice(0, 400) } catch { /* plain text */ }
+    try { const j = JSON.parse(body); msg = j.detail ?? JSON.stringify(j).slice(0, 400) } catch { if (/^\s*</.test(body)) msg = r.status >= 500 ? 'a fault at Homeppl — try again later' : r.statusText }
     throw new Error(`Homeppl said ${r.status}: ${msg || r.statusText}`)
   }
   return r
@@ -68,15 +68,22 @@ function toValidation(app: any, v: any): HpValidation {
   }
 }
 
-/** A person's referencing checks, newest first. Searched by surname, kept only where the email matches. */
-export async function validationsByEmail(email: string, lastName: string): Promise<HpValidation[]> {
+/** A person's referencing checks, newest first. Homeppl is searched by surname, then the surname without accents,
+ *  then the first name (names are often spelt differently in the two systems — "Wirngo"/"Wirgo", "Mościcki"/
+ *  "Moscicki"); a check only counts when its email matches. */
+export async function validationsByEmail(email: string, lastName: string, firstName = ''): Promise<HpValidation[]> {
   const want = norm(email)
   if (!want || !lastName.trim()) return []
-  const d = await json(`/api/v3/applications/?name=${encodeURIComponent(lastName.trim())}&page_size=50`)
-  const out: HpValidation[] = []
-  for (const app of d.results ?? []) for (const v of app.validations ?? [])
-    if (norm(v.email) === want || norm(v.applicant?.email) === want) out.push(toValidation(app, v))
-  return out.sort((a, b) => b.created.localeCompare(a.created))
+  const plain = (x: string) => x.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/ł/g, 'l').replace(/Ł/g, 'L')
+  const terms = [...new Set([lastName.trim(), plain(lastName.trim()), firstName.trim().split(/\s+/)[0], plain(firstName.trim().split(/\s+/)[0] ?? '')].filter(t => t && t.length > 1))]
+  for (const term of terms) {
+    const d = await json(`/api/v3/applications/?name=${encodeURIComponent(term)}&page_size=100`)
+    const out: HpValidation[] = []
+    for (const app of d.results ?? []) for (const v of app.validations ?? [])
+      if (norm(v.email) === want || norm(v.applicant?.email) === want) out.push(toValidation(app, v))
+    if (out.length) return out.sort((a, b) => b.created.localeCompare(a.created))
+  }
+  return []
 }
 
 /** The one that counts: the newest that wasn't cancelled (or the newest of all if every one was). */

@@ -31,12 +31,12 @@ const MIME: Record<string, string> = { pdf: 'application/pdf', png: 'image/png',
 async function tenancyPerson(s: SupabaseClient, tenancyId: string) {
   const { data: t } = await s.from('tenancies').select('id, property_id, person_id, applicant_id, referencing_sent_at, referencing_passed_at, let_cancelled_at, people:person_id(email, first_name, last_name)').eq('id', tenancyId).maybeSingle() as { data: any }
   if (!t) throw new Error('Tenancy not found')
-  let email = t.people?.email ?? null, last = t.people?.last_name ?? null
+  let email = t.people?.email ?? null, last = t.people?.last_name ?? null, first = t.people?.first_name ?? ''
   if ((!email || !last) && t.applicant_id) {
     const { data: a } = await s.from('applicants').select('email, last_name').eq('id', t.applicant_id).maybeSingle() as { data: any }
     email = email ?? a?.email ?? null; last = last ?? a?.last_name ?? null
   }
-  return { t, email: email as string | null, last: last as string | null }
+  return { t, email: email as string | null, last: last as string | null, first: first as string }
 }
 
 async function alreadyIn(s: SupabaseClient, tenancyId: string): Promise<Set<string>> {
@@ -55,9 +55,9 @@ export interface HomepplView {
 }
 
 export async function homepplFor(s: SupabaseClient, tenancyId: string): Promise<HomepplView> {
-  const { email, last } = await tenancyPerson(s, tenancyId)
+  const { email, last, first } = await tenancyPerson(s, tenancyId)
   if (!email || !last) return { connected: true, check: null, others: 0, documents: 0, inCros: 0, reportReady: false, noEmail: true }
-  const list = await validationsByEmail(email, last)
+  const list = await validationsByEmail(email, last, first)
   const check = currentValidation(list)
   if (!check) return { connected: true, check: null, others: 0, documents: 0, inCros: 0, reportReady: false }
   const [mine, theirs, have] = await Promise.all([
@@ -74,10 +74,10 @@ export interface BringInResult { copied: string[]; skipped: number; failed: stri
 /** `ticks: false` — documents only (the catch-up of tenants who've already moved in: their letting-file ticks are
  *  history, and "passed today" would be untrue). */
 export async function bringInFromHomeppl(s: SupabaseClient, tenancyId: string, byEmail: string | null, o: { ticks?: boolean } = {}): Promise<BringInResult> {
-  const { t, email, last } = await tenancyPerson(s, tenancyId)
+  const { t, email, last, first } = await tenancyPerson(s, tenancyId)
   if (t.let_cancelled_at) throw new Error('This let fell through — nothing to bring in')
   if (!email || !last) throw new Error('The tenant needs an email address and surname in CROS to find them at Homeppl')
-  const check = currentValidation(await validationsByEmail(email, last))
+  const check = currentValidation(await validationsByEmail(email, last, first))
   if (!check) throw new Error(`No Homeppl referencing found for ${email}`)
 
   const have = await alreadyIn(s, tenancyId)
