@@ -1016,6 +1016,7 @@ function DetailsToCopy({ a, onSaved }: { a: Applicant; onSaved?: () => void }) {
     ['Date of birth', dob],
     ['Current address', a.current_address ?? ''],
     ['Work', [a.profession, (a as any).applicant_profile?.application?.company, a.salary ? `income ${a.salary}` : '', (a as any).applicant_profile?.application?.income_details ?? ''].filter(Boolean).join(' · ')],
+    ['Needs review', (() => { const rv = (a as any).applicant_profile?.application?.review; return rv?.needed ? `They ${(rv.reasons ?? []).join('; ')}` : '' })()],
     ['Savings', (() => { const ap = (a as any).applicant_profile?.application; return ap?.savings ? `£${Number(ap.savings).toLocaleString('en-GB')} held 3 months+` : '' })()],
     ['Affordability', (() => { const r = (a as any).applicant_profile?.application?.affordability?.result; return ({ pass: 'Passes on income or savings', borderline: 'Just short — guarantor needed', fail: 'Short — guarantor needed', student: 'Student — guarantor needed' } as Record<string, string>)[r] ?? '' })()],
     ['Study', (() => { const st = (a as any).applicant_profile?.application; return st?.student ? [st.university, st.course, st.year].filter(Boolean).join(' · ') : '' })()],

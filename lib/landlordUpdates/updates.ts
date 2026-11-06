@@ -81,6 +81,8 @@ export interface UpdateContext {
   hold: { amount: number; on: string } | null
   deposit: number | null
   depositProtected: { on: string | null; scheme: string | null; ref: string | null } | null
+  /** the landlord receives the deposit and protects it themselves (let only, or their own setting — migration 265) */
+  landlordHoldsDeposit: boolean
   referencingPassed: string | null
   rightToRent: { checked: string | null; until: string | null }
   agreementSigned: string | null
@@ -170,6 +172,7 @@ export async function loadUpdateContext(s: SupabaseClient, ids: { applicantId?: 
     term: a?.preferred_term ?? null,
     hold: hold ? { amount: Number(hold.amount), on: hold.received_on } : null,
     deposit: t?.deposit_amount != null ? Number(t.deposit_amount) : null,
+    landlordHoldsDeposit: t?.deposit_held_by ? t.deposit_held_by === 'landlord' : prop.letting_type === 'let_only',
     depositProtected: t?.deposit_protected_at ? { on: t.deposit_protected_at, scheme: t.deposit_scheme ?? null, ref: t.deposit_scheme_ref ?? t.deposit_reference ?? null } : null,
     referencingPassed: t?.referencing_passed_at ?? null,
     rightToRent: { checked: t?.right_to_rent_checked_at ?? null, until: person?.right_to_rent_until ?? null },
@@ -232,7 +235,7 @@ export function draftFor(c: UpdateContext, stage: UpdateStage): Draft {
     ...F('Holding deposit', c.hold ? `${gbp(c.hold.amount)} · received ${long(c.hold.on)}` : ''),
     ...F('References', c.referencingPassed ? `Passed ${long(c.referencingPassed)}` : ''), ...F('Right to Rent', rtr), ...F('Guarantor', t.guarantor),
     ...F('Agreement signed', long(c.agreementSigned)), ...F('Move-in money', c.moniesIn ? `Received ${long(c.moniesIn)}` : ''),
-    ...F('Deposit', c.deposit ? gbp(c.deposit) : ''), ...F('Deposit protection', protectedLine)]
+    ...F('Deposit', c.deposit ? `${gbp(c.deposit)}${c.landlordHoldsDeposit ? ' · paid to you to protect' : ''}` : ''), ...(c.landlordHoldsDeposit ? [] : F('Deposit protection', protectedLine))]
 
   let subject = '', body: string[] = [], facts: Draft['facts'] = []
   switch (stage) {
@@ -270,7 +273,10 @@ export function draftFor(c: UpdateContext, stage: UpdateStage): Draft {
       body = [
         `${n} has signed the tenancy agreement for ${at}${c.moniesIn ? ' and paid everything due before moving in' : ''}.`,
         c.startDate ? `The tenancy starts on ${long(c.startDate)}.` : '',
-        c.depositProtected ? `The deposit is protected with ${c.depositProtected.scheme ?? 'the scheme'}.` : c.deposit ? 'The deposit will be protected within 30 days, and we will confirm once it is.' : '',
+        // who protects it follows who holds it (6 Nov 2026, Harry: "we do not protect Nigel's deposits as he gets his own")
+        c.landlordHoldsDeposit
+          ? (c.deposit ? `The deposit of ${gbp(c.deposit)} comes to you with the first month’s rent. As you hold it, please protect it with a government-approved scheme and give the tenant the prescribed information within 30 days of receiving it.` : '')
+          : c.depositProtected ? `The deposit is protected with ${c.depositProtected.scheme ?? 'the scheme'}.` : c.deposit ? 'We will protect the deposit within 30 days, and confirm once it is.' : '',
         ...(c.letOnly ? ['Please find attached your lettings statement, showing the rent and deposit received, our letting fee and the balance paid to you.'] : []),
         'The signed agreement, references and documents come with this email for your records.',
       ].filter(Boolean)
