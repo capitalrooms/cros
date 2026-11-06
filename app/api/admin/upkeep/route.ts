@@ -13,7 +13,10 @@ export async function GET(req: NextRequest) {
   if (!(await requireStaff(req))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const id = req.nextUrl.searchParams.get('propertyId') ?? ''
   if (!/^[0-9a-f-]{36}$/i.test(id)) return NextResponse.json({ error: 'Which house?' }, { status: 400 })
-  return NextResponse.json(await upkeepFor(createServiceClient() as any, id))
+  const s = createServiceClient()
+  // inventory items no one could date yet (migration 270) — the office is asked roughly when they were bought
+  const { data: undated } = await s.from('room_inventory').select('id, item, description, area, room_id, added_by, created_at, rooms(name)').eq('property_id', id).eq('needs_date', true).is('removed_at', null).order('created_at')
+  return NextResponse.json({ ...(await upkeepFor(s as any, id)), undated: undated ?? [] })
 }
 
 // POST { source, lineId, splits: [{ area, amount }] } — how a job naming several areas is divided (must add up to the
@@ -22,6 +25,14 @@ export async function POST(req: NextRequest) {
   const who = await requireStaff(req)
   if (!who) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const b = await req.json().catch(() => ({}))
+  // { action: 'date_item', id, year } — roughly when an inventory item was bought (or 'unknown' to stop asking)
+  if (b.action === 'date_item') {
+    const year = String(b.year ?? '')
+    const upd = /^(19|20)\d{2}$/.test(year) ? { bought_on: `${year}-06-30`, bought_approx: true, bought_note: `About ${year} (confirmed by ${who.email})`, needs_date: false } : year === 'unknown' ? { needs_date: false, bought_note: 'Not known' } : null
+    if (!upd) return NextResponse.json({ error: 'A year like 2022' }, { status: 400 })
+    const { error } = await createServiceClient().from('room_inventory').update(upd).eq('id', String(b.id))
+    return error ? NextResponse.json({ error: error.message }, { status: 500 }) : NextResponse.json({ ok: true })
+  }
   // { action: 'suggest', source, lineId, areas: [{key,label}] } → the AI's suggested split (nothing saved)
   if (b.action === 'suggest') {
     if (!['expense', 'statement'].includes(b.source) || !Array.isArray(b.areas) || !b.areas.length) return NextResponse.json({ error: 'Which line?' }, { status: 400 })

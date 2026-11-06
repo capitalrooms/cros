@@ -108,8 +108,9 @@ const REPAIR = /repair|service|fix|call[- ]?out|engineer|\bparts?\b|clean/i
 export interface PurchaseMatch { source: 'expense' | 'statement'; id: string; date: string; amount: number; description: string; score: number }
 
 /** Expenses and imported statement lines at this house that could be when this appliance was bought — best first. */
-export async function purchaseMatches(s: SupabaseClient, propertyId: string, ap: { kind: string; brand: string | null; model: string | null }): Promise<PurchaseMatch[]> {
-  const word = KIND_WORDS[ap.kind]
+/** `words`: for things that aren't appliances ("chest of drawers", "wardrobe") — match on the item's own name. */
+export async function purchaseMatches(s: SupabaseClient, propertyId: string, ap: { kind: string; brand: string | null; model: string | null; words?: string }): Promise<PurchaseMatch[]> {
+  const word = KIND_WORDS[ap.kind] ?? (ap.words ? new RegExp(`\\b(${ap.words.toLowerCase().split(/[^a-z]+/).filter(w => w.length > 3 && !['with', 'white', 'black', 'grey', 'wooden'].includes(w)).join('|') || 'xxxx'})`, 'i') : null)
   if (!word) return []
   const [{ data: ex }, { data: st }] = await Promise.all([
     s.from('recharge_expenses').select('id, description, supplier, notes, amount, expense_date').eq('property_id', propertyId).is('voided_at', null),
