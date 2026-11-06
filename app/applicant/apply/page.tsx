@@ -7,6 +7,7 @@
 import NameInput, { emptyName, toFullName, parseFullName } from '@/app/components/NameInput'
 import { useState, useEffect } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
+import { REQUEST_ITEMS } from '@/lib/applicants/requests'
 import PublicShell from '@/components/public/PublicShell'
 import { letWords } from '@/lib/lettings/letWording'
 import AddressField from '@/app/components/AddressField'
@@ -113,6 +114,10 @@ export default function ApplicantForm() {
   // About This Room
   const [roomRequirements, setRoomRequirements] = useState('')
   const [roomConditions, setRoomConditions] = useState('')
+  // anything they'd need us to provide or change (6 Nov 2026 — lib/applicants/requests): '' unanswered, 'none', 'yes'
+  const [needsAnything, setNeedsAnything] = useState<'' | 'none' | 'yes'>('')
+  const [reqItems, setReqItems] = useState<string[]>([])
+  const [reqOther, setReqOther] = useState('')
 
   // Rent
   const [advertiserRent, setAdvertisedRent] = useState<number | null>(null)
@@ -182,7 +187,7 @@ export default function ApplicantForm() {
       setPreferredStartDate(a.preferred_start_date ?? ''); setPreferredTerm(a.preferred_term ?? '')
       setBio(a.bio ?? ''); setInterests(a.interests ?? ''); setSociability(a.sociability ?? 'flexible')
       setHousePreferences(a.house_preferences ?? ''); setCommunicationStyle(a.communication_style ?? '')
-      setRoomRequirements(a.room_requirements ?? ''); setRoomConditions(a.room_conditions ?? '')
+      setRoomRequirements(a.room_requirements ?? ''); setRoomConditions(a.room_conditions ?? ''); { const rq = a.applicant_profile?.application?.requests; if (rq) { setNeedsAnything(rq.none ? 'none' : 'yes'); setReqItems(rq.items ?? []); setReqOther(rq.other ?? '') } }
       setRentOfferType(a.rent_offer_type === 'below_asking' ? 'below_asking' : 'asking'); setOfferedRent(a.offered_rent ? Number(a.offered_rent) : null)
       if (Array.isArray(a.previous_addresses) && a.previous_addresses.length) setPreviousAddresses(a.previous_addresses)
       if (a.guarantor_needed) setGuarantorNeeded(a.guarantor_needed)
@@ -298,6 +303,16 @@ export default function ApplicantForm() {
     }
 
     // Guarantor: asked of everyone; details needed when they'll use one (students always)
+    if (!needsAnything) {
+      setError(`Please tell us whether you’d need anything provided or changed in ${w.theUnit}`)
+      setLoading(false)
+      return
+    }
+    if (needsAnything === 'yes' && !reqItems.length && !reqOther.trim()) {
+      setError('Please tick or describe what you’d need — or choose “No”')
+      setLoading(false)
+      return
+    }
     const affNow = getAffordability()
     const mustHaveGuarantor = isStudent || affNow.status === 'fail' || affNow.status === 'borderline'
     const needsGuarantorDetails = guarantorNeeded === 'yes' || mustHaveGuarantor
@@ -361,8 +376,7 @@ export default function ApplicantForm() {
           sociability,
           housePreferences,
           communicationStyle,
-          roomRequirements,
-          roomConditions,
+          requests: { items: needsAnything === 'yes' ? reqItems : [], other: needsAnything === 'yes' ? reqOther.trim() : '' },
           rentOfferType,
           advertisedRent: advertiserRent,
           offeredRent: rentOfferType === 'below_asking' ? offeredRent : null,
@@ -395,7 +409,8 @@ export default function ApplicantForm() {
       // Fast-track: go straight to reserve page. Standard: show review first.
       setTimeout(() => {
         // fast-track, or an offer that asked for the holding deposit: straight on to reserve (and its "I've paid" button)
-        if ((fastTrack || result.reserveNext) && roomId && propertyId) {
+        // anything asked for (or a lower offer) is looked at first — never straight to paying (lib/applicants/requests)
+        if ((fastTrack || result.reserveNext) && !result.needsReview && roomId && propertyId) {
           // &a= lets the reserve page's "I've paid" button say who it is
           router.push(`/applicant/reserve?roomId=${roomId}&propertyId=${propertyId}${result.applicantId ? `&a=${result.applicantId}` : ''}`)
         } else {
@@ -408,6 +423,7 @@ export default function ApplicantForm() {
     }
   }
 
+  function needsAnythingReview() { return needsAnything === 'yes' || (rentOfferType === 'below_asking' && !!offeredRent) }
   const wrap = 'mx-auto max-w-6xl px-6 md:px-14'
 
   if (!roomId || !propertyId) {
@@ -427,7 +443,7 @@ export default function ApplicantForm() {
         <section className={`${wrap} py-24`}>
           <p className="pub-serif pub-display pub-enter m-0">Sent.</p>
           <p className="m-0 mt-6 text-[18px] pub-muted">
-            {fastTrack ? `Taking you to secure ${w.theUnit} now…` : 'Thank you — we’ve received your details. Taking you to the next page…'}
+            {fastTrack && !needsAnythingReview() ? `Taking you to secure ${w.theUnit} now…` : needsAnythingReview() ? 'Thank you — we’ll look at what you’ve asked for and come back to you before you pay anything.' : 'Thank you — we’ve received your details. Taking you to the next page…'}
           </p>
         </section>
       </PublicShell>
@@ -648,12 +664,24 @@ export default function ApplicantForm() {
           </Section>
 
           <Section n={5} id="a5" title={`About ${w.thisUnit}`}>
-            <label className="pub-label">What do you need in {whole ? 'your new home' : 'this room'}?
-              <textarea className="pub-input" value={roomRequirements} onChange={e => setRoomRequirements(e.target.value)} placeholder="e.g., natural light, quiet, space for WFH, double bed fit, storage" />
-            </label>
-            <label className="pub-label">Any specific conditions based on what you’ve seen?
-              <textarea className="pub-input" value={roomConditions} onChange={e => setRoomConditions(e.target.value)} placeholder="e.g., needs accommodation for two people, needs to fit my equipment, concerned about noise from street" />
-            </label>
+            <p className="pub-label m-0">Would you need us to provide or change anything in {w.theUnit}? *</p>
+            <div>
+              <Choice on={needsAnything === 'none'} onClick={() => setNeedsAnything('none')}>No — I’m happy with {w.theUnit} as I saw {whole ? 'it' : 'it'}</Choice>
+              <Choice on={needsAnything === 'yes'} onClick={() => setNeedsAnything('yes')}>Yes — there’s something I’d need</Choice>
+            </div>
+            {needsAnything === 'yes' && (
+              <div className="flex flex-col gap-4">
+                <div className="flex flex-wrap gap-2">
+                  {REQUEST_ITEMS.map(i => (
+                    <button key={i.key} type="button" aria-pressed={reqItems.includes(i.key)} onClick={() => setReqItems(reqItems.includes(i.key) ? reqItems.filter(k => k !== i.key) : [...reqItems, i.key])} className={`pub-pill ${reqItems.includes(i.key) ? 'on' : ''}`}>{i.label}</button>
+                  ))}
+                </div>
+                <label className="pub-label">Anything else?
+                  <textarea className="pub-input" value={reqOther} onChange={e => setReqOther(e.target.value.slice(0, 600))} placeholder="e.g., I really need a desk and chair for working from home, or space for a second wardrobe" />
+                </label>
+                <p className="pub-note m-0">We supply our standard furniture. We’ll look at what you’ve asked for and come back to you <strong>before you pay anything</strong> — so your offer comes to us to review first rather than going straight to reserving.</p>
+              </div>
+            )}
           </Section>
 
           <Section n={6} id="a6" title="About the rent">

@@ -11,6 +11,7 @@ import BackButton from '@/app/components/BackButton'
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
 import LineIcon from '@/components/LineIcon'
 import DataProtection from './components/DataProtection'
+import { REQUEST_ITEMS, OK_SETTING } from '@/lib/applicants/requests'
 
 interface Setting {
   key: string
@@ -44,6 +45,19 @@ export default function AdminSettingsPage() {
     const map: Record<string, string> = {}
     for (const s of (json.settings || [])) map[s.key] = s.value
     setSettings(map)
+  }
+
+  // room requests the office is happy to agree without looking first (lib/applicants/requests)
+  const okList: string[] = (() => { try { const v = JSON.parse(settings[OK_SETTING] ?? '[]'); return Array.isArray(v) ? v : [] } catch { return [] } })()
+  async function saveOk(next: string[]) {
+    setSaving(OK_SETTING); setBanner(null)
+    try {
+      const value = JSON.stringify(next)
+      const res = await fetch('/api/admin/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: OK_SETTING, value }) })
+      const j = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(j.error || 'Could not save')
+      setSettings(prev => ({ ...prev, [OK_SETTING]: value }))
+    } catch (e: any) { setBanner({ type: 'err', text: e.message }) } finally { setSaving(null) }
   }
 
   async function saveGrace(v: string) {
@@ -203,6 +217,26 @@ export default function AdminSettingsPage() {
               {[0, 1, 2, 3, 5, 7, 10, 14].map(n => <option key={n} value={String(n)}>{n === 0 ? 'None — overdue on the due date' : `${n} day${n === 1 ? '' : 's'}`}</option>)}
             </select>
             {saving === 'rent_grace_days' && <span className="text-xs text-neutral-400">Saving…</span>}
+          </div>
+        </div>
+
+        {/* ── Room requests on the application form ── */}
+        <div className="bg-white rounded-2xl border border-neutral-200 overflow-hidden mb-lg">
+          <div className="px-lg py-md border-b border-neutral-100">
+            <h2 className="font-bold text-neutral-900 text-base">Room requests</h2>
+            <p className="text-xs text-neutral-500 mt-xs">On the application form, applicants say whether they’d need anything provided or changed. Tick what you’re happy to agree without looking first — an offer asking only for ticked items can still go straight to reserving. Anything else, anything they describe in their own words, and any offer below the asking rent comes to you to review before they can pay.</p>
+          </div>
+          <div className="px-lg py-lg flex flex-wrap gap-sm">
+            {REQUEST_ITEMS.map(i => {
+              const on = okList.includes(i.key)
+              return (
+                <button key={i.key} type="button" disabled={saving === OK_SETTING} onClick={() => saveOk(on ? okList.filter(k => k !== i.key) : [...okList, i.key])}
+                  className={`rounded-full border px-md py-xs text-sm font-semibold ${on ? 'border-emerald-700 bg-emerald-50 text-emerald-800' : 'border-neutral-300 text-neutral-600 hover:bg-neutral-50'}`}>
+                  {on ? '✓ ' : ''}{i.label}
+                </button>
+              )
+            })}
+            <p className="w-full text-xs text-neutral-500">{okList.length ? `Agreed without review: ${REQUEST_ITEMS.filter(i => okList.includes(i.key)).map(i => i.label.replace(/^A /, '')).join(', ')}.` : 'Nothing is agreed without review at the moment — every request comes to you first.'}</p>
           </div>
         </div>
 

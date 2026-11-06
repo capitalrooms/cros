@@ -101,7 +101,10 @@ export async function createIncomingTenancy(sb: SupabaseClient, applicantId: str
     if (existingTenancy) tenancyId = existingTenancy.id
     else {
       const { data: room } = await sb.from('rooms').select('name, is_let_only').eq('id', roomId).maybeSingle()
-      const { data: prop } = await sb.from('properties').select('name, letting_type').eq('id', propertyId).maybeSingle()
+      const { data: prop } = await sb.from('properties').select('name, letting_type, landlord_id').eq('id', propertyId).maybeSingle()
+      // who holds this landlord's deposits, when set (migration 265 — before it runs the column simply isn't there)
+      const { data: ll } = (prop as any)?.landlord_id ? await sb.from('people').select('deposit_held_by_default').eq('id', (prop as any).landlord_id).maybeSingle() : { data: null }
+      const landlordHolds: string | null = (ll as any)?.deposit_held_by_default ?? null
       // the holding deposit is what the register holds for this applicant — never a typed or guessed figure when
       // there's a record (5 Nov 2026: the create-tenancy form pre-filled a week's rent whether or not one was paid)
       const registered = await holdingFor(sb as any, { applicantId: applicant.id })
@@ -119,7 +122,8 @@ export async function createIncomingTenancy(sb: SupabaseClient, applicantId: str
         rent_in_advance: 1,   // Renters' Rights Act: never more than one month's rent in advance
         deposit_amount: body.deposit_amount ?? (rentAmount ? fiveWeeksDeposit(Number(rentAmount)) : null),
         // decided here, at setup: let-only → the landlord, always; managed → the agent unless chosen (lib/tenancy/depositHolder)
-        deposit_held_by: isLetOnly((prop as any)?.letting_type, (room as any)?.is_let_only) ? 'landlord' : (body.deposit_held_by || 'agent'),
+        // the landlord's own setting wins (migration 265), then the usual rule: let only → the landlord, managed → us
+        deposit_held_by: landlordHolds ?? (isLetOnly((prop as any)?.letting_type, (room as any)?.is_let_only) ? 'landlord' : (body.deposit_held_by || 'agent')),
         deposit_scheme_ref: body.deposit_scheme_ref || null,
         // began before your records (Settings › Your records): deposit taken as protected by the previous agent
         deposit_protection_assumed: (body.start_date || applicant.preferred_start_date || today) < (await recordsStart(sb)) && !body.deposit_scheme_ref,

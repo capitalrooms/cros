@@ -4,6 +4,7 @@ import { insertNotifications, tryPush } from '@/lib/serverNotify'
 import { STAFF_ROLES } from '@/lib/portalAuth'
 import { findApplicant, moveToRoom } from '@/lib/lettings/applicantRecord'
 import { sendEmail } from '@/lib/sendEmail'
+import { REQUEST_LABEL, requestsOk, reviewFor, requestsLine } from '@/lib/applicants/requests'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -30,6 +31,13 @@ export async function POST(request: Request) {
       }
     }
 
+    // what they've asked us to provide or change (6 Nov 2026 — lib/applicants/requests): our standard items, or their
+    // own words; anything that isn't on the office's "fine without review" list stops the offer going straight to pay
+    const reqs = {
+      items: (Array.isArray(data.requests?.items) ? data.requests.items : []).map(String).filter((k: string) => REQUEST_LABEL[k]).slice(0, 12),
+      other: String(data.requests?.other ?? '').trim().slice(0, 600),
+    }
+    const asked = data.requests && typeof data.requests === 'object'
     const payload = {
       full_name:            data.fullName,
       salutation:           typeof data.salutation === 'string' ? data.salutation.slice(0, 10) || null : null,
@@ -51,8 +59,8 @@ export async function POST(request: Request) {
       sociability:          data.sociability          || null,
       house_preferences:    data.housePreferences     || null,
       communication_style:  data.communicationStyle   || null,
-      room_requirements:    data.roomRequirements     || null,
-      room_conditions:      data.roomConditions       || null,
+      room_requirements:    (asked ? requestsLine(reqs) : data.roomRequirements) || null,
+      room_conditions:      asked ? null : (data.roomConditions || null),
       advertised_rent:      appliedRent,
       // Renters' Rights Act: no rental bidding — an offer is only kept when it's below the asking rent
       ...(data.rentOfferType === 'below_asking' && Number(data.offeredRent) > 0 && (!appliedRent || Number(data.offeredRent) < Number(appliedRent))
@@ -98,7 +106,11 @@ export async function POST(request: Request) {
 
     // employer and studies (17 Oct 2026 — university and course were asked but never saved). Kept under
     // applicant_profile.application, alongside what the document scans put there (never overwriting those).
+    const belowAsking = (payload as any).rent_offer_type === 'below_asking'
+    const review = reviewFor({ items: reqs.items, other: [reqs.other, asked ? '' : String(data.roomConditions ?? '').trim()].filter(Boolean).join(' · ') }, await requestsOk(supabase as any), belowAsking)
     const application = {
+      ...(asked ? { requests: { items: reqs.items, other: reqs.other || null, none: !reqs.items.length && !reqs.other } } : {}),
+      review: review.review ? { needed: true, reasons: review.reasons, at: new Date().toISOString() } : { needed: false },
       ...(String(data.company ?? '').trim() ? { company: String(data.company).trim().slice(0, 160) } : {}),
       ...(String(data.incomeDetails ?? '').trim() ? { income_details: String(data.incomeDetails).trim().slice(0, 600) } : {}),
       // savings held 3 months+, what the form worked out, and that they checked with their guarantor (6 Nov 2026)
@@ -174,11 +186,13 @@ export async function POST(request: Request) {
         const esc = (v: unknown) => String(v ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!))
         const where = [isWholeLet(null, room?.name) ? '' : room?.name, room?.properties?.name].filter(Boolean).join(', ') || 'a room'
         const app = process.env.NEXT_PUBLIC_APP_URL || 'https://cros-sigma.vercel.app'
-        const fast = data.fastTrack === true || (typeof data.offerToken === 'string' && !!(await supabase.from('offers').select('request_deposit').eq('application_token', data.offerToken).maybeSingle()).data?.request_deposit)
+        const fast = !review.review && (data.fastTrack === true || (typeof data.offerToken === 'string' && !!(await supabase.from('offers').select('request_deposit').eq('application_token', data.offerToken)
+          .maybeSingle()).data?.request_deposit))
         const row = (k: string, v: unknown) => v ? `<tr><td style="padding:4px 0;color:#78716c;width:160px;">${k}</td><td style="padding:4px 0;">${esc(v)}</td></tr>` : ''
-        await sendEmail(to, `${existing ? '✏️ Offer updated' : 'New offer'} — ${data.fullName}, ${where}${fast ? ' (fast-track: reserving next)' : ''}`, `
+        await sendEmail(to, `${existing ? '✏️ Offer updated' : 'New offer'} — ${data.fullName}, ${where}${review.review ? ' — needs your review' : fast ? ' (fast-track: reserving next)' : ''}`, `
           <p>Hello,</p>
           <p><strong>${esc(data.fullName)}</strong> has ${existing ? 'updated their offer' : 'sent their offer'} for <strong>${esc(where)}</strong>${below ? esc(below) : ''}.</p>
+          ${review.review ? `<p style="padding:10px 12px;background:#FEF3C7;border-radius:8px;"><strong>Needs your review before they can pay:</strong> they ${esc(review.reasons.join('; '))}. They’ve been told we’ll come back to them — accept it in Applicants (and send the reserve email) once you’re happy.</p>` : ''}
           ${fast ? '<p>This was a <strong>fast-track</strong> invite, so they’re now being taken to pay the holding deposit. You’ll get a second email, “Holding deposit paid”, if they press I’ve paid.</p>' : '<p>Review it in Applicants, then send the reserve email if you accept.</p>'}
           <table style="width:100%;border-collapse:collapse;margin:8px 0 16px;font-size:14px;">
             ${row('Email', data.email)}${row('Phone', data.phone)}${row('Move in', data.preferredStartDate)}${row('Plans to stay', data.preferredTerm)}${row('Job', data.profession)}
@@ -195,9 +209,9 @@ export async function POST(request: Request) {
     let reserveNext = false
     if (typeof data.offerToken === 'string' && /^[0-9a-f]{20,128}$/i.test(data.offerToken)) {
       const { data: o } = await supabase.from('offers').select('request_deposit').eq('application_token', data.offerToken).maybeSingle()
-      reserveNext = !!(o as any)?.request_deposit
+      reserveNext = !!(o as any)?.request_deposit && !review.review
     }
-    return Response.json({ success: true, applicantId, reserveNext, message: 'Application submitted successfully' }, { status: 201 })
+    return Response.json({ success: true, applicantId, reserveNext, needsReview: review.review, message: 'Application submitted successfully' }, { status: 201 })
   } catch (err) {
     console.error('Error:', err)
     return Response.json({ error: 'Internal server error' }, { status: 500 })
