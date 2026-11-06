@@ -10,6 +10,8 @@ import { buildEmail } from '@/lib/emailWrapper'
 import { THEMES, themeByKey, currentLook, forgetLook, LOOK_SETTING, type EmailLook } from '@/lib/email/themes'
 import { EMAIL_KINDS, AUDIENCES, kindByKey } from '@/lib/email/registry'
 import { samplesFor } from '@/lib/email/samples'
+import { previewFromTemplate, HAS_TEMPLATE } from '@/lib/email/previews'
+import { SENDERS } from '@/lib/email/registry'
 
 export const dynamic = 'force-dynamic'
 
@@ -32,12 +34,15 @@ export async function GET(req: NextRequest) {
   const preview = q.get('preview')
   if (preview) {
     const kind = q.get('kind') ? kindByKey(String(q.get('kind'))) : null
+    // its own template with example details first; then its latest real copy; then a stand-in
+    const fromTemplate = kind ? await previewFromTemplate(kind.key, themeByKey(preview)) : null
+    if (fromTemplate) return new NextResponse(fromTemplate, { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' } })
     const real = kind ? (await samplesFor([kind.key]))[kind.key] : null
     const html = await buildEmail(real ? real.body : sample(kind?.name ?? null), { req, theme: themeByKey(preview), hero: real?.hero ?? undefined })
     return new NextResponse(html, { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' } })
   }
   const real = await samplesFor().catch(() => ({} as Record<string, any>))
-  return NextResponse.json({ examples: Object.fromEntries(Object.entries(real).map(([k, v]) => [k, v.updated_at])), look: await currentLook(), themes: THEMES.map(t => ({ key: t.key, name: t.name, from: t.from, bar: t.bar, page: t.page, rule: t.rule, band: t.band?.bg ?? null })), kinds: EMAIL_KINDS, audiences: AUDIENCES })
+  return NextResponse.json({ senders: SENDERS, templates: [...HAS_TEMPLATE], examples: Object.fromEntries(Object.entries(real).map(([k, v]) => [k, v.updated_at])), look: await currentLook(), themes: THEMES.map(t => ({ key: t.key, name: t.name, from: t.from, bar: t.bar, page: t.page, rule: t.rule, band: t.band?.bg ?? null })), kinds: EMAIL_KINDS, audiences: AUDIENCES })
 }
 
 export async function POST(req: NextRequest) {

@@ -13,7 +13,7 @@ import BackButton from '@/app/components/BackButton'
 import { adminFetch } from '@/lib/adminFetch'
 
 type Theme = { key: string; name: string; from: string; bar: string; page: string; rule: string; band: string | null }
-type Kind = { key: string; name: string; audience: string; when: string; own?: boolean }
+type Kind = { key: string; name: string; audience: string; from: string; when: string }
 type Look = { default: string; schedule: { theme: string; from: string; to: string }[]; perEmail: Record<string, string> }
 
 const card = 'rounded-2xl border border-neutral-200 bg-white p-lg'
@@ -35,7 +35,7 @@ function Preview({ theme, kind, height = 360 }: { theme: string; kind?: string; 
 }
 
 export default function EmailHubPage() {
-  const [d, setD] = useState<{ look: Look; themes: Theme[]; kinds: Kind[]; audiences: string[]; examples: Record<string, string> } | null>(null)
+  const [d, setD] = useState<{ look: Look; themes: Theme[]; kinds: Kind[]; audiences: string[]; senders: string[]; templates: string[]; examples: Record<string, string> } | null>(null)
   const [wall, setWall] = useState<string | null>(null)   // a theme: every email shown in it
   const [look, setLook] = useState<Look | null>(null)
   const [tab, setTab] = useState<'themes' | 'emails'>('themes')
@@ -55,7 +55,9 @@ export default function EmailHubPage() {
 
   const name = (k: string) => d?.themes.find(t => t.key === k)?.name ?? k
   const nowTheme = useMemo(() => { if (!look) return null; const t = today(); return look.schedule.find(s => s.from <= t && t <= s.to)?.theme ?? look.default }, [look])
-  const byAudience = useMemo(() => (d?.audiences ?? []).map(a => ({ a, kinds: (d?.kinds ?? []).filter(k => k.audience === a) })), [d])
+  // grouped by who sends it to whom: "Lettings → Landlords", "Cleaner → Tenants"…
+  const byAudience = useMemo(() => (d?.senders ?? []).flatMap(f => (d?.audiences ?? []).map(a => ({ a: `${f === 'CROS' ? 'Sent by CROS' : f} → ${a}`, kinds: (d?.kinds ?? []).filter(k => k.from === f && k.audience === a) }))).filter(g => g.kinds.length), [d])
+  const source = (k: string) => d?.templates.includes(k) ? 'From its template' : d?.examples?.[k] ? `Real copy from ${new Date(d.examples[k]).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })}` : 'Shows once one has been sent'
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
@@ -127,7 +129,7 @@ export default function EmailHubPage() {
                     const own = look.perEmail[k.key]
                     return (
                       <li key={k.key} className="flex flex-wrap items-center gap-sm py-sm text-sm">
-                        <span className="min-w-[220px] flex-1"><span className="font-semibold text-neutral-900">{k.name}</span><span className="block text-xs text-neutral-500">{k.when}{d.examples?.[k.key] ? ` · example from ${new Date(d.examples[k.key]).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })}` : ' · no example yet'}</span></span>
+                        <span className="min-w-[220px] flex-1"><span className="font-semibold text-neutral-900">{k.name}</span><span className="block text-xs text-neutral-500">{k.when} · {source(k.key)}</span></span>
                         {true ? (
                           <select className={input} value={own ?? ''} disabled={saving}
                             onChange={e => { const per = { ...look.perEmail }; if (e.target.value) per[k.key] = e.target.value; else delete per[k.key]; save({ ...look, perEmail: per }, `${k.name}: ${e.target.value ? name(e.target.value) : `follows the theme for all emails`}.`) }}>
@@ -157,11 +159,11 @@ export default function EmailHubPage() {
               </div>
             </div>
             <div className="overflow-y-auto p-md">
-              <p className="mb-sm text-xs text-neutral-500">{Object.keys(d.examples ?? {}).length} of {d.kinds.length} emails have a real example so far — the rest appear here as they go out.</p>
+              <p className="mb-sm text-xs text-neutral-500">{d.kinds.filter(k => d.templates.includes(k.key) || d.examples?.[k.key]).length} of {d.kinds.length} emails can be shown — the rest appear here as they go out.</p>
               <div className="grid gap-md sm:grid-cols-2 lg:grid-cols-3">
-                {d.kinds.filter(k => d.examples?.[k.key]).map(k => (
+                {d.kinds.filter(k => d.templates.includes(k.key) || d.examples?.[k.key]).map(k => (
                   <div key={k.key} className="space-y-xs">
-                    <p className="text-sm font-semibold text-neutral-900">{k.name} <span className="font-normal text-neutral-500">· {k.audience}</span></p>
+                    <p className="text-sm font-semibold text-neutral-900">{k.name} <span className="font-normal text-neutral-500">· {k.from === 'CROS' ? 'CROS' : k.from} → {k.audience}</span></p>
                     <Preview theme={wall} kind={k.key} height={420} />
                   </div>
                 ))}

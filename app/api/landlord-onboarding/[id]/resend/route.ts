@@ -58,7 +58,7 @@ ${attachments ? `<p style="margin:0 0 16px;font-size:15px;color:#333;line-height
 <p style="margin:0 0 16px;font-size:15px;color:#333;line-height:1.6">If you are providing information for anyone else — a co-owner, a family member or someone you act for — you can add them and their contact details in the form. You can also add other contacts for your account, such as your accountant.</p>
 <p style="margin:24px 0 4px;font-size:15px;color:#333">Kind regards,</p>`
 
-  const { ok, error } = await sendEmail(recipients, 'Your Capital Rooms registration form — link inside', html, { kind: 'landlord-onboarding', req, attachments })
+  const { ok, error } = await sendEmail(recipients, 'Your Capital Rooms registration form — link inside', html, { kind: 'aml-reminder', req, attachments })
   if (!ok) return NextResponse.json({ error: `Email failed: ${error ?? 'unknown'}` }, { status: 502 })
 
   const now = new Date().toISOString()
