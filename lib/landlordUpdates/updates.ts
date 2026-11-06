@@ -300,15 +300,22 @@ export function draftFor(c: UpdateContext, stage: UpdateStage): Draft {
 export const newShareToken = () => randomBytes(18).toString('base64url')
 
 /** The dark band at the top of the email: the property and the tenancy's key terms (lib/landlordUpdates/email). */
-export function headlineFor(c: UpdateContext, stage: UpdateStage): { eyebrow: string; place: string; terms: { label: string; value: string }[] } {
+export function headlineFor(c: UpdateContext, stage: UpdateStage): { eyebrow: string; place: string; lead: string; street: string; sub: string; terms: { label: string; value: string }[] } {
   const money = (n: number) => `£${n.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
   const eyebrow = ({ offer: 'An offer for your review', reserved: 'Applicant secured', referenced: 'References passed', signed_paid: c.letOnly ? 'New let · signed & paid' : 'Tenancy signed', summary: 'Your new tenant' } as Record<UpdateStage, string>)[stage]
+  // "Room 1, 95 Rope Street, London, SE16 7TF" → the street for the headline, the rest underneath
+  const parts = c.place.split(/,\s*/)
+  const roomPart = !c.whole && parts.length > 1 && /^(room|flat|studio|unit)\b/i.test(parts[0]) ? parts.shift()! : ''
+  const street = parts.shift() ?? c.place
+  const rest = parts.filter(x => !/^london$/i.test(x)).join(' ')
+  const lead = ({ offer: 'An offer for', reserved: 'Reserved at', referenced: 'References passed at', signed_paid: 'Your new tenant at', summary: 'Your new tenant at' } as Record<UpdateStage, string>)[stage]
+  const sub = [[roomPart, rest ? `London ${rest}` : ''].filter(Boolean).join(' · '), c.startDate ? `${stage === 'offer' ? 'Hoping to move in' : 'Moving in'} ${long(c.startDate)}` : ''].filter(Boolean).join('\n')
   return {
-    eyebrow, place: c.place,
+    eyebrow, place: c.place, lead, street, sub,
     terms: [
-      ...(c.startDate ? [{ label: stage === 'offer' ? 'Move-in' : 'Start date', value: long(c.startDate) }] : []),
       ...(c.rent ? [{ label: stage === 'offer' ? 'Rent offered' : 'Rent', value: `${money(c.rent)} pcm` }] : []),
       ...(c.deposit && stage !== 'offer' ? [{ label: 'Deposit', value: money(c.deposit) }] : []),
+      ...(c.startDate ? [{ label: stage === 'offer' ? 'Move-in' : 'Start date', value: long(c.startDate) }] : []),
     ],
   }
 }

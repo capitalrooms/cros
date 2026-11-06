@@ -163,7 +163,7 @@ export function senderFooter(sender: EmailSender): string {
  * Wrap body HTML in the Capital Rooms email.
  * Always call via buildEmail() (or sendEmail()) so the right sender's footer is used.
  */
-export function wrapEmail(content: string, biz: BusinessSettings = BUSINESS_DEFAULTS, footerHtml?: string): string {
+export function wrapEmail(content: string, biz: BusinessSettings = BUSINESS_DEFAULTS, footerHtml?: string, hero?: string): string {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -183,8 +183,9 @@ a[x-apple-data-detectors] { color: inherit !important; text-decoration: none !im
 <tr><td align="center">
 <table cellpadding="0" cellspacing="0" role="presentation" style="max-width:600px;width:100%;background:#ffffff;">
   <tr><td bgcolor="#ffffff" style="padding:12px 20px 6px;border-bottom:1px solid #efedea;background:#ffffff;"><img src="${SIGNATURE_ASSET_BASE}/brand/lockup-ink-on-white.png" width="174" alt="${biz.company_name}" style="display:block;border:0;width:174px;max-width:62%;height:auto;"></td></tr>
+  ${hero ? `<tr><td style="padding:0;">${hero}</td></tr>` : ''}
   <tr>
-    <td style="padding:34px 32px 30px;font-family:${BODY_FONT};font-size:14.5px;line-height:1.7;color:#2b2a27;">
+    <td style="padding:${hero ? '0 32px 30px' : '34px 32px 30px'};font-family:${BODY_FONT};font-size:14.5px;line-height:1.7;color:#2b2a27;">
       ${content}
     </td>
   </tr>
@@ -203,10 +204,11 @@ a[x-apple-data-detectors] { color: inherit !important; text-decoration: none !im
  * Pass `req` (or `sender`) so the person who triggered it signs it; with neither, the main administrator does.
  * `signature: false` → company footer instead (e.g. the marketing mailer, which signs itself).
  */
-export async function buildEmail(content: string, opts: { sender?: EmailSender; signature?: boolean; req?: Request | null } = {}): Promise<string> {
+export async function buildEmail(content: string, opts: { sender?: EmailSender; signature?: boolean; req?: Request | null; hero?: string } = {}): Promise<string> {
   const biz = await getBusinessSettings()
-  if (opts.signature === false) return wrapEmail(content, biz)
+  // hero: a full-width band straight under the logo bar (the landlord's new-let email — lib/landlordUpdates/email)
+  if (opts.signature === false) return wrapEmail(content, biz, undefined, opts.hero)
   // the signed-in staff member behind the request signs it (same person as the From address); otherwise the main administrator
   const sender = opts.sender ?? (opts.req ? await senderFor(opts.req) : await defaultSender())
-  return wrapEmail(content, biz, senderFooter(sender))
+  return wrapEmail(content, biz, senderFooter(sender), opts.hero)
 }
