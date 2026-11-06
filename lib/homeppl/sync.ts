@@ -71,7 +71,9 @@ export async function homepplFor(s: SupabaseClient, tenancyId: string): Promise<
 
 export interface BringInResult { copied: string[]; skipped: number; failed: string[]; ticked: string[]; check: HpValidation | null }
 
-export async function bringInFromHomeppl(s: SupabaseClient, tenancyId: string, byEmail: string | null): Promise<BringInResult> {
+/** `ticks: false` — documents only (the catch-up of tenants who've already moved in: their letting-file ticks are
+ *  history, and "passed today" would be untrue). */
+export async function bringInFromHomeppl(s: SupabaseClient, tenancyId: string, byEmail: string | null, o: { ticks?: boolean } = {}): Promise<BringInResult> {
   const { t, email, last } = await tenancyPerson(s, tenancyId)
   if (t.let_cancelled_at) throw new Error('This let fell through — nothing to bring in')
   if (!email || !last) throw new Error('The tenant needs an email address and surname in CROS to find them at Homeppl')
@@ -130,6 +132,7 @@ export async function bringInFromHomeppl(s: SupabaseClient, tenancyId: string, b
   const upd: Record<string, string> = {}
   if (!t.referencing_sent_at) { upd.referencing_sent_at = (check.created || today).slice(0, 10); res.ticked.push('Sent to Homeppl') }
   if (!t.referencing_passed_at && check.status === 'APPROVED' && (!check.guarantor || check.guarantor.status === 'APPROVED')) { upd.referencing_passed_at = today; res.ticked.push('Referencing passed') }
+  if (o.ticks === false) { res.ticked = []; for (const k in upd) delete upd[k] }
   if (Object.keys(upd).length) await s.from('tenancies').update(upd).eq('id', tenancyId)
 
   if (res.copied.length || res.ticked.length)
