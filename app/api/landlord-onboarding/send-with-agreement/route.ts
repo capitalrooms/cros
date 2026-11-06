@@ -184,7 +184,7 @@ export async function POST(req: NextRequest) {
     recipients,
     `Welcome to Capital Rooms — Your ${isLetting ? 'Letting & Rent Collection' : isRC ? 'Rent Collection' : 'Management'} Agreement & Registration Form`,
     bodyHtml,
-    { kind: 'landlord-onboarding',
+    { kind: 'aml-invite-with-agreement',
       req,
       attachments: [
         {

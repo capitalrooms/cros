@@ -58,7 +58,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (b.preview) {
     const check = b.withAgreement ? checkAgreement(f) : null
     if (b.withAgreement && !check?.updated) return NextResponse.json({ error: 'There’s no agreement on file for this landlord — make one on Agreements first.' }, { status: 400 })
-    return NextResponse.json({ to: recipients, subject, html: await buildEmail(body, { kind: 'landlord-onboarding', sender: await senderFor(req) }), attachment: b.withAgreement ? `Capital-Rooms-management-agreement_${String(check!.updated!.properties?.[0] ?? 'Agreement').replace(/[^a-zA-Z0-9]+/g, '-').slice(0, 40)}.pdf` : null })
+    return NextResponse.json({ to: recipients, subject, html: await buildEmail(body, { kind: 'aml-follow-up', sender: await senderFor(req) }), attachment: b.withAgreement ? `Capital-Rooms-management-agreement_${String(check!.updated!.properties?.[0] ?? 'Agreement').replace(/[^a-zA-Z0-9]+/g, '-').slice(0, 40)}.pdf` : null })
   }
 
   let attachments: { filename: string; content: string }[] | undefined
@@ -75,7 +75,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
   }
 
-  const { ok, error } = await sendEmail(recipients, subject, body, { kind: 'landlord-onboarding', req, attachments })
+  const { ok, error } = await sendEmail(recipients, subject, body, { kind: 'aml-follow-up', req, attachments })
   if (!ok) return NextResponse.json({ error: `Email failed: ${error ?? 'unknown'}. Nothing was sent.` }, { status: 502 })
 
   // log it — re-read just before writing so nothing the landlord saved in the meantime is overwritten

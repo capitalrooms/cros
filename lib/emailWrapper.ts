@@ -26,6 +26,7 @@ import { createClient } from '@supabase/supabase-js'
 import { fullSignatureHtml, SIGNATURE_ASSET_BASE } from '@/lib/brand/signature'
 import { THEMES, currentLook, themeFor, type EmailTheme } from '@/lib/email/themes'
 import { keepSample } from '@/lib/email/samples'
+import { previewTheme } from '@/lib/email/previewTheme'
 import { nameDisplayWidth } from '@/lib/brand/nameImage'
 import { defaultSender, senderFor, type EmailSender } from '@/lib/email/sender'
 
@@ -214,9 +215,11 @@ a[x-apple-data-detectors] { color: inherit !important; text-decoration: none !im
 export async function buildEmail(content: string, opts: { sender?: EmailSender; signature?: boolean; req?: Request | null; hero?: string; kind?: string; theme?: EmailTheme } = {}): Promise<string> {
   const [biz, look] = await Promise.all([getBusinessSettings(), currentLook()])
   // the theme: one asked for (the Email hub's previews), else this kind of email's own, a dated one, or the default
-  const theme = opts.theme ?? themeFor(look, opts.kind)
-  // the hub's real-life example of this kind of email (not for its own previews, which pass a theme)
-  if (!opts.theme) keepSample(opts.kind, content, opts.hero)
+  // the Email hub previewing a template (lib/email/previews) sets the theme for everything built inside it
+  const previewing = previewTheme.getStore()
+  const theme = opts.theme ?? previewing ?? themeFor(look, opts.kind)
+  // the hub's real-life example of this kind of email (never a preview)
+  if (!opts.theme && !previewing) keepSample(opts.kind, content, opts.hero)
   // hero: a full-width band straight under the logo bar (the landlord's new-let email — lib/landlordUpdates/email)
   if (opts.signature === false) return wrapEmail(content, biz, undefined, opts.hero, theme)
   // the signed-in staff member behind the request signs it (same person as the From address); otherwise the main administrator

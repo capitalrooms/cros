@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
       email.trim(),
       welcomeSubject,
       welcomePackBodyHtml(full_name_or_name.trim(), formUrl),
-      { kind: 'landlord-onboarding', req }
+      { kind: 'aml-invite', req }
     )
     if (!ok) throw new Error(sendErr ?? 'Email failed')
     emailSent = true

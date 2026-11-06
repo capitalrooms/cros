@@ -71,7 +71,7 @@ for (const f of [...files(join(ROOT, 'app')), ...files(join(ROOT, 'lib'))]) {
     const { text } = argsFrom(src, m.index + m[0].length - 1)
     const line = src.slice(0, m.index).split('\n').length
     const kind = text.match(/\bkind\s*:\s*(['"`])([a-z0-9_-]+)\1/)
-    const dynamic = /\bkind\s*:\s*[^'"`\s]/.test(text) || /\bkind\b\s*[,}]/.test(text)
+    const dynamic = /\bkind\s*:\s*[^'"`\s]/.test(text) || /[{,]\s*kind\s*[,}]/.test(text)   // kind: someVar, or { kind } — not ${kind} in a string
     const preview = /\btheme\s*:/.test(text)
     found.push(`${rel}:${line} ${m[1]} ${kind ? kind[2] : dynamic ? '(from a variable)' : preview ? '(hub preview)' : 'NONE'}`)
     if (kind && !KINDS.has(kind[2])) problems.push(`${rel}:${line} — ${m[1]} names kind '${kind[2]}', which isn't in lib/email/registry.ts`)

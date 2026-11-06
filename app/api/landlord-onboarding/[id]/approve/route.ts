@@ -54,6 +54,7 @@ ${changes}
 <p style="margin:24px 0 4px;font-size:15px;color:#333">Kind regards,</p>`
   const slug = (prop || 'Agreement').replace(/[^a-zA-Z0-9]+/g, '-').slice(0, 40)
   const { ok, error } = await sendEmail(recipients, `Your checks are complete — your final ${kind} agreement`, html, {
+    kind: 'aml-approved',
     req,
     attachments: [{ filename: `Capital-Rooms-${kind === 'management' ? 'Management' : 'Rent-Collection'}-Agreement_${slug}_final.pdf`, content: pdf.toString('base64') }],
   })
