@@ -67,12 +67,13 @@ export default function IcebreakerPage() {
     try {
       const supabase = createClient()
       // Trim blanks so a wiped field doesn't count as answered.
-      const cleaned: IcebreakerAnswers = {}
+      // keep what this page doesn't show (the photo, answers to older questions) — only ours are set or cleared
+      const cleaned: IcebreakerAnswers = { ...answers }
       for (const q of ICEBREAKER_QUESTIONS) {
         const v = (answers[q.id] || '').trim()
-        if (v) cleaned[q.id] = v
+        if (v) cleaned[q.id] = v; else delete cleaned[q.id]
       }
-      const count = Object.keys(cleaned).length
+      const count = Object.keys(cleaned).filter(k => k !== 'photo').length
       const { error: e } = await supabase.from('tenant_icebreakers').upsert(
         {
           person_id: personId,

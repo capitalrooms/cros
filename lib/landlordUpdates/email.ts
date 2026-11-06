@@ -31,6 +31,10 @@ export type Headline = { eyebrow: string; place: string; lead?: string; street?:
 type UpdateEmail = {
   stage: string; message: string; facts: { label: string; value: string }[]; link: string | null; until: string | null
   headline?: Headline | null; statement?: StatementFigures | null; attached?: string[]
+  /** a round photo of the tenant beside "Your tenant" (only if they shared one and the office left it on) */
+  photoUrl?: string | null
+  /** "Meet your new housemate": the card to forward — their photo and what they chose to share */
+  card?: { first: string; photoUrl: string | null; items: { label: string; value: string }[] } | null
 }
 
 /** The full email, in the house wrapper (the sender's signature at the foot). */
@@ -63,16 +67,33 @@ function figures(cells: { label: string; value: string; strong?: boolean }[]): s
 
 // the facts that are checks (a date or a pass), shown with a tick beside the tenant
 const CHECK_LABELS = ['References', 'Right to Rent', 'Agreement signed', 'Move-in money', 'Deposit protection', 'Holding deposit']
-function tenantAndChecks(facts: { label: string; value: string }[]): string {
+const face = (url: string, size: number, alt: string) => `<img src="${esc(url)}" width="${size}" height="${size}" alt="${esc(alt)}" style="display:block;border:0;width:${size}px;height:${size}px;border-radius:${size / 2}px;object-fit:cover;">`
+
+function tenantAndChecks(facts: { label: string; value: string }[], photoUrl?: string | null): string {
   const checks = facts.filter(f => CHECK_LABELS.includes(f.label))
   const about = facts.filter(f => !CHECK_LABELS.includes(f.label))
   const rows = about.map(f => `<tr><td style="padding:5px 10px 5px 0;font-family:${SANS};font-size:12px;color:${MUTED};vertical-align:top;white-space:nowrap;">${esc(f.label)}</td><td style="padding:5px 0;font-family:${SANS};font-size:13px;color:${BODY};vertical-align:top;">${esc(f.value).replace(/\n/g, '<br>')}</td></tr>`).join('')
   const ticks = checks.map(f => `<tr><td valign="top" style="padding:5px 10px 5px 0;width:18px;"><div style="width:18px;height:18px;border-radius:9px;background:${FOREST};color:#FFFFFF;font-family:${SANS};font-size:11px;line-height:18px;text-align:center;">&#10003;</div></td><td style="padding:5px 0;font-family:${SANS};font-size:13px;line-height:1.4;color:${BODY};">${esc(f.label)}<br><span style="color:${MUTED};font-size:12px;">${esc(f.value)}</span></td></tr>`).join('')
-  if (!checks.length) return `<div style="border:1px solid ${LINE};padding:20px 22px;margin:28px 0 0;">${heading('Your tenant')}<table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">${rows}</table></div>`
+  const name = facts.find(f => f.label === 'Full name')?.value ?? ''
+  const title = photoUrl
+    ? `<table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:0 0 10px;"><tr><td style="padding:0 12px 0 0;">${face(photoUrl, 56, name)}</td><td valign="middle">${heading('Your tenant').replace('padding:0 0 12px;', 'padding:0;')}</td></tr></table>`
+    : heading('Your tenant')
+  if (!checks.length) return `<div style="border:1px solid ${LINE};padding:20px 22px;margin:28px 0 0;">${title}<table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">${rows}</table></div>`
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border:1px solid ${LINE};margin:28px 0 0;"><tr>
-    <td valign="top" width="56%" style="padding:20px 18px 18px 22px;">${heading('Your tenant')}<table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">${rows}</table></td>
+    <td valign="top" width="56%" style="padding:20px 18px 18px 22px;">${title}<table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">${rows}</table></td>
     <td valign="top" style="padding:20px 20px 18px;border-left:1px solid ${LINE};background:${CREAM2};">${heading('Checks')}<table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">${ticks}</table></td>
   </tr></table>`
+}
+
+function housemateCardBlock(c: NonNullable<UpdateEmail['card']>): string {
+  const items = c.items.map(i => `<tr><td style="padding:10px 0;border-top:1px solid ${LINE};">
+      <div style="font-family:${SANS};font-size:11.5px;color:${MUTED};padding-bottom:3px;">${esc(i.label)}</div>
+      <div style="font-family:${SERIF};font-size:19px;line-height:1.3;color:${INK};">${esc(i.value)}</div></td></tr>`).join('')
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:${CREAM2};border:1px solid ${LINE};margin:26px 0 0;"><tr><td style="padding:26px 26px 14px;">
+    ${c.photoUrl ? `<div style="padding:0 0 14px;">${face(c.photoUrl, 96, c.first)}</div>` : ''}
+    <div style="font-family:${SERIF};font-size:30px;line-height:1.1;color:${INK};padding:0 0 14px;">Hi, I’m <em style="color:${FOREST};">${esc(c.first)}</em></div>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">${items}</table>
+  </td></tr></table>`
 }
 
 function statementBlock(f: StatementFigures): string {
@@ -131,7 +152,8 @@ export function landlordUpdateBody(o: UpdateEmail, opts: { heroApart?: boolean }
     ${h && !opts.heroApart ? `<div style="margin:0 0 4px;">${hero(h)}</div>` : ''}
     ${cells.length ? figures(cells) : h ? '<div style="height:26px;line-height:26px;">&nbsp;</div>' : ''}
     ${body.map(p).join('')}
-    ${o.facts.length ? tenantAndChecks(o.facts) : ''}
+    ${o.card ? housemateCardBlock(o.card) : ''}
+    ${o.facts.length ? tenantAndChecks(o.facts, o.photoUrl) : ''}
     ${o.statement ? statementBlock(o.statement) : ''}
     ${o.attached?.length ? enclosed(o.attached) : ''}
     ${o.link ? ctaButton(o.stage === 'offer' ? 'Review the offer' : 'View the tenant’s documents', o.link) : ''}
