@@ -11,6 +11,7 @@ import LandlordPlanner from '@/components/LandlordPlanner'
 import PublicShell from '@/components/public/PublicShell'
 import LandlordDocuments from './LandlordDocuments'
 import ExpenseHistory from './ExpenseHistory'
+import UpkeepByArea from './UpkeepByArea'
 import { hiName } from '@/lib/people'
 import { landlordSections, type LandlordSection } from '@/lib/access/landlordSections'
 import LineIcon from '@/components/LineIcon'
@@ -357,6 +358,7 @@ export default function LandlordDashboard() {
 
       {/* their costs by type over the years — e.g. what internet has cost each tax year (5 Nov 2026) */}
       {sections.includes('statements') && <ExpenseHistory asId={viewingAs?.id ?? null} />}
+      {sections.includes('statements') && <UpkeepByArea asId={viewingAs?.id ?? null} />}
 
       {/* account */}
       <section className={`${wrap} flex flex-wrap items-center gap-6 pb-16 pt-16`}>
