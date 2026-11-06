@@ -1,4 +1,5 @@
 'use client'
+import AdvertStudio from '@/components/AdvertStudio'
 import { displayName, nameFields } from '@/lib/people'
 import { isOfficeRole } from '@/lib/access/areas'
 
@@ -1200,27 +1201,7 @@ export default function RoomDashboardPage({
               <div>
                 <h2 className="text-xs font-bold uppercase tracking-widest text-neutral-400 mb-md">Marketing copy</h2>
                 {(room.status === 'available' || room.status === 'on_notice') ? (
-                  <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-lg space-y-md">
-                    {advertBanner && (
-                      <div className="rounded-lg bg-blue-50 border border-blue-200 px-lg py-sm text-sm text-blue-800">{advertBanner}</div>
-                    )}
-                    <div className="flex items-center gap-sm flex-wrap">
-                      <span className="text-xs font-semibold text-neutral-500">Generate:</span>
-                      <button onClick={() => generateAdvert('listing')} disabled={!!generatingAdvert} className="px-md py-xs rounded-lg bg-purple-600 text-white text-xs font-semibold hover:bg-purple-700 disabled:opacity-50 transition">
-                        {generatingAdvert === 'listing' ? 'Drafting…' : 'Advert'}
-                      </button>
-                      <button onClick={() => generateAdvert('group')} disabled={!!generatingAdvert} className="px-md py-xs rounded-lg bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-700 disabled:opacity-50 transition">
-                        {generatingAdvert === 'group' ? 'Drafting…' : 'Group post'}
-                      </button>
-                      {detectedChips.length > 0 && <span className="text-xs text-neutral-400">Uses detected room features</span>}
-                    </div>
-                    <textarea value={advertDraft} onChange={e => setAdvertDraft(e.target.value)} rows={8} placeholder="Generate an advert listing or a quick group post above — then edit and save…" className="w-full rounded-lg border border-neutral-200 px-md py-sm text-sm text-neutral-900 resize-y focus:border-purple-400 focus:ring-2 focus:ring-purple-100 outline-none bg-white" />
-                    {advertDraft !== (room.marketing_description || '') && (
-                      <button onClick={saveAdvert} disabled={savingAdvert} className="text-xs font-semibold text-blue-600 hover:text-blue-800 disabled:opacity-50">
-                        {savingAdvert ? 'Saving…' : 'Save copy →'}
-                      </button>
-                    )}
-                  </div>
+                  <AdvertStudio roomId={roomId} />
                 ) : (
                   <div className="rounded-xl border border-dashed border-neutral-300 bg-neutral-50 p-lg text-center">
                     <p className="text-sm text-neutral-500">Room is occupied — marketing copy activates when status changes to available or on notice.</p>
