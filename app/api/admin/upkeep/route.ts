@@ -4,8 +4,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireStaff } from '@/lib/portalAuth'
 import { createServiceClient } from '@/lib/supabase'
 import { upkeepFor } from '@/lib/property/upkeep'
+import { suggestSplit } from '@/lib/property/splitSuggest'
 
 export const dynamic = 'force-dynamic'
+export const maxDuration = 60
 
 export async function GET(req: NextRequest) {
   if (!(await requireStaff(req))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -20,6 +22,12 @@ export async function POST(req: NextRequest) {
   const who = await requireStaff(req)
   if (!who) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const b = await req.json().catch(() => ({}))
+  // { action: 'suggest', source, lineId, areas: [{key,label}] } → the AI's suggested split (nothing saved)
+  if (b.action === 'suggest') {
+    if (!['expense', 'statement'].includes(b.source) || !Array.isArray(b.areas) || !b.areas.length) return NextResponse.json({ error: 'Which line?' }, { status: 400 })
+    try { return NextResponse.json(await suggestSplit(createServiceClient() as any, b.source, String(b.lineId), b.areas.slice(0, 12))) }
+    catch (e: any) { return NextResponse.json({ error: e?.message ?? 'Couldn’t suggest a split' }, { status: 502 }) }
+  }
   if (!['expense', 'statement'].includes(b.source) || !/^[0-9a-f-]{36}$/i.test(String(b.lineId))) return NextResponse.json({ error: 'Which line?' }, { status: 400 })
   const s = createServiceClient()
   const splits = (Array.isArray(b.splits) ? b.splits : []).map((x: any) => ({ area: String(x.area).slice(0, 40), amount: Math.round(Number(x.amount) * 100) / 100 })).filter((x: any) => x.area && x.amount >= 0)
