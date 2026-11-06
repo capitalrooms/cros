@@ -125,7 +125,7 @@ export async function POST(req: NextRequest) {
     <p style="color:#666;font-size:13px;">This summary was generated from the Capital Rooms property management system. If you have any questions or need to arrange renewals, please don't hesitate to get in touch.</p>
   `
 
-  const html = await emailHtml(emailContent, { req: req })
+  const html = await emailHtml(emailContent, { kind: 'compliance-certs', req: req })
   const subject = oneLine(`Compliance Certificates — ${propertyName}`)
 
   const recipients: { email: string; name: string; type: string }[] = []

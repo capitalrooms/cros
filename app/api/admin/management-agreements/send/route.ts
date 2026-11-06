@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
     ${message ? `<p>${esc(message).replace(/\n/g, '<br>')}</p>` : ''}
     <p>When you’re happy with it, press <strong>“I’ve read it and I’m ready to sign”</strong> on the page and we’ll send it to you to sign online. If anything needs changing, just reply to this email.</p>
     ${ctaButton('Read your agreement', `${PORTAL_URL}/agreement/${token}`)}`,
-    { req, replyTo: caller.email ?? undefined })
+    { kind: 'management-agreement', req, replyTo: caller.email ?? undefined })
   if (!sent.ok) return NextResponse.json({ error: `The email didn’t send: ${sent.error}` }, { status: 502 })
   return NextResponse.json({ ok: true, sentTo: email })
 }

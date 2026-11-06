@@ -75,7 +75,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
     await dispatchChannels(s, tenantIds, { title, body, link: '/tenant/requests' }, 'push_email', null)
   }
   const tellOffice = async (subject: string, lines: string) => {
-    await deliverEmail({ to: [OFFICE_ALERT_EMAIL], subject, html: await buildEmail(`${lines}${officeButton(`/admin/maintenance?ticket=${t.id}`, 'Open this job')}`, { signature: false }) }).catch(() => null)
+    await deliverEmail({ to: [OFFICE_ALERT_EMAIL], subject, html: await buildEmail(`${lines}${officeButton(`/admin/maintenance?ticket=${t.id}`, 'Open this job')}`, { kind: 'office-visit-booked', signature: false }) }).catch(() => null)
   }
 
   if (b.action === 'cancel') {
@@ -106,6 +106,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
     `<p><b>${esc(who)}</b> has ${moved ? `moved their visit from ${esc(before)} to` : 'booked'} <b>${esc(when)}</b> for <b>${esc(t.title)}</b> at ${esc(house)}${job?.roomName ? `, ${esc(job.roomName)}` : ''}.</p><p>They booked it themselves with their booking link (they’re not on the app).</p>`)
   const link = bookingLink(t.id, c.id)
   if (c.phone) await sendSms(c.phone, `Capital Rooms: you're booked for ${when} at ${house} (${t.title}). To move or cancel: ${link}`, { asName: true }).catch(() => null)
-  if (hasRealEmail(c.email)) await sendEmail(c.email, `Booked: ${when} — ${t.title} at ${house}`, `<p>Thanks — you’re booked for <b>${esc(when)}</b>.</p><p><b>${esc(t.title)}</b><br>${esc(job?.propertyAddress ?? house)}${job?.roomName ? `<br>${esc(job.roomName)}` : ''}</p><p>${esc(accessFor(t.location, job?.roomName))}</p><p><a href="${link}">Move or cancel this visit</a></p>`, { signature: false }).catch(() => null)
+  if (hasRealEmail(c.email)) await sendEmail(c.email, `Booked: ${when} — ${t.title} at ${house}`, `<p>Thanks — you’re booked for <b>${esc(when)}</b>.</p><p><b>${esc(t.title)}</b><br>${esc(job?.propertyAddress ?? house)}${job?.roomName ? `<br>${esc(job.roomName)}` : ''}</p><p>${esc(accessFor(t.location, job?.roomName))}</p><p><a href="${link}">Move or cancel this visit</a></p>`, { kind: 'visit-booked', signature: false }).catch(() => null)
   return NextResponse.json({ ok: true, label: when })
 }

@@ -184,7 +184,7 @@ export async function emailInvoice(s: S, v: { number: number; total: number; due
   if (v.clientEmail && isEmail(v.clientEmail)) {
     const r = await sendEmail(v.clientEmail, `Invoice ${v.number} from ${v.tradingName}`,
       `<p>Please find attached invoice <strong>${v.number}</strong> from ${v.tradingName} for <strong>£${Number(v.total).toFixed(2)}</strong>, due ${dueText}.</p>${v.propertyLine ? `<p>Property: ${v.propertyLine}</p>` : ''}<p>Any questions, reply to this email to reach ${v.tradingName}.</p>`,
-      { req, replyTo: v.supplierEmail && isEmail(v.supplierEmail) ? v.supplierEmail : undefined, signature: false, attachments } as any)
+      { kind: 'supplier-invoice', req, replyTo: v.supplierEmail && isEmail(v.supplierEmail) ? v.supplierEmail : undefined, signature: false, attachments } as any)
     clientOk = r.ok; error = r.ok ? null : r.error ?? 'Email failed'
     if (r.ok) sentTo.push(v.clientEmail)
   }
@@ -192,7 +192,7 @@ export async function emailInvoice(s: S, v: { number: number; total: number; due
   if (v.supplierEmail && isEmail(v.supplierEmail) && v.supplierEmail !== v.clientEmail) {
     const r = await sendEmail(v.supplierEmail, `Your copy: invoice ${v.number} — £${Number(v.total).toFixed(2)}`,
       `<p>Here’s your copy of invoice <strong>${v.number}</strong>${clientOk ? ` — it has been emailed to ${v.clientEmail}` : ' — it has NOT been emailed to the client yet'}. Keep it for your records.</p>`,
-      { req, signature: false, attachments } as any)
+      { kind: 'supplier-invoice', req, signature: false, attachments } as any)
     copyOk = r.ok
     if (r.ok) sentTo.push(v.supplierEmail)
   }

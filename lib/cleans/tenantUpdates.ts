@@ -77,7 +77,7 @@ export async function tellTenantsAboutClean(s: SupabaseClient, cleanId: string, 
     const { data: people } = await s.from('people').select('id, email, salutation, first_name, last_name, full_name, notify_by_email').in('id', ids)
     for (const p of (people ?? []) as any[]) {
       if (!p.email || p.notify_by_email === false || /\.invalid$/i.test(p.email)) continue
-      const html = await buildEmail(`<p>${dearLine(p)}</p><p>${msg.body.replace(/\n/g, '<br>')}</p>`, { signature: false })
+      const html = await buildEmail(`<p>${dearLine(p)}</p><p>${msg.body.replace(/\n/g, '<br>')}</p>`, { kind: 'cleaning-update', signature: false })
       const r = await deliverEmail({ to: [p.email], subject: `${msg.title} — ${house}`, html }, { req: req ?? null }).catch(() => null)
       if (r?.ok) sent++
     }

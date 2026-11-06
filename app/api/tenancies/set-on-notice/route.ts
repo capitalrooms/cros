@@ -134,7 +134,7 @@ export async function POST(request: Request) {
     if (emailTenant && tenantEmail) {
       const m = await prepareMoveOut(supabase, { tenancyId, moveOutDate, tenantName, proRataAmount, proRataDays, roomName, propertyAddress })
       const { subject, html } = moveOutEmail({ ...m, formUrl: moveOutUrl(tenancyId) })
-      const res = await deliverEmail({ to: tenantEmail, subject, html: await buildEmail(html, { req: request }) }, { req: request })
+      const res = await deliverEmail({ to: tenantEmail, subject, html: await buildEmail(html, { kind: 'move-out', req: request }) }, { req: request })
       tenantEmailSent = res.ok
       if (!res.ok) console.error('Resend error:', await res.text().catch(() => ''))
       if (tenantEmailSent) {
@@ -178,7 +178,7 @@ export async function POST(request: Request) {
           roomName: roomName || 'Room',
           propertyAddress: propertyAddress || '',
           moveOutDate,
-        }), { req: request })
+        }), { kind: 'cleaner-checkout', req: request })
         const cleanerSubject = cleanerCheckoutTpl?.subject_line
           ? render(cleanerCheckoutTpl.subject_line, {
               room_name: roomName || 'Room',

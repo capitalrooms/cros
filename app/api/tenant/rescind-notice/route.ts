@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
     await deliverEmail({
         to: OFFICE_ALERT_EMAIL,
         subject: oneLine(`Rescind notice request — ${roomName}, ${address}`),
-        html: await buildEmail(rescindBody),
+        html: await buildEmail(rescindBody, { kind: 'office-notice-given' }),
       }).catch(e => console.error('Admin rescind notify failed:', e))
   }
 

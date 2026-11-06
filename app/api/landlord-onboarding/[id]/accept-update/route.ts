@@ -47,6 +47,6 @@ ${changed ? `<p style="margin:0 0 16px;font-size:15px;color:#333;line-height:1.6
 <p style="margin:0 0 16px;font-size:15px;color:#333;line-height:1.6">If anything changes in the meantime — your address, your bank account, or the ownership of a property — just let us know.</p>
 <p style="margin:24px 0 4px;font-size:15px;color:#333">Kind regards,</p>`
   const to = [...new Set([row.email, f.j_contact_email].filter(Boolean).map((e: string) => e.trim().toLowerCase()))]
-  const sent = await sendEmail(to, 'Your details are up to date — thank you', html, { req })
+  const sent = await sendEmail(to, 'Your details are up to date — thank you', html, { kind: 'landlord-onboarding', req })
   return NextResponse.json({ ok: true, addressChanged: !!changed, emailed: sent.ok ? to : [], emailError: sent.ok ? null : sent.error })
 }

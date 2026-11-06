@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
   if (link) {
     await sendEmail(email, 'Your Capital Rooms sign-in link', `
       <p style="margin:0 0 22px;"><a href="${link}" style="display:inline-block;background:#181614;color:#ffffff;text-decoration:none;font-weight:700;padding:12px 22px;border-radius:10px;">Sign in to Capital Rooms</a></p>
-      <p style="margin:0;font-size:13px;color:#57534e;">The link works once and expires within the hour. If you didn’t ask for it, ignore this email.</p>`, { signature: false })
+      <p style="margin:0;font-size:13px;color:#57534e;">The link works once and expires within the hour. If you didn’t ask for it, ignore this email.</p>`, { kind: 'sign-in-link', signature: false })
   }
   return NextResponse.json(SAME)
 }

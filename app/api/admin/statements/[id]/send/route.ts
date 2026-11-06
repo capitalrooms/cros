@@ -46,7 +46,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const message = String(body.message ?? suggestedMessage)
     return NextResponse.json({
       to, subject: suggestedSubject, message: suggestedMessage, from: sender.from,
-      html: await buildEmail(bodyHtml(message), { sender }),
+      html: await buildEmail(bodyHtml(message), { kind: 'landlord-statement', sender }),
       alreadySent: st.sent_at ? { at: st.sent_at, to: st.sent_to } : null,
       invoices: invoiceNames,
       cc: copy.cc, contactPref: copy.pref, contactPrefLabel: CONTACT_PREF_LABEL[copy.pref],
@@ -74,7 +74,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       attachments.push({ filename: name, content: buf.toString('base64') })
     }
   }
-  const res = await sendEmail(to, subject, bodyHtml(message), { req, cc: cc.length ? cc : undefined, attachments })
+  const res = await sendEmail(to, subject, bodyHtml(message), { kind: 'landlord-statement', req, cc: cc.length ? cc : undefined, attachments })
   if (!res.ok) return NextResponse.json({ error: res.error || 'The email could not be sent.' }, { status: 502 })
 
   const { error } = await s.from('landlord_statements').update({ sent_at: new Date().toISOString(), sent_to: to.join(', ') }).eq('id', id)

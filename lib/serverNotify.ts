@@ -201,7 +201,7 @@ async function sendEmailToAll(
         ${esc(content.body).split(/\n{2,}/).map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('')}
         ${content.link ? ctaButton('View details', `${appUrl}${content.link}`) : ''}
         <p style="font-size:12px;color:#78716c;">You can also <a href="${loginUrl}" style="color:#1a1a1a;">sign in to the Capital Rooms app</a> as ${esc(person.email)}.</p>
-      `, { sender })
+      `, { kind: 'app-notification', sender })
       await deliverEmail({ to: [person.email], subject: content.title, html }, { sender })
     }))
 
@@ -286,7 +286,7 @@ export async function tryEmailFallback(
         <a href="${loginUrl}" style="font-size:12px;font-weight:700;color:#0a0a0a;">
           Sign in → ${person.email}
         </a>
-      `)
+      `, { kind: 'app-notification' })
 
       // Fire and forget — don't await individually to avoid slowing the caller
       deliverEmail({ to: [person.email], subject: content.title, html }).catch(() => {})  // never propagate

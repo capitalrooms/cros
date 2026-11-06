@@ -139,7 +139,7 @@ export async function POST(request: NextRequest) {
           ${(() => { const t = repairTarget(ticket as any); return t.tier === 'emergency' ? '' : t.message })()}
           You'll get an email as soon as a time is arranged.
         </p>`
-    const success = await send(reporter.email, subject, await emailHtml(body, { req: request }))
+    const success = await send(reporter.email, subject, await emailHtml(body, { kind: 'job-raised', req: request }))
     if (success) sent.push(reporter.email)
   }
 
@@ -162,7 +162,7 @@ export async function POST(request: NextRequest) {
         <p style="margin-top:20px">
           <strong>Action needed:</strong> Review and approve this request, then assign to a contractor.
         </p>`
-    await send(admin, subject, await emailHtml(body + officeButton(`/admin/maintenance?ticket=${ticketId}`, 'Open this job'), { req: request }))
+    await send(admin, subject, await emailHtml(body + officeButton(`/admin/maintenance?ticket=${ticketId}`, 'Open this job'), { kind: 'office-repairs', req: request }))
     sent.push(admin)
   }
 

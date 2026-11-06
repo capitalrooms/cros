@@ -63,7 +63,7 @@ export async function sendQuoteRequest(s: SupabaseClient, q: QuoteRow, job: Quot
     ${q.message ? `<p style="background:#f5f5f4;border-radius:8px;padding:12px 14px;">${esc(q.message).replace(/\n/g, '<br>')}</p>` : ''}
     ${cta}
     <p>${q.channel === 'email' ? 'Or just reply to this email with your price.' : 'Or reply to this email with your price.'} If you need to see it first, tell us when you could visit.</p>`
-  const res = await sendEmail(q.contractor_email, `Quote request: ${job.title} — ${job.propertyName || job.propertyAddress}`, body, {
+  const res = await sendEmail(q.contractor_email, `Quote request: ${job.title} — ${job.propertyName || job.propertyAddress}`, body, { kind: 'quote-request',
     sender, attachments: [{ filename: pdfName(job), content: pdf.toString('base64') }],
   })
   if (res.ok) await s.from('maintenance_quotes').update({ sent_at: new Date().toISOString() }).eq('id', q.id)
@@ -121,7 +121,7 @@ export async function acceptQuote(s: SupabaseClient, q: QuoteRow, staffPersonId:
       ${q.channel === 'app'
         ? ctaButton('Book a date in the app', `${PORTAL_URL}/contractor/job/${job.id}`)
         : '<p><strong>Reply with the dates you can attend</strong> and we\'ll confirm one and arrange access.</p>'}`
-    emailed = (await sendEmail(q.contractor_email, `Quote accepted: ${job.title} — ${job.propertyName || job.propertyAddress}`, body, { sender })).ok
+    emailed = (await sendEmail(q.contractor_email, `Quote accepted: ${job.title} — ${job.propertyName || job.propertyAddress}`, body, { kind: 'quote-accepted', sender })).ok
   }
   let thanked = 0
   if (opts.thankOthers !== false && job) {
@@ -135,7 +135,7 @@ export async function acceptQuote(s: SupabaseClient, q: QuoteRow, staffPersonId:
         <p>Hi ${esc(firstName(o.contractor_name))},</p>
         <p>Thank you for ${o.status === 'submitted' ? 'pricing' : 'looking at'} <strong>${esc(job.title)}</strong>${where ? ` at ${esc(where)}` : ''}. On this occasion we’ve gone ahead with another quote.</p>
         <p>We appreciate your time and will be in touch about future work.</p>`
-      if ((await sendEmail(o.contractor_email, `Quote: ${job.title} — thank you`, body, { sender })).ok) thanked++
+      if ((await sendEmail(o.contractor_email, `Quote: ${job.title} — thank you`, body, { kind: 'quote-declined', sender })).ok) thanked++
     }
   }
   return { contractorId, emailed, thanked }

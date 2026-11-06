@@ -53,7 +53,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
       ${tableRow('Answer', answer === 'approved' ? 'Happy to go ahead' : 'Not this one')}
       ${note ? tableRow('Their note', esc(note).replace(/\n/g, '<br>')) : ''}
     </table>
-    ${u.applicant_id ? `<p><a href="${PORTAL_URL}/admin/applicants">Open Applicants</a></p>` : ''}`, { signature: false })
+    ${u.applicant_id ? `<p><a href="${PORTAL_URL}/admin/applicants">Open Applicants</a></p>` : ''}`, { kind: 'office-landlord-answer', signature: false })
   await deliverEmail({ to: [...new Set([u.sent_by, 'management@capitalrooms.co.uk'].filter(Boolean))], subject: `Landlord ${answer === 'approved' ? 'approved' : 'declined'}: ${u.subject ?? 'offer'}`, html })
   if (u.tenancy_id) await logTenancyEvent(s, u.tenancy_id, 'landlord_answer', `Landlord ${answer === 'approved' ? 'approved' : 'declined'} the offer${note ? `: ${note}` : ''}`, null)
   return NextResponse.json({ ok: true, answer })

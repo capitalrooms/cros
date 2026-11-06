@@ -126,7 +126,7 @@ export async function POST(request: NextRequest) {
   const emailRes = await deliverEmail({
       to: ACCOUNTS_EMAIL,
       subject: `Property recharge expenses — ${monthLabel}`,
-      html: await buildEmail(emailBody, { req: request }),
+      html: await buildEmail(emailBody, { kind: 'office-expense-report', req: request }),
     }, { req: request })
 
   if (!emailRes.ok) {

@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
 
   if (b.preview) {
     const sender = await senderFor(req)
-    return NextResponse.json({ html: await buildEmail(messageHtml(message), { sender }), from: sender.from })
+    return NextResponse.json({ html: await buildEmail(messageHtml(message), { kind: 'tenancy-agreement', sender }), from: sender.from })
   }
 
   const to = emails(b.to), cc = emails(b.cc).filter(e => !to.includes(e))
@@ -84,7 +84,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: `The documents are too large for one email (${(bytes / 1048576).toFixed(1)} MB). Send them in two batches.` }, { status: 413 })
   }
 
-  const { ok, error } = await sendEmail(to, subject, messageHtml(message), { req, cc, attachments })
+  const { ok, error } = await sendEmail(to, subject, messageHtml(message), { kind: 'tenancy-agreement', req, cc, attachments })
   if (!ok) return NextResponse.json({ error: `The email was not sent: ${error ?? 'unknown error'}` }, { status: 502 })
 
   return NextResponse.json({ ok: true, to, cc, attachments: attachments.map(a => a.filename), sentAt: new Date().toISOString() })

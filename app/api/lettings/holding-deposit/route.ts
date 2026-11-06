@@ -135,7 +135,7 @@ export async function POST(req: NextRequest) {
     if (b.preview) return NextResponse.json({ ...letter, to })
     if (!to) return NextResponse.json({ error: 'No email address for the applicant — send the letter by post and note it on the record.' }, { status: 422 })
     if (!(await getElectedCommsLive())) return NextResponse.json({ error: 'Messages you send are switched off in Settings. Nothing was sent.' }, { status: 409 })
-    const { ok, error } = await sendEmail(to, letter.subject, messageHtml(letter.text), { req })
+    const { ok, error } = await sendEmail(to, letter.subject, messageHtml(letter.text), { kind: 'holding-deposit', req })
     if (!ok) return NextResponse.json({ error: error ?? 'The email didn’t send' }, { status: 502 })
     await s.from('holding_deposits').update({ notice_sent_at: new Date().toISOString(), notice_sent_to: to }).eq('id', h.id)
     return NextResponse.json({ ok: true, to })
@@ -213,7 +213,7 @@ export async function POST(req: NextRequest) {
       else {
         const first = (ctx.applicant as any).last_name ? dearName(ctx.applicant as any) : dearFromText(ctx.applicant.full_name || rec.payer_name)   // "Miss Diafuku" (lib/people)
         const text = `Dear ${first},\n\nThank you for reserving ${ctx.roomName}, ${ctx.propertyName} — we’re so excited to welcome you on board! We have received your holding deposit of ${gbp(Number(rec.amount))} on ${longDate(rec.received_on)}, and the room is now off the market for you.\n\nYour receipt (${rec.hold_no}) is attached — please keep it. It also explains what happens to your holding deposit.\n\nSo, what happens now?\n\n${processGuideText(1)}\n\n${PROCESS_GUIDE_SIGNOFF}`
-        const { ok, error } = await sendEmail(to, `Your holding deposit receipt — ${rec.hold_no}`, messageHtml(text), {
+        const { ok, error } = await sendEmail(to, `Your holding deposit receipt — ${rec.hold_no}`, messageHtml(text), { kind: 'holding-deposit',
           req, attachments: [{ filename: `Holding deposit receipt ${rec.hold_no}.pdf`, content: pdf.toString('base64') }],
         })
         if (ok) {
@@ -234,7 +234,7 @@ export async function POST(req: NextRequest) {
     else if (!subject || !message) result.errors.push('Landlord email not sent: subject or message empty')
     else {
       const facts = (Array.isArray(b.landlord.facts) ? b.landlord.facts : []).filter((f: any) => f && f.label && f.value).slice(0, 30).map((f: any) => ({ label: String(f.label).slice(0, 60), value: String(f.value).slice(0, 400) }))
-      const { ok, error } = await sendEmail(to, subject, facts.length ? landlordUpdateBody({ stage: 'reserved', message, facts, link: null, until: null }) : messageHtml(message), { req })
+      const { ok, error } = await sendEmail(to, subject, facts.length ? landlordUpdateBody({ stage: 'reserved', message, facts, link: null, until: null }) : messageHtml(message), { kind: 'landlord-update-reserved', req })
       if (ok) {
         result.landlord = to.join(', ')
         // counts as the "Room reserved" landlord update, so the letting file doesn't ask for it again (migration 228;

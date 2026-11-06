@@ -124,7 +124,7 @@ export async function sendAccountEmail(s: SupabaseClient, person: AccountPerson,
       + button(link, 'Set up my account')
       + appGuide(person.role)
       + note(`The link works once. If it has expired, go to ${PORTAL_URL}/login and use “Forgot password?”.`)
-      + note('Your browser or phone can save the password for you, so you never need to remember it.', true), { req, signature: false })
+      + note('Your browser or phone can save the password for you, so you never need to remember it.', true), { kind: 'account-setup', req, signature: false })
     return r.ok ? { ok: true, sent: 'invite' } : { ok: false, error: r.error }
   }
 
@@ -136,7 +136,7 @@ export async function sendAccountEmail(s: SupabaseClient, person: AccountPerson,
       : `The Capital Rooms office has sent you a link to choose a new password for ${app}.`)
     + button(link, 'Choose a new password')
     + note('The link works once and expires within the hour. Your current password keeps working until you change it.')
-    + note(by === 'self' ? 'If this wasn’t you, ignore this email — your password stays as it is.' : 'If you weren’t expecting this, you can ignore it.', true), { req, signature: false })
+    + note(by === 'self' ? 'If this wasn’t you, ignore this email — your password stays as it is.' : 'If you weren’t expecting this, you can ignore it.', true), { kind: 'password-reset', req, signature: false })
   return r.ok ? { ok: true, sent: 'reset' } : { ok: false, error: r.error }
 }
 

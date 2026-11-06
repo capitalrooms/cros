@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
     ${location ? `<p style="color:#78716c;margin:0 0 12px;">${location}</p>` : ''}
     ${description ? `<p style="color:#3f3f46;">${description}</p>` : ''}
     <p style="color:#a8a29e;font-size:13px;margin-top:16px;">Open the attached invite to add this to your calendar.</p>
-  `, { req: request })
+  `, { kind: 'calendar-invite', req: request })
 
   const calTpl = await getTemplate('staff-calendar-invite')
   const calSubject = calTpl?.subject_line

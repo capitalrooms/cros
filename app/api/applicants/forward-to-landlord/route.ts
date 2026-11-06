@@ -92,7 +92,7 @@ export async function POST(request: Request) {
     const resendRes = await deliverEmail({
       to:      [landlordEmail],
       subject: `New application: ${displayName(applicant)} — ${roomName}, ${propAddress}`,
-      html:    await emailHtml(body, { req: request }),
+      html:    await emailHtml(body, { kind: 'landlord-new-application', req: request }),
     }, { req: request })
 
     if (!resendRes.ok) {

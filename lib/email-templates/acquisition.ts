@@ -237,5 +237,5 @@ export async function acquisitionEmailHtml(opts: AcquisitionEmailOptions): Promi
 </table>
 </div>`
 
-  return buildEmail(body, { signature: false })
+  return buildEmail(body, { kind: 'landlord-acquisition', signature: false })
 }

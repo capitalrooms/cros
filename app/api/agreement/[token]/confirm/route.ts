@@ -36,6 +36,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
     </table>
     <p>Next: download the PDF and send it for signing (Adobe Sign).</p>
     ${ctaButton('Open agreements', `${PORTAL_URL}/admin/new-business/management-agreement`)}`,
-    { sender: await defaultSender(), signature: false }).catch(() => {})
+    { kind: 'office-agreement-confirmed', sender: await defaultSender(), signature: false }).catch(() => {})
   return NextResponse.json({ ok: true })
 }

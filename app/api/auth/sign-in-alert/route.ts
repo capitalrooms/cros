@@ -61,11 +61,11 @@ export async function POST(req: NextRequest) {
 <tr><td style="padding:3px 14px 3px 0;color:#78716c">Device</td><td>${esc(device)}</td></tr><tr><td style="padding:3px 14px 3px 0;color:#78716c">Near</td><td>${esc(where)}</td></tr></table>
 <p style="margin:0 0 16px;font-size:15px;color:#333;line-height:1.6"><strong>If this was you</strong>, there’s nothing to do.</p>
 <p style="margin:0 0 16px;font-size:15px;color:#333;line-height:1.6"><strong>If it wasn’t you</strong>, change your password straight away at <a href="${SITE}/account">${SITE}/account</a> (or use “Forgot password?” on the sign-in page), and let the office know.</p>`
-  await sendEmail(user.email, 'New sign-in to your Capital Rooms account', html, { signature: false }).catch(() => null)
+  await sendEmail(user.email, 'New sign-in to your Capital Rooms account', html, { kind: 'office-sign-in-alert', signature: false }).catch(() => null)
   {
     const { data: admins } = await svc.from('people').select('email').in('role', ['administrator', 'admin'])
     const to = ((admins ?? []) as { email: string | null }[]).map(a => a.email).filter((e): e is string => !!e && e.toLowerCase() !== user.email!.toLowerCase())
-    if (to.length) await sendEmail(to, `New-device sign-in: ${name}`, `<p style="font-size:15px;color:#333;line-height:1.6">${esc(name)} (${esc(p.role)}) signed in to CROS from a new device: ${esc(device)}, near ${esc(where)}, ${esc(when)}. They have been emailed too. If it wasn’t them, reset their password from People › Office.</p>`, { signature: false }).catch(() => null)
+    if (to.length) await sendEmail(to, `New-device sign-in: ${name}`, `<p style="font-size:15px;color:#333;line-height:1.6">${esc(name)} (${esc(p.role)}) signed in to CROS from a new device: ${esc(device)}, near ${esc(where)}, ${esc(when)}. They have been emailed too. If it wasn’t them, reset their password from People › Office.</p>`, { kind: 'office-sign-in-alert', signature: false }).catch(() => null)
   }
   return NextResponse.json({ ok: true, alerted: true })
 }

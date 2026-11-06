@@ -41,7 +41,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ ten
   const sender = await senderFor(req)
 
   if (action === 'preview') {
-    const html = await buildEmail(packEmailHtml(ctx, docs, packLink('your-private-link'), message), { sender })
+    const html = await buildEmail(packEmailHtml(ctx, docs, packLink('your-private-link'), message), { kind: 'move-in-pack', sender })
     return NextResponse.json({ html, from: sender.from, subject: defaultPackSubject(ctx) })
   }
   if (!['link', 'test', 'send'].includes(action)) return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
@@ -109,7 +109,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ ten
   if (action === 'link') return NextResponse.json({ ok: true, link, packId })
 
   const subject = String(b.subject || '').trim() || defaultPackSubject(ctx)
-  const res = await sendEmail(to, action === 'test' ? `[TEST] ${subject}` : subject, packEmailHtml(ctx, docs, link, message), {
+  const res = await sendEmail(to, action === 'test' ? `[TEST] ${subject}` : subject, packEmailHtml(ctx, docs, link, message), { kind: 'move-in-pack',
     req, cc: action === 'send' && cc.length ? cc : undefined,
     attachments: Object.entries(generated).map(([key, pdf]) => ({ filename: packFileName(ctx, key as GeneratedKey), content: pdf!.toString('base64') })),
   })

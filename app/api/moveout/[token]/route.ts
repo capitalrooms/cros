@@ -87,7 +87,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
       card('Their answers', facts(rows), 'mint'),
       answers.issues ? card('Anything broken or not working', `<p style="margin:0">${esc(answers.issues)}</p>`) : '',
       answers.other ? card('Anything else', `<p style="margin:0">${esc(answers.other)}</p>`) : '',
-    ].join(''), { signature: false })
+    ].join(''), { kind: 'office-move-out-form', signature: false })
     await deliverEmail({ to: [biz.email], subject: `Move-out form — ${who}, ${place}${hours ? ` · cleaner ${hours}h` : ''}`, html }, { req })
   } catch (e) { console.error('move-out form: office email failed', e) }
   return NextResponse.json({ ok: true, savedAt: now })

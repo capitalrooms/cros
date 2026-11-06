@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
 
   if (b.preview) {
     const sender = await senderFor(req)
-    return NextResponse.json({ html: await buildEmail(messageHtml(message), { sender }), from: sender.from })
+    return NextResponse.json({ html: await buildEmail(messageHtml(message), { kind: 'letter', sender }), from: sender.from })
   }
 
   const to = emails(b.to), cc = emails(b.cc).filter(e => !to.includes(e))
@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
     const { data: file, error: dlErr } = await db.storage.from(DOCS_BUCKET).download((doc as any).storage_path)
     if (dlErr || !file) return NextResponse.json({ error: 'The saved PDF could not be opened. Nothing was sent.' }, { status: 500 })
     const filename = fileNameFor(doc as GeneratedDocument)
-    const sent = await sendEmail(to, subject, await bodyWithReceipts(message, (doc as any).id), { req, cc, attachments: [{ filename, content: Buffer.from(await file.arrayBuffer()).toString('base64') }] })
+    const sent = await sendEmail(to, subject, await bodyWithReceipts(message, (doc as any).id), { kind: 'letter', req, cc, attachments: [{ filename, content: Buffer.from(await file.arrayBuffer()).toString('base64') }] })
     if (!sent.ok) return NextResponse.json({ error: `The email was not sent: ${sent.error ?? 'unknown error'}` }, { status: 502 })
     await markEmailed((doc as any).id, to)
     return NextResponse.json({ ok: true, to, cc, attachment: filename, sentAt: new Date().toISOString() })
@@ -96,7 +96,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Could not create the invoice. Nothing was sent.' }, { status: 500 })
     }
     const invoiceFile = `Invoice ${input.invoiceNumber}.pdf`
-    const sent = await sendEmail(to, subject, await bodyWithReceipts(message, b.documentId), { req, cc, attachments: [{ filename: invoiceFile, content: invoicePdf.toString('base64') }] })
+    const sent = await sendEmail(to, subject, await bodyWithReceipts(message, b.documentId), { kind: 'letter', req, cc, attachments: [{ filename: invoiceFile, content: invoicePdf.toString('base64') }] })
     if (!sent.ok) return NextResponse.json({ error: `The email was not sent: ${sent.error ?? 'unknown error'}` }, { status: 502 })
     await markEmailed(b.documentId, to)
     return NextResponse.json({ ok: true, to, cc, attachment: invoiceFile, sentAt: new Date().toISOString() })
@@ -116,7 +116,7 @@ export async function POST(req: NextRequest) {
   }
 
   const filename = letterFileName(letter)
-  const { ok, error: sendError } = await sendEmail(to, subject, await bodyWithReceipts(message, b.documentId), {
+  const { ok, error: sendError } = await sendEmail(to, subject, await bodyWithReceipts(message, b.documentId), { kind: 'letter',
     req, cc, attachments: [{ filename, content: pdf.toString('base64') }],
   })
   if (!ok) return NextResponse.json({ error: `The email was not sent: ${sendError ?? 'unknown error'}` }, { status: 502 })

@@ -103,7 +103,7 @@ export async function POST(request: Request) {
             <li>Start their referencing on <strong>Homeppl</strong>.</li>
             <li>The agreement needs signing within 15 days of the deposit — by about <strong>${due}</strong> — unless a later date is agreed in writing.</li>
           </ol>
-          <p><a href="${app}/admin/applicants" style="display:inline-block;background:#1a1a1a;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:700;">Open Applicants</a></p>`)
+          <p><a href="${app}/admin/applicants" style="display:inline-block;background:#1a1a1a;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:700;">Open Applicants</a></p>`, { kind: 'office-deposit-paid' })
       }
     } catch (e) { console.error('confirm-deposit: office email failed', e) }
 

@@ -115,7 +115,7 @@ export async function POST(request: NextRequest) {
 
   async function buildViewingEmail(tenantName: string, roomOrAtProperty: string): Promise<string> {
     const vars = { tenant_name: tenantName, when, room_name: roomName ?? '', property_name: propertyName, property_name_address: propertyNameAddress, room_or_at_property: roomOrAtProperty }
-    if (tenantTpl) return await emailHtml(render(tenantTpl.template_text, vars), { req: request })
+    if (tenantTpl) return await emailHtml(render(tenantTpl.template_text, vars), { kind: 'appointment-booked', req: request })
     return await emailHtml(`
       <h2 style="margin:0 0 18px;font-size:22px">Viewing Scheduled</h2>
       <p style="margin:0 0 12px;font-size:16px">Hi ${tenantName},</p>
@@ -131,7 +131,7 @@ export async function POST(request: NextRequest) {
         </table>
       </div>
       <p style="margin:0;color:#78716c;font-size:14px">Please keep shared areas tidy during this time. Thank you!</p>
-    `, { req: request })
+    `, { kind: 'appointment-booked', req: request })
   }
 
   // Only send tenant notifications for viewing appointments

@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
 
         <p style="margin-top:20px;padding:12px;background:#fafaf9;border-radius:8px;font-size:14px;color:#78716c">
           The contractor has marked this job complete — see their photos, notes and price on the job.
-        </p>${officeButton(`/admin/maintenance?ticket=${ticketId}`, 'Open this job')}`, { req: request })
+        </p>${officeButton(`/admin/maintenance?ticket=${ticketId}`, 'Open this job')}`, { kind: 'office-repairs', req: request })
     )
     sent.push(admin)
   }
@@ -134,7 +134,7 @@ export async function POST(request: NextRequest) {
           </div>
 
           <p style="margin:0;color:#78716c;font-size:14px">If you have any questions, please contact us.</p>
-        `, { req: request })
+        `, { kind: 'job-completed', req: request })
       )
       sent.push(tenancy.people.email)
     }
@@ -175,7 +175,7 @@ export async function POST(request: NextRequest) {
               </div>
 
               <p style="margin:0;color:#78716c;font-size:14px">Thank you for your patience.</p>
-            `, { req: request })
+            `, { kind: 'job-completed', req: request })
           )
           sent.push(tenancy.people.email)
         }

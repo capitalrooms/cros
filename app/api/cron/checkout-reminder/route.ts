@@ -106,7 +106,7 @@ export async function GET(req: Request) {
       button(moveOutUrl(t.id), 'Open my move-out form'),
       card('Before you hand back the keys', checklist(moveOutChecklist(whole))),
       paraHtml(`Any questions, just reply to this email or call ${vars.contact_phone}.`),
-    ].join('\n'))
+    ].join('\n'), { kind: 'move-out' })
 
     const res = await deliverEmail({ to: email, subject, html })
 

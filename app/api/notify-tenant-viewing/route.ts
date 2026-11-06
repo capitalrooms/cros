@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
           <p style="color:#78716c;font-size:14px;margin:20px 0 0 0">
             If you have any questions, please get in touch.
           </p>
-        `, { req: request })
+        `, { kind: 'tenant-viewing-notice', req: request })
       )
       if (success) sent.push(tenancy.people.email)
     }
@@ -107,7 +107,7 @@ export async function POST(request: NextRequest) {
             <p style="color:#78716c;font-size:14px;margin:20px 0 0 0">
               Thank you for your understanding. If you have questions, please contact us.
             </p>
-          `, { req: request })
+          `, { kind: 'tenant-viewing-notice', req: request })
         )
         if (success) sent.push(tenancy.people.email)
       }

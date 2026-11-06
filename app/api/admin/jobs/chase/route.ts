@@ -93,7 +93,7 @@ export async function POST(req: NextRequest) {
     r.inApp = !error
     r.push = await sendServerPush({ personId: j.contractorId, title: 'Update needed', body: text, url: link, tag: `chase-${j.id}` })
     if (b.email && j.contractorEmail) {
-      const sent = await sendEmail(j.contractorEmail, `Update needed: ${j.title}`, messageHtml(`${text}\n\nOpen the job: ${origin}${link}`), { req })
+      const sent = await sendEmail(j.contractorEmail, `Update needed: ${j.title}`, messageHtml(`${text}\n\nOpen the job: ${origin}${link}`), { kind: 'job-chase', req })
       if (sent.ok) r.email = j.contractorEmail; else r.error = `Email not sent: ${sent.error ?? 'unknown error'}`
     }
     // keep a record on the job itself

@@ -160,7 +160,7 @@ export async function GET(req: NextRequest) {
     await deliverEmail({
         to: ['harry@capitalrooms.co.uk'],
         subject: `Counter-offer: ${firstName} has matched the asking rent — ${roomName}`,
-        html: await emailHtml(notifyBody, { req: req }),
+        html: await emailHtml(notifyBody, { kind: 'office-counter-offer', req: req }),
       }, { req: req }).catch(e => console.error('Counter-offer notify failed:', e))
   }
 

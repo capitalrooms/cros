@@ -117,7 +117,7 @@ export async function tellTenant(s: SupabaseClient, tenancyId: string, o: { emai
   if (!o.email && !o.text) throw new Error('Choose email, text or both.')
   const msg = tenantMessage(pos, o.extra)
   const sent: string[] = []
-  if (o.email) { const r = await sendEmail(p.email, msg.subject, msg.html, { req: o.req }); if (!r.ok) throw new Error(`The email didn’t send: ${r.error}`); sent.push('email') }
+  if (o.email) { const r = await sendEmail(p.email, msg.subject, msg.html, { kind: 'rent-due', req: o.req }); if (!r.ok) throw new Error(`The email didn’t send: ${r.error}`); sent.push('email') }
   if (o.text) { const r = await sendSms(p.phone, msg.sms); if (r.ok) sent.push('text'); else if (!sent.length) throw new Error(`The text didn’t send: ${r.error}`) }
   const open = pos.months.filter(m => m.outstanding > 0.005)
   for (const m of open) await audit(s, { rent_charge_id: m.chargeId, action: 'tenant_told', by: o.by.personId, new: { owed: pos.owed, by: sent }, note: `Tenant told ${gbp(pos.owed)} is still due (${sent.join(' and ')})` })

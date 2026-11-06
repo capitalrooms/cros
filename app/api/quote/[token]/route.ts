@@ -83,7 +83,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
         ${notes ? tableRow('Notes', esc(notes).replace(/\n/g, '<br>')) : ''}
       </table>
       ${ctaButton('Compare quotes', `${PORTAL_URL}/admin/maintenance?ticket=${job.id}`)}`,
-      { sender: await defaultSender(), signature: false }).catch(() => {})
+      { kind: 'office-quote-received', sender: await defaultSender(), signature: false }).catch(() => {})
   }
   return NextResponse.json({ ok: true })
 }

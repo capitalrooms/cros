@@ -45,7 +45,7 @@ async function remind(req: NextRequest, s: ReturnType<typeof svc>, packId: strin
     if (file) attachments.push({ filename: packFileName(ctx, d.key as GeneratedKey), content: Buffer.from(await file.arrayBuffer()).toString('base64') })
   }
   const biz = await fetchPDFBizSettings()
-  const res = await sendEmail(to, packReminderSubject(ctx), packReminderHtml(ctx, packLink(pack.token), { sentAt: pack.sent_at, opened: !!pack.first_viewed_at, phone: biz.phone }), { req, attachments })
+  const res = await sendEmail(to, packReminderSubject(ctx), packReminderHtml(ctx, packLink(pack.token), { sentAt: pack.sent_at, opened: !!pack.first_viewed_at, phone: biz.phone }), { kind: 'move-in-pack', req, attachments })
   if (!res.ok) return NextResponse.json({ error: res.error || 'The reminder could not be sent.' }, { status: 502 })
   await s.from('tenancy_pack_events').insert({ pack_id: packId, event: 'sent', document_key: `reminder:${to.join(', ')}` })
   return NextResponse.json({ ok: true, sentTo: to })

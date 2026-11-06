@@ -117,7 +117,7 @@ export async function POST(req: NextRequest) {
     </p>
   `
 
-  const html = await buildEmail(body, { req: req })
+  const html = await buildEmail(body, { kind: 'tenant-welcome', req: req })
 
   // Check for DB-editable subject
   const tpl = await getTemplate('tenant-portal-invite')

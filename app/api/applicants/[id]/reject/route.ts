@@ -111,7 +111,7 @@ export async function POST(req: NextRequest, { params: paramsPromise }: { params
     </p>
   `
 
-  const fullHtml = await emailHtml(`${bodyHtml}${ctaSection}${gdprFooter}`, { req: req })
+  const fullHtml = await emailHtml(`${bodyHtml}${ctaSection}${gdprFooter}`, { kind: 'application-declined', req: req })
 
   // Send via Resend
   const resendKey = process.env.RESEND_API_KEY

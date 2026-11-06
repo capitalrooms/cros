@@ -105,7 +105,7 @@ export async function POST(req: NextRequest) {
     </p>
   `
 
-  const html = await buildEmail(body, { req: req })
+  const html = await buildEmail(body, { kind: 'landlord-invite', req: req })
 
   const landlordTpl = await getTemplate('landlord-portal-invite')
   const landlordSubject = landlordTpl?.subject_line

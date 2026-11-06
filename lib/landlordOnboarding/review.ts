@@ -314,6 +314,6 @@ export async function notifyOfficeOfSubmission(onboardingId: string, review: Aut
      ${level ? `<p style="margin:0 0 4px;font-size:15px"><strong>Suggested risk: <span style="color:${colour}">${level.toUpperCase()}</span></strong></p><p style="margin:0 0 10px;font-size:12px;color:#777">An automatic first pass from the documents and the UK Sanctions List — you confirm the level.</p>` : '<p>The automatic checks couldn’t run — open the record to run them.</p>'}
      ${reasons ? `<ul style="margin:0 0 14px;padding-left:18px;font-size:14px;color:#333">${reasons}</ul>` : ''}
      <p style="margin:0 0 14px;font-size:14px;color:#333">Each point is explained, with its source, on the review page. Look at the documents, record anything you’ve checked yourself (including meeting them in person), confirm the risk level, then download the AML report.</p>
-     <p><a href="${base}/admin/new-business/onboarding/${onboardingId}" style="display:inline-block;background:#111;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;font-size:14px">Open the review</a></p>`,
+     <p><a href="${base}/admin/new-business/onboarding/${onboardingId}" style="display:inline-block;background:#111;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;font-size:14px">Open the review</a></p>`, { kind: 'office-aml-review' },
   )
 }

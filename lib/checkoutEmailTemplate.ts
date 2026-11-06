@@ -126,5 +126,5 @@ export async function buildCheckoutEmail(data: CheckoutEmailData, sender?: Email
 </div>
 `
 
-  return buildEmail(body, { sender })
+  return buildEmail(body, { kind: 'move-out', sender })
 }

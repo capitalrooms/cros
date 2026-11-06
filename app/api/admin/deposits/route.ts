@@ -130,7 +130,7 @@ export async function PUT(req: NextRequest) {
   if (b.preview) return NextResponse.json(rc)
   if (!rc.to) return NextResponse.json({ error: 'No email address for the tenant.' }, { status: 422 })
   if (!(await getElectedCommsLive())) return NextResponse.json({ error: 'Messages you send are switched off in Settings. Nothing was sent.' }, { status: 409 })
-  const { ok, error } = await sendEmail(rc.to, rc.subject, messageHtml(rc.text), { req })
+  const { ok, error } = await sendEmail(rc.to, rc.subject, messageHtml(rc.text), { kind: 'deposit-receipt', req })
   if (!ok) return NextResponse.json({ error: error ?? 'The email didn’t send' }, { status: 502 })
   await logTenancyEvent(s as any, String(b.tenancyId), 'move_in_receipt', `Move-in receipt emailed to ${rc.to}`, admin.email)
   return NextResponse.json({ ok: true, to: rc.to })

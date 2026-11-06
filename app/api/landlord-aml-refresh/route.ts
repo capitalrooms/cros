@@ -177,5 +177,5 @@ async function amlRefreshHtml(name: string, formUrl: string, req?: Request): Pro
   This communication is sent in accordance with our regulatory obligations and is not marketing material.
 </p>`
 
-  return buildEmail(body, { req })
+  return buildEmail(body, { kind: 'landlord-aml-refresh', req })
 }

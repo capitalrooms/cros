@@ -70,7 +70,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         data.email,
         'Capital Rooms — Verification Complete',
         approvalEmailBody(data.full_name ?? data.name),
-        { req }
+        { kind: 'landlord-onboarding', req }
       )
     } catch {
       // Non-fatal — row is already updated

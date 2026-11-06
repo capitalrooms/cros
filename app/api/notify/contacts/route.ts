@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
     if (wantEmail && r.email) {
       if (!isEmail(r.email)) row.email = 'not a valid address'
       else {
-        const e = await sendEmail(r.email, subject || 'A message from Capital Rooms', messageHtml(`Hi ${hi},\n\n${message}`), { req })
+        const e = await sendEmail(r.email, subject || 'A message from Capital Rooms', messageHtml(`Hi ${hi},\n\n${message}`), { kind: 'quick-message', req })
         row.email = e.ok ? 'sent' : (e.error || 'failed')
       }
     }

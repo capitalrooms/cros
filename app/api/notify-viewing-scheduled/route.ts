@@ -165,7 +165,7 @@ export async function POST(request: NextRequest) {
       `
     // straight to the room's page (its viewings, applicants and messages) — or the diary if there's no room
     const viewingLink = viewing.room_id && (viewing.rooms as any)?.property_id ? officeButton(`/admin/properties/${(viewing.rooms as any).property_id}/rooms/${viewing.room_id}`, 'Open the room') : officeButton('/lettings/viewings', 'Open the viewings')
-    await send(admin, adminSubject, await emailHtml(adminBody + viewingLink, { req: request }))
+    await send(admin, adminSubject, await emailHtml(adminBody + viewingLink, { kind: 'office-viewings', req: request }))
     sent.push(admin)
   }
 
@@ -183,7 +183,7 @@ export async function POST(request: NextRequest) {
 
   async function buildTenantViewingEmail(tenantName: string, roomOrProperty: string): Promise<string> {
     const tenantVars = { ...viewingVars, tenant_name: tenantName, room_or_at_property: roomOrProperty }
-    if (tenantTpl) return await emailHtml(render(tenantTpl.template_text, tenantVars), { req: request })
+    if (tenantTpl) return await emailHtml(render(tenantTpl.template_text, tenantVars), { kind: 'tenant-viewing-notice', req: request })
     return await emailHtml(`
       <h2 style="margin:0 0 18px;font-size:22px">Viewing Scheduled</h2>
       <p style="margin:0 0 12px;font-size:16px">Hi ${tenantName},</p>
@@ -199,7 +199,7 @@ export async function POST(request: NextRequest) {
         </table>
       </div>
       <p style="margin:0;color:#78716c;font-size:14px">Please keep your shared areas tidy during this time. Thank you!</p>
-    `, { req: request })
+    `, { kind: 'tenant-viewing-notice', req: request })
   }
 
   // Send to tenant IN this room: "A viewing has been booked on your room"

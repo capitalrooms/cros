@@ -155,7 +155,7 @@ export async function POST(request: NextRequest) {
         <p style="margin-top:20px;padding:12px;background:#fafaf9;border-radius:8px;font-size:14px">
           <span style="color:#78716c">Reported by tenant:</span><br>${ticket.title}
         </p>
-        <p style="color:#78716c;font-size:13px">Add the attached invite to your calendar.</p>${officeButton(`/admin/maintenance?ticket=${ticketId}`, 'Open this job')}`, { req: request }),
+        <p style="color:#78716c;font-size:13px">Add the attached invite to your calendar.</p>${officeButton(`/admin/maintenance?ticket=${ticketId}`, 'Open this job')}`, { kind: 'office-visit-booked', req: request }),
       true
     )
   }
@@ -193,7 +193,7 @@ export async function POST(request: NextRequest) {
 
         <p style="color:#78716c;font-size:13px">
           The calendar invite attached will add this to your diary.
-        </p>`, { req: request }),
+        </p>`, { kind: 'contractor-message', req: request }),
       true
     )
   }
@@ -226,7 +226,7 @@ export async function POST(request: NextRequest) {
         </p>
         <p style="color:#78716c;font-size:13px">
           Capital Rooms is managing this on your behalf — nothing is needed from you.
-        </p>`, { req: request }),
+        </p>`, { kind: 'visit-booked', req: request }),
       false
     )
   }

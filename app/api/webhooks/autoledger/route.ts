@@ -153,7 +153,7 @@ async function alertFailed(subject: string, files: string[], why: string) {
     const primary = ((admins ?? []) as any[]).find(a => String(a.email || '').endsWith('@capitalrooms.co.uk') && !String(a.email).includes('+test')) ?? (admins ?? [])[0]
     if (primary) await supabase.from('notifications').insert({ user_id: primary.id, title: 'Statement not imported', body: `${what}: ${why}`, type: 'statement', link: '/admin/statements', read: false })
     await sendEmail('harry@capitalrooms.co.uk', oneLine(`AutoLedger: not imported — ${subject || 'statement'}`),
-      `<p>This emailed statement was <strong>not imported</strong>:</p><p><strong>${what.replace(/</g, '&lt;')}</strong></p><p>${why}</p><p>Please send it again to statements@ (forward the original email with its PDF attached).</p>`, { signature: false }).catch(() => null)
+      `<p>This emailed statement was <strong>not imported</strong>:</p><p><strong>${what.replace(/</g, '&lt;')}</strong></p><p>${why}</p><p>Please send it again to statements@ (forward the original email with its PDF attached).</p>`, { kind: 'office-autoledger', signature: false }).catch(() => null)
   } catch (e) { console.warn('AutoLedger: failure alert failed', e) }
 }
 
@@ -558,7 +558,7 @@ Respond with JSON only in this exact shape:
       const primary = ((admins ?? []) as any[]).find(a => String(a.email || '').endsWith('@capitalrooms.co.uk') && !String(a.email).includes('+test')) ?? (admins ?? [])[0]
       if (!quiet) {
         if (primary) await supabase.from('notifications').insert({ user_id: primary.id, title: `Statement already imported — skipped`, body: `${what} was already imported on ${when}. Nothing was added twice.`, type: 'statement', link: '/admin/statements', read: false })
-        await sendEmail('harry@capitalrooms.co.uk', oneLine(`AutoLedger: already imported — ${what}`), `<p>This statement was already imported on ${when}, so it was <strong>not added again</strong>:</p><p><strong>${what}</strong></p><p>Nothing to do — this is just to let you know the copy was rejected.</p>`, { signature: false }).catch(() => null)
+        await sendEmail('harry@capitalrooms.co.uk', oneLine(`AutoLedger: already imported — ${what}`), `<p>This statement was already imported on ${when}, so it was <strong>not added again</strong>:</p><p><strong>${what}</strong></p><p>Nothing to do — this is just to let you know the copy was rejected.</p>`, { kind: 'office-autoledger', signature: false }).catch(() => null)
       }
       return { outcome: 'already', detail: `${what} is already in CROS — not added again` }
     }
@@ -1075,7 +1075,7 @@ Respond with JSON only in this exact shape:
   <tr><td style="padding:8px;color:#555">Duplicates skipped</td><td style="padding:8px">${duplicates}</td></tr>
 </table>
 ${inserted > 0 ? `<a href="https://cros-sigma.vercel.app/admin/expense-review" style="display:inline-block;background:#86284a;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold">Review in CROS →</a>` : ''}`
-    const notifyHtml = await buildEmail(notifyBody)
+    const notifyHtml = await buildEmail(notifyBody, { kind: 'office-autoledger' })
     await deliverEmail({
       to: ['harry@capitalrooms.co.uk'],
       subject: oneLine(`AutoLedger: ${inserted} expenses imported — ${property!.name || property!.address}`),
