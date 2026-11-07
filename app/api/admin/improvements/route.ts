@@ -11,6 +11,8 @@ import { sendEmail } from '@/lib/sendEmail'
 import { messageHtml } from '@/lib/email/messageHtml'
 import { draftImprovements } from '@/lib/house/improvements'
 import { redesign, redesignReady, designLinks } from '@/lib/house/redesign'
+import { createProposal } from '@/lib/house/proposals'
+import { dearName } from '@/lib/people'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 300   // three redesign images take a minute or two
@@ -56,6 +58,18 @@ export async function POST(req: NextRequest) {
   const s = createServiceClient()
   try {
     if (b.action === 'draft') return NextResponse.json(await draftImprovements(s as any, ids, to))
+    // { action: 'proposal_prep', ids } → the landlord's email and a starting intro
+    if (b.action === 'proposal_prep') {
+      const { data: r } = await s.from('property_improvements').select('property_id, properties(landlord_id)').eq('id', ids[0]).maybeSingle() as { data: any }
+      const { data: ll } = r?.properties?.landlord_id ? await s.from('people').select('salutation, first_name, last_name, full_name, email').eq('id', r.properties.landlord_id).maybeSingle() as { data: any } : { data: null }
+      return NextResponse.json({ propertyId: r?.property_id, email: ll?.email ?? '', intro: `Dear ${ll ? dearName(ll) : 'Sir or Madam'},\n\nWe were at the house recently and have put together a few ideas that could freshen it up and help it let well — nothing structural, just decor, furniture and lighting.` })
+    }
+    // { action: 'proposal', ids, propertyId, emails, intro, costs } → the private page, emailed to the landlord
+    if (b.action === 'proposal') {
+      const emails = String(b.emails ?? '').split(/[\s,;]+/).filter(e => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e))
+      if (!emails.length) return NextResponse.json({ error: 'Add the landlord’s email' }, { status: 400 })
+      return NextResponse.json(await createProposal(s as any, { propertyId: String(b.propertyId), ids, intro: String(b.intro ?? ''), costs: b.costs ?? {}, emails, byEmail: who.email, req }))
+    }
     if (b.action === 'send') {
       const emails = String(b.emails ?? '').split(/[\s,;]+/).filter(e => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e))
       if (!emails.length || !String(b.subject ?? '').trim() || !String(b.message ?? '').trim()) return NextResponse.json({ error: 'Add who it’s to, a subject and the message' }, { status: 400 })
