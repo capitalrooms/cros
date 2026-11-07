@@ -67,3 +67,19 @@ export function themeFor(look: EmailLook, kind?: string | null, today = new Date
   const dated = look.schedule.find(s => s.from <= today && today <= s.to)
   return themeByKey(dated?.theme ?? look.default)
 }
+
+// ── each landlord's own look for their updates (7 Nov 2026, Harry: "i dont get to choose options on this email to let
+// only landlord") — chosen in the Landlord updates popup, "make it theirs" keeps it; system_settings 'landlord_email_look'
+export const LANDLORD_LOOK = 'landlord_email_look'
+export async function landlordLooks(): Promise<Record<string, string>> {
+  try {
+    const { data } = await createServiceClient().from('system_settings').select('value').eq('key', LANDLORD_LOOK).maybeSingle()
+    const v = JSON.parse(String((data as any)?.value ?? 'null'))
+    return v && typeof v === 'object' ? v : {}
+  } catch { return {} }
+}
+export async function setLandlordLook(landlordId: string, theme: string | null): Promise<void> {
+  const all = await landlordLooks()
+  if (theme && THEMES.some(t => t.key === theme)) all[landlordId] = theme; else delete all[landlordId]
+  await createServiceClient().from('system_settings').upsert({ key: LANDLORD_LOOK, value: JSON.stringify(all) }, { onConflict: 'key' })
+}

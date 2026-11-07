@@ -219,11 +219,21 @@ export function stageStatus(c: UpdateContext): { stage: UpdateStage; ready: bool
 
 export interface Draft { subject: string; message: string; photo: boolean | null; facts: { label: string; value: string; on: boolean }[]; docs: { id: string; type: string; label: string; fileName: string; on: boolean; idDoc: boolean }[] }
 
+/** How the place is said in a letter (7 Nov 2026, Harry: "ROOM 1, LONDON just looks crap"): "Room 1 at 95 Rope Street",
+ *  the street alone for a whole let — never the town or postcode in a sentence or subject line. */
+function spoken(c: { place: string; whole: boolean }): { say: string; room: string; street: string } {
+  const parts = c.place.split(/,\s*/)
+  const room = !c.whole && parts.length > 1 && /^(room|flat|studio|unit)\b/i.test(parts[0]) ? parts.shift()! : ''
+  const street = parts.shift() ?? c.place
+  return { say: room ? `${room} at ${street}` : street, room, street }
+}
+
 /** The draft for one stage: a letter in our usual voice, the facts underneath, and which documents go with it. */
 export function draftFor(c: UpdateContext, stage: UpdateStage): Draft {
   const n = c.tenant.name || 'the applicant'
   const unit = c.whole ? 'property' : 'room'
-  const at = c.whole ? `the property at ${c.place}` : c.place   // "Room 3, 12 Example Street" — never "the room at Room 3"
+  const sp = spoken(c)
+  const at = c.whole ? `the property at ${sp.street}` : sp.say   // "Room 3 at 12 Example Street" — never "the room at Room 3"
   const dear = `Dear ${c.landlord?.greeting ?? 'Sir or Madam'},`
   const rentLine = c.rent ? `${gbp(c.rent)} pcm${stage === 'offer' && c.offeredBelow && c.askingRent ? ` (asking ${gbp(c.askingRent)})` : ''}` : ''
   const F = (label: string, value: string | null | undefined, on = true) => value ? [{ label, value, on }] : []
@@ -249,7 +259,7 @@ export function draftFor(c: UpdateContext, stage: UpdateStage): Draft {
   let subject = '', body: string[] = [], facts: Draft['facts'] = []
   switch (stage) {
     case 'offer':
-      subject = `Offer for your review — ${c.place}`
+      subject = `Offer for your review — ${sp.say}`
       body = [
         `We have received an offer for ${at} and, before accepting it, we would welcome your thoughts.`,
         `The applicant is ${n}${c.tenant.job ? `, who works as ${work}` : ''}.${c.rent ? ` They have offered ${rentLine}.` : ''}`,
@@ -259,7 +269,7 @@ export function draftFor(c: UpdateContext, stage: UpdateStage): Draft {
       facts = [...profile, ...rentF, ...F('Guarantor', t.guarantor)]
       break
     case 'reserved':
-      subject = `Applicant secured — ${c.place}`
+      subject = `Applicant secured — ${sp.say}`
       body = [
         `We are delighted to let you know that we have secured an applicant for ${at}, subject to satisfactory references${c.letOnly ? ' and your approval' : ''}.`,
         `${n} has paid a holding deposit${c.hold ? ` of ${gbp(c.hold.amount)} on ${long(c.hold.on)}` : ''}, so the ${unit} is now off the market while references are obtained.`,
@@ -268,7 +278,7 @@ export function draftFor(c: UpdateContext, stage: UpdateStage): Draft {
       facts = [...profile, ...rentF, ...F('Holding deposit', c.hold ? `${gbp(c.hold.amount)} · received ${long(c.hold.on)}` : ''), ...F('Guarantor', t.guarantor)]
       break
     case 'referenced':
-      subject = `References passed — ${c.place}`
+      subject = `References passed — ${sp.say}`
       body = [
         `Good news: ${n} has passed referencing for ${at}.`,
         c.letOnly
@@ -278,7 +288,7 @@ export function draftFor(c: UpdateContext, stage: UpdateStage): Draft {
       facts = [...profile, ...rentF, ...F('References', c.referencingPassed ? `Passed ${long(c.referencingPassed)}` : ''), ...F('Right to Rent', rtr), ...F('Guarantor', t.guarantor), ...F('Nationality', t.nationality, false)]
       break
     case 'signed_paid':
-      subject = `Tenancy signed — ${c.place}`
+      subject = `Tenancy signed — ${sp.say}`
       body = [
         `${n} has signed the tenancy agreement for ${at}${c.moniesIn ? ' and paid everything due before moving in' : ''}.`,
         c.startDate ? `The tenancy starts on ${long(c.startDate)}.` : '',
@@ -293,7 +303,7 @@ export function draftFor(c: UpdateContext, stage: UpdateStage): Draft {
       break
     case 'housemate': {
       const first = c.profile?.firstName || n
-      subject = `Meet your new housemate — ${first}, moving into ${c.whole ? c.place : c.place.split(',')[0]}`
+      subject = `Meet your new housemate — ${first}, moving into ${c.whole ? sp.street : sp.room}`
       body = [
         `Here’s a short introduction to ${first}, who is moving into ${at}${c.startDate ? ` on ${long(c.startDate)}` : ''} — in their own words.`,
         `If you’d like your other tenants to know a little about who’s joining them, you’re welcome to forward this email. The card below holds only what ${first} chose to share — no contact or financial details.`,
@@ -302,9 +312,9 @@ export function draftFor(c: UpdateContext, stage: UpdateStage): Draft {
       break
     }
     case 'summary':
-      subject = `Your new tenant — ${c.place}`
+      subject = `Your new tenant — ${sp.say}`
       body = [
-        `Please find below a summary of your new tenant at ${c.place}, with everything we have on file so far.`,
+        `Please find below a summary of your new tenant in ${at}, with everything we have on file so far.`,
         c.letOnly ? 'Their documents, including the Right to Rent documents for your records, come with this email.' : 'Their documents come with this email. We have carried out the Right to Rent check and keep the identity documents on file.',
       ]
       facts = everything()
@@ -327,14 +337,13 @@ export function headlineFor(c: UpdateContext, stage: UpdateStage): { eyebrow: st
   const parts = c.place.split(/,\s*/)
   const roomPart = !c.whole && parts.length > 1 && /^(room|flat|studio|unit)\b/i.test(parts[0]) ? parts.shift()! : ''
   const street = parts.shift() ?? c.place
-  const rest = parts.filter(x => !/^london$/i.test(x)).join(' ')
   const lead = ({ offer: 'An offer for', reserved: 'Reserved at', referenced: 'References passed at', signed_paid: 'Your new tenant at', summary: 'Your new tenant at', housemate: 'Say hello to' } as Record<UpdateStage, string>)[stage]
   // the housemate card is for forwarding to the other tenants: their name, never the rent or deposit
   if (stage === 'housemate') {
     const first = c.profile?.firstName || c.tenant.name.split(' ').slice(-2, -1)[0] || c.tenant.name
     return { eyebrow, place: c.place, lead, street: first, sub: [[roomPart, street].filter(Boolean).join(', '), c.startDate ? `Moving in ${long(c.startDate)}` : ''].filter(Boolean).join('\n'), terms: [] }
   }
-  const sub = [[roomPart, rest ? `London ${rest}` : ''].filter(Boolean).join(' · '), c.startDate ? `${stage === 'offer' ? 'Hoping to move in' : 'Moving in'} ${long(c.startDate)}` : ''].filter(Boolean).join('\n')
+  const sub = [roomPart, c.startDate ? `${stage === 'offer' ? 'Hoping to move in' : 'Moving in'} ${long(c.startDate)}` : ''].filter(Boolean).join('\n')
   return {
     eyebrow, place: c.place, lead, street, sub,
     terms: [
