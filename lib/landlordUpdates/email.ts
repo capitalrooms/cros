@@ -13,6 +13,7 @@
 //   enclosed   — what's attached, as file tiles
 // Tables throughout, inline styles only — what mail apps (Outlook included) actually render.
 import { buildEmail, ctaButton } from '@/lib/emailWrapper'
+import type { EmailTheme } from '@/lib/email/themes'
 import { SIGNATURE_ASSET_BASE } from '@/lib/brand/signature'
 import type { EmailSender } from '@/lib/email/sender'
 import type { StatementFigures } from '@/lib/lettingsStatement/forTenancy'
@@ -38,9 +39,9 @@ type UpdateEmail = {
 }
 
 /** The full email, in the house wrapper (the sender's signature at the foot). */
-export async function landlordUpdateHtml(o: UpdateEmail & { req?: Request | null; sender?: EmailSender; kind?: string }): Promise<string> {
+export async function landlordUpdateHtml(o: UpdateEmail & { req?: Request | null; sender?: EmailSender; kind?: string; theme?: EmailTheme }): Promise<string> {
   // the hero runs full width under the logo bar; the rest sits in the wrapper's padded body
-  return buildEmail(landlordUpdateBody(o, { heroApart: true }), { req: o.req ?? null, sender: o.sender, hero: o.headline ? hero(o.headline) : undefined, kind: o.kind ?? `landlord-update-${o.stage}` })   // its theme (Email hub)
+  return buildEmail(landlordUpdateBody(o, { heroApart: true }), { req: o.req ?? null, sender: o.sender, hero: o.headline ? hero(o.headline) : undefined, kind: o.kind ?? `landlord-update-${o.stage}`, theme: o.theme })   // the look chosen for this landlord, else its theme (Email hub)
 }
 
 function hero(h: Headline): string {

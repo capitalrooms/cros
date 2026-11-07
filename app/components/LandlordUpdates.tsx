@@ -19,6 +19,7 @@ interface Data {
   setupNeeded?: boolean; error?: string
   landlord: { id: string; name: string; emails: string[]; commsOn: boolean; tenantUpdatesOff: boolean } | null
   letOnly: boolean; place: string; tenant: string; stages: StageRow[]; sent: Sent[]; tenancyId: string | null
+  themes?: { key: string; name: string }[]; landlordLook?: string | null
 }
 interface Draft { subject: string; message: string; photo: boolean | null; facts: { label: string; value: string; on: boolean }[]; docs: { id: string; type?: string; label: string; fileName: string; on: boolean; idDoc: boolean }[] }
 
@@ -32,6 +33,8 @@ export default function LandlordUpdates({ applicantId, tenancyId, only, bare = f
   const [open, setOpen] = useState<string | null>(null)
   const [draft, setDraft] = useState<Draft | null>(null)
   const [to, setTo] = useState('')
+  const [look, setLook] = useState('')          // '' = the landlord's own look, else the Email hub's
+  const [keepLook, setKeepLook] = useState(false)
   const [viewing, setViewing] = useState(false)
   async function viewStatement() {
     if (!d?.tenancyId) return
@@ -66,10 +69,10 @@ export default function LandlordUpdates({ applicantId, tenancyId, only, bare = f
     const r = await adminFetch(`/api/admin/landlord-updates?${q}&stage=${stage}`)
     const j = await r.json().catch(() => ({}))
     if (!r.ok || !j.draft) { setError(j.error ?? 'Couldn’t draft that'); setOpen(null); return }
-    setDraft(j.draft); setTo((j.landlord?.emails ?? []).join(', ')); setExtra([]); setPreview(null); setAttachDocs(true)
+    setDraft(j.draft); setTo((j.landlord?.emails ?? []).join(', ')); setLook(j.landlordLook ?? ''); setKeepLook(false); setExtra([]); setPreview(null); setAttachDocs(true)
     setStatement(!!j.letOnly && !!j.tenancyId && (stage === 'signed_paid' || stage === 'summary'))
   }
-  const payload = (extraBody: Record<string, unknown> = {}) => JSON.stringify({ applicantId, tenancyId, stage: open, to, subject: draft?.subject, message: draft?.message, facts: draft?.facts.filter(f => f.on), docIds: draft?.docs.filter(x => x.on).map(x => x.id), attachStatement: statement, attachDocs, photo: draft?.photo !== false, extra: extra.map(({ name, data }) => ({ name, data })), ...extraBody })
+  const payload = (extraBody: Record<string, unknown> = {}) => JSON.stringify({ applicantId, tenancyId, stage: open, to, subject: draft?.subject, message: draft?.message, facts: draft?.facts.filter(f => f.on), docIds: draft?.docs.filter(x => x.on).map(x => x.id), attachStatement: statement, attachDocs, theme: look || undefined, keepLook, photo: draft?.photo !== false, extra: extra.map(({ name, data }) => ({ name, data })), ...extraBody })
   // the preview follows every change (a moment after typing stops)
   useEffect(() => {
     if (!open || !draft) return
@@ -79,7 +82,7 @@ export default function LandlordUpdates({ applicantId, tenancyId, only, bare = f
       if (r.ok) { setPreview({ html: j.html, attachments: j.attachments ?? [] }); setPreviewErr('') } else setPreviewErr(j.error ?? 'Couldn’t show the preview')
     }, 600)
     return () => clearTimeout(t)
-  }, [open, draft, to, statement, attachDocs, extra])   // eslint-disable-line react-hooks/exhaustive-deps
+  }, [open, draft, to, statement, attachDocs, extra, look])   // eslint-disable-line react-hooks/exhaustive-deps
   async function addFiles(files: FileList | null) {
     if (!files) return
     const add: { name: string; data: string; size: number }[] = []
@@ -181,6 +184,18 @@ export default function LandlordUpdates({ applicantId, tenancyId, only, bare = f
                   <label className="block text-xs font-bold uppercase tracking-wide text-neutral-500">To
                     <input value={to} onChange={e => setTo(e.target.value)} className={`${input} mt-1 normal-case tracking-normal`} placeholder="landlord@example.com" />
                   </label>
+                  {(d.themes?.length ?? 0) > 0 && (
+                    <div className="space-y-xs">
+                      <p className="text-xs font-bold uppercase tracking-wide text-neutral-500">Look</p>
+                      <div className="flex flex-wrap gap-xs">
+                        {[{ key: '', name: d.landlordLook ? `Theirs (${d.themes!.find(t => t.key === d.landlordLook)?.name ?? d.landlordLook})` : 'Usual' }, ...d.themes!.filter(t => t.key !== d.landlordLook)].map(t => (
+                          <button key={t.key || 'usual'} type="button" onClick={() => setLook(t.key)} aria-pressed={look === t.key}
+                            className={`rounded-full border px-sm py-0.5 text-xs font-semibold ${look === t.key ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-300 text-neutral-700 hover:bg-neutral-50'}`}>{t.name}</button>
+                        ))}
+                      </div>
+                      {look && d.landlord && <label className="flex items-center gap-xs text-xs text-neutral-600"><input type="checkbox" checked={keepLook} onChange={() => setKeepLook(v => !v)} /> Use this look for {d.landlord.name} from now on</label>}
+                    </div>
+                  )}
                   <label className="block text-xs font-bold uppercase tracking-wide text-neutral-500">Subject
                     <input value={draft.subject} onChange={e => setDraft({ ...draft, subject: e.target.value })} className={`${input} mt-1 normal-case tracking-normal`} />
                   </label>

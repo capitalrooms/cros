@@ -10,6 +10,7 @@
  *          live preview, 6 Nov 2026). extra: [{ name, data (base64) }] — files added from the computer (≤ 3 MB in all).
  * Office and lettings staff only. Nothing is sent without someone pressing Send.
  */
+import { THEMES, themeByKey, landlordLooks, setLandlordLook } from '@/lib/email/themes'
 import { NextRequest, NextResponse } from 'next/server'
 import { requireStaff } from '@/lib/portalAuth'
 import { createServiceClient } from '@/lib/supabase'
@@ -37,7 +38,10 @@ export async function GET(req: NextRequest) {
   const c = await loadUpdateContext(s, { applicantId: q.get('applicantId'), tenancyId: q.get('tenancyId') })
   if (!c) return NextResponse.json({ error: 'Nothing found for this tenant' }, { status: 404 })
   const stage = q.get('stage') as UpdateStage | null
+  const looks = await landlordLooks()
   return NextResponse.json({
+    themes: THEMES.filter(t => t.key !== 'christmas' || new Date().getMonth() >= 10).map(t => ({ key: t.key, name: t.name })),
+    landlordLook: c.landlord ? looks[c.landlord.id] ?? null : null,
     landlord: c.landlord, letOnly: c.letOnly, place: c.place, tenant: c.tenant.name, tenancyId: c.tenancyId, applicantId: c.applicantId,
     stages: stageStatus(c).map(x => ({ ...x, label: STAGE_LABEL[x.stage] })),
     sent: c.sent,
@@ -117,11 +121,14 @@ export async function POST(req: NextRequest) {
   if (extraBytes > 3 * 1024 * 1024) return NextResponse.json({ error: 'Files added from your computer come to more than 3 MB — add large ones to the letting file’s documents instead and tick them here.' }, { status: 400 })
 
   const headline = headlineFor(c, stage)
+  // the look: chosen in the popup, else this landlord's own, else the Email hub's (null → buildEmail decides)
+  const lookKey = typeof b.theme === 'string' && THEMES.some(t => t.key === b.theme) ? b.theme : (c.landlord ? (await landlordLooks())[c.landlord.id] : undefined)
+  const theme = lookKey ? themeByKey(lookKey) : undefined
   // their photo beside "Your tenant" (when they shared one and it's left ticked); the housemate card for 'housemate'
   const photoUrl = b.photo !== false && c.profile?.photoUrl ? c.profile.photoUrl : null
   const emailParts = { stage, message, facts, headline, statement: statement && !('error' in statement) ? statement.figures : null, attached: names, photoUrl: stage === 'housemate' ? null : photoUrl, card: stage === 'housemate' ? housemateCard(c) : null }
   if (preview) {
-    const html = await landlordUpdateHtml({ ...emailParts, link: withPage ? `${PORTAL_URL}/lu/preview` : null, until: withPage ? new Date(Date.now() + SHARE_DAYS * 86_400_000).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/London' }) : null, req })
+    const html = await landlordUpdateHtml({ ...emailParts, theme, link: withPage ? `${PORTAL_URL}/lu/preview` : null, until: withPage ? new Date(Date.now() + SHARE_DAYS * 86_400_000).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/London' }) : null, req })
     return NextResponse.json({ html, attachments: names, to, subject })
   }
 
@@ -135,7 +142,8 @@ export async function POST(req: NextRequest) {
 
   const until = expires?.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/London' })
   const link = token ? `${PORTAL_URL}/lu/${token}` : ''
-  const html = await landlordUpdateHtml({ ...emailParts, link: link || null, until: until ?? null, req })
+  if (b.keepLook && c.landlord && lookKey) await setLandlordLook(c.landlord.id, lookKey)
+  const html = await landlordUpdateHtml({ ...emailParts, theme, link: link || null, until: until ?? null, req })
 
   // the landlord's copy-in list (an accountant …) gets it too (migration 239)
   const copy = c.landlord?.id ? (await landlordCopyTo(s as any, c.landlord.id)).cc.filter(e => !to.map((x: string) => x.toLowerCase()).includes(e)) : []
