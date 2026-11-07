@@ -32,6 +32,18 @@ export default function LandlordUpdates({ applicantId, tenancyId, only, bare = f
   const [open, setOpen] = useState<string | null>(null)
   const [draft, setDraft] = useState<Draft | null>(null)
   const [to, setTo] = useState('')
+  const [viewing, setViewing] = useState(false)
+  async function viewStatement() {
+    if (!d?.tenancyId) return
+    const w = window.open('', '_blank')   // opened now so the browser doesn't block it as a pop-up
+    setViewing(true); setError('')
+    try {
+      const r = await adminFetch(`/api/lettings-statement/${d.tenancyId}`)
+      if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error ?? 'The statement couldn’t be made')
+      const url = URL.createObjectURL(await r.blob())
+      if (w) w.location.href = url; else window.open(url, '_blank')
+    } catch (e: any) { w?.close(); setError(e.message) } finally { setViewing(false) }
+  }
   const [statement, setStatement] = useState(false)   // let-only: attach the lettings statement PDF
   const [attachDocs, setAttachDocs] = useState(true)  // the chosen documents on the email itself, or on a 7-day private page
   const [busy, setBusy] = useState(false)
@@ -130,6 +142,23 @@ export default function LandlordUpdates({ applicantId, tenancyId, only, bare = f
           </li>
         ))}
       </ul>
+
+      {/* let only: the lettings statement and the tenancy summary, reachable at any time (7 Nov 2026, Harry: "i cant really
+          get to the lettings statement and new tenancy summary from here") */}
+      {d.letOnly && d.tenancyId && (
+        <div className="space-y-xs rounded-lg bg-neutral-50 p-sm">
+          <div className="flex items-center justify-between gap-sm">
+            <span className="min-w-0"><span className="block text-sm font-semibold text-neutral-900">Lettings statement</span>
+              <span className="block text-xs text-neutral-500">Rent and deposit received, less our fee (PDF)</span></span>
+            <button type="button" onClick={viewStatement} className="shrink-0 rounded-lg border border-neutral-300 bg-white px-sm py-0.5 text-xs font-semibold text-neutral-800 hover:bg-neutral-50">{viewing ? 'Opening…' : 'View'}</button>
+          </div>
+          <div className="flex items-center justify-between gap-sm">
+            <span className="min-w-0"><span className="block text-sm font-semibold text-neutral-900">Tenancy summary with statement</span>
+              <span className="block text-xs text-neutral-500">One email: tenant, checks, figures, documents and the statement attached</span></span>
+            <button type="button" onClick={() => start('summary')} className="shrink-0 rounded-lg bg-neutral-900 px-sm py-0.5 text-xs font-semibold text-white hover:bg-neutral-700">Draft</button>
+          </div>
+        </div>
+      )}
 
       {answers.map(a => (
         <p key={a.id} className={`rounded-lg px-sm py-xs text-xs ${a.answer === 'approved' ? 'bg-green-50 text-green-800' : a.answer === 'declined' ? 'bg-red-50 text-red-800' : 'bg-neutral-50 text-neutral-600'}`}>
