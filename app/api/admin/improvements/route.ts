@@ -28,7 +28,16 @@ export async function GET(req: NextRequest) {
   if (error) return NextResponse.json({ ready: !/property_improvements|does not exist|schema cache/i.test(error.message), items: [] })
   const s = createServiceClient()
   const items = await Promise.all(((data ?? []) as any[]).map(async r => ({ ...r, designs: await designLinks(s as any, r.designs ?? []) })))
-  return NextResponse.json({ ready: true, redesign: redesignReady(), items })
+  // the house's saved photos (room Photos tabs + house photos) to reimagine from, without uploading again (7 Nov 2026)
+  // (property_photos.room_id has no foreign key, so room names are looked up separately)
+  const [{ data: ph }, { data: rm }] = await Promise.all([
+    s.from('property_photos').select('id, file_url, file_path, room_id, caption').eq('property_id', q.get('propertyId') ?? '').order('display_order', { ascending: true }).limit(80),
+    s.from('rooms').select('id, name').eq('property_id', q.get('propertyId') ?? ''),
+  ])
+  const roomName = new Map(((rm ?? []) as any[]).map(r => [r.id, r.name]))
+  const photos = ((ph ?? []) as any[]).map(x => ({ id: x.id, room_id: x.room_id, room: x.room_id ? roomName.get(x.room_id) ?? null : null, caption: x.caption ?? null,
+    url: x.file_url || (x.file_path ? s.storage.from('property-photos').getPublicUrl(String(x.file_path).replace(/^property-photos\//, '')).data.publicUrl : null) })).filter(x => x.url)
+  return NextResponse.json({ ready: true, redesign: redesignReady(), items, photos })
 }
 
 export async function PATCH(req: NextRequest) {
