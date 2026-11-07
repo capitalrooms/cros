@@ -11,6 +11,7 @@ import AppBar from '@/components/AppBar'
 import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import { adminFetch } from '@/lib/adminFetch'
+import EmailWording from '@/components/EmailWording'
 
 type Theme = { key: string; name: string; from: string; bar: string; page: string; rule: string; band: string | null }
 type Kind = { key: string; name: string; audience: string; from: string; when: string }
@@ -42,6 +43,7 @@ export default function EmailHubPage() {
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState('')
   const [big, setBig] = useState<{ theme: string; kind?: string; title: string } | null>(null)
+  const [wording, setWording] = useState<{ kind: string; name: string } | null>(null)
 
   useEffect(() => { adminFetch('/api/admin/email-hub').then(r => r.json()).then(j => { if (j.look) { setD(j); setLook(j.look) } else setMsg(j.error ?? 'Couldn’t load') }) }, [])
 
@@ -138,6 +140,7 @@ export default function EmailHubPage() {
                           </select>
                         ) : <span className="text-xs text-neutral-500">Theme for all emails</span>}
                         <button type="button" className="text-xs font-semibold text-blue-700 hover:underline" onClick={() => setBig({ theme: own ?? nowTheme ?? look.default, kind: k.key, title: k.name })}>Preview</button>
+                        <button type="button" className="text-xs font-semibold text-blue-700 hover:underline" onClick={() => setWording({ kind: k.key, name: k.name })}>Wording</button>
                       </li>
                     )
                   })}
@@ -173,6 +176,7 @@ export default function EmailHubPage() {
         </div>
       )}
 
+      {wording && <EmailWording kind={wording.kind} name={wording.name} onClose={() => setWording(null)} />}
       {big && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 md:items-center md:p-lg" onClick={() => setBig(null)}>
           <div className="flex max-h-[94dvh] w-full max-w-3xl flex-col overflow-hidden rounded-t-2xl bg-white shadow-xl md:rounded-2xl" onClick={e => e.stopPropagation()}>

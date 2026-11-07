@@ -10,10 +10,12 @@ import { buildEmail } from '@/lib/emailWrapper'
 import { THEMES, themeByKey, currentLook, forgetLook, LOOK_SETTING, type EmailLook } from '@/lib/email/themes'
 import { EMAIL_KINDS, AUDIENCES, kindByKey } from '@/lib/email/registry'
 import { samplesFor } from '@/lib/email/samples'
+import { wordingFor, rewrite, adopt, addRequest, requests } from '@/lib/email/wording'
 import { previewFromTemplate, HAS_TEMPLATE } from '@/lib/email/previews'
 import { SENDERS } from '@/lib/email/registry'
 
 export const dynamic = 'force-dynamic'
+export const maxDuration = 120
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/
 
@@ -31,6 +33,13 @@ function sample(kindName: string | null): string {
 export async function GET(req: NextRequest) {
   if (!(await requireAdministrator(req))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const q = req.nextUrl.searchParams
+  // ?wording=<kind> → its stored wording (current + earlier versions), or that it's built in code
+  if (q.get('wording')) {
+    const kind = kindByKey(String(q.get('wording')))
+    if (!kind) return NextResponse.json({ error: 'Unknown email' }, { status: 404 })
+    const s = createServiceClient()
+    return NextResponse.json({ stored: kind.slugs?.length ? await wordingFor(s as any, kind.slugs) : [], requests: (await requests(s as any)).filter(r => r.kind === kind.key).slice(0, 10) })
+  }
   const preview = q.get('preview')
   if (preview) {
     const kind = q.get('kind') ? kindByKey(String(q.get('kind'))) : null
@@ -49,6 +58,22 @@ export async function POST(req: NextRequest) {
   const who = await requireAdministrator(req)
   if (!who) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const b = await req.json().catch(() => ({}))
+  // wording: { action: 'rewrite', kind, slug, instruction, n } → versions · 'adopt' → saved as the new default · 'request' → logged
+  if (b.action === 'rewrite' || b.action === 'adopt' || b.action === 'request') {
+    const kind = kindByKey(String(b.kind ?? ''))
+    if (!kind) return NextResponse.json({ error: 'Unknown email' }, { status: 404 })
+    const s = createServiceClient()
+    try {
+      if (b.action === 'request') { if (!String(b.instruction ?? '').trim()) return NextResponse.json({ error: 'Say what to change' }, { status: 400 }); await addRequest(s as any, kind.key, String(b.instruction), who.email); return NextResponse.json({ ok: true }) }
+      if (!kind.slugs?.includes(String(b.slug))) return NextResponse.json({ error: 'That wording isn’t stored for this email' }, { status: 400 })
+      if (b.action === 'adopt') { await adopt(s as any, b.slug, { subject_line: String(b.subject_line ?? ''), template_text: String(b.template_text ?? '') }); return NextResponse.json({ ok: true }) }
+      const cur = (await wordingFor(s as any, [b.slug]))[0]?.current
+      if (!cur) return NextResponse.json({ error: 'No stored wording yet' }, { status: 400 })
+      const versions = await rewrite(cur, String(b.instruction ?? '').slice(0, 1500) || 'Tidy it up and make it read better', b.n === 5 ? 5 : 1)
+      if (!versions.length) return NextResponse.json({ error: 'The new versions dropped some of the details that get filled in — try again' }, { status: 502 })
+      return NextResponse.json({ versions })
+    } catch (e: any) { return NextResponse.json({ error: e?.message ?? 'Something went wrong' }, { status: 500 }) }
+  }
   const keys = new Set(THEMES.map(t => t.key))
   const l = b.look ?? {}
   const look: EmailLook = {
