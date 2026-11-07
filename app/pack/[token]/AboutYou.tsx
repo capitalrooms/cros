@@ -10,10 +10,14 @@ async function shrink(file: File): Promise<Blob> {
   const url = URL.createObjectURL(file)
   try {
     const img = await new Promise<HTMLImageElement>((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url })
-    const scale = Math.min(1, 1200 / Math.max(img.naturalWidth, img.naturalHeight))
+    // a centred square (7 Nov 2026) so it sits in a neat circle everywhere — Outlook ignores object-fit and would stretch
+    // a tall photo into an oval; faces are usually in the upper middle, so the square leans upward on portrait photos
+    const side = Math.min(img.naturalWidth, img.naturalHeight)
+    const sx = (img.naturalWidth - side) / 2, sy = img.naturalHeight > side ? (img.naturalHeight - side) * 0.3 : 0
+    const out = Math.min(800, side)
     const c = document.createElement('canvas')
-    c.width = Math.round(img.naturalWidth * scale); c.height = Math.round(img.naturalHeight * scale)
-    c.getContext('2d')!.drawImage(img, 0, 0, c.width, c.height)
+    c.width = out; c.height = out
+    c.getContext('2d')!.drawImage(img, sx, sy, side, side, 0, 0, out, out)
     return await new Promise<Blob>((res, rej) => c.toBlob(b => b ? res(b) : rej(new Error('Couldn’t read that photo')), 'image/jpeg', 0.86))
   } finally { URL.revokeObjectURL(url) }
 }
