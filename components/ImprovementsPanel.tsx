@@ -11,19 +11,21 @@ const STATUS: Record<string, [string, string]> = {
   noted: ['Noted', 'bg-neutral-100 text-neutral-700'], sent_to_landlord: ['Sent to landlord', 'bg-blue-50 text-blue-800'], approved: ['Approved', 'bg-emerald-50 text-emerald-800'],
   quoting: ['Getting quotes', 'bg-amber-50 text-amber-900'], done: ['Done', 'bg-emerald-100 text-emerald-900'], dismissed: ['Not doing', 'bg-neutral-100 text-neutral-400'],
 }
-async function shrink(file: File): Promise<string> {
-  const url = URL.createObjectURL(file)
+async function shrink(file: File | string): Promise<string> {
+  // a File (uploaded now) or the link of a photo already saved on the house/room
+  const url = typeof file === 'string' ? file : URL.createObjectURL(file)
   try {
-    const img = await new Promise<HTMLImageElement>((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url })
+    const img = await new Promise<HTMLImageElement>((res, rej) => { const i = new Image(); i.crossOrigin = 'anonymous'; i.onload = () => res(i); i.onerror = () => rej(new Error('That photo couldn’t be opened — try uploading it instead')); i.src = url })
     const scale = Math.min(1, 1536 / Math.max(img.naturalWidth, img.naturalHeight))
     const c = document.createElement('canvas'); c.width = Math.round(img.naturalWidth * scale); c.height = Math.round(img.naturalHeight * scale)
     c.getContext('2d')!.drawImage(img, 0, 0, c.width, c.height)
     return c.toDataURL('image/jpeg', 0.88).split(',')[1]
-  } finally { URL.revokeObjectURL(url) }
+  } finally { if (typeof file !== 'string') URL.revokeObjectURL(url) }
 }
 
 export default function ImprovementsPanel({ propertyId, roomId }: { propertyId: string; roomId?: string }) {
-  const [d, setD] = useState<{ ready: boolean; redesign: boolean; items: any[] } | null>(null)
+  const [d, setD] = useState<{ ready: boolean; redesign: boolean; items: any[]; photos?: { id: string; room_id: string | null; room: string | null; caption: string | null; url: string }[] } | null>(null)
+  const [picking, setPicking] = useState<any | null>(null)   // the note whose photo is being chosen
   const [ticked, setTicked] = useState<string[]>([])
   const [draft, setDraft] = useState<{ to: 'landlord' | 'contractor'; emails: string; subject: string; message: string } | null>(null)
   const [busy, setBusy] = useState('')
@@ -65,10 +67,12 @@ export default function ImprovementsPanel({ propertyId, roomId }: { propertyId: 
     if (!ok) { setMsg(j.error ?? 'It didn’t send'); return }
     setProp(null); setTicked([]); setMsg(`Proposal sent with ${j.spaces} space${j.spaces === 1 ? '' : 's'} — you’ll get an email when the landlord answers.`); load()
   }
-  async function reimagine(id: string, file: File | undefined) {
+  async function reimagine(id: string, file: File | string | undefined) {
     if (!file) return
-    setBusy(`r-${id}`); setMsg('')
-    const { ok, j } = await post({ action: 'redesign', id, image: await shrink(file) })
+    setPicking(null); setBusy(`r-${id}`); setMsg('')
+    let image: string
+    try { image = await shrink(file) } catch (e: any) { setBusy(''); setMsg(e.message); return }
+    const { ok, j } = await post({ action: 'redesign', id, image })
     setBusy('')
     if (!ok) { setMsg(j.error ?? 'Couldn’t make the redesigns'); return }
     load()
@@ -79,6 +83,33 @@ export default function ImprovementsPanel({ propertyId, roomId }: { propertyId: 
   const live = d.items.filter(i => i.status !== 'dismissed' && i.status !== 'done')
   return (
     <div className="space-y-sm">
+      {picking && (() => {
+        const all = d.photos ?? []
+        // this room's photos first, then shared areas, then the rest of the house
+        const order = (p: any) => picking.room_id ? (p.room_id === picking.room_id ? 0 : p.room_id ? 2 : 1) : (p.room_id ? 1 : 0)
+        const list = [...all].sort((a, b) => order(a) - order(b))
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-md" onClick={() => setPicking(null)}>
+            <div className="max-h-[85vh] w-full max-w-3xl overflow-y-auto rounded-xl bg-white p-lg shadow-xl" onClick={e => e.stopPropagation()}>
+              <div className="flex items-start justify-between gap-sm">
+                <div><h3 className="m-0 text-lg font-bold text-neutral-900">Choose a photo to reimagine</h3>
+                  <p className="m-0 mt-1 text-sm text-neutral-600">{picking.room_id ? picking.rooms?.name : picking.area} — {picking.note}</p></div>
+                <button type="button" className="text-sm text-neutral-500 hover:text-neutral-900" onClick={() => setPicking(null)}>Cancel</button>
+              </div>
+              {list.length ? <div className="mt-md grid grid-cols-2 gap-sm sm:grid-cols-3">
+                {list.map(p => (
+                  <button key={p.id} type="button" onClick={() => reimagine(picking.id, p.url)} className="overflow-hidden rounded-lg border border-neutral-200 text-left hover:border-neutral-900">
+                    <img src={p.url} alt={p.caption ?? ''} className="aspect-[4/3] w-full object-cover" loading="lazy" />
+                    <span className="block truncate px-sm py-1 text-xs text-neutral-600">{p.room ?? 'Shared areas'}{p.caption ? ` · ${p.caption}` : ''}</span>
+                  </button>
+                ))}
+              </div> : <p className="mt-md text-sm text-neutral-500">No photos saved on this house yet.</p>}
+              <label className="mt-md inline-block cursor-pointer rounded-lg border border-neutral-300 px-md py-sm text-sm font-semibold text-neutral-900 hover:bg-neutral-50">Upload a new photo instead
+                <input type="file" accept="image/*" className="hidden" onChange={e => { reimagine(picking.id, e.target.files?.[0]); e.target.value = '' }} /></label>
+            </div>
+          </div>
+        )
+      })()}
       <div className="flex flex-wrap items-center justify-between gap-sm">
         <p className="text-sm text-neutral-600">{roomId ? 'Things noted in this room that could be better.' : 'Things noted around the house and in each room that could be better.'} Add them on a <Link href={`/admin/walkthrough?propertyId=${propertyId}`} className="font-semibold text-blue-700 hover:underline">walk round</Link>.</p>
         <span className="flex flex-wrap gap-xs">
@@ -97,8 +128,7 @@ export default function ImprovementsPanel({ propertyId, roomId }: { propertyId: 
                 <span className="min-w-[200px] flex-1"><span className="font-semibold text-neutral-900">{i.room_id ? i.rooms?.name : i.area}</span>{i.rooms?.room_size ? <span className="text-xs text-neutral-500"> · {i.rooms.room_size} m²</span> : null} — {i.note}
                   <span className="block text-xs text-neutral-500">{new Date(i.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}{i.sent_log?.length ? ` · sent ${i.sent_log.length}×` : ''}</span></span>
                 <select value={i.status} onChange={e => patch(i.id, { status: e.target.value })} className={`rounded-full px-sm py-0.5 text-xs font-semibold ${STATUS[i.status]?.[1] ?? ''}`}>{Object.entries(STATUS).map(([k, [l]]) => <option key={k} value={k}>{l}</option>)}</select>
-                {d.redesign && <label className="cursor-pointer text-xs font-semibold text-blue-700 hover:underline">{busy === `r-${i.id}` ? 'Imagining three looks… (a minute or two)' : 'Reimagine from a photo'}
-                  <input type="file" accept="image/*" className="hidden" disabled={!!busy} onChange={e => { reimagine(i.id, e.target.files?.[0]); e.target.value = '' }} /></label>}
+                {d.redesign && <button type="button" disabled={!!busy} onClick={() => setPicking(i)} className="text-xs font-semibold text-blue-700 hover:underline disabled:text-neutral-400">{busy === `r-${i.id}` ? 'Imagining three looks… (a minute or two)' : 'Reimagine from a photo'}</button>}
               </div>
               {i.designs?.length > 0 && <div className="grid gap-sm pl-lg sm:grid-cols-3">
                 {i.designs.map((g: any, k: number) => (
