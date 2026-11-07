@@ -219,7 +219,7 @@ export async function buildEmail(content: string, opts: { sender?: EmailSender; 
   const previewing = previewTheme.getStore()
   const theme = opts.theme ?? previewing ?? themeFor(look, opts.kind)
   // the hub's real-life example of this kind of email (never a preview)
-  if (!opts.theme && !previewing) keepSample(opts.kind, content, opts.hero)
+  if (!opts.theme && !previewing) await keepSample(opts.kind, content, opts.hero)
   // hero: a full-width band straight under the logo bar (the landlord's new-let email — lib/landlordUpdates/email)
   if (opts.signature === false) return wrapEmail(content, biz, undefined, opts.hero, theme)
   // the signed-in staff member behind the request signs it (same person as the From address); otherwise the main administrator

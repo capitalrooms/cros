@@ -14,13 +14,16 @@ export function scrub(html: string): string {
     .replace(/\b[A-Za-z0-9_-]{24,}\b/g, '•••')
 }
 
-export function keepSample(kind: string | undefined, body: string, hero?: string): void {
+export async function keepSample(kind: string | undefined, body: string, hero?: string): Promise<void> {
   if (!kind || NEVER.has(kind)) return
   const now = Date.now()
   if ((lastKept.get(kind) ?? 0) > now - 6 * 3600_000) return
   lastKept.set(kind, now)
-  createServiceClient().from('email_samples').upsert({ kind, body: scrub(body), hero: hero ? scrub(hero) : null, updated_at: new Date().toISOString() })
-    .then(({ error }) => { if (error && !/email_samples/.test(error.message)) console.warn('email sample not kept:', error.message) }, () => {})
+  // awaited (7 Nov): a fire-and-forget write was cut off when the serverless function returned — nothing was ever kept
+  try {
+    const { error } = await createServiceClient().from('email_samples').upsert({ kind, body: scrub(body), hero: hero ? scrub(hero) : null, updated_at: new Date().toISOString() })
+    if (error) { lastKept.delete(kind); if (!/email_samples/.test(error.message)) console.warn('email sample not kept:', error.message) }
+  } catch { lastKept.delete(kind) }
 }
 
 export async function samplesFor(kinds?: string[]): Promise<Record<string, { body: string; hero: string | null; updated_at: string }>> {
