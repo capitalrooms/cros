@@ -288,7 +288,7 @@ export function draftFor(c: UpdateContext, stage: UpdateStage): Draft {
       facts = [...profile, ...rentF, ...F('References', c.referencingPassed ? `Passed ${long(c.referencingPassed)}` : ''), ...F('Right to Rent', rtr), ...F('Guarantor', t.guarantor), ...F('Nationality', t.nationality, false)]
       break
     case 'signed_paid':
-      subject = `Tenancy signed — ${sp.say}`
+      subject = c.letOnly ? `Lettings statement – ${sp.room ? `${sp.room}, ${sp.street}` : sp.street}` : `Tenancy signed — ${sp.say}`
       body = [
         `${n} has signed the tenancy agreement for ${at}${c.moniesIn ? ' and paid everything due before moving in' : ''}.`,
         c.startDate ? `The tenancy starts on ${long(c.startDate)}.` : '',
@@ -312,7 +312,7 @@ export function draftFor(c: UpdateContext, stage: UpdateStage): Draft {
       break
     }
     case 'summary':
-      subject = `Your new tenant — ${sp.say}`
+      subject = c.letOnly ? `Lettings statement – ${sp.room ? `${sp.room}, ${sp.street}` : sp.street}` : `Your new tenant — ${sp.say}`
       body = [
         `Please find below a summary of your new tenant in ${at}, with everything we have on file so far.`,
         c.letOnly ? 'Their documents, including the Right to Rent documents for your records, come with this email.' : 'Their documents come with this email. We have carried out the Right to Rent check and keep the identity documents on file.',
@@ -344,8 +344,11 @@ export function headlineFor(c: UpdateContext, stage: UpdateStage): { eyebrow: st
     return { eyebrow, place: c.place, lead, street: first, sub: [[roomPart, street].filter(Boolean).join(', '), c.startDate ? `Moving in ${long(c.startDate)}` : ''].filter(Boolean).join('\n'), terms: [] }
   }
   const sub = [roomPart, c.startDate ? `${stage === 'offer' ? 'Hoping to move in' : 'Moving in'} ${long(c.startDate)}` : ''].filter(Boolean).join('\n')
+  // let only, with the statement (7 Nov 2026, Harry: "title it more like lettings statement - x room, x number")
+  const statementTitle = c.letOnly && (stage === 'summary' || stage === 'signed_paid')
   return {
-    eyebrow, place: c.place, lead, street, sub,
+    ...(statementTitle ? { eyebrow: 'Your new tenant', place: c.place, lead: 'Lettings statement', street: [roomPart, street].filter(Boolean).join(', '),
+      sub: [c.tenant.name, c.startDate ? `Moving in ${long(c.startDate)}` : ''].filter(Boolean).join('\n') } : { eyebrow, place: c.place, lead, street, sub }),
     terms: [
       ...(c.rent ? [{ label: stage === 'offer' ? 'Rent offered' : 'Rent', value: `${money(c.rent)} pcm` }] : []),
       ...(c.deposit && stage !== 'offer' ? [{ label: 'Deposit', value: money(c.deposit) }] : []),
