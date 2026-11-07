@@ -27,6 +27,7 @@ export default function ImprovementsPanel({ propertyId, roomId }: { propertyId: 
   const [ticked, setTicked] = useState<string[]>([])
   const [draft, setDraft] = useState<{ to: 'landlord' | 'contractor'; emails: string; subject: string; message: string } | null>(null)
   const [busy, setBusy] = useState('')
+  const [prop, setProp] = useState<{ propertyId: string; emails: string; intro: string; costs: Record<string, string> } | null>(null)
   const [msg, setMsg] = useState('')
   const q = `propertyId=${propertyId}${roomId ? `&roomId=${roomId}` : ''}`
   const load = () => adminFetch(`/api/admin/improvements?${q}`).then(r => r.json()).then(setD).catch(() => {})
@@ -49,6 +50,21 @@ export default function ImprovementsPanel({ propertyId, roomId }: { propertyId: 
     if (!ok) { setMsg(j.error ?? 'It didn’t send'); return }
     setDraft(null); setTicked([]); setMsg(`Sent to ${j.sentTo.join(', ')}`); load()
   }
+  async function startProposal() {
+    setBusy('prop'); setMsg('')
+    const { ok, j } = await post({ action: 'proposal_prep', ids: ticked })
+    setBusy('')
+    if (!ok) { setMsg(j.error ?? 'Couldn’t start it'); return }
+    setProp({ propertyId: j.propertyId, emails: j.email, intro: j.intro, costs: {} })
+  }
+  async function sendProposal() {
+    if (!prop) return
+    setBusy('send')
+    const { ok, j } = await post({ action: 'proposal', ids: ticked, ...prop })
+    setBusy('')
+    if (!ok) { setMsg(j.error ?? 'It didn’t send'); return }
+    setProp(null); setTicked([]); setMsg(`Proposal sent with ${j.spaces} space${j.spaces === 1 ? '' : 's'} — you’ll get an email when the landlord answers.`); load()
+  }
   async function reimagine(id: string, file: File | undefined) {
     if (!file) return
     setBusy(`r-${id}`); setMsg('')
@@ -67,6 +83,7 @@ export default function ImprovementsPanel({ propertyId, roomId }: { propertyId: 
         <p className="text-sm text-neutral-600">{roomId ? 'Things noted in this room that could be better.' : 'Things noted around the house and in each room that could be better.'} Add them on a <Link href={`/admin/walkthrough?propertyId=${propertyId}`} className="font-semibold text-blue-700 hover:underline">walk round</Link>.</p>
         <span className="flex flex-wrap gap-xs">
           <button type="button" disabled={!ticked.length || !!busy} onClick={() => write('landlord')} className="rounded-lg border border-neutral-300 px-md py-xs text-sm font-semibold text-neutral-800 hover:bg-neutral-50 disabled:opacity-40">{busy === 'landlord' ? 'Writing…' : `Write to the landlord${ticked.length ? ` (${ticked.length})` : ''}`}</button>
+          <button type="button" disabled={!ticked.length || !!busy || !d?.items.some(i => ticked.includes(i.id) && i.designs?.length)} onClick={startProposal} title="Ticked notes with redesigns, as a page the landlord can choose from" className="rounded-lg bg-neutral-900 px-md py-xs text-sm font-semibold text-white hover:bg-neutral-700 disabled:opacity-40">{busy === 'prop' ? 'Preparing…' : 'Send as a proposal'}</button>
           <button type="button" disabled={!ticked.length || !!busy} onClick={() => write('contractor')} className="rounded-lg border border-neutral-300 px-md py-xs text-sm font-semibold text-neutral-800 hover:bg-neutral-50 disabled:opacity-40">{busy === 'contractor' ? 'Writing…' : 'Ask a contractor to quote'}</button>
         </span>
       </div>
@@ -97,6 +114,24 @@ export default function ImprovementsPanel({ propertyId, roomId }: { propertyId: 
       )}
       {!d.redesign && <p className="text-xs text-neutral-500">Redesign images appear once the OpenAI key is added in Vercel (OPENAI_API_KEY).</p>}
 
+      {prop && d && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 md:items-center md:p-lg" onClick={() => setProp(null)}>
+          <div className="max-h-[92dvh] w-full max-w-2xl space-y-sm overflow-y-auto rounded-t-2xl bg-white p-lg shadow-xl md:rounded-2xl" onClick={e => e.stopPropagation()}>
+            <h3 className="text-lg font-bold text-neutral-900">Proposal for the landlord</h3>
+            <p className="text-xs text-neutral-500">They get an email with a private page (30 days) to look through each space’s designs, choose favourites, and tell you their spending ceiling.</p>
+            <input className="w-full rounded-lg border border-neutral-300 px-sm py-xs text-sm" placeholder="landlord@example.com" value={prop.emails} onChange={e => setProp({ ...prop, emails: e.target.value })} />
+            <textarea rows={5} className="w-full rounded-lg border border-neutral-300 px-sm py-xs text-sm" value={prop.intro} onChange={e => setProp({ ...prop, intro: e.target.value })} />
+            <p className="text-xs font-semibold text-neutral-700">Spaces included — add your own rough cost if you have one (optional)</p>
+            {d.items.filter(i => ticked.includes(i.id) && i.designs?.length).map(i => (
+              <label key={i.id} className="flex items-center justify-between gap-sm text-sm"><span>{i.room_id ? i.rooms?.name : i.area} · {i.designs.length} designs</span>
+                <input className="w-40 rounded-lg border border-neutral-300 px-sm py-xs text-sm" placeholder="e.g. £800–£1,200" value={prop.costs[i.id] ?? ''} onChange={e => setProp({ ...prop, costs: { ...prop.costs, [i.id]: e.target.value } })} /></label>
+            ))}
+            {d.items.some(i => ticked.includes(i.id) && !i.designs?.length) && <p className="text-xs text-amber-800">Ticked notes without redesigns are left out of the proposal.</p>}
+            <div className="flex gap-sm pt-xs"><button type="button" disabled={busy === 'send' || !prop.emails.trim()} onClick={sendProposal} className="rounded-lg bg-neutral-900 px-lg py-sm text-sm font-bold text-white disabled:opacity-40">{busy === 'send' ? 'Sending…' : 'Send the proposal'}</button>
+              <button type="button" onClick={() => setProp(null)} className="text-sm font-semibold text-neutral-600 underline">Cancel</button></div>
+          </div>
+        </div>
+      )}
       {draft && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 md:items-center md:p-lg" onClick={() => setDraft(null)}>
           <div className="w-full max-w-2xl space-y-sm rounded-t-2xl bg-white p-lg shadow-xl md:rounded-2xl" onClick={e => e.stopPropagation()}>
