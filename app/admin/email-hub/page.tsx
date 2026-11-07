@@ -65,13 +65,13 @@ export default function EmailHubPage() {
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar left={<BackButton href="/admin/communications" />} title="Email hub" />
       <PageHero trail={[{ label: 'Communications', href: '/admin/communications' }]} title="Email hub"
-        subtitle="How every email from Capital Rooms looks — one theme for all, a theme for some dates, or one for a single email"
+        subtitle="How emails from Capital Rooms look — one theme for all, a theme for some dates, or one for a single email"
         stats={look && d ? [
           { label: 'In use today', value: name(nowTheme ?? 'house') },
           { label: 'Kinds of email', value: String(d.kinds.length) },
           { label: 'With their own theme', value: String(Object.keys(look.perEmail).length) },
         ] : undefined}
-        tabs={[{ key: 'themes', label: 'Themes', active: tab === 'themes', onClick: () => setTab('themes') }, { key: 'emails', label: 'Every email', active: tab === 'emails', onClick: () => setTab('emails') }]} />
+        tabs={[{ key: 'themes', label: 'Themes', active: tab === 'themes', onClick: () => setTab('themes') }, { key: 'emails', label: 'All emails', active: tab === 'emails', onClick: () => setTab('emails') }]} />
       <main className="mx-auto max-w-6xl space-y-md px-lg py-xl">
         {msg && <p className="rounded-xl border border-neutral-200 bg-white px-lg py-sm text-sm text-neutral-700">{msg}</p>}
         {!d || !look ? <p className="text-sm text-neutral-500">Loading…</p> : tab === 'themes' ? <>
@@ -88,9 +88,9 @@ export default function EmailHubPage() {
                   <Preview theme={t.key} height={300} />
                 </button>
                 <div className="flex flex-wrap gap-xs">
-                  <button type="button" className={btnDark} disabled={saving || look.default === t.key} onClick={() => save({ ...look, default: t.key }, `Every email now uses ${t.name}${look.schedule.length ? ' (outside the dates below)' : ''}.`)}>Use for all emails</button>
+                  <button type="button" className={btnDark} disabled={saving || look.default === t.key} onClick={() => save({ ...look, default: t.key }, `All emails now use ${t.name}${look.schedule.length ? ' (outside the dates below)' : ''}.`)}>Use for all emails</button>
                   <button type="button" className={btn} onClick={() => setBig({ theme: t.key, title: t.name })}>Preview</button>
-                  <button type="button" className={btn} onClick={() => setWall(t.key)}>See every email</button>
+                  <button type="button" className={btn} onClick={() => setWall(t.key)}>See all emails in it</button>
                 </div>
               </div>
             ))}
@@ -155,7 +155,7 @@ export default function EmailHubPage() {
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 md:items-center md:p-lg" onClick={() => setWall(null)}>
           <div className="flex max-h-[94dvh] w-full max-w-7xl flex-col overflow-hidden rounded-t-2xl bg-white shadow-xl md:rounded-2xl" onClick={e => e.stopPropagation()}>
             <div className="flex flex-wrap items-center justify-between gap-md border-b border-neutral-200 px-lg py-md">
-              <h3 className="text-lg font-bold text-neutral-900">Every email in {name(wall)}</h3>
+              <h3 className="text-lg font-bold text-neutral-900">All emails in {name(wall)}</h3>
               <div className="flex items-center gap-sm">
                 <select className={input} value={wall} onChange={e => setWall(e.target.value)}>{d.themes.map(t => <option key={t.key} value={t.key}>{t.name}</option>)}</select>
                 <button type="button" onClick={() => setWall(null)} className="text-sm font-semibold text-neutral-500">Close</button>
