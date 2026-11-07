@@ -10,7 +10,7 @@ import { createServiceClient } from '@/lib/supabase'
 import { sendEmail } from '@/lib/sendEmail'
 import { messageHtml } from '@/lib/email/messageHtml'
 import { draftImprovements } from '@/lib/house/improvements'
-import { redesign, redesignReady, designLinks } from '@/lib/house/redesign'
+import { redesign, redesignReady, designLinks, saveToPhotos } from '@/lib/house/redesign'
 import { createProposal } from '@/lib/house/proposals'
 import { dearName } from '@/lib/people'
 
@@ -54,6 +54,26 @@ export async function POST(req: NextRequest) {
   const who = await requireStaff(req)
   if (!who) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const b = await req.json().catch(() => ({}))
+  // { action: 'reimagine-photo', propertyId, roomId, image, mode } → from a room photo: a note is made for it (so it can go
+  // in a landlord proposal like any other), then three looks — 'dress' (styled for marketing) or 'redesign' (new decor)
+  if (b.action === 'reimagine-photo') {
+    const mode = b.mode === 'dress' ? 'dress' : 'redesign'
+    const photo = Buffer.from(String(b.image ?? ''), 'base64')
+    if (photo.length < 200 || photo.length > 4 * 1024 * 1024) return NextResponse.json({ error: 'That photo didn’t come through' }, { status: 400 })
+    const s = createServiceClient()
+    const { data: room } = await s.from('rooms').select('id, property_id, name').eq('id', String(b.roomId ?? '')).maybeSingle() as { data: any }
+    if (!room || room.property_id !== b.propertyId) return NextResponse.json({ error: 'Room not found' }, { status: 404 })
+    const { data: imp, error } = await s.from('property_improvements').insert({ property_id: room.property_id, room_id: room.id,
+      note: mode === 'dress' ? 'Dress the room for marketing photos' : 'Refresh the décor (no building work)', added_by: who.email ?? null }).select('id').single() as { data: any; error: any }
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    try { const made = await redesign(s as any, imp.id, photo, mode); return NextResponse.json({ id: imp.id, designs: await designLinks(s as any, made) }) }
+    catch (e: any) { await s.from('property_improvements').delete().eq('id', imp.id); return NextResponse.json({ error: e?.message ?? 'Couldn’t make the looks' }, { status: 502 }) }
+  }
+  // { action: 'save-photo', id, index } → that look added to the room's photos (captioned as styled / an illustration)
+  if (b.action === 'save-photo') {
+    try { return NextResponse.json({ photo: await saveToPhotos(createServiceClient() as any, String(b.id), Number(b.index), who.email ?? null) }) }
+    catch (e: any) { return NextResponse.json({ error: e?.message ?? 'Couldn’t add it' }, { status: 500 }) }
+  }
   // { action: 'redesign', id, image } → three redecoration ideas of that photo (lib/house/redesign)
   if (b.action === 'redesign') {
     const photo = Buffer.from(String(b.image ?? ''), 'base64')

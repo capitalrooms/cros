@@ -1,6 +1,7 @@
 'use client'
 import AdvertStudio from '@/components/AdvertStudio'
 import ImprovementsPanel from '@/components/ImprovementsPanel'
+import PhotoReimagine from '@/components/PhotoReimagine'
 import { displayName, nameFields } from '@/lib/people'
 import { isOfficeRole } from '@/lib/access/areas'
 
@@ -140,6 +141,7 @@ export default function RoomDashboardPage({
   const [icebreakerAnswers, setIcebreakerAnswers] = useState<Record<string, string> | null>(null)
   const [tickets, setTickets] = useState<MaintenanceTicket[]>([])
   const [photos, setPhotos] = useState<RoomPhoto[]>([])
+  const [reimagine, setReimagine] = useState<string | null>(null)   // a photo's link being reimagined (components/PhotoReimagine)
   const [purchases, setPurchases] = useState<Purchase[]>([])
   const [selfChecks, setSelfChecks] = useState<SelfCheck[]>([])
   const [roomNotes, setRoomNotes] = useState<RoomNote[]>([])
@@ -1222,6 +1224,7 @@ export default function RoomDashboardPage({
           {/* ── PHOTOS ──────────────────────────────────────────────────────── */}
           {activeTab === 'photos' && (
             <div>
+              {reimagine && <PhotoReimagine url={reimagine} propertyId={propertyId} roomId={roomId} onClose={() => setReimagine(null)} onSaved={ph => setPhotos(prev => [...prev, ph as any])} />}
               <div className="flex items-center justify-between gap-md mb-md flex-wrap">
                 <h2 className="text-xs font-bold uppercase tracking-widest text-neutral-400">Room photos</h2>
                 <div className="flex items-center gap-sm flex-wrap">
@@ -1269,6 +1272,8 @@ export default function RoomDashboardPage({
                         ) : (
                           <div className="w-full h-full flex items-center justify-center text-3xl opacity-30"><LineIcon glyph="📷" /></div>
                         )}
+                        {url && <button type="button" onClick={() => setReimagine(url)}
+                          className="absolute bottom-xs left-xs rounded-full bg-white/90 px-sm py-0.5 text-xs font-semibold text-neutral-900 shadow hover:bg-white">✨ Reimagine</button>}
                         <button
                           onClick={() => deletePhoto(p)}
                           className="absolute top-xs right-xs w-6 h-6 rounded-full bg-black/60 text-white text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
