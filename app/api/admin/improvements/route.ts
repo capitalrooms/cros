@@ -22,6 +22,17 @@ const STATUSES = ['noted', 'sent_to_landlord', 'approved', 'quoting', 'done', 'd
 export async function GET(req: NextRequest) {
   if (!(await requireStaff(req))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const q = req.nextUrl.searchParams
+  // ?all=1 → every house's notes for the Planner overview (read-only; work on them at the house)
+  if (q.get('all')) {
+    const s = createServiceClient()
+    const { data, error } = await s.from('property_improvements').select('id, property_id, room_id, area, note, status, designs, sent_log, created_at, updated_at, rooms(name), properties(name, address)').order('updated_at', { ascending: false }).limit(500)
+    if (error) return NextResponse.json({ items: [] })
+    return NextResponse.json({ items: ((data ?? []) as any[]).map(r => {
+      const answer = [...(r.sent_log ?? [])].reverse().find((e: any) => e.kind === 'answer') ?? null
+      return { id: r.id, propertyId: r.property_id, house: String(r.properties?.address || r.properties?.name || '').split('\n')[0], space: r.room_id ? r.rooms?.name : r.area,
+        note: r.note, status: r.status, looks: (r.designs ?? []).length, sent: (r.sent_log ?? []).filter((e: any) => e.kind !== 'answer').length, answer, updatedAt: r.updated_at ?? r.created_at }
+    }) })
+  }
   let query = createServiceClient().from('property_improvements').select('*, rooms(name, room_size)').eq('property_id', q.get('propertyId') ?? '').order('created_at', { ascending: false })
   if (q.get('roomId')) query = query.eq('room_id', q.get('roomId'))
   const { data, error } = await query

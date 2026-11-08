@@ -78,7 +78,7 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
   const legacyMap: Record<string, TabType> = {
     property: 'details', extended: 'details',
     housemates: 'people',
-    purchases: 'maintenance', tasks: 'maintenance',
+    purchases: 'maintenance', tasks: 'maintenance', improvements: 'maintenance', upkeep: 'maintenance',
     communications: 'people',
     photos: 'documents', financials: 'documents',
   }
@@ -97,7 +97,7 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
   // the header's figures: rooms let today, their rent, the next certificate to expire
   const [house, setHouse] = useState<{ rooms: number; let: number; rent: number; nextCert: { label: string; expiry: string } | null } | null>(null)
   const [peopleSubTab, setPeopleSubTab] = useState<PeopleSubTab>('tenants')
-  const [maintenanceSubTab, setMaintenanceSubTab] = useState<MaintenanceSubTab>('jobs')
+  const [maintenanceSubTab, setMaintenanceSubTab] = useState<MaintenanceSubTab>(() => (['purchases', 'tasks', 'upkeep', 'improvements'] as const).find(k => k === rawTab) ?? 'jobs')
   const [complianceSubTab, setComplianceSubTab] = useState<ComplianceSubTab>('compliance')
   const [documentsSubTab, setDocumentsSubTab] = useState<DocumentsSubTab>('documents')
   const [showQuickNotify, setShowQuickNotify] = useState(false);
