@@ -121,25 +121,28 @@ export default function ImprovementsPanel({ propertyId, roomId }: { propertyId: 
       {msg && <p className="rounded-lg bg-neutral-50 px-md py-xs text-sm text-neutral-800">{msg}</p>}
       {!d.items.length ? <p className="text-sm text-neutral-500">Nothing noted yet.</p> : (
         <ul className="divide-y divide-neutral-100 rounded-xl border border-neutral-200 bg-white">
-          {[...live, ...d.items.filter(i => !live.includes(i))].map(i => (
+          {[...live, ...d.items.filter(i => !live.includes(i))].map(i => { const ans = [...(i.sent_log ?? [])].reverse().find((e: any) => e.kind === 'answer'); return (
             <li key={i.id} className={`space-y-xs px-md py-sm text-sm ${i.status === 'dismissed' ? 'opacity-50' : ''}`}>
               <div className="flex flex-wrap items-start gap-sm">
                 <input type="checkbox" className="mt-1" checked={ticked.includes(i.id)} onChange={() => setTicked(t => t.includes(i.id) ? t.filter(x => x !== i.id) : [...t, i.id])} />
                 <span className="min-w-[200px] flex-1"><span className="font-semibold text-neutral-900">{i.room_id ? i.rooms?.name : i.area}</span>{i.rooms?.room_size ? <span className="text-xs text-neutral-500"> · {i.rooms.room_size} m²</span> : null} — {i.note}
-                  <span className="block text-xs text-neutral-500">{new Date(i.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}{i.sent_log?.length ? ` · sent ${i.sent_log.length}×` : ''}</span></span>
+                  <span className="block text-xs text-neutral-500">{new Date(i.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}{i.sent_log?.filter((e: any) => e.kind !== 'answer').length ? ` · sent ${i.sent_log.filter((e: any) => e.kind !== 'answer').length}×` : ''}</span></span>
                 <select value={i.status} onChange={e => patch(i.id, { status: e.target.value })} className={`rounded-full px-sm py-0.5 text-xs font-semibold ${STATUS[i.status]?.[1] ?? ''}`}>{Object.entries(STATUS).map(([k, [l]]) => <option key={k} value={k}>{l}</option>)}</select>
                 {d.redesign && <button type="button" disabled={!!busy} onClick={() => setPicking(i)} className="text-xs font-semibold text-blue-700 hover:underline disabled:text-neutral-400">{busy === `r-${i.id}` ? 'Imagining three looks… (a minute or two)' : 'Reimagine from a photo'}</button>}
               </div>
+              {ans && <p className="ml-lg rounded-lg bg-emerald-50 px-sm py-xs text-xs text-emerald-900">
+                <strong>Landlord’s answer</strong> ({new Date(ans.at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}): {ans.style ? `likes “${ans.style}”` : ans.choice === 'none' ? 'not this one' : 'no choice made'}
+                {ans.note ? ` — “${ans.note}”` : ''}{ans.budget ? ` · spending ceiling ${ans.budget}` : ''}{ans.comments ? ` · “${ans.comments}”` : ''}</p>}
               {i.designs?.length > 0 && <div className="grid gap-sm pl-lg sm:grid-cols-3">
                 {i.designs.map((g: any, k: number) => (
-                  <figure key={k} className="m-0 overflow-hidden rounded-lg border border-neutral-200">
+                  <figure key={k} className={`m-0 overflow-hidden rounded-lg border ${ans?.choice === k ? 'border-emerald-500 ring-2 ring-emerald-400' : 'border-neutral-200'}`}>
                     {g.url && <a href={g.url} target="_blank" rel="noreferrer"><img src={g.url} alt={g.style} className="aspect-[4/3] w-full object-cover" /></a>}
                     <figcaption className="space-y-0.5 p-sm text-xs"><span className="font-semibold">{g.style}</span> · {g.cost}<span className="block text-neutral-600">{g.brief}</span></figcaption>
                   </figure>
                 ))}
               </div>}
             </li>
-          ))}
+          ) })}
         </ul>
       )}
       {!d.redesign && <p className="text-xs text-neutral-500">Redesign images appear once the OpenAI key is added in Vercel (OPENAI_API_KEY).</p>}

@@ -59,6 +59,17 @@ export async function answerProposal(s: SupabaseClient, p: any, a: any, req?: Re
     budget: String(a?.budget ?? '').slice(0, 60), comments: String(a?.comments ?? '').slice(0, 2000),
   }
   await s.from('improvement_proposals').update({ answers, answered_at: new Date().toISOString() }).eq('id', p.id)
+  // each note carries the landlord's answer (shown under it on the house's Improvements) and moves on: a favourite → Approved
+  const at = new Date().toISOString()
+  for (const sp of (p.spaces ?? []) as any[]) {
+    const x = answers.spaces[sp.improvementId]; if (!x) continue
+    const style = x.choice === 'none' ? null : x.choice === null ? null : String(sp.designs?.[x.choice]?.style ?? '')
+    const { data: cur } = await s.from('property_improvements').select('status, sent_log').eq('id', sp.improvementId).maybeSingle() as { data: any }
+    await s.from('property_improvements').update({
+      sent_log: [...(cur?.sent_log ?? []), { kind: 'answer', choice: x.choice, style, note: x.note, budget: answers.budget, comments: answers.comments, at }],
+      ...(style && ['noted', 'sent_to_landlord'].includes(cur?.status) ? { status: 'approved' } : {}), updated_at: at,
+    }).eq('id', sp.improvementId)
+  }
   const lines = (p.spaces ?? []).map((sp: any) => { const x = answers.spaces[sp.improvementId]; return `<li><strong>${esc(String(sp.label))}</strong>: ${x.choice === 'none' ? 'not this one' : x.choice === null ? 'no choice' : esc(String(sp.designs[x.choice]?.style ?? ''))}${x.note ? ` — “${esc(x.note)}”` : ''}</li>` }).join('')
   const house = String(p.properties?.address || p.properties?.name || '').split('\n')[0]
   await sendEmail([p.sent_by || 'management@capitalrooms.co.uk'], `Landlord answered the ideas for ${house}`, `<p>The landlord has answered the improvement ideas for <strong>${esc(house)}</strong>.</p><ul>${lines}</ul><p><strong>Spending ceiling:</strong> ${esc(answers.budget || 'not given')}</p>${answers.comments ? `<p><strong>Comments:</strong> ${esc(answers.comments)}</p>` : ''}<p>See it on the house’s Improvements.</p>`, { req, kind: 'office-proposal-answer' })
