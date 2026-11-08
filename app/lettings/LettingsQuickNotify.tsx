@@ -9,6 +9,7 @@
 import { useMemo, useState } from 'react'
 import PeoplePicker, { type Recipient } from '@/app/components/notify/PeoplePicker'
 import AddressField from '@/app/components/AddressField'
+import { hiName } from '@/lib/people'
 
 export interface NotifyProperty { id: string; name: string }
 export interface NotifyViewing {
@@ -147,7 +148,7 @@ export default function LettingsQuickNotify({ properties, viewings, initialMode 
     `rounded-lg border px-md py-sm text-xs font-semibold transition-colors ${active ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-300 bg-white text-neutral-700 hover:border-neutral-500'}`
   const field = 'w-full rounded-xl border border-neutral-300 px-md py-sm text-sm text-neutral-900 bg-white'
   const lbl = 'block text-xs font-bold uppercase tracking-wide text-neutral-700 mb-xs'
-  const preview = mode === 'tenants' ? tenantMsg() : { subject: '', message: `Hi ${(people[0]?.name || '').split(' ')[0] || 'there'}, ${applicantMsg()}` }
+  const preview = mode === 'tenants' ? tenantMsg() : { subject: '', message: `Hi ${hiName(people[0] as any)}, ${applicantMsg()}` }
 
   return (
     <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/60 p-lg" onClick={() => !sending && onClose()}>

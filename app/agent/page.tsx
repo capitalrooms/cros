@@ -38,6 +38,7 @@ export default function AgentDashboard() {
   const [loading, setLoading] = useState(true)
   const [rooms, setRooms] = useState<Room[]>([])
   const [viewings, setViewings] = useState<Viewing[]>([])
+  const [showAllViewings, setShowAllViewings] = useState(false)
   const [filter, setFilter] = useState<'all' | 'available' | 'on_notice'>('available')
   const [name, setName] = useState('')
 
@@ -87,7 +88,7 @@ export default function AgentDashboard() {
   const occupied = rooms.filter((r) => r.status === 'occupied')
   const filtered = filter === 'all' ? rooms : filter === 'available' ? available : onNotice
 
-  const upcomingViewings = viewings.slice(0, 5)
+  const upcomingViewings = showAllViewings ? viewings : viewings.slice(0, 5)
   const totalAvailable = available.length
   const daysOnMarket = (roomData: Room) => {
     if (!roomData.created_at) return '—'
@@ -274,11 +275,11 @@ export default function AgentDashboard() {
                 </div>
               )}
 
-              <Link href="/agent/viewings">
-                <button className="mt-md w-full rounded-lg border border-neutral-300 py-sm text-xs font-bold text-neutral-900 hover:bg-neutral-50">
-                  View all viewings →
+              {viewings.length > 5 && (
+                <button type="button" onClick={() => setShowAllViewings(v => !v)} className="mt-md w-full rounded-lg border border-neutral-300 py-sm text-xs font-bold text-neutral-900 hover:bg-neutral-50">
+                  {showAllViewings ? 'Show fewer' : `Show all ${viewings.length} viewings`}
                 </button>
-              </Link>
+              )}
             </div>
           </div>
         </div>
