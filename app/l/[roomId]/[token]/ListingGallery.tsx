@@ -21,20 +21,24 @@ export default function ListingGallery({ photos, videoCount }: { photos: Gallery
     return () => { window.removeEventListener('keydown', on); document.body.style.overflow = '' }
   }, [open, photos.length])
   if (!photos.length) return null
-  const side = photos.slice(1, 5)
+  // the computer layout fits the number of photos — never a gap (9 Nov 2026)
+  const shown = photos.slice(0, 5), n = shown.length
+  const cols = n === 1 ? '1fr' : n === 2 ? '3fr 2fr' : n === 3 ? '2fr 1fr' : n === 4 ? '2fr 1fr 1fr' : '2fr 1fr 1fr'
+  const place = (i: number): React.CSSProperties => {
+    if (i === 0) return { gridRow: n === 1 ? 'auto' : 'span 2' }
+    if (n === 2) return { gridRow: 'span 2' }
+    if (n === 4 && i === 1) return { gridRow: 'span 2' }
+    return {}
+  }
 
   return (
     <>
-      {/* computer: one big, four small */}
-      <div className="relative hidden gap-2 md:grid" style={{ gridTemplateColumns: side.length ? '2fr 1fr 1fr' : '1fr', gridTemplateRows: '220px 220px' }}>
-        <button type="button" onClick={() => setOpen(0)} className="relative overflow-hidden rounded-l-xl" style={{ gridRow: 'span 2' }} aria-label="Open the photos">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={photos[0].url} alt={photos[0].alt} className="h-full w-full object-cover transition-transform duration-500 hover:scale-[1.02]" />
-        </button>
-        {side.map((p, i) => (
-          <button key={p.id} type="button" onClick={() => setOpen(i + 1)} className={`relative overflow-hidden ${i === 1 ? 'rounded-tr-xl' : ''} ${i === 3 ? 'rounded-br-xl' : ''}`} aria-label={`Open photo ${i + 2}`}>
+      {/* computer */}
+      <div className="relative hidden gap-2 overflow-hidden rounded-[inherit] md:grid" style={{ gridTemplateColumns: cols, gridTemplateRows: n === 1 ? '460px' : '230px 230px' }}>
+        {shown.map((p, i) => (
+          <button key={p.id} type="button" onClick={() => setOpen(i)} className="relative overflow-hidden" style={place(i)} aria-label={i === 0 ? 'Open the photos' : `Open photo ${i + 1}`}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={p.url} alt={p.alt} loading="lazy" className="h-full w-full object-cover transition-transform duration-500 hover:scale-[1.03]" />
+            <img src={p.url} alt={p.alt} loading={i === 0 ? 'eager' : 'lazy'} className="h-full w-full object-cover transition-transform duration-500 hover:scale-[1.03]" />
           </button>
         ))}
         <button type="button" onClick={() => setOpen(0)} className="absolute bottom-3 right-3 rounded-full bg-white/95 px-4 py-2 text-[13px] font-semibold text-[#111] shadow">
@@ -43,7 +47,7 @@ export default function ListingGallery({ photos, videoCount }: { photos: Gallery
       </div>
 
       {/* phone: swipe, with where you are */}
-      <div className="relative -mx-5 md:hidden">
+      <div className="relative md:hidden">
         <div className="flex snap-x snap-mandatory overflow-x-auto" style={{ scrollbarWidth: 'none' }}
           onScroll={e => { const el = e.currentTarget; setMobileAt(Math.round(el.scrollLeft / el.clientWidth)) }}>
           {photos.map((p, i) => (

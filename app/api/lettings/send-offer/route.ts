@@ -54,7 +54,7 @@ export async function POST(request: Request) {
       const propAddress = data.customAddress  || ''
       const firstName   = hiName(personFromText(data.applicantName))
       const moveInDisplay = data.moveInDate || 'To be confirmed'
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://cros-sigma.vercel.app'
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://capitalrooms.co.uk'
       const applicationUrl = `${appUrl}/applicant/apply?email=${encodeURIComponent(data.applicantEmail)}`
 
       const templateSlug = data.requestDeposit ? 'applicant-offer-deposit' : 'applicant-offer-letter'
@@ -192,7 +192,7 @@ export async function POST(request: Request) {
     }
 
     // Build application URL
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://cros-sigma.vercel.app'
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://capitalrooms.co.uk'
     // &a= lets the form show the rent agreed on this offer (a whole home often has no asking rent saved)
     const applicationUrl = `${appUrl}/applicant/apply?token=${applicationToken}&roomId=${data.roomId}&propertyId=${data.propertyId}${applicantId ? `&a=${applicantId}` : ''}`
 

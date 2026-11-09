@@ -20,7 +20,7 @@ import { emailHtml } from '@/lib/emailTemplate'
 import { OFFICE_ALERT_EMAIL } from '@/lib/email/office'
 
 
-const PORTAL_URL = 'https://cros-sigma.vercel.app'
+const PORTAL_URL = 'https://capitalrooms.co.uk'
 const ADMIN_EMAIL = OFFICE_ALERT_EMAIL
 
 // Return TwiML so Twilio sends a reply SMS back to the user

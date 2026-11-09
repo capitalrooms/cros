@@ -17,7 +17,7 @@ import { sortPropertiesNumerically } from '@/lib/sortProperties'
 
 export const runtime = 'nodejs'
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://cros-sigma.vercel.app'
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://capitalrooms.co.uk'
 
 function weeklyRent(monthly: number) {
   return Math.round((monthly * 12) / 52)

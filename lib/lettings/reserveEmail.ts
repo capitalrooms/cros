@@ -16,7 +16,7 @@ import { oneWeekRent } from '@/lib/tenancy/deposit'
 import { loadDepositContext } from '@/lib/lettings/holdingDeposit'
 import { STAGE_ORDER } from '@/lib/lettings/applicantRecord'
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://cros-sigma.vercel.app'
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://capitalrooms.co.uk'
 const gbp = (n: number) => '£' + n.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 export const cleanRent = (v: unknown) => { const n = Number(String(v ?? '').replace(/[£,\s]/g, '')); return n > 0 && n < 100000 ? Math.round(n * 100) / 100 : null }
 

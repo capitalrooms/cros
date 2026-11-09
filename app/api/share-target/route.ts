@@ -95,5 +95,5 @@ export async function POST(request: NextRequest) {
 
 // Some browsers issue a GET preflight — return a redirect to the install page
 export async function GET() {
-  return NextResponse.redirect(new URL('/install', process.env.NEXT_PUBLIC_SITE_URL || 'https://cros-sigma.vercel.app'))
+  return NextResponse.redirect(new URL('/install', process.env.NEXT_PUBLIC_SITE_URL || 'https://capitalrooms.co.uk'))
 }

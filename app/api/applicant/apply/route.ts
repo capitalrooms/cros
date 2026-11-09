@@ -185,7 +185,7 @@ export async function POST(request: Request) {
       if (to.length) {
         const esc = (v: unknown) => String(v ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!))
         const where = [isWholeLet(null, room?.name) ? '' : room?.name, room?.properties?.name].filter(Boolean).join(', ') || 'a room'
-        const app = process.env.NEXT_PUBLIC_APP_URL || 'https://cros-sigma.vercel.app'
+        const app = process.env.NEXT_PUBLIC_APP_URL || 'https://capitalrooms.co.uk'
         const fast = !review.review && (data.fastTrack === true || (typeof data.offerToken === 'string' && !!(await supabase.from('offers').select('request_deposit').eq('application_token', data.offerToken)
           .maybeSingle()).data?.request_deposit))
         const row = (k: string, v: unknown) => v ? `<tr><td style="padding:4px 0;color:#78716c;width:160px;">${k}</td><td style="padding:4px 0;">${esc(v)}</td></tr>` : ''

@@ -7,7 +7,7 @@
 // Runs when an email is sent (lib/sendEmail deliverEmail) and when a template is saved (Message templates), and the
 // health check reports templates that would need it. Plain string work — safe in the browser and on the server.
 
-export const EMAIL_ASSET_BASE = 'https://cros-sigma.vercel.app'
+export const EMAIL_ASSET_BASE = 'https://capitalrooms.co.uk'
 export const LOGO_ON_LIGHT = `${EMAIL_ASSET_BASE}/brand/lockup-ink-on-white.png`
 export const LOGO_ON_DARK = `${EMAIL_ASSET_BASE}/brand/lockup-white.png`
 const OUR_HOSTS = ['cros-sigma.vercel.app', 'cros-capital-rooms.vercel.app', 'capitalrooms.co.uk', 'www.capitalrooms.co.uk']

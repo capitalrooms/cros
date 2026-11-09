@@ -17,7 +17,7 @@ export const dynamic = 'force-dynamic'
 
 // office accounts only — tenants and landlords get no automatic emails while their messages are paused
 const OFFICE = ['administrator', 'admin', 'lettings']
-const SITE = process.env.NEXT_PUBLIC_APP_URL || 'https://cros-sigma.vercel.app'
+const SITE = process.env.NEXT_PUBLIC_APP_URL || 'https://capitalrooms.co.uk'
 const esc = (s: string) => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!))
 
 function describe(ua: string) {

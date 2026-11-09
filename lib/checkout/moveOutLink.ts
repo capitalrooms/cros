@@ -6,7 +6,7 @@ import crypto from 'node:crypto'
 const DAYS = 120
 const secret = () => crypto.createHash('sha256').update(`cros-move-out:${process.env.SUPABASE_SERVICE_ROLE_KEY ?? ''}`).digest()
 const sign = (payload: string) => crypto.createHmac('sha256', secret()).update(payload).digest('base64url').slice(0, 32)
-const SITE = process.env.NEXT_PUBLIC_APP_URL || 'https://cros-sigma.vercel.app'
+const SITE = process.env.NEXT_PUBLIC_APP_URL || 'https://capitalrooms.co.uk'
 
 export function moveOutToken(tenancyId: string): string {
   const payload = `${tenancyId}.${Date.now() + DAYS * 86400_000}`

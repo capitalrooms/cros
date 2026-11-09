@@ -18,7 +18,7 @@ const OPEN = ['draft', 'ready', 'live', 'let_agreed']
 const notSetUp = (e: any) => e && (e.code === '42P01' || e.code === 'PGRST205' || /listings/.test(e.message ?? '') && /does not exist|schema cache/.test(e.message ?? ''))
 const setup = () => NextResponse.json({ setupNeeded: true, error: 'Run migration 227 in Supabase first.' }, { status: 503 })
 const photoUrl = (s: any, x: any) => x.file_url || s.storage.from('property-photos').getPublicUrl(String(x.file_path)).data.publicUrl
-const base = () => process.env.NEXT_PUBLIC_APP_URL || 'https://cros-sigma.vercel.app'
+const base = () => process.env.NEXT_PUBLIC_APP_URL || 'https://capitalrooms.co.uk'
 
 async function full(s: any, listing: any) {
   const [{ data: photos }, { data: channels }, { data: house }, { data: room }] = await Promise.all([

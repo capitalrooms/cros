@@ -138,7 +138,7 @@ export async function GET(req: NextRequest) {
   if (resendKey) {
     const firstName = (applicant.full_name || '').split(' ')[0] || applicant.full_name
     const rentStr   = askingRent ? `£${Number(askingRent).toLocaleString()}` : '(unknown)'
-    const baseUrl   = process.env.NEXT_PUBLIC_APP_URL || 'https://cros-sigma.vercel.app'
+    const baseUrl   = process.env.NEXT_PUBLIC_APP_URL || 'https://capitalrooms.co.uk'
 
     const notifyBody = `
       <p style="margin:0 0 8px;font-size:16px;font-weight:700;">Counter-offer accepted</p>

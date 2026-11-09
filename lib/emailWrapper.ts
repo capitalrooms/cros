@@ -58,8 +58,8 @@ export const BUSINESS_DEFAULTS: BusinessSettings = {
   postcode: 'EC2A 4NA',
   email: 'management@capitalrooms.co.uk',
   phone: '0207 112 9163',
-  logo_url: 'https://cros-sigma.vercel.app/footer-logo.png',
-  logo_url_light: 'https://cros-sigma.vercel.app/logo.png',
+  logo_url: 'https://capitalrooms.co.uk/footer-logo.png',
+  logo_url_light: 'https://capitalrooms.co.uk/logo.png',
   email_theme: 'dark',
 }
 
@@ -119,7 +119,7 @@ export function ctaButton(label: string, href: string): string {
 /** @deprecated Senders are per person now — use senderFields()/senderFor() from lib/email/sender.
  *  Kept as a safety net: a real, monitored mailbox rather than noreply@. */
 export const FROM = 'Capital Rooms <management@capitalrooms.co.uk>'
-export const PORTAL_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://cros-sigma.vercel.app'
+export const PORTAL_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://capitalrooms.co.uk'
 
 // ─── The house email (agreed 27 Sep 2026) ─────────────────────────────────────
 // A white top bar with the black Capital Rooms logo and a fine rule (option C, chosen 28 Sep 2026 — so it's clear

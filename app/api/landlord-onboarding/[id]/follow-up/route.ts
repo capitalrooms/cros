@@ -21,7 +21,7 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 export const maxDuration = 30
 
-const SITE = process.env.NEXT_PUBLIC_APP_URL || 'https://cros-sigma.vercel.app'
+const SITE = process.env.NEXT_PUBLIC_APP_URL || 'https://capitalrooms.co.uk'
 const esc = (s: string) => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!))
 const P = 'margin:0 0 16px;font-size:15px;color:#333;line-height:1.6'
 

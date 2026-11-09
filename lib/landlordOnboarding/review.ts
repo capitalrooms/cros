@@ -303,7 +303,7 @@ export async function notifyOfficeOfSubmission(onboardingId: string, review: Aut
   if (!row) return
   const biz = await fetchPDFBizSettings()
   const to = process.env.ONBOARDING_NOTIFY_EMAIL || biz.email
-  const base = process.env.NEXT_PUBLIC_APP_URL ?? 'https://cros-sigma.vercel.app'
+  const base = process.env.NEXT_PUBLIC_APP_URL ?? 'https://capitalrooms.co.uk'
   const level = review?.suggested_level
   const colour = level === 'high' ? '#b91c1c' : level === 'medium' ? '#b45309' : '#15803d'
   const reasons = review?.reasons.slice(0, 8).map(r => `<li>${r}</li>`).join('') ?? ''
