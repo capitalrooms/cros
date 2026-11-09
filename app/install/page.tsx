@@ -19,7 +19,7 @@ export default function InstallPage() {
 
       {/* ── Top bar ─────────────────────────────────────────────────────── */}
       <div className="sticky top-0 z-40 bg-neutral-950/95 backdrop-blur border-b border-white/10 px-lg py-md flex items-center justify-between">
-        <Link href="/home" className="text-white/50 hover:text-white text-sm font-semibold transition-colors">
+        <Link href="/app" className="text-white/50 hover:text-white text-sm font-semibold transition-colors">
           ← Back
         </Link>
         <p className="text-xs font-black tracking-[0.15em] uppercase text-white/60">Capital Rooms</p>
@@ -160,7 +160,7 @@ export default function InstallPage() {
 
         {/* ── CTA ──────────────────────────────────────────────────────────── */}
         <Link
-          href="/home"
+          href="/app"
           className="block text-center w-full rounded-2xl bg-white text-neutral-950 font-black py-md px-lg text-sm hover:bg-neutral-100 transition"
         >
           Open Capital Rooms →

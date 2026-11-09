@@ -107,8 +107,12 @@ export default function ListingEditor({ params }: { params: Promise<{ roomId: st
     setError(''); setNotice('')
     const r = await fetch('/api/lettings/listings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: data.listing.id, ...body }) })
     const d = await r.json().catch(() => ({}))
-    if (!r.ok) { setError(d.error || 'That didn’t work'); return }
-    setData(d); if (done) setNotice(done)
+    if (!r.ok) {
+      // not ready (checked on the saved copy, after your last change went in): show what's left (9 Nov 2026)
+      if (r.status === 409 && /Not ready yet/.test(d.error ?? '')) { setNudge(true); await load(); document.getElementById('sec-ready')?.scrollIntoView({ behavior: 'smooth', block: 'center' }) }
+      setError(d.error || 'That didn’t work'); return
+    }
+    setNudge(false); setData(d); if (done) setNotice(done)
   }
 
   // SpareRoom → the listing (and its photos into the room)
@@ -201,7 +205,6 @@ export default function ListingEditor({ params }: { params: Promise<{ roomId: st
     </select>)
   const go = (id: string) => { setMobilePane('edit'); setTimeout(() => document.getElementById(`sec-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 30) }
   const move = (to: string) => {
-    if ((to === 'ready' || to === 'live') && data.missing.length) { setNudge(true); document.getElementById('sec-ready')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); return }
     if (to === 'let_agreed' && !window.confirm('Mark as let agreed? The advert comes down everywhere it’s shown.')) return
     if (to === 'let' && !window.confirm('Mark as let? The listing closes.')) return
     act({ action: 'move', to }, to === 'live' ? 'Live ✓' : to === 'let_agreed' ? 'Let agreed — taken down everywhere' : to === 'ready' ? 'Marked ready' : undefined)
@@ -246,7 +249,7 @@ export default function ListingEditor({ params }: { params: Promise<{ roomId: st
           : [{ label: 'Lettings', href: '/admin/lettings' }, { label: 'Availability', href: '/admin/available-and-lettings' }, { label: 'Listing' }]}
       actions={<>
         {l.status === 'draft' && <HeroButton onClick={() => move('ready')}>Mark ready</HeroButton>}
-        {(l.status === 'ready' || l.status === 'draft') && <HeroButton primary onClick={() => move('live')}>Publish</HeroButton>}
+        {(l.status === 'ready' || l.status === 'draft') && <HeroButton primary onClick={() => move('live')}>{data.missing.length && saving !== 'saving' ? `Publish · ${data.missing.length} to finish` : 'Publish'}</HeroButton>}
         {l.status === 'live' && <HeroButton primary onClick={() => move('let_agreed')}>Let agreed</HeroButton>}
         {l.status === 'let_agreed' && <HeroButton primary onClick={() => move('let')}>Mark let</HeroButton>}
         {l.status !== 'draft' && l.status !== 'let_agreed' && <HeroButton onClick={() => move('draft')}>Back to draft</HeroButton>}

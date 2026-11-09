@@ -29,7 +29,8 @@ export async function proxy(request: NextRequest) {
   if (host === `www.${SITE}`) return NextResponse.redirect(`https://${SITE}${path}${url.search}`, 308)
   // the old app address: people's pages move to the one domain; its API stays (webhooks, cron, the deploy check)
   if (OLD_APP_HOSTS.has(host) && !path.startsWith('/api/') && !path.startsWith('/_next/')) {
-    return NextResponse.redirect(`https://${SITE}${path === '/site' ? '/' : path.replace(/^\/site(?=\/)/, '')}${url.search}`, 308)
+    // the old address's front page was the app's front door (phones that installed it there start at '/')
+    return NextResponse.redirect(`https://${SITE}${path === '/' ? '/app' : path === '/site' ? '/' : path.replace(/^\/site(?=\/)/, '')}${url.search}`, 308)
   }
 
   if (host === SITE) {

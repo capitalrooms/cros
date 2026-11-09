@@ -9,10 +9,10 @@ export function Tick() { return <svg width="18" height="18" viewBox="0 0 24 24" 
 export const hasPhoto = (k: string) => !!PHOTOS[k]
 
 /** a photo slot — the photo when one is set (lib/website/site PHOTOS), else a quiet forest panel */
-export function Photo({ k, className = '', alt = '', tone }: { k: string; className?: string; alt?: string; tone?: 'sage' }) {
+export function Photo({ k, className = '', alt = '', tone, eager }: { k: string; className?: string; alt?: string; tone?: 'sage'; eager?: boolean }) {
   const src = PHOTOS[k]
   // eslint-disable-next-line @next/next/no-img-element
-  return <div className={`ph ${tone ?? ''} ${className}`}>{src ? <img src={src} alt={alt} loading="lazy" /> : null}</div>
+  return <div className={`ph ${tone ?? ''} ${className}`}>{src ? <img src={src} alt={alt} loading={eager ? 'eager' : 'lazy'} fetchPriority={eager ? 'high' : 'auto'} /> : null}</div>
 }
 
 export function Header({ here, b = '' }: { here?: string; b?: string }) {

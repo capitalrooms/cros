@@ -8,7 +8,8 @@ export default function manifest(): MetadataRoute.Manifest {
     short_name: 'Capital Rooms',
     description:
       'Manage properties, maintenance, viewings and cleans — for tenants, contractors, cleaners, lettings and admins.',
-    start_url: '/',
+    id: '/app',
+    start_url: '/app',   // '/' on the domain is the website — the app starts at its own front door (9 Nov 2026)
     scope: '/',
     display: 'standalone',
     orientation: 'portrait',

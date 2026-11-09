@@ -203,3 +203,14 @@
   .site .lst-bar{display:flex;gap:8px;position:fixed;left:0;right:0;bottom:0;z-index:40;padding:12px 16px max(12px,env(safe-area-inset-bottom));background:rgba(251,248,241,.96);border-top:1px solid var(--line)}
   .site .foot{padding-bottom:110px}
 }
+
+/* phone header: logo, then a plain menu icon; the menu opens as a full-width panel (9 Nov 2026) */
+.site .top .menu-btn{align-items:center;justify-content:center;width:48px;height:48px;border-radius:14px;border:0;background:transparent;color:var(--ink);cursor:pointer}
+.site .top .menu-btn:hover{background:var(--sage)}
+@media (max-width:900px){
+  .site .top .wrap{gap:8px}
+  .site .top .wrap > div{margin-left:auto}
+  .site .top nav.open{gap:2px;padding:12px 16px 20px;border-top:1px solid var(--line)}
+  .site .top nav.open a{font-size:18px;padding:14px 12px;border-radius:12px}
+}
+@media (max-width:900px){.site .top .wrap > div{order:2}.site .top .menu-btn{order:3}}
