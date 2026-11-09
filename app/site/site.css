@@ -139,3 +139,20 @@
 @media (max-width:900px){.site .wrap[style*="grid-template-columns"]{grid-template-columns:1fr!important}.site .wrap > .ph.grow{height:240px}}
 .site .top .btn.sm,.site .top .line.sm{white-space:nowrap}
 @media (max-width:480px){.site .top .hide-xs{display:none}}
+
+/* solid "how can we help" cards — equal size, used until photos are in (9 Nov 2026) */
+.site .help{position:relative;display:flex;flex-direction:column;gap:12px;min-height:280px;padding:32px;border-radius:32px;text-decoration:none;transition:transform .3s cubic-bezier(.2,.8,.2,1)}
+.site .help:hover{transform:translateY(-6px)}
+.site .help.forest{background:var(--forest);color:var(--cream)}.site .help.gold{background:var(--gold);color:var(--ink)}.site .help.sage{background:var(--sage);color:var(--ink)}
+.site .help .ico{display:grid;place-items:center;width:58px;height:58px;border-radius:18px;background:rgba(255,255,255,.16);margin-bottom:auto}
+.site .help.gold .ico,.site .help.sage .ico{background:rgba(19,34,25,.08)}
+.site .help .txt2{font-size:17px;opacity:.85;max-width:300px}
+.site .help .go{position:absolute;right:28px;bottom:26px;font-size:26px;transition:transform .3s}
+.site .help:hover .go{transform:translateX(6px)}
+/* the five steps as a row when there's no photo beside them */
+.site .steps5{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:16px;counter-reset:s}
+.site .steps5 .s{background:#fff;border-radius:24px;padding:24px;display:flex;flex-direction:column;gap:10px}
+.site .steps5 .n{display:grid;place-items:center;width:40px;height:40px;border-radius:50%;background:var(--forest);color:var(--cream);font-weight:700}
+@media (max-width:1000px){.site .steps5{grid-template-columns:1fr 1fr}}
+@media (max-width:600px){.site .steps5{grid-template-columns:1fr}}
+.site .band.plain{min-height:0;padding:72px 32px;background:var(--forest)}

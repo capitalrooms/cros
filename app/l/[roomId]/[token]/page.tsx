@@ -12,6 +12,7 @@ import PublicShell from '@/components/public/PublicShell'
 import { createServiceClient } from '@/lib/supabase'
 import { loadListing, listingToken, type Listing } from '@/lib/listing/listing'
 import { nearbyStations, type Station } from '@/lib/listing/area'
+import BackLink from './BackLink'
 import ListingGallery, { ShareButton } from './ListingGallery'
 
 export const dynamic = 'force-dynamic'
@@ -146,6 +147,7 @@ export default async function SharedListing({ params }: { params: Promise<{ room
   return (
     <PublicShell centred label={l.wholeLet ? 'Home to rent' : 'Room to rent'}>
       <article className="mx-auto max-w-6xl px-5 pb-28 pt-6 md:px-8 md:pb-16">
+        <BackLink whole={!!l.wholeLet} />
         {l.status === 'let_agreed' && <p className="mb-4 rounded-lg bg-neutral-900 px-4 py-2 text-[14px] font-semibold text-white">Let agreed — this {unit} has been taken. Call us for others like it.</p>}
 
         <ListingGallery photos={photos.map((m, i) => ({ id: m.id, url: m.url, alt: m.caption || (m.ofRoom ? `${l.roomName}, photo ${i + 1}` : `The ${l.wholeLet ? 'home' : 'house'}, photo ${i + 1}`) }))} videoCount={videos.length} />
