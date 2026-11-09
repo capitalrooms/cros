@@ -242,8 +242,8 @@ export default function LettingsPage() {
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar left={<BackButton href="/admin" label="Dashboard" />} />
       <PageHero
-        title="Available Rooms"
-        subtitle="Rooms free now or coming up — send offers, book viewings and tell let-only contacts"
+        title="Availability"
+        subtitle="Rooms and whole properties free now or coming up — send offers, book viewings and tell let-only contacts"
         stats={[
           { label: 'Available now', value: availableRooms.filter(r => r.status === 'available').length, tone: 'good' },
           { label: 'Coming up (on notice)', value: availableRooms.filter(r => r.status === 'on_notice').length, tone: 'warn' },
@@ -285,7 +285,7 @@ export default function LettingsPage() {
 
           {availableRooms.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-neutral-300 bg-white p-xl text-center">
-              <p className="text-sm text-neutral-500">No available rooms</p>
+              <p className="text-sm text-neutral-500">Nothing available right now</p>
             </div>
           ) : (
             <>

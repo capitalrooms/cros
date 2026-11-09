@@ -27,7 +27,7 @@ export const AREAS: Area[] = [
       '/api/admin/property-policies', '/api/admin/upload-photo', '/api/admin/key-safe'],
     // the property page shows finance dates, compliance history, the landlord's account, notices and who lives there
     apiRead: ['/api/admin/finance-dates', '/api/admin/compliance-history', '/api/admin/landlord-bank-accounts', '/api/admin/notices', '/api/admin/quick-notify'] },
-  { key: 'lettings', label: 'Lettings', hint: 'Available rooms, applicants, offers, let-only houses, agreements, tenancies',
+  { key: 'lettings', label: 'Lettings', hint: 'Availability, applicants, offers, let-only houses, agreements, tenancies',
     // tenant and landlord profiles and letters too: the letting file links to them (they're also in People / Comms)
     pages: ['/admin/lettings', '/admin/available-and-lettings', '/admin/applicants', '/admin/invite-to-apply', '/admin/let-only', '/admin/let-only-properties', '/admin/tenant',
       '/admin/landlord', '/admin/document-generator',

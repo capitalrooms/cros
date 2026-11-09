@@ -42,7 +42,7 @@ export default function RoomTools({ o, propertyId, onDone }: { o: RoomOverview; 
     }
     const { error } = await supabase.from('rooms').update({ status, ...(available_date ? { available_date } : {}) }).eq('id', o.room.id)
     if (error) throw error
-    return status === 'available' ? `${where} is available again — back on Available Rooms` : `${where} marked as let`
+    return status === 'available' ? `${where} is available again — back on Availability` : `${where} marked as let`
   })
   const remove = () => run(async () => {
     if (!window.confirm(`Delete ${o.room.name}? It has never had a tenancy. This cannot be undone.`)) return ''

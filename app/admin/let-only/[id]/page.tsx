@@ -144,7 +144,7 @@ export default function LetOnlyDetailPage() {
 
       <PageHero
         // the same heading as every record (4 Nov 2026): where it is, the address, one status
-        trail={[{ label: 'Lettings', href: '/admin/lettings' }, { label: 'Available Rooms', href: '/admin/available-and-lettings' }]}
+        trail={[{ label: 'Lettings', href: '/admin/lettings' }, { label: 'Availability', href: '/admin/available-and-lettings' }]}
         title={listing.address}
         chip={listing.is_active ? { label: 'Active', tone: 'good' } : { label: 'Inactive', tone: 'plain' }}
         subtitle={[listing.postcode, 'Let only — the landlord manages'].filter(Boolean).join(' · ')}
