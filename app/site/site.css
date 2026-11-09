@@ -156,3 +156,33 @@
 @media (max-width:1000px){.site .steps5{grid-template-columns:1fr 1fr}}
 @media (max-width:600px){.site .steps5{grid-template-columns:1fr}}
 .site .band.plain{min-height:0;padding:72px 32px;background:var(--forest)}
+
+/* ── layout pass (9 Nov 2026): one left edge, calmer inner headings, tidy walls ─────────────────────────────── */
+.site .tier .fee{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.site .tier .fee small{font-family:var(--font-figtree),sans-serif;font-size:16px;font-weight:600;letter-spacing:0;opacity:.75}
+.site .inner .h1{font-size:clamp(40px,5.2vw,64px);line-height:1}
+.site .prose{margin:0}
+/* hero: shorter, with quick links and trust on the right while there's no photo */
+.site .hero.plain{min-height:0;align-items:stretch}
+.site .hero.plain .copy{padding:64px 56px}
+.site .hero .side{position:relative;margin:56px 56px 56px auto;align-self:center;width:360px;display:flex;flex-direction:column;gap:12px}
+.site .hero .side a{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:20px 22px;border-radius:22px;background:rgba(251,248,241,.08);border:1px solid rgba(251,248,241,.16);color:var(--cream);text-decoration:none;transition:background .2s}
+.site .hero .side a:hover{background:rgba(251,248,241,.16);color:var(--cream)}
+.site .hero .side a strong{display:block;font-size:18px}.site .hero .side a span span{display:block;font-size:14px;opacity:.75}
+.site .hero .rating{display:flex;align-items:center;gap:10px;padding:6px 4px;color:#E4EBE3;font-size:14px}
+.site .hero .rating b{color:var(--gold);letter-spacing:2px}
+@media (max-width:1000px){.site .hero.plain{flex-direction:column}.site .hero .side{margin:0 24px 32px;width:auto;align-self:stretch}.site .hero.plain .copy{padding:40px 24px 24px}}
+@media (min-width:1001px){.site .hero.plain{display:flex;flex-direction:row}}
+/* reviews: a staggered wall, long ones folded */
+.site .wall{columns:3 300px;column-gap:20px}
+.site .wall .bubble{break-inside:avoid;margin:0 0 20px;font-size:17px}
+.site .wall details summary{cursor:pointer;font-weight:600;color:var(--forest);font-size:15px;list-style:none}
+.site .wall details summary::-webkit-details-marker{display:none}
+.site .wall details[open] summary{display:none}
+/* a checklist in one card */
+.site .checks{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 40px;list-style:none;margin:0;padding:32px;background:#fff;border-radius:28px}
+.site .checks li{display:flex;gap:12px;align-items:flex-start;font-size:17px}.site .checks li svg{flex:0 0 18px;margin-top:4px;color:var(--forest)}
+@media (max-width:700px){.site .checks{grid-template-columns:1fr;padding:24px}}
+.site .narrow{max-width:900px}
+@media (max-width:700px){.site .h2{font-size:34px}.site section.block{padding-top:56px}.site .tier .fee{font-size:56px}.site .help{min-height:220px}}
+.site .hero.plain{background:radial-gradient(120% 140% at 85% 10%,#2C5040 0%,#1F3B2E 45%,#17301F 100%)}

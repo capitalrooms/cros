@@ -16,12 +16,10 @@ export default async function Tenants() {
       </PageTop>
       <section className="block"><div className="wrap">
         <h2 className="h2 rise" style={{ marginBottom: 28 }}>Our tenants benefit from</h2>
-        <ul className="grid3 rise" style={{ listStyle: 'none', margin: 0, padding: 0, gap: 14 }}>
-          {TENANT_BENEFITS.map(x => <li key={x} className="card" style={{ flexDirection: 'row', alignItems: 'center', padding: '18px 22px' }}><Tick />{x}</li>)}
-        </ul>
+        <ul className="checks rise">{TENANT_BENEFITS.map(x => <li key={x}><Tick />{x}</li>)}</ul>
       </div></section>
-      <section className="block"><div className="wrap" style={{ maxWidth: 900 }}>
-        <div>
+      <section className="block"><div className="wrap">
+        <div className="narrow">
           <p className="eyebrow">Moving in</p>
           <h2 className="h2" style={{ margin: '8px 0 20px' }}>Three simple steps.</h2>
           {TENANT_STEPS.map((s, i) => <div key={s.title} className="step"><span style={{ fontSize: 14, fontWeight: 600, color: '#6B7A70' }}>Step {i + 1}</span><h3 className="h3">{s.title}</h3><p style={{ color: 'var(--muted)' }}>{s.body}</p></div>)}
