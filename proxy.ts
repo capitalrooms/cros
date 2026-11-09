@@ -14,9 +14,9 @@ import { canCallApi, isPublicApi } from '@/lib/access/areas'
 const SITE_HOSTS = new Set(['capitalrooms.co.uk', 'www.capitalrooms.co.uk'])
 const APP_ORIGIN = 'https://cros-sigma.vercel.app'
 // what the website address may serve as it is (everything else is a website page, or nothing)
-const SITE_PASS = [/^\/_next\//, /^\/website\//, /^\/brand\//, /^\/fonts\//, /^\/l\//, /^\/api\/site\//, /^\/api\/listing\//, /^\/(favicon-32|apple-touch-icon|icon-\d+|logo)\.png$/, /^\/robots\.txt$/, /^\/sitemap\.xml$/]
+const SITE_PASS = [/^\/_next\//, /^\/website\//, /^\/brand\//, /^\/fonts\//, /^\/api\/site\//, /^\/api\/listing\//, /^\/(favicon-32|apple-touch-icon|icon-\d+|logo)\.png$/, /^\/robots\.txt$/, /^\/sitemap\.xml$/]
 // the app's sign-in and screens: sent to the app's own address
-const APP_PATHS = /^\/(login|admin|tenant|landlord|lettings|contractor|cleaner|agent|account|dashboard|auth|pack|proposal|lu|reset-password|install)(\/|$)/
+const APP_PATHS = /^\/(applicant|login|admin|tenant|landlord|lettings|contractor|cleaner|agent|account|dashboard|auth|pack|proposal|lu|reset-password|install)(\/|$)/
 
 function siteHeaders(request: NextRequest) {
   const h = new Headers(request.headers)
@@ -41,6 +41,9 @@ export async function proxy(request: NextRequest) {
     const to = url.clone(); to.pathname = path === '/' ? '/site' : `/site${path}`
     return secure(NextResponse.rewrite(to, { request: { headers: siteHeaders(request) } }))
   }
+
+  // listings live on the website now: the app's old share links forward there (no "vercel" in a shared link)
+  if (path.startsWith('/l/') && !host.endsWith('localhost')) return NextResponse.redirect(`https://capitalrooms.co.uk${path}${url.search}`, 308)
 
   // the private preview of the website on the app's address
   if (path === '/site' || path.startsWith('/site/')) {
