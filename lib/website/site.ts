@@ -8,7 +8,7 @@ export const PHOTOS: Record<string, string> = {
 
 // the usual order on London letting agents' sites (9 Nov 2026, Harry): what people come for first, the company last
 export const NAV: [string, string][] = [
-  ['Rent', '/residential-lettings'], ['Landlords', '/landlords'], ['Tenants', '/tenants'], ['Maintenance', '/maintenance-services'], ['About us', '/about-us'], ['Advice', '/blogs'], ['Contact', '/contact'],
+  ['To rent', '/residential-lettings'], ['Landlords', '/landlords'], ['Tenants', '/tenants'], ['Maintenance', '/maintenance-services'], ['About us', '/about-us'], ['Advice', '/blogs'], ['Contact', '/contact'],
 ]
 
 // our Google rating (Business Profile, checked 9 Nov 2026): update when it moves
