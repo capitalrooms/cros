@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { Fragment } from 'react'
 
 /**
  * MultiDayDiaryGrid
@@ -143,7 +144,7 @@ export default function MultiDayDiaryGrid({
 
         {/* Time rows */}
         {hours.map(h => (
-          <>
+          <Fragment key={h}>
             {/* Time label */}
             <div
               key={`label-${h}`}
@@ -215,7 +216,7 @@ export default function MultiDayDiaryGrid({
                 </div>
               )
             })}
-          </>
+          </Fragment>
         ))}
       </div>
     </div>

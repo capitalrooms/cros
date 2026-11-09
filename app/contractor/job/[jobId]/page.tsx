@@ -659,18 +659,6 @@ export default function JobDetailPage() {
           </div>
         </div>
 
-        {/* Quick Notify Button */}
-        {isBooked && (
-          <div className="mb-lg">
-            <button
-              onClick={() => setShowQuickNotify(true)}
-              className="w-full px-lg py-md font-semibold text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition border border-blue-500"
-            >
-              Quick Notify Tenants
-            </button>
-          </div>
-        )}
-
         {/* Admin "before you go" note */}
         {/* reopened by the tenant (migration 236): why, and what they said */}
         {(job as any).reopened_at && job.status !== 'completed' && (
@@ -1356,23 +1344,14 @@ export default function JobDetailPage() {
 
           {/* Sidebar */}
           <div>
-            <div className="rounded-2xl border-2 border-neutral-200 bg-white p-lg sticky top-lg">
-              <h3 className="font-bold text-neutral-900 mb-md">Quick info</h3>
-              <div className="space-y-md pb-md border-b border-neutral-200">
-                <div>
-                  <p className="text-xs text-neutral-600 uppercase">Priority</p>
-                  <p className={`text-base font-bold mt-xs ${
-                    job.priority === 'high' ? 'text-red-600' : job.priority === 'medium' ? 'text-yellow-600' : 'text-neutral-600'
-                  }`}>
-                    {String(job.priority).charAt(0).toUpperCase() + String(job.priority).slice(1)}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-neutral-600 uppercase">Status</p>
-                  <p className="text-base font-bold mt-xs capitalize">{String(job.status).replace(/_/g, ' ')}</p>
-                </div>
-              </div>
-              <p className="pt-md text-xs text-neutral-500">Job ID: {jobId.slice(0, 8)}…</p>
+            {/* 9 Nov 2026: just what's useful — how urgent, and a way to message the house (was a big blue button at the top) */}
+            <div className="rounded-2xl border border-neutral-200 bg-white p-lg sticky top-lg space-y-md">
+              <p className="text-sm text-neutral-600">Priority: <span className={`font-bold ${job.priority === 'high' || job.priority === 'emergency' ? 'text-red-600' : job.priority === 'medium' ? 'text-amber-700' : 'text-neutral-800'}`}>{String(job.priority).charAt(0).toUpperCase() + String(job.priority).slice(1)}</span></p>
+              {isBooked && (
+                <button type="button" onClick={() => setShowQuickNotify(true)} className="w-full rounded-xl border border-neutral-300 px-lg py-md text-sm font-semibold text-neutral-900 hover:bg-neutral-50">
+                  Message the tenants
+                </button>
+              )}
             </div>
           </div>
         </div>

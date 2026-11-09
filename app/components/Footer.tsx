@@ -13,7 +13,8 @@ export default function Footer({ embedded = false }: { embedded?: boolean }) {
   // Admin on a phone is a full-screen app (header, scrolling content, bottom tabs). A footer below it makes
   // the whole page scroll, dragging the header under the status bar and the tabs off the bottom — so on
   // phones the admin area has no footer. Desktop keeps it.
-  const phoneHidden = pathname.startsWith('/admin') ? 'hidden md:block' : undefined
+  // 9 Nov 2026: the same for the tenant, contractor, cleaner and lettings apps — on a phone they're apps, not web pages
+  const phoneHidden = /^\/(admin|tenant|contractor|cleaner|lettings)(\/|$)/.test(pathname) ? 'hidden md:block' : undefined
 
   // the same footer as the public pages — credentials and address (Harry, 17 Oct 2026: one standard for everyone;
   // the old round-logo footer is gone)
