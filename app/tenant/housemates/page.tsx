@@ -1,196 +1,83 @@
 'use client'
-
+// Meet your housemates (9 Nov 2026 rebuild): everyone living in the house now, with their photo or avatar, bio and the
+// answers they chose to share. From /api/tenant/housemates (first names and rooms only, never contact details or rent).
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { getCurrentUser } from '@/lib/auth'
-import { createClient } from '@/lib/supabase'
-import { getActiveTenancy } from '@/lib/tenancy'
 import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
-import {
-  ICEBREAKER_QUESTIONS,
-  answeredCount,
-  hasEnoughToShow,
-  type IcebreakerAnswers,
-} from '@/lib/icebreaker'
-import LineIcon from '@/components/LineIcon'
+import Face from '@/components/Face'
+import { adminFetch } from '@/lib/adminFetch'
+import { ICEBREAKER_QUESTIONS, answeredCount, type IcebreakerAnswers } from '@/lib/icebreaker'
 
-interface Housemate {
-  personId: string
-  name: string
-  roomName: string | null
-  isMe: boolean
-  answers: IcebreakerAnswers
-}
+type Mate = { personId: string; isMe: boolean; name: string; roomName: string | null; photoUrl: string | null; answers: IcebreakerAnswers }
 
-/**
- * "Meet your housemates" — every current tenant in the same property, with the
- * icebreaker answers they chose to share. The RLS `read_visible` policy already
- * hides profiles a housemate marked private, so we simply render what comes back.
- */
-export default function HousematesPage() {
+export default function Housemates() {
   const router = useRouter()
-  const [loading, setLoading] = useState(true)
-  const [propertyName, setPropertyName] = useState('')
-  const [housemates, setHousemates] = useState<Housemate[]>([])
-  const [myCount, setMyCount] = useState(0)
-
+  const [data, setData] = useState<{ house: string | null; housemates: Mate[] } | null>(null)
+  const [error, setError] = useState('')
   useEffect(() => {
-    async function init() {
-      const data = await getCurrentUser()
-      if (!data || data.assignment?.role !== 'tenant') {
-        router.push('/login')
-        return
-      }
-      const myId = (data.assignment as any)?.id as string
-      const active = await getActiveTenancy(myId)
-      if (!active) {
-        setLoading(false)
-        return
-      }
-      setPropertyName(active.properties?.name || 'your house')
-
-      const supabase = createClient()
-      // Everyone currently living at this property (me included) — first names and rooms only, from a
-      // database function, so tenants never see each other's tenancy details (rent, deposit, contact).
-      const { data: tens } = await supabase.rpc('cros_my_housemates')
-
-      const rows: any[] = (tens as unknown as any[]) ?? []
-      // De-dupe by person (someone could have overlapping rows) and drop blanks.
-      const byPerson = new Map<string, any>()
-      for (const t of rows) {
-        if (t.person_id && !byPerson.has(t.person_id)) byPerson.set(t.person_id, t)
-      }
-      const personIds = [...byPerson.keys()]
-
-      // Their shared icebreaker profiles (RLS returns only visible ones + my own).
-      const icebreakers = new Map<string, IcebreakerAnswers>()
-      if (personIds.length) {
-        const { data: ibs } = await supabase
-          .from('tenant_icebreakers')
-          .select('person_id, answers')
-          .in('person_id', personIds)
-        for (const ib of ibs || []) icebreakers.set(ib.person_id, (ib.answers as IcebreakerAnswers) || {})
-      }
-
-      const list: Housemate[] = personIds.map((pid) => {
-        const t = byPerson.get(pid)
-        return {
-          personId: pid,
-          name: t.first_name || 'A housemate',
-          roomName: t.room_name || null,
-          isMe: pid === myId,
-          answers: icebreakers.get(pid) || {},
-        }
-      })
-
-      // Me first, then people who've shared something, then the rest — by name.
-      list.sort((a, b) => {
-        if (a.isMe !== b.isMe) return a.isMe ? -1 : 1
-        const aHas = hasEnoughToShow(a.answers)
-        const bHas = hasEnoughToShow(b.answers)
-        if (aHas !== bHas) return aHas ? -1 : 1
-        return a.name.localeCompare(b.name)
-      })
-
-      setHousemates(list)
-      setMyCount(answeredCount(icebreakers.get(myId)))
-      setLoading(false)
-    }
-    init()
+    adminFetch('/api/tenant/housemates').then(async r => {
+      if (r.status === 401) { router.push('/login'); return }
+      setData(await r.json())
+    }).catch(() => setError('Couldn’t load your housemates. Check your connection and try again.'))
   }, [router])
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-neutral-100">
-        <AppBar left={<BackButton />} />
-        <p className="p-xl text-sm text-neutral-400">Loading…</p>
-      </div>
-    )
-  }
-
-  const others = housemates.filter((h) => !h.isMe)
+  const me = data?.housemates.find(h => h.isMe)
+  const others = (data?.housemates ?? []).filter(h => !h.isMe).sort((a, b) => answeredCount(b.answers) - answeredCount(a.answers) || a.name.localeCompare(b.name))
+  const meDone = !!me && (answeredCount(me.answers) >= 2 || !!me.photoUrl || !!me.answers.avatar)
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar left={<BackButton href="/tenant" label="Home" />} />
+      <main className="mx-auto max-w-xl px-lg py-lg">
+        {data?.house && <p className="text-xs font-semibold uppercase tracking-widest text-neutral-400">{data.house}</p>}
+        <h1 className="mt-xs text-2xl font-bold text-neutral-900">Your housemates</h1>
+        {error && <p className="mt-md rounded-xl bg-red-50 p-md text-sm text-red-700">{error}</p>}
+        {!data && !error && <p className="mt-lg text-sm text-neutral-400">Loading…</p>}
 
-      <main className="mx-auto max-w-2xl px-lg py-lg">
-        <p className="text-xs font-medium uppercase tracking-widest text-neutral-400">
-          {propertyName}
-        </p>
-        <h1 className="mt-xs text-3xl font-bold text-neutral-900">Meet your housemates</h1>
-
-        {/* Nudge the tenant to fill in their own profile if they haven't. */}
-        {myCount < 2 && (
-          <div className="mt-lg rounded-2xl border-2 border-neutral-900 bg-white p-lg">
-            <p className="text-sm font-bold text-neutral-900">Your housemates can&apos;t see you yet</p>
-            <p className="mt-xs text-sm text-neutral-600">
-              Add a few lines about yourself so the house can say hello.
-            </p>
-            <Link
-              href="/tenant/icebreaker"
-              className="mt-md inline-block rounded-xl bg-neutral-900 px-lg py-sm text-sm font-bold text-white hover:bg-neutral-800"
-            >
-              Fill in my profile
-            </Link>
-          </div>
+        {me && (
+          <Link href="/tenant/icebreaker" className={`mt-lg flex items-center gap-md rounded-2xl p-md ${meDone ? 'border border-neutral-200 bg-white' : 'border-2 border-neutral-900 bg-white'}`}>
+            <Face name={me.name} photoUrl={me.photoUrl} avatar={me.answers.avatar} size={52} />
+            <span className="min-w-0 flex-1">
+              <span className="block font-bold text-neutral-900">{meDone ? 'You' : 'Say hello to the house'}</span>
+              <span className="block truncate text-sm text-neutral-600">{meDone ? (me.answers.bio || 'Edit your profile') : 'Add a photo or avatar and a line about you'}</span>
+            </span>
+            <span className="text-sm font-semibold text-neutral-900">{meDone ? 'Edit' : 'Start'} ›</span>
+          </Link>
         )}
 
-        {others.length === 0 ? (
-          <p className="mt-lg rounded-2xl border border-dashed border-neutral-300 bg-white p-xl text-center text-sm text-neutral-500">
-            You&apos;re the first one here. When housemates join and say hello, they&apos;ll appear on this page.
-          </p>
-        ) : (
-          <div className="mt-lg space-y-md">
-            {others.map((h) => (
-              <HousemateCard key={h.personId} mate={h} />
-            ))}
-          </div>
-        )}
-
-        {myCount >= 2 && (
-          <div className="mt-2xl text-center">
-            <Link href="/tenant/icebreaker" className="text-sm font-semibold text-neutral-600 underline">
-              Edit my profile
-            </Link>
-          </div>
-        )}
+        {data && others.length === 0 && <p className="mt-lg rounded-2xl border border-dashed border-neutral-300 bg-white p-xl text-center text-sm text-neutral-500">You’re the first one here. Your housemates will appear as they move in.</p>}
+        <div className="mt-lg space-y-md">
+          {others.map(h => <MateCard key={h.personId} m={h} />)}
+        </div>
       </main>
     </div>
   )
 }
 
-function HousemateCard({ mate }: { mate: Housemate }) {
-  const shared = ICEBREAKER_QUESTIONS.filter((q) => (mate.answers[q.id] || '').trim())
-
+function MateCard({ m }: { m: Mate }) {
+  const shared = ICEBREAKER_QUESTIONS.filter(q => q.id !== 'bio' && String(m.answers[q.id] ?? '').trim())
   return (
-    <div className="rounded-2xl border border-neutral-200 bg-white p-lg">
+    <article className="rounded-2xl border border-neutral-200 bg-white p-lg">
       <div className="flex items-center gap-md">
-        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-neutral-900 text-lg font-bold text-white">
-          {mate.name.charAt(0).toUpperCase()}
-        </div>
+        <Face name={m.name} photoUrl={m.photoUrl} avatar={m.answers.avatar} size={60} />
         <div className="min-w-0">
-          <p className="truncate font-bold text-neutral-900">{mate.name}</p>
-          {mate.roomName && <p className="truncate text-xs text-neutral-500">{mate.roomName}</p>}
+          <p className="truncate text-lg font-bold text-neutral-900">{m.name}</p>
+          {m.roomName && <p className="truncate text-sm text-neutral-500">{m.roomName}</p>}
         </div>
       </div>
-
-      {shared.length === 0 ? (
-        <p className="mt-md text-sm text-neutral-400">Hasn&apos;t shared anything yet.</p>
-      ) : (
-        <dl className="mt-md space-y-sm">
-          {shared.map((q) => (
-            <div key={q.id}>
-              <dt className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
-                {<LineIcon glyph={q.emoji} />} {q.short}
-              </dt>
-              <dd className="mt-0.5 text-sm text-neutral-800">{mate.answers[q.id]}</dd>
+      {m.answers.bio && <p className="mt-md text-[15px] leading-relaxed text-neutral-800">{m.answers.bio}</p>}
+      {shared.length > 0 ? (
+        <dl className="mt-md grid gap-sm">
+          {shared.map(q => (
+            <div key={q.id} className="rounded-xl bg-neutral-50 px-md py-sm">
+              <dt className="text-xs font-semibold text-neutral-500">{q.short}</dt>
+              <dd className="text-sm text-neutral-900">{m.answers[q.id]}</dd>
             </div>
           ))}
         </dl>
-      )}
-    </div>
+      ) : !m.answers.bio && <p className="mt-md text-sm text-neutral-400">Hasn’t said hello yet.</p>}
+    </article>
   )
 }

@@ -9,7 +9,8 @@
  *   · light, specific talking points (a film, an album, a dish) over "describe yourself"
  *   · nothing too personal; a "something people wouldn't guess" for the ones who like to
  * Kinds: 'text' (one line), 'pick' (choose any — stored as "a, b, c", typing your own allowed), 'choice' (one of).
- * The photo is answers.photo (a storage path — lib/housemates/profile), never shown here as a question.
+ * The photo is answers.photo (a storage path — lib/housemates/profile) and the avatar answers.avatar (lib/housemates/avatar);
+ * neither is a question.
  */
 
 export interface IcebreakerQuestion {
@@ -26,6 +27,9 @@ export interface IcebreakerQuestion {
 }
 
 export const ICEBREAKER_QUESTIONS: IcebreakerQuestion[] = [
+  // 9 Nov 2026: a short bio first, in their own words (shown under their name)
+  { id: 'bio', emoji: '💬', short: 'Bio', kind: 'text',
+    prompt: 'Your bio: a line or two about you', placeholder: 'e.g. Just moved from Bristol for a new job. Always up for a Sunday roast.' },
   { id: 'about_me', emoji: '👋', short: 'About them', kind: 'text',
     prompt: 'What do you do, in a few words?', placeholder: 'e.g. Nurse at the Royal London, or studying architecture at UCL' },
   { id: 'from', emoji: '📍', short: 'From', kind: 'text',
