@@ -66,8 +66,9 @@ export async function loadDepositContext(svc: SupabaseClient, applicantId: strin
 
   // The offer this applicant came through: the linked one, else the latest for their email and room
   let offer: any = null
-  if (a.offer_id) ({ data: offer } = await svc.from('offers').select('id, status, advertised_rent, move_in_date').eq('id', a.offer_id).maybeSingle())
-  if (!offer) ({ data: offer } = await svc.from('offers').select('id, status, advertised_rent, move_in_date').eq('applicant_id', a.id).order('created_at', { ascending: false }).limit(1).maybeSingle())
+  // (9 Nov 2026: only an offer for the room they're on now — someone moved to another room starts a fresh offer)
+  if (a.offer_id) ({ data: offer } = await svc.from('offers').select('id, status, advertised_rent, move_in_date').eq('id', a.offer_id).eq('room_id', a.room_id).maybeSingle())
+  if (!offer) ({ data: offer } = await svc.from('offers').select('id, status, advertised_rent, move_in_date').eq('applicant_id', a.id).eq('room_id', a.room_id).order('created_at', { ascending: false }).limit(1).maybeSingle())
   if (!offer && a.email) {
     ({ data: offer } = await svc.from('offers').select('id, status, advertised_rent, move_in_date')
       .eq('room_id', a.room_id).ilike('applicant_email', a.email).order('created_at', { ascending: false }).limit(1).maybeSingle())

@@ -10,7 +10,7 @@ import { adminFetch } from '@/lib/adminFetch'
 export type InviteTarget = { viewingId: string } | { applicantId: string } | { manual: Record<string, unknown> }
 export type InviteMode = 'apply' | 'fasttrack' | 'reserve'
 type Method = 'email' | 'sms' | 'both'
-type Preview = { office?: { name: string; email: string }[]; to: string | null; phone: string | null; subject: string; html: string; sms: string; rent: number | null; deposit: number | null; asking: number | null; pinned: number | null; earlier: { at: string; rent: number | null } | null; existingApplicant: boolean }
+type Preview = { office?: { name: string; email: string }[]; to: string | null; phone: string | null; subject: string; html: string; sms: string; rent: number | null; deposit: number | null; asking: number | null; pinned: number | null; earlier: { at: string; rent: number | null } | null; existingApplicant: boolean; roomId?: string | null }
 
 export const INVITE_MODES: { key: InviteMode; title: string; hint: string }[] = [
   { key: 'apply', title: 'Make an offer', hint: 'The application form. You review it, then decide whether to accept.' },
@@ -35,13 +35,18 @@ export default function InviteApplicant({ target, initialMode = 'apply', onSent 
   // once it's gone, Send locks until you choose to send again — no accidental second email
   const [sentOnce, setSentOnce] = useState(false)
   const seeded = useRef(false)
-  const key = JSON.stringify(target)
+  // from an applicant's record: which room it's for (their current one unless you pick another — 9 Nov 2026)
+  const forApplicant = 'applicantId' in target
+  const [roomId, setRoomId] = useState('')
+  const [places, setPlaces] = useState<{ properties: { id: string; name: string; address: string }[]; rooms: { id: string; name: string; property_id: string }[] } | null>(null)
+  useEffect(() => { if (forApplicant) adminFetch('/api/lettings/invite-to-apply').then(r => r.json()).then(d => d.rooms && setPlaces(d)).catch(() => {}) }, [forApplicant])
+  const key = JSON.stringify(target) + roomId
   const n = Number(rent.replace(/[£,\s]/g, ''))
   const needsRent = mode !== 'apply'
 
   const post = (extra: Record<string, unknown>) => adminFetch('/api/lettings/invite-to-apply', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...target, method, mode, cc, ...(needsRent && n > 0 ? { rent: n } : {}), ...extra }),
+    body: JSON.stringify({ ...target, ...(forApplicant && roomId ? { roomId } : {}), method, mode, cc, ...(needsRent && n > 0 ? { rent: n } : {}), ...extra }),
   })
 
   // the preview follows every change (debounced); the first one fills the rent from the offer, else the asking rent
@@ -52,6 +57,7 @@ export default function InviteApplicant({ target, initialMode = 'apply', onSent 
       const d = r ? await r.json().catch(() => ({})) : {}
       if (!r?.ok) { setError(d.error ?? 'The email couldn’t be prepared.'); setP(null); return }
       setError(null); setP(d)
+      if (forApplicant && !roomId && d.roomId) setRoomId(d.roomId)
       if (!seeded.current && (d.pinned ?? d.asking)) { seeded.current = true; if (!rent) setRent(String(d.pinned ?? d.asking)) }
     }, 350)
     return () => clearTimeout(t)
@@ -75,6 +81,18 @@ export default function InviteApplicant({ target, initialMode = 'apply', onSent 
 
   return (
     <div className="space-y-lg">
+      {forApplicant && places && (
+        <section>
+          <p className="mb-sm text-xs font-bold uppercase tracking-wide text-neutral-500">Which room</p>
+          <select value={roomId} onChange={e => { setRoomId(e.target.value); seeded.current = false; setRent('') }} className="w-full rounded-lg border border-neutral-300 bg-white px-sm py-sm text-sm">
+            {places.properties.map(pr => {
+              const rs = places.rooms.filter(r => r.property_id === pr.id)
+              return rs.length ? <optgroup key={pr.id} label={pr.address || pr.name}>{rs.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}</optgroup> : null
+            })}
+          </select>
+          <p className="mt-xs text-xs text-neutral-500">Pick another room if they should apply for that one instead — when it’s sent, their record moves to it (noted on the record) and any earlier offer stays with the old room.</p>
+        </section>
+      )}
       <section>
         <p className="mb-sm text-xs font-bold uppercase tracking-wide text-neutral-500">What to send</p>
         <div className="grid gap-sm sm:grid-cols-3">

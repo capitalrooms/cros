@@ -70,11 +70,18 @@ export async function POST(request: NextRequest) {
   // with a preview first and the rent you confirm. applicantId = start from their record.
   const preview = reqBody.preview === true
   const typedRent = cleanRent(reqBody.rent)
+  let roomChanged = false
   if (reqBody.applicantId) {
     const { data: ap } = await createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
       .from('applicants').select('full_name, salutation, first_name, last_name, email, phone, room_id, property_id').eq('id', reqBody.applicantId).maybeSingle()
     if (!ap) return NextResponse.json({ error: 'Applicant not found' }, { status: 404 })
-    manual = { name: (ap as any).full_name, salutation: (ap as any).salutation, first_name: (ap as any).first_name, last_name: (ap as any).last_name, email: (ap as any).email, phone: (ap as any).phone, room_id: (ap as any).room_id, property_id: (ap as any).property_id }
+    // 9 Nov 2026 (Harry: an invite went for the wrong room and there was no way to send the right one): the panel can
+    // name another room — the email is for that room, and on sending their one record moves to it (moveToRoom below)
+    const UUIDRE = /^[0-9a-f-]{36}$/i
+    const pick = typeof reqBody.roomId === 'string' && UUIDRE.test(reqBody.roomId) && reqBody.roomId !== (ap as any).room_id
+      ? (await createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!).from('rooms').select('id, property_id').eq('id', reqBody.roomId).maybeSingle()).data as any : null
+    if (pick) roomChanged = true
+    manual = { name: (ap as any).full_name, salutation: (ap as any).salutation, first_name: (ap as any).first_name, last_name: (ap as any).last_name, email: (ap as any).email, phone: (ap as any).phone, room_id: pick?.id ?? (ap as any).room_id, property_id: pick?.property_id ?? (ap as any).property_id }
   }
   if (!viewingId && !manual) return NextResponse.json({ error: 'viewingId or manual details required' }, { status: 400 })
 
@@ -243,7 +250,7 @@ export async function POST(request: NextRequest) {
   const place = placeLabel(whole, roomLabel, propAddress)
   let subject = '', html = '', smsBody = ''
   // Reserve only: the one reserve email (lib/lettings/reserveEmail) — the same one Applicants → Reserve sends
-  const reserveDraft = isReserve && result.applicantId ? await draftReserve(supabase, result.applicantId, typedRent ?? monthly, request) : null
+  const reserveDraft = isReserve && result.applicantId && !(preview && roomChanged) ? await draftReserve(supabase, result.applicantId, typedRent ?? monthly, request) : null
   if (reserveDraft && !('error' in reserveDraft)) {
     subject = reserveDraft.subject; html = reserveDraft.html; smsBody = reserveDraft.sms
     monthly = reserveDraft.rent; weekly = reserveDraft.deposit
@@ -284,7 +291,7 @@ export async function POST(request: NextRequest) {
   const cc = (Array.isArray(reqBody.cc) ? reqBody.cc : []).map((e: unknown) => String(e).trim().toLowerCase()).filter((e: string) => office.some(o => o.email === e) && e !== String(visitorEmail ?? '').toLowerCase())
 
   if (preview) {
-    return NextResponse.json({ preview: true, office, to: visitorEmail, phone: visitorPhone, subject, html, sms: smsBody, rent: monthly, deposit: weekly, asking: askingRent, pinned: result.pinned ?? null, earlier: result.earlier ?? null, existingApplicant: !!result.applicantId })
+    return NextResponse.json({ preview: true, roomId, office, to: visitorEmail, phone: visitorPhone, subject, html, sms: smsBody, rent: monthly, deposit: weekly, asking: askingRent, pinned: result.pinned ?? null, earlier: result.earlier ?? null, existingApplicant: !!result.applicantId })
   }
   if (isReserve && !monthly) return NextResponse.json({ ...result, error: 'Enter the monthly rent that’s been agreed — the holding deposit is one week of it.' }, { status: 400 })
 
