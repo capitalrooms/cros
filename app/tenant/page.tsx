@@ -16,6 +16,7 @@ import TenantOnboarding from '@/app/components/TenantOnboarding'
 import Link from 'next/link'
 import GIcon from '@/app/components/garden/GIcon'
 import LineIcon from '@/components/LineIcon'
+import HouseStrip from './HouseStrip'
 
 interface Tenancy {
   start_date: string
@@ -679,6 +680,8 @@ export default function TenantDashboard() {
               <span className="text-base font-semibold" style={{ fontFamily: 'var(--font-sora), sans-serif' }}>Emergency</span>
             </Link>
           </div>
+
+          {!viewingAs && <HouseStrip />}
 
           <EnableNotifications />
 
