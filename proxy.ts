@@ -15,7 +15,7 @@ import { canCallApi, isPublicApi } from '@/lib/access/areas'
 const SITE = 'capitalrooms.co.uk'
 const OLD_APP_HOSTS = new Set(['cros-sigma.vercel.app', 'cros-capital-rooms.vercel.app'])
 // the website's own pages (everything else on the domain is the app)
-const SITE_PAGES = /^\/$|^\/(landlords|tenants|about-us|contact|maintenance-services|instant_valuation|testimonial|blogs|residential-lettings|shared-accommodation|privacy_policy|user_blog)(\/|$)|^\/page\/[\w-]+$|^\/l\/[\w-]+\/[\w-]+$/
+const SITE_PAGES = /^\/$|^\/(landlords|tenants|about-us|contact|maintenance-services|instant_valuation|testimonial|blogs|residential-lettings|shared-accommodation|privacy_policy|user_blog|areas)(\/|$)|^\/page\/[\w-]+$|^\/l\/[\w-]+\/[\w-]+$/
 
 // browsers only ever use https for the website, for two years (the app's headers in next.config cover the rest)
 function secure(res: NextResponse) { res.headers.set('Strict-Transport-Security', 'max-age=63072000'); return res }

@@ -2,18 +2,20 @@
 import type { MetadataRoute } from 'next'
 import { livePosts } from '@/lib/website/posts'
 import { websiteHomes } from '@/lib/website/homes'
+import { AREAS } from '@/lib/website/areas'
 export const revalidate = 3600
 const BASE = 'https://capitalrooms.co.uk'
 const PAGES: [string, number, MetadataRoute.Sitemap[number]['changeFrequency']][] = [
   ['/', 1, 'weekly'], ['/landlords', 0.9, 'monthly'], ['/residential-lettings', 0.9, 'daily'], ['/shared-accommodation', 0.8, 'daily'],
   ['/tenants', 0.8, 'monthly'], ['/maintenance-services', 0.7, 'monthly'], ['/instant_valuation', 0.8, 'monthly'], ['/about-us', 0.6, 'yearly'],
-  ['/testimonial', 0.6, 'monthly'], ['/blogs', 0.6, 'weekly'], ['/contact', 0.6, 'yearly'], ['/page/9-guarantor-affordability-calculator', 0.5, 'yearly'], ['/privacy_policy', 0.2, 'yearly'],
+  ['/testimonial', 0.6, 'monthly'], ['/blogs', 0.6, 'weekly'], ['/contact', 0.6, 'yearly'], ['/page/9-guarantor-affordability-calculator', 0.5, 'yearly'], ['/privacy_policy', 0.2, 'yearly'], ['/areas', 0.8, 'weekly'],
 ]
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date()
   const [posts, homes] = await Promise.all([livePosts().catch(() => []), websiteHomes().catch(() => [])])
   return [
     ...PAGES.map(([p, priority, changeFrequency]) => ({ url: BASE + (p === '/' ? '' : p), lastModified: now, changeFrequency, priority })),
+    ...AREAS.map(a => ({ url: `${BASE}/areas/${a.slug}`, lastModified: now, changeFrequency: 'daily' as const, priority: 0.8 })),
     ...posts.map((p: any) => ({ url: `${BASE}/blogs/${p.slug}`, lastModified: new Date(p.shown_date || p.publish_at || now), changeFrequency: 'yearly' as const, priority: 0.5 })),
     ...homes.map(h => ({ url: BASE + h.href, lastModified: now, changeFrequency: 'daily' as const, priority: 0.7 })),
   ]
