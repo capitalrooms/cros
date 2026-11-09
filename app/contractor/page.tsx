@@ -84,9 +84,10 @@ function JobCard({ job, variant, asParam }: { job: Job; variant?: 'overdue' | 'w
     <Link href={`/contractor/job/${job.id}${asParam ? `?as=${asParam}` : ''}`}>
       <div className={`rounded-2xl border p-md shadow-sm flex items-center justify-between gap-md hover:shadow-md transition-shadow cursor-pointer ${borderCls}`}>
         <div className="min-w-0 flex-1">
-          <p className="font-bold text-neutral-900 truncate">{job.properties?.name}</p>
+          {/* what's wrong first, then where (9 Nov 2026) */}
+          <p className="font-bold text-neutral-900 truncate">{job.title ? String(job.title).split(' — ').pop() : category}</p>
           <p className="text-sm text-neutral-500 truncate">
-            {category} · {jobWhere(job)}
+            {job.properties?.name} · {jobWhere(job)}
           </p>
           {variant === 'ongoing' && job.return_reason && (
             <p className="text-xs text-amber-700 font-semibold mt-xs">
@@ -700,20 +701,28 @@ export default function ContractorDashboard() {
           
         >
           <div className="max-w-2xl mx-auto w-full">
-            <div className="grid grid-cols-2 gap-sm mb-xl">
-              <button onClick={() => goToTab('waiting')} className="text-left focus:outline-none">
-                <StatTile value={toSchedule.length} label="New jobs" valueColor={toSchedule.length > 0 ? 'text-[color:var(--cr-gold)]' : 'text-white'} />
-              </button>
-              <button onClick={() => goToTab('waiting')} className="text-left focus:outline-none">
-                <StatTile value={overdue.length} label="Overdue" valueColor={overdue.length > 0 ? 'text-red-400' : 'text-white'} />
-              </button>
-              <button onClick={() => goToTab('quotes')} className="text-left focus:outline-none">
-                <StatTile value={pendingQuotes.length} label="Quotes" valueColor={pendingQuotes.length > 0 ? 'text-[color:var(--cr-gold)]' : 'text-white'} />
-              </button>
-              <button onClick={() => goToTab('today')} className="text-left focus:outline-none">
-                <StatTile value={dayJobs.length} label="Today" valueColor="text-[color:var(--cr-gold)]" />
-              </button>
-            </div>
+            {/* what needs you, in order (9 Nov 2026: one short list instead of four number boxes + a banner + tabs) */}
+            {(() => {
+              const todo = [
+                { n: toSchedule.length, text: toSchedule.length === 1 ? 'new job to book in' : 'new jobs to book in', tab: 'waiting' as Tab, hot: true },
+                { n: overdue.length, text: overdue.length === 1 ? 'visit to log or rebook' : 'visits to log or rebook', tab: 'waiting' as Tab, hot: true },
+                { n: pendingQuotes.length, text: pendingQuotes.length === 1 ? 'quote to price' : 'quotes to price', tab: 'quotes' as Tab, hot: false },
+                { n: dayJobs.length, text: dayJobs.length === 1 ? 'visit today' : 'visits today', tab: 'today' as Tab, hot: false },
+              ].filter(t => t.n > 0)
+              return (
+                <div className="mb-lg overflow-hidden rounded-2xl bg-white/10">
+                  {todo.length === 0
+                    ? <p className="px-lg py-md text-sm font-semibold text-white">You’re all caught up ✓</p>
+                    : todo.map((t, i) => (
+                      <button key={t.text} onClick={() => goToTab(t.tab)} className={`flex w-full items-center gap-md px-lg py-md text-left text-white ${i ? 'border-t border-white/10' : ''}`}>
+                        <span className={`grid h-8 min-w-8 place-items-center rounded-full px-sm text-sm font-bold ${t.hot ? 'bg-[color:var(--cr-gold)] text-neutral-900' : 'bg-white text-neutral-900'}`}>{t.n}</span>
+                        <span className="flex-1 text-[15px] font-semibold">{t.text}</span>
+                        <span aria-hidden="true" className="text-white/60">›</span>
+                      </button>
+                    ))}
+                </div>
+              )
+            })()}
 
             <div className="mb-md"><PoppingByVisit className="w-full rounded-xl bg-white/10 border border-white/20 px-md py-sm text-sm font-bold text-white hover:bg-white/20" /></div>
 
@@ -796,16 +805,7 @@ export default function ContractorDashboard() {
             <div className="pt-sm space-y-sm">
               <div className="pt-sm pb-sm"><EnableNotifications /></div>
               <a href="/planner" className="block rounded-xl border border-neutral-200 bg-white px-md py-sm text-center text-xs font-bold text-neutral-900">Notes, jobs &amp; photos with Capital Rooms</a>
-              {/* visits that have passed (or still need a date) shouldn't hide behind another tab */}
-              {needsAttention > 0 && (
-                <button type="button" onClick={() => goToTab('waiting')}
-                  className="flex w-full items-center justify-between gap-md rounded-2xl border border-red-200 bg-red-50 px-lg py-md text-left">
-                  <span className="text-sm font-bold text-red-800">
-                    {[overdue.length ? `${overdue.length} visit${overdue.length === 1 ? '' : 's'} need logging or rebooking` : '', toSchedule.length ? `${toSchedule.length} job${toSchedule.length === 1 ? '' : 's'} to book` : ''].filter(Boolean).join(' · ')}
-                  </span>
-                  <span className="text-sm font-bold text-red-800">›</span>
-                </button>
-              )}
+              {/* passed visits and jobs to book are in the "needs you" list at the top (9 Nov 2026) */}
               {dayJobs.length === 0 ? (
                 <div className="rounded-2xl border-2 border-dashed border-neutral-200 bg-white py-2xl text-center">
                   <p className="text-sm font-medium text-neutral-400">
@@ -860,6 +860,12 @@ export default function ContractorDashboard() {
 
           {activeTab === 'waiting' && (
             <div className="pt-lg space-y-lg">
+              {toSchedule.length > 0 && (
+                <div>
+                  <h2 className="text-sm font-bold text-amber-700 uppercase tracking-wide mb-sm">New jobs: pick a date</h2>
+                  <div className="space-y-sm">{toSchedule.map(job => <JobCard key={job.id} job={job} variant="waiting" asParam={asId} />)}</div>
+                </div>
+              )}
               {overdue.length > 0 && (
                 <div>
                   <h2 className="text-sm font-bold text-red-600 uppercase tracking-wide mb-sm">Overdue</h2>
@@ -867,12 +873,6 @@ export default function ContractorDashboard() {
                     <p className="text-xs text-red-700">These visits have passed — tap to log or reschedule.</p>
                   </div>
                   <div className="space-y-sm">{overdue.map(job => <JobCard key={job.id} job={job} variant="overdue" asParam={asId} />)}</div>
-                </div>
-              )}
-              {toSchedule.length > 0 && (
-                <div>
-                  <h2 className="text-sm font-bold text-amber-700 uppercase tracking-wide mb-sm">Need a date</h2>
-                  <div className="space-y-sm">{toSchedule.map(job => <JobCard key={job.id} job={job} variant="waiting" asParam={asId} />)}</div>
                 </div>
               )}
               {overdue.length === 0 && toSchedule.length === 0 && (

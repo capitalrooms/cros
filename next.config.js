@@ -1,5 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // local development only: lets a second local address (127.0.0.1) load the app, so a test account can be signed in
+  // there without signing the office out of localhost. No effect on the live site.
+  allowedDevOrigins: ['127.0.0.1'],
   reactStrictMode: false,
   swcMinify: true,
   typescript: {
