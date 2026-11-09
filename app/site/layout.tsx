@@ -15,7 +15,11 @@ export const metadata: Metadata = {
   title: { default: 'Capital Rooms | London lettings and property management', template: '%s · Capital Rooms' },
   description: 'Independent London letting agent: let only, single let and HMO management for landlords, and well-kept homes and rooms to rent across London.',
   openGraph: { siteName: 'Capital Rooms', locale: 'en_GB', type: 'website' },
-  icons: { icon: '/favicon-32.png', apple: '/apple-touch-icon.png' },
+  // the round picture beside us in Google: the logo's circle on forest green, at sizes Google accepts (multiples of 48)
+  icons: {
+    icon: [{ url: '/favicon.ico', sizes: '48x48' }, { url: '/site-icon-48.png', sizes: '48x48', type: 'image/png' }, { url: '/site-icon-96.png', sizes: '96x96', type: 'image/png' }, { url: '/site-icon-192.png', sizes: '192x192', type: 'image/png' }],
+    apple: '/site-apple-touch-icon.png',
+  },
   robots: { index: true, follow: true },
 }
 // unlike the app, people can zoom the website
