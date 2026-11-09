@@ -1,8 +1,15 @@
 // The old site's /page/… addresses: the guarantor calculator and communication preferences.
 import { notFound } from 'next/navigation'
+import type { Metadata } from 'next'
 import { PageTop } from '../../parts'
 import { GuarantorCalc } from '../../Calculators'
 import Enquiry from '../../Enquiry'
+
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params
+  if (slug === '9-guarantor-affordability-calculator') return { title: 'Guarantor Affordability Calculator (UK)', description: 'Work out the minimum income a guarantor needs for a rental in the UK: most letting agents ask for 36 times the monthly rent.', alternates: { canonical: `/page/${slug}` } }
+  return { title: 'Communication preferences', robots: { index: false }, alternates: { canonical: `/page/${slug}` } }
+}
 
 export default async function OldPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params

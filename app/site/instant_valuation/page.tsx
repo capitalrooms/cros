@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import { PageTop } from '../parts'
 import Enquiry from '../Enquiry'
 
-export const metadata: Metadata = { title: 'Free valuation', description: 'Find out what your London property should let for: a written lettings valuation on our letterhead.' }
+export const metadata: Metadata = { title: 'Free Rental Valuation in London', description: 'Find out what your London flat, house or HMO should let for. A free written rental valuation from an independent local letting agent.', alternates: { canonical: '/instant_valuation' } }
 
 export default function Valuation() {
   return (

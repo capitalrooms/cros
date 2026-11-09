@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import { PageTop, Tick } from '../parts'
 import Enquiry from '../Enquiry'
 
-export const metadata: Metadata = { title: 'Maintenance services', description: 'Trusted contractors, transparent pricing with no mark-up on invoices, and proactive maintenance.' }
+export const metadata: Metadata = { title: 'Property Maintenance for London Landlords', description: 'Repairs reported in our app and sorted by trusted contractors, with photos, quotes compared and no mark-up on invoices. Property maintenance across London.', alternates: { canonical: '/maintenance-services' } }
 const APPROACH: [string, string][] = [
   ['Collaborative contractor partnerships', 'We work with a trusted network of contractors to deliver high-quality services at competitive prices.'],
   ['Transparent pricing', 'Unlike some agencies, we don’t mark up invoices. Landlords only pay the fairest price for works carried out.'],

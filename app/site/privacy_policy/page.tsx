@@ -3,7 +3,7 @@ import fs from 'fs'
 import path from 'path'
 import { markdownToHtml } from '@/lib/website/markdown'
 import { PageTop } from '../parts'
-export const metadata: Metadata = { title: 'Privacy policy' }
+export const metadata: Metadata = { title: 'Privacy Policy', alternates: { canonical: '/privacy_policy' } }
 export default function Privacy() {
   const md = fs.readFileSync(path.join(process.cwd(), 'lib/website/content/privacy.md'), 'utf8')
   return (

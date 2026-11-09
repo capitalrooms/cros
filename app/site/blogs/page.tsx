@@ -3,7 +3,7 @@ import type { Metadata } from 'next'
 import { siteBase } from '@/lib/website/base'
 import { livePosts } from '@/lib/website/posts'
 import { PageTop } from '../parts'
-export const metadata: Metadata = { title: 'News & advice', description: 'Advice for London landlords and tenants from Capital Rooms.' }
+export const metadata: Metadata = { title: 'Advice for London Landlords and Tenants', description: 'Practical advice for London landlords and tenants from Capital Rooms: lettings law, HMO licensing, deposits, compliance and renting tips.', alternates: { canonical: '/blogs' } }
 export const revalidate = 300
 export default async function Blogs() {
   const [b, posts] = await Promise.all([siteBase(), livePosts()])

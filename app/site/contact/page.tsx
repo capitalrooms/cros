@@ -3,7 +3,7 @@ import { OFFICE } from '@/lib/website/site'
 import { PageTop } from '../parts'
 import Enquiry from '../Enquiry'
 
-export const metadata: Metadata = { title: 'Contact us', description: 'Call 0207 112 9163, email info@capitalrooms.co.uk, or send us a message.' }
+export const metadata: Metadata = { title: 'Contact Our London Letting Agents', description: 'Call Capital Rooms on 0207 112 9163, email info@capitalrooms.co.uk or send a message. Our office is at 66 Paul Street, Shoreditch, London EC2A 4NA.', alternates: { canonical: '/contact' } }
 
 export default function Contact() {
   return (

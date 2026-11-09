@@ -12,9 +12,10 @@ const figtree = Figtree({ subsets: ['latin'], weight: ['400', '500', '600'], var
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://capitalrooms.co.uk'),
-  title: { default: 'Capital Rooms | London lettings and property management', template: '%s · Capital Rooms' },
-  description: 'Independent London letting agent: let only, single let and HMO management for landlords, and well-kept homes and rooms to rent across London.',
-  openGraph: { siteName: 'Capital Rooms', locale: 'en_GB', type: 'website' },
+  title: { default: 'London Letting Agent & HMO Property Management | Capital Rooms', template: '%s | Capital Rooms' },
+  description: 'Independent London letting agent in Shoreditch. Let only 5%, single let 8%, HMO management 12% (+VAT), with your own landlord app. Rooms and flats to rent across London.',
+  openGraph: { siteName: 'Capital Rooms', locale: 'en_GB', type: 'website', images: [{ url: '/og-capital-rooms.jpg', width: 1200, height: 630, alt: 'Capital Rooms: London lettings and property management' }] },
+  twitter: { card: 'summary_large_image', images: ['/og-capital-rooms.jpg'] },
   // the round picture beside us in Google: the logo's circle on forest green, at sizes Google accepts (multiples of 48)
   icons: {
     icon: [{ url: '/favicon.ico', sizes: '48x48' }, { url: '/site-icon-48.png', sizes: '48x48', type: 'image/png' }, { url: '/site-icon-96.png', sizes: '96x96', type: 'image/png' }, { url: '/site-icon-192.png', sizes: '192x192', type: 'image/png' }],
