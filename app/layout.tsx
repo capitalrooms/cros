@@ -1,4 +1,5 @@
 import { Suspense } from 'react'
+import { headers } from 'next/headers'
 import NavTrail from '@/app/components/NavTrail'
 import type { Metadata, Viewport } from 'next'
 import { Baloo_2 } from 'next/font/google'
@@ -42,11 +43,20 @@ export const viewport: Viewport = {
   viewportFit: 'cover',
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
+  // the public website (proxy.ts marks it): its own clean page — none of the app's sign-in bridge, trail, footer or
+  // offline worker (9 Nov 2026)
+  if ((await headers()).get('x-cr-site') === '1') {
+    return (
+      <html lang="en-GB">
+        <body>{children}</body>
+      </html>
+    )
+  }
   return (
     <html lang="en" className={baloo2.variable}>
       <body className="flex flex-col min-h-screen">
