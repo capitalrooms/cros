@@ -13,7 +13,7 @@ export const NAV: [string, string][] = [
 
 // the team on About us (9 Nov 2026, Harry's words tidied). photo: a file under public/website/team/, blank = initial in a circle
 export const TEAM: { name: string; role: string; photo: string; bio: string }[] = [
-  { name: 'Harry', role: 'Founder', photo: '',
+  { name: 'Harry', role: 'Founder', photo: '/website/team/harry.jpg',
     bio: 'Harry started Capital Rooms in 2018 after working at a big estate agency, where landlords were passed from one person to the next. He wanted to do it differently. Here, you get one person who knows your home, picks up the phone and keeps you in the loop.' },
   { name: 'Jacob', role: 'Lettings', photo: '',
     bio: 'Jacob has worked for a few London agencies and now looks after all our lettings. He’s warm, upbeat and brilliant with people who are new to the city. For landlords, that means good tenants, properly referenced, who are happy to stay.' },
