@@ -31,7 +31,7 @@ export async function moveToRoom(s: SupabaseClient, a: { id: string; room_id: st
   const label = (r: any) => r ? `${r.name}, ${String(r.properties?.name ?? '').split('\n')[0]}` : 'no room'
   const day = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/London' })
   const note = `${day}: moved from ${label(from)} to ${label(to)}`
-  await s.from('applicants').update({ room_id: roomId, ...(propertyId ? { property_id: propertyId } : {}), admin_notes: [a.admin_notes, note].filter(Boolean).join('\n'), updated_at: new Date().toISOString() }).eq('id', a.id)
+  await s.from('applicants').update({ room_id: roomId, ...(propertyId ? { property_id: propertyId } : {}), offer_id: null, offered_rent: null, rent_offer_type: null, advertised_rent: null, admin_notes: [a.admin_notes, note].filter(Boolean).join('\n'), updated_at: new Date().toISOString() }).eq('id', a.id)
   a.room_id = roomId
 }
 

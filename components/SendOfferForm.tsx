@@ -5,6 +5,7 @@ import { useState, useEffect, useRef } from 'react'
 import HoldingDepositModal from '@/components/HoldingDepositModal'
 import AddLetOnlyModal from '@/app/components/AddLetOnlyModal'
 import InviteApplicant from '@/components/InviteApplicant'
+import { createClient } from '@/lib/supabase'
 
 interface RecentOffer {
   id: string
@@ -53,6 +54,20 @@ export default function SendOfferForm() {
   const [success,         setSuccess]         = useState('')
 
   const [recent,          setRecent]          = useState<RecentOffer[]>([])
+  // pick someone already on Applicants instead of typing them in (9 Nov 2026, Harry: "send offer letter doesn't let you
+  // pick from existing applicants") — their one record is used and moves to the room chosen here
+  const [people,          setPeople]          = useState<{ id: string; full_name: string | null; salutation: string | null; first_name: string | null; last_name: string | null; email: string | null; phone: string | null; room: string | null }[]>([])
+  const [who,             setWho]             = useState('')
+  useEffect(() => {
+    createClient().from('applicants').select('id, full_name, salutation, first_name, last_name, email, phone, pipeline_stage, rooms(name)').is('archived_at', null).order('updated_at', { ascending: false }).limit(300)
+      .then(({ data }) => setPeople(((data ?? []) as any[]).filter(a => a.email && a.pipeline_stage !== 'converted').map(a => ({ ...a, room: a.rooms?.name ?? null }))), () => {})
+  }, [])
+  const pickPerson = (id: string) => {
+    setWho(id)
+    const a = people.find(x => x.id === id); if (!a) return
+    const nm = { ...emptyName(), salutation: a.salutation ?? '', first_name: a.first_name ?? String(a.full_name ?? '').split(' ')[0] ?? '', last_name: a.last_name ?? String(a.full_name ?? '').split(' ').slice(1).join(' ') }
+    setApplicantNm(nm as NameValue); setApplicantName(a.full_name || toLegalName(nm as NameValue)); setApplicantEmail(a.email ?? ''); setApplicantPhone(a.phone ?? '')
+  }
   const [depositFor,      setDepositFor]      = useState<string | null>(null)
 
   const wrapperRef = useRef<HTMLDivElement>(null)
@@ -257,6 +272,20 @@ export default function SendOfferForm() {
             </div>
           )}
         </div>
+
+        {/* An existing applicant, or type a new one below */}
+        {people.length > 0 && (
+          <div>
+            <label className="block text-sm font-medium text-white mb-xs">Existing applicant <span className="text-neutral-400 font-normal">(or type someone new below)</span></label>
+            <select value={who} onChange={e => pickPerson(e.target.value)}
+              className="w-full px-md py-sm rounded-xl border border-neutral-600 bg-neutral-800 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+              <option value="">— Someone new —</option>
+              {[...people].sort((a, b) => String(a.full_name ?? '').localeCompare(String(b.full_name ?? ''))).map(a => (
+                <option key={a.id} value={a.id}>{a.full_name || a.email}{a.room ? ` · now on ${a.room}` : ''} · {a.email}</option>
+              ))}
+            </select>
+          </div>
+        )}
 
         {/* Applicant details */}
         <div className="grid grid-cols-2 gap-sm">
