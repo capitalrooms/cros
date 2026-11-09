@@ -186,3 +186,7 @@
 .site .narrow{max-width:900px}
 @media (max-width:700px){.site .h2{font-size:34px}.site section.block{padding-top:56px}.site .tier .fee{font-size:56px}.site .help{min-height:220px}}
 .site .hero.plain{background:radial-gradient(120% 140% at 85% 10%,#2C5040 0%,#1F3B2E 45%,#17301F 100%)}
+
+.site .top .wrap{min-height:88px}
+@media (max-width:900px){.site .top nav.open{top:88px}}
+@media (max-width:480px){.site .top .wrap{min-height:72px}.site .top nav.open{top:72px}}

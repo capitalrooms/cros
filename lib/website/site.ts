@@ -4,8 +4,9 @@ export const PHOTOS: Record<string, string> = {
   hero: '', landlords: '', tenants: '', valuation: '', keys: '', rooftops: '', about: '', maintenance: '',
 }
 
+// the usual order on London letting agents' sites (9 Nov 2026, Harry): what people come for first, the company last
 export const NAV: [string, string][] = [
-  ['About', '/about-us'], ['Advice', '/blogs'], ['Contact', '/contact'], ['Homes to rent', '/residential-lettings'], ['Landlords', '/landlords'], ['Maintenance', '/maintenance-services'], ['Tenants', '/tenants'],
+  ['Rent', '/residential-lettings'], ['Landlords', '/landlords'], ['Tenants', '/tenants'], ['Maintenance', '/maintenance-services'], ['About us', '/about-us'], ['Advice', '/blogs'], ['Contact', '/contact'],
 ]
 
 export const OFFICE = { address: 'Hoxton Mix, 66 Paul Street, London EC2A 4NA', phone: '0207 112 9163', phoneHref: 'tel:+442071129163', email: 'info@capitalrooms.co.uk' }
