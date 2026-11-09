@@ -35,11 +35,14 @@ interface AvailableRoom {
 
 /** Where a room row goes, and where "Add viewing" goes (the property's own booking form with this room chosen). */
 function roomLinks(room: AvailableRoom) {
-  const href = room.let_only_listing_id
+  // a row opens its marketing — the listing: advert text, photos and video, key facts, share link (9 Nov 2026, Harry:
+  // "should it not take you to wherever we hold the marketing information"); the room record is a small link beside it
+  const recordHref = room.let_only_listing_id
     ? `/admin/let-only/${room.let_only_listing_id}`
-    : `/admin/properties/${room.property_id}/rooms/${room.id}`   // the room page
+    : `/admin/properties/${room.property_id}/rooms/${room.id}`
+  const href = room.let_only_listing_id ? recordHref : `/lettings/listing/${room.id}?from=${encodeURIComponent('/admin/available-and-lettings')}`
   const viewingHref = room.let_only_listing_id ? '/lettings/viewings' : `/admin/properties/${room.property_id}?tab=lettings&book=${room.id}`
-  return { href, viewingHref }
+  return { href, viewingHref, recordHref }
 }
 
 export default function LettingsPage() {
@@ -292,7 +295,7 @@ export default function LettingsPage() {
             {/* Phone: one row per room — tap the row to open it, or add a viewing */}
             <ul className="md:hidden rounded-2xl border border-neutral-200 bg-white divide-y divide-neutral-100 overflow-hidden">
               {availableRooms.filter(r => kind === 'all' || (kind === 'let_only') === !!r.is_let_only).map(room => {
-                const { href, viewingHref } = roomLinks(room)
+                const { href, viewingHref, recordHref } = roomLinks(room)
                 return (
                   <li key={room.id} className={room.is_let_only ? 'bg-neutral-50' : 'bg-white'}>
                     <div className="flex items-start gap-md px-lg py-md">
@@ -308,6 +311,7 @@ export default function LettingsPage() {
                           {room.days_on_market != null && <> · {room.days_on_market} days on market</>}
                         </p>
                       </Link>
+                      {recordHref !== href && <Link href={recordHref} className="shrink-0 self-center text-xs font-semibold text-neutral-500 underline">Record</Link>}
                       <Link href={viewingHref}
                         className="shrink-0 whitespace-nowrap rounded-lg bg-neutral-900 px-md py-xs text-xs font-semibold text-white active:bg-neutral-700">
                         + Viewing
@@ -331,7 +335,7 @@ export default function LettingsPage() {
                 </thead>
                 <tbody>
                   {availableRooms.filter(r => kind === 'all' || (kind === 'let_only') === !!r.is_let_only).map((room, idx) => {
-                    const { href, viewingHref } = roomLinks(room)
+                    const { href, viewingHref, recordHref } = roomLinks(room)
                     return (
                     <tr
                       key={room.id}
@@ -376,7 +380,8 @@ export default function LettingsPage() {
                       <td className="px-lg py-md text-sm text-center text-neutral-600">
                         {room.days_on_market ?? '—'}
                       </td>
-                      <td className="px-lg py-md text-right">
+                      <td className="px-lg py-md text-right whitespace-nowrap">
+                        {recordHref !== href && <Link href={recordHref} onClick={e => e.stopPropagation()} className="mr-md text-xs font-semibold text-neutral-500 hover:text-neutral-900 hover:underline">Record</Link>}
                         <Link href={viewingHref} onClick={e => e.stopPropagation()}
                           className="inline-block whitespace-nowrap rounded-lg bg-neutral-900 px-md py-xs text-xs font-semibold text-white hover:bg-neutral-700">
                           + Add viewing
