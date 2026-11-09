@@ -9,7 +9,7 @@ export default async function About() {
   const b = await siteBase()
   return (
     <>
-      <PageTop eyebrow="About us" title="Homes people want to come back to." photo="about" />
+      <PageTop eyebrow="About us" title="The agent people leave the big agencies for." photo="about" />
       <section className="block" style={{ paddingTop: 64 }}><div className="wrap"><div className="prose rise">
         <p>CapitalRooms offer modern, well maintained and stylish properties. Our all inclusive rents help to simplify your monthly budget and save you the hassle of bills each month. We provide our residents with a relaxing place they want to call home, not just a place to stay. Each room is fully furnished with contemporary furniture so you don’t have to go out and find all the essential furniture you wish was just included! The same goes for the rest of the house, so you can arrive with just a suitcase.</p>
         <p>It’s also important you have a space to spend time with your flatmates so all of our properties have both a kitchen and a lounge. Our tenants are young and likeminded working professionals who are always excited to meet their new housemates!</p>

@@ -11,7 +11,7 @@ export default async function Tenants() {
   const b = await siteBase()
   return (
     <>
-      <PageTop eyebrow="For tenants" title="Renting with Capital Rooms." photo="tenants" lead="Well-kept homes across London, and a team who answer.">
+      <PageTop eyebrow="For tenants" title="Renting with Capital Rooms." photo="tenants" lead="Well-kept homes, a simple move-in, and repairs sorted quickly when something goes wrong.">
         <div className="load3" style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}><Link className="btn" href={`${b}/residential-lettings`}>Flats and houses</Link><Link className="line" href={`${b}/shared-accommodation`}>Rooms in shared homes</Link></div>
       </PageTop>
       <section className="block"><div className="wrap">
