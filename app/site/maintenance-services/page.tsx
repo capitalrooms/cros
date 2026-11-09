@@ -14,7 +14,7 @@ const BENEFITS: [string, string][] = [['Cost-effective solutions', 'Competitive 
 export default function Maintenance() {
   return (
     <>
-      <PageTop eyebrow="Maintenance services" title="Looked after, properly." photo="maintenance" lead="At Capital Rooms, we prioritise the upkeep and maintenance of your property to ensure it remains in excellent condition for both landlords and tenants. Our dedicated team works diligently to address any issues promptly and efficiently." />
+      <PageTop eyebrow="Maintenance services" title="Repairs sorted fast, at a fair price." photo="maintenance" lead="At Capital Rooms, we prioritise the upkeep and maintenance of your property to ensure it remains in excellent condition for both landlords and tenants. Our dedicated team works diligently to address any issues promptly and efficiently." />
       <section className="block"><div className="wrap">
         <h2 className="h2 rise" style={{ marginBottom: 28 }}>Our approach</h2>
         <div className="grid2">{APPROACH.map(([t, d]) => <div key={t} className="card rise"><h3 className="h3">{t}</h3><p style={{ color: 'var(--muted)' }}>{d}</p></div>)}</div>

@@ -12,8 +12,8 @@ export default async function Home() {
         {hasPhoto('hero') && <><Photo k="hero" className="hero-ph" eager alt="Tower Bridge and the Thames at sunset" /><div className="shade" /></>}
         <div className="copy">
           <p className="pill load">Independent London lettings &amp; management</p>
-          <h1 className="h1 load2">London lettings,<br />done properly.</h1>
-          <p className="lead load3">We let and look after homes across London for landlords who want a personal service, and we look after the people who live in them.</p>
+          <h1 className="h1 load2">The personal service<br />big agencies can’t give.</h1>
+          <p className="lead load3">Independent London lettings and management. We answer quickly, fix things fast and keep your home let, which is why landlords move to us from the big agencies and tenants stay for years.</p>
           <div className="load3" style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
             <Link className="gold" href={`${b}/landlords`}>I’m a landlord</Link>
             <Link className="ghost" href={`${b}/residential-lettings`}>I’m looking for a home</Link>
@@ -32,7 +32,7 @@ export default async function Home() {
       <section className="block"><div className="wrap">
         <div className="rise" style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'end', gap: 24, marginBottom: 36 }}>
           <h2 className="h2">How can we help?</h2>
-          <p className="lead" style={{ maxWidth: 380 }}>One small team, from the first viewing to the day the tenancy ends.</p>
+          <p className="lead" style={{ maxWidth: 380 }}>Rated 4.9 out of 5 by our landlords and tenants on Google.</p>
         </div>
         <div className="grid3">
           <HelpCard href={`${b}/landlords`} k="landlords" tone="forest" icon={ICONS.key} title="Landlords" text="Let only, fully managed, or HMO management." />
@@ -86,8 +86,8 @@ export default async function Home() {
         <div className={`band ${hasPhoto('rooftops') ? '' : 'plain'}`}>
           {hasPhoto('rooftops') && <><Photo k="rooftops" className="drift" alt="London rooftops" /><div className="shade" /></>}
           <div className="copy rise">
-            <h2 className="h2">A personal service,<br />right across London.</h2>
-            <p style={{ fontSize: 18, color: '#E4EBE3' }}>One team that knows your property by name.</p>
+            <h2 className="h2">Quick replies.<br />Repairs sorted fast.</h2>
+            <p style={{ fontSize: 18, color: '#E4EBE3' }}>Contractors who turn up when they say, and everyone kept in the loop. It’s what our reviews mention most.</p>
           </div>
         </div>
       </section>

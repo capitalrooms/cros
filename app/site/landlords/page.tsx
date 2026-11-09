@@ -11,7 +11,7 @@ export default async function Landlords() {
   const b = await siteBase()
   return (
     <>
-      <PageTop eyebrow="For landlords" title="Letting, minus the stress." photo="landlords"
+      <PageTop eyebrow="For landlords" title="Fewer empty weeks. Fewer headaches." photo="landlords"
         lead="If you are looking for assistance with a single let or HMO property, we can advise you on the best strategy to maximise your return. If you have a property and are not quite sure how to move forward with it, or are looking to purchase an investment property, contact us today to see how we can assist you.">
         <div className="load3" style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}><Link className="btn" href={`${b}/instant_valuation`}>Free valuation</Link><a className="line" href="#enquire">Ask us anything</a></div>
       </PageTop>
