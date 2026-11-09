@@ -382,3 +382,15 @@
 .site .area-card:hover{transform:translateY(-3px)}
 .site .area-free{margin-top:auto;font-weight:600;color:var(--forest)}
 @media (max-width:700px){.site .area-fees{grid-template-columns:1fr}}
+
+/* team on About us (9 Nov 2026) */
+.site .team{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:20px}
+.site .team-card{background:#fff;border-radius:28px;padding:26px;display:flex;flex-direction:column;gap:14px;align-items:flex-start}
+.site .team-face{width:112px;height:112px;border-radius:50%;background:var(--sage);color:var(--forest);display:grid;place-items:center;overflow:hidden;border:4px solid #fff;box-shadow:0 0 0 2px var(--sage)}
+.site .team-face span{font-size:46px;line-height:1}
+.site .team-face img{width:100%;height:100%;object-fit:cover}
+.site .team-role{margin:4px 0 0;font-weight:600;color:var(--forest);font-size:15px}
+.site .team-bio{margin:0;color:var(--muted);line-height:1.55;font-size:16px}
+.site .team-quote{margin:0;padding:14px 16px;background:var(--sage);border-radius:18px;font-size:15px;line-height:1.55}
+@media (max-width:1000px){.site .team{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:600px){.site .team{grid-template-columns:1fr}}
