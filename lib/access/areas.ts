@@ -52,7 +52,7 @@ export const AREAS: Area[] = [
     apiRead: ['/api/admin/lettings/overview', '/api/admin/documents/generated', '/api/admin/quick-notify'] },
   { key: 'maintenance', label: 'Maintenance', hint: 'Repairs, contractors, quotes, cleaning, emergencies, planner',
     pages: ['/admin/maintenance', '/admin/cleaner-jobs', '/admin/emergencies', '/admin/planner', '/admin/contractor'],
-    api: ['/api/admin/maintenance', '/api/admin/quotes', '/api/admin/emergencies', '/api/admin/planner', '/api/admin/cleaner', '/api/admin/jobs', '/api/admin/visit-requests'] },
+    api: ['/api/admin/maintenance', '/api/admin/quotes', '/api/admin/inspections', '/api/admin/emergencies', '/api/admin/planner', '/api/admin/cleaner', '/api/admin/jobs', '/api/admin/visit-requests'] },
   { key: 'compliance', label: 'Compliance & documents', hint: 'Certificates, safety checks, document inbox and scanner, guides',
     pages: ['/admin/compliance', '/admin/compliance-logs', '/admin/property-compliance-dashboard', '/admin/tenant-safety-checks', '/admin/sar', '/admin/guides',
       '/admin/ai-upload', '/admin/capture', '/admin/inbox', '/admin/documents'],

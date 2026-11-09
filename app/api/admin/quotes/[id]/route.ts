@@ -7,6 +7,7 @@ import { requireAdmin } from '@/lib/adminAuth'
 import { senderFor } from '@/lib/email/sender'
 import { loadQuoteJob } from '@/lib/quotes/quoteRequest'
 import { svc, QUOTE_COLS, quotesError, sendQuoteRequest, acceptQuote, type QuoteRow } from '@/lib/quotes/store'
+import { limitFor, requestApproval } from '@/lib/repairs/approvals'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -44,11 +45,24 @@ export async function PATCH(req: NextRequest, { params: paramsPromise }: { param
       if (quote.status === 'accepted') return NextResponse.json({ error: 'Already accepted.' }, { status: 409 })
       if (quote.status === 'withdrawn') return NextResponse.json({ error: 'This request was withdrawn.' }, { status: 409 })
       try {
+        // over the property's approval limit: the landlord decides (unless the office says go ahead regardless)
+        const { limit } = await limitFor(s, quote.ticket_id)
+        if (limit != null && quote.amount != null && Number(quote.amount) > limit && !body.skip_approval) {
+          await requestApproval(s, quote, admin.email ?? null, await senderFor(req))
+          return NextResponse.json({ ok: true, awaitingLandlord: true, limit })
+        }
         const r = await acceptQuote(s, quote, admin.personId, await senderFor(req), { thankOthers: body.thank_others !== false })
         return NextResponse.json({ ok: true, ...r })
       } catch (e) {
         return NextResponse.json({ error: e instanceof Error ? e.message : 'Could not accept the quote' }, { status: 400 })
       }
+    }
+    case 'ask_landlord': {
+      // ask the landlord even when it's under the limit (or there's no limit)
+      if (decided) return NextResponse.json({ error: `This quote is already ${quote.status}.` }, { status: 409 })
+      if (quote.amount == null) return NextResponse.json({ error: 'Enter the price first.' }, { status: 400 })
+      try { await requestApproval(s, quote, admin.email ?? null, await senderFor(req)); return NextResponse.json({ ok: true, awaitingLandlord: true }) }
+      catch (e) { return NextResponse.json({ error: e instanceof Error ? e.message : 'Could not ask the landlord' }, { status: 400 }) }
     }
     case 'decline':
     case 'withdraw': {

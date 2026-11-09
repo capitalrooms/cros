@@ -26,6 +26,8 @@ const STATUS: Record<Quote['status'], [string, string]> = {
 
 export default function QuotesPanel({ ticketId, contractors, onAssigned }: { ticketId: string; contractors: Contractor[]; onAssigned: () => void }) {
   const [quotes, setQuotes] = useState<Quote[] | null>(null)
+  const [limit, setLimit] = useState<number | null>(null)
+  const [approval, setApproval] = useState<{ status: string; amount: number | null; sent_to: string | null; requested_at: string; viewed_at: string | null; decided_at: string | null; decided_note: string | null; recommended_quote_id: string | null } | null>(null)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const [busy, setBusy] = useState('')
@@ -41,7 +43,7 @@ export default function QuotesPanel({ ticketId, contractors, onAssigned }: { tic
       const res = await adminFetch(`/api/admin/quotes?ticketId=${ticketId}`)
       const d = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(d.error || 'Could not load quotes')
-      setQuotes(d.quotes); setError('')
+      setQuotes(d.quotes); setLimit(d.limit ?? null); setApproval(d.approval ?? null); setError('')
     } catch (e) { setQuotes([]); setError(e instanceof Error ? e.message : 'Could not load quotes') }
   }, [ticketId])
   useEffect(() => { load() }, [load])
@@ -91,7 +93,12 @@ export default function QuotesPanel({ ticketId, contractors, onAssigned }: { tic
   const [thankOthers, setThankOthers] = useState(true)
 
   async function act(q: Quote, action: string, extra: Record<string, unknown> = {}) {
-    if (action === 'accept' && !window.confirm(`Accept ${q.contractor_name}'s quote of ${gbp(Number(q.amount))}? The job is assigned to them and the other quotes are declined.`)) return
+    const over = limit != null && q.amount != null && Number(q.amount) > limit
+    if (action === 'accept' && !extra.skip_approval && !window.confirm(over
+      ? `${gbp(Number(q.amount))} is over this property's approval limit of ${gbp(limit!)}. Send the quotes to the landlord to approve, with ${q.contractor_name}'s as our recommendation?`
+      : `Accept ${q.contractor_name}'s quote of ${gbp(Number(q.amount))}? The job is assigned to them and the other quotes are declined.`)) return
+    if (action === 'accept' && extra.skip_approval && !window.confirm(`Go ahead with ${q.contractor_name} at ${gbp(Number(q.amount))} without the landlord's approval? Only do this if they've agreed another way (e.g. by phone).`)) return
+    if (action === 'ask_landlord' && !window.confirm(`Send the quotes to the landlord to approve, with ${q.contractor_name}'s as our recommendation? Contractor names are never shown to them.`)) return
     setBusy(q.id + action); setError(''); setNotice('')
     try {
       const res = await adminFetch(`/api/admin/quotes/${q.id}`, {
@@ -99,7 +106,9 @@ export default function QuotesPanel({ ticketId, contractors, onAssigned }: { tic
       })
       const d = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(d.error || 'Could not update the quote')
-      if (action === 'accept') {
+      if (d.awaitingLandlord || action === 'ask_landlord') {
+        setNotice('Sent to the landlord to approve. The job is on hold until they answer — you’ll get an email when they do.')
+      } else if (action === 'accept') {
         setNotice(`${q.contractor_name} is now on this job${d.emailed ? ' and has been emailed' : ''}. The other contractors were marked declined${d.thanked ? ` and ${d.thanked} thanked by email` : ''}.`)
         onAssigned()
       }
@@ -123,6 +132,15 @@ export default function QuotesPanel({ ticketId, contractors, onAssigned }: { tic
           <button onClick={() => setAsking(true)} className="shrink-0 rounded-lg bg-neutral-900 px-md py-sm text-xs font-bold text-white">Ask for quotes</button>
         )}
       </div>
+
+      {approval && (approval.status === 'pending' || (approval.status !== 'withdrawn' && !accepted)) && (
+        <div className={`mt-md rounded-lg px-md py-sm text-sm ${approval.status === 'pending' ? 'bg-amber-50 text-amber-900' : approval.status === 'approved' ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}>
+          {approval.status === 'pending' && <><strong>Waiting for the landlord.</strong> Sent {new Date(approval.requested_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })}{approval.sent_to ? ` to ${approval.sent_to}` : ''}{approval.viewed_at ? ' · they’ve opened it' : ' · not opened yet'}.</>}
+          {approval.status === 'approved' && <><strong>Landlord approved</strong>{approval.decided_at ? ` on ${new Date(approval.decided_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })}` : ''}.</>}
+          {approval.status === 'declined' && <><strong>Landlord asked us to hold off</strong>{approval.decided_note ? `: “${approval.decided_note}”` : '.'} Call them, then go ahead without approval if they agree.</>}
+        </div>
+      )}
+      {limit != null && !accepted && <p className="mt-sm text-[11px] text-neutral-500">Landlord approval needed over {gbp(limit)} (set on the property’s Maintenance tab).</p>}
 
       {error && <p className="mt-md rounded-lg bg-red-50 px-md py-sm text-sm text-red-700">{error}</p>}
       {notice && <p className="mt-md rounded-lg bg-green-50 px-md py-sm text-sm text-green-800">{notice}</p>}
@@ -159,8 +177,11 @@ export default function QuotesPanel({ ticketId, contractors, onAssigned }: { tic
                     {q.amount != null && (
                       <>
                         <button disabled={!!busy} onClick={() => act(q, 'accept')} className="rounded-lg bg-neutral-900 px-md py-xs text-xs font-bold text-white disabled:opacity-40">
-                          {busy === q.id + 'accept' ? 'Accepting…' : 'Accept & assign'}
+                          {busy === q.id + 'accept' ? 'Working…' : limit != null && Number(q.amount) > limit ? 'Send to landlord' : 'Accept & assign'}
                         </button>
+                        {limit != null && Number(q.amount) > limit
+                          ? <button disabled={!!busy} onClick={() => act(q, 'accept', { skip_approval: true })} className="rounded-lg border border-neutral-300 px-md py-xs text-xs font-bold text-neutral-800">Go ahead without approval</button>
+                          : <button disabled={!!busy} onClick={() => act(q, 'ask_landlord')} className="rounded-lg border border-neutral-300 px-md py-xs text-xs font-bold text-neutral-800">{busy === q.id + 'ask_landlord' ? 'Sending…' : 'Ask the landlord'}</button>}
                         {(quotes ?? []).filter(x => x.id !== q.id && (x.status === 'requested' || x.status === 'submitted')).length > 0 && (
                           <label className="flex items-center gap-xs text-[11px] text-neutral-600"><input type="checkbox" checked={thankOthers} onChange={e => setThankOthers(e.target.checked)} /> Thank the other contractors</label>
                         )}
