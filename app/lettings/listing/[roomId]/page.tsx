@@ -12,9 +12,10 @@ import BackButton from '@/app/components/BackButton'
 import type { SpareRoomAd } from '@/lib/listing/spareroom'
 import { isWholeLet } from '@/lib/lettings/letWording'
 import PageHero, { HeroButton } from '@/components/PageHero'
+import { createClient } from '@/lib/supabase'
 
 type L = Record<string, any>
-interface Photo { id: string; url: string; video: boolean; caption: string | null; ofRoom: boolean; otherRoom: boolean }
+interface Photo { id: string; url: string; video: boolean; caption: string | null; ofRoom: boolean; otherRoom: boolean; area?: string | null }
 interface Chan { channel: string; label: string; available: boolean; enabled: boolean; status?: string | null }
 const STEPS = [['draft', 'Draft'], ['ready', 'Ready'], ['live', 'Live'], ['let_agreed', 'Let agreed']] as const
 const gbp = (n: number | null | undefined) => n == null ? '—' : `£${Number(n).toLocaleString('en-GB', { maximumFractionDigits: 2 })}`
@@ -332,6 +333,7 @@ export default function ListingEditor({ params }: { params: Promise<{ roomId: st
               <div key={p.id} className={`group relative overflow-hidden rounded-xl bg-neutral-200 ${i === 0 ? 'col-span-2 row-span-2' : ''}`}>
                 {p.video ? <video src={p.url} className="h-full w-full object-cover" muted /> : /* eslint-disable-next-line @next/next/no-img-element */ <img src={p.url} alt="" className="aspect-[4/3] h-full w-full object-cover" />}
                 {i === 0 && <span className="absolute left-2 top-2 rounded-full bg-white px-2 py-0.5 text-xs font-bold shadow">Main photo</span>}
+                {p.area && p.area !== 'room' && <span className="absolute right-2 top-2 rounded-full bg-neutral-900/75 px-2 py-0.5 text-[11px] font-semibold text-white">{p.area === 'exterior' ? 'Outside' : whole ? 'Building' : 'Shared'}</span>}
                 <div className="absolute inset-x-2 bottom-2 flex justify-between opacity-100 sm:opacity-0 sm:transition sm:group-hover:opacity-100">
                   <button type="button" disabled={i === 0} onClick={() => { const o = [...order]; const j = o.indexOf(p.id); [o[j - 1], o[j]] = [o[j], o[j - 1]]; set('media_order', o) }} aria-label="Move earlier" className="grid h-8 w-8 place-items-center rounded-full bg-white/95 text-sm shadow disabled:opacity-30">←</button>
                   <button type="button" onClick={() => set('media_order', order.filter(x => x !== p.id))} aria-label="Leave out of the listing" className="rounded-full bg-white/95 px-sm text-xs font-semibold shadow">Remove</button>
@@ -353,7 +355,7 @@ export default function ListingEditor({ params }: { params: Promise<{ roomId: st
             <label className={lbl}>Virtual tour<input className={field} value={l.virtual_tour_url ?? ''} onChange={e => set('virtual_tour_url', e.target.value)} placeholder="https://…" /></label>
             <label className={lbl}>Floor plan<input className={field} value={l.floorplan_url ?? ''} onChange={e => set('floorplan_url', e.target.value)} placeholder="https://…" /></label>
           </div>
-          <Link href={`/admin/properties/${l.property_id}/rooms/${roomId}/edit`} className="inline-block text-sm font-semibold text-neutral-700 underline">Upload new photos or video</Link>
+          <PhotoUpload propertyId={l.property_id} roomId={roomId} whole={whole} onDone={async (ids) => { await load(); if (ids.length) set('media_order', [...order, ...ids.filter(id => !order.includes(id))]) }} />
         </Section>
 
         <Section id="price" title="Price & availability" sub="Material information part A — must be on every advert.">
@@ -513,6 +515,78 @@ function PortalCard({ l, media }: { l: L; media: Photo[] }) {
         </div>
       </div>
       <p className="text-[11px] text-neutral-500">Portals also show: deposit {gbp(l.deposit)} · council tax {l.council_tax_included ? 'included' : l.council_tax_band ? `band ${l.council_tax_band}` : 'not set'} · available {l.available_from ? day(l.available_from) : 'not set'}{(l.features ?? []).length ? ` · ${l.features.length} key features` : ''}</p>
+    </div>
+  )
+}
+
+/** Upload straight from the listing (9 Nov 2026, Harry): pick photos or videos, say what each shows — this room, the
+ *  shared areas, or outside. Shared and outside ones are saved to the house (no room), so every room's advert can use
+ *  them; all of them go into this listing. */
+function PhotoUpload({ propertyId, roomId, whole, onDone }: { propertyId: string; roomId: string; whole: boolean; onDone: (ids: string[]) => void }) {
+  const [files, setFiles] = useState<{ file: File; url: string; area: 'room' | 'communal' | 'exterior' }[]>([])
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState('')
+  const input = useRef<HTMLInputElement>(null)
+  const AREAS: ['room' | 'communal' | 'exterior', string][] = whole
+    ? [['room', 'Inside the property'], ['communal', 'Building & shared (gym, lobby…)'], ['exterior', 'Outside']]
+    : [['room', 'This room only'], ['communal', 'Shared areas (kitchen, bathroom, lounge)'], ['exterior', 'Outside']]
+  async function upload() {
+    setBusy(true); setMsg('')
+    const sb = createClient() as any   // the generated types don't know property_photos
+    const ids: string[] = []
+    for (const [i, f] of files.entries()) {
+      const ext = (f.file.name.split('.').pop() || 'jpg').toLowerCase()
+      const forRoom = f.area === 'room'
+      const path = `${propertyId}/${forRoom ? roomId : 'house'}/${Date.now()}-${i}-${Math.random().toString(36).slice(2)}.${ext}`
+      const { error } = await sb.storage.from('property-photos').upload(path, f.file, { upsert: false, contentType: f.file.type || undefined })
+      if (error) continue
+      const file_url = sb.storage.from('property-photos').getPublicUrl(path).data?.publicUrl ?? null
+      const row: Record<string, unknown> = { property_id: propertyId, room_id: forRoom ? roomId : null, file_name: f.file.name, file_path: path, file_url, file_type: f.file.type || null, is_marketing: true, area: f.area }
+      let { data, error: e2 } = await sb.from('property_photos').insert(row).select('id').single()
+      if (e2 && /area/.test(e2.message)) { delete row.area; ({ data, error: e2 } = await sb.from('property_photos').insert(row).select('id').single()) }   // before migration 274
+      if (data) ids.push((data as any).id)
+    }
+    files.forEach(f => URL.revokeObjectURL(f.url))
+    setFiles([]); setBusy(false)
+    setMsg(ids.length ? `${ids.length} added to the listing${ids.length < files.length ? ` — ${files.length - ids.length} didn’t upload` : ''}` : 'Nothing uploaded — try again')
+    if (input.current) input.current.value = ''
+    onDone(ids)
+  }
+  return (
+    <div className="space-y-sm">
+      <input ref={input} type="file" accept="image/*,video/*" multiple className="hidden"
+        onChange={e => setFiles(Array.from(e.target.files ?? []).map(file => ({ file, url: URL.createObjectURL(file), area: 'room' as const })))} />
+      {!files.length ? (
+        <div className="flex flex-wrap items-center gap-sm">
+          <button type="button" onClick={() => input.current?.click()} className="rounded-xl bg-neutral-900 px-lg py-2.5 text-sm font-bold text-white hover:bg-neutral-800">+ Add photos or video</button>
+          {msg && <span className="text-sm text-emerald-700">{msg}</span>}
+        </div>
+      ) : (
+        <div className="space-y-md rounded-xl bg-neutral-50 p-md">
+          <div className="flex flex-wrap items-center justify-between gap-sm">
+            <p className="text-sm font-semibold text-neutral-800">What does each one show?</p>
+            <span className="flex flex-wrap gap-xs text-xs"><span className="text-neutral-500">All:</span>
+              {AREAS.map(([k, t]) => <button key={k} type="button" onClick={() => setFiles(fs => fs.map(f => ({ ...f, area: k })))} className="rounded-full border border-neutral-300 bg-white px-sm py-0.5 font-semibold hover:bg-neutral-100">{t.split(' (')[0]}</button>)}</span>
+          </div>
+          <ul className="grid gap-sm sm:grid-cols-2">
+            {files.map((f, i) => (
+              <li key={i} className="flex gap-sm rounded-lg bg-white p-xs ring-1 ring-neutral-200">
+                {f.file.type.startsWith('video') ? <video src={f.url} className="h-20 w-28 shrink-0 rounded object-cover" muted /> : /* eslint-disable-next-line @next/next/no-img-element */ <img src={f.url} alt="" className="h-20 w-28 shrink-0 rounded object-cover" />}
+                <div className="min-w-0 flex-1 space-y-1">
+                  {AREAS.map(([k, t]) => (
+                    <label key={k} className="flex items-center gap-xs text-xs text-neutral-700"><input type="radio" name={`area-${i}`} checked={f.area === k} onChange={() => setFiles(fs => fs.map((x, j) => j === i ? { ...x, area: k } : x))} />{t}</label>
+                  ))}
+                </div>
+              </li>
+            ))}
+          </ul>
+          <p className="text-xs text-neutral-500">{whole ? 'Building and outside photos are kept on the property.' : 'Shared and outside photos are kept on the house, so the other rooms’ adverts can use them too.'} All of these go into this listing.</p>
+          <div className="flex gap-sm">
+            <button type="button" onClick={upload} disabled={busy} className="rounded-xl bg-neutral-900 px-lg py-2.5 text-sm font-bold text-white disabled:opacity-40">{busy ? 'Uploading…' : `Upload ${files.length}`}</button>
+            <button type="button" onClick={() => { files.forEach(f => URL.revokeObjectURL(f.url)); setFiles([]) }} disabled={busy} className="rounded-xl border border-neutral-300 px-lg py-2.5 text-sm font-semibold">Cancel</button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
