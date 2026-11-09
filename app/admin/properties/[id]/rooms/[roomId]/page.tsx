@@ -468,7 +468,7 @@ function Relet({ o, wide }: { o: RoomOverview; wide: boolean }) {
           <div className="flex flex-wrap gap-sm border-t border-neutral-100 pt-md">
             {/* a tenant already living there that CROS doesn't know about (4 Nov 2026) — the New tenancy form, filled in */}
             {!o.current && <Link href={`/admin/tenancies?add=${o.property.id}:${o.room.id}`} className={btnLight}>Add an existing tenancy</Link>}
-            <Link href={`/lettings/listing/${o.room.id}?from=${encodeURIComponent(`/admin/properties/${o.property.id}/rooms/${o.room.id}`)}`} className={btnLight}>Advertise {o.whole ? 'the property' : o.room.name}</Link>
+            <Link href={`/admin/listing/${o.room.id}?from=${encodeURIComponent(`/admin/properties/${o.property.id}/rooms/${o.room.id}`)}`} className={btnLight}>Advertise {o.whole ? 'the property' : o.room.name}</Link>
             <Link href="/admin/agency-diary/book-appointment" className={btnLight}>Book a viewing</Link>
             <Link href="/admin/available-and-lettings#send-offer" className={btnLight}>Send an offer</Link>
           </div>

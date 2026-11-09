@@ -40,7 +40,7 @@ function roomLinks(room: AvailableRoom) {
   const recordHref = room.let_only_listing_id
     ? `/admin/let-only/${room.let_only_listing_id}`
     : `/admin/properties/${room.property_id}/rooms/${room.id}`
-  const href = room.let_only_listing_id ? recordHref : `/lettings/listing/${room.id}?from=${encodeURIComponent('/admin/available-and-lettings')}`
+  const href = room.let_only_listing_id ? recordHref : `/admin/listing/${room.id}?from=${encodeURIComponent('/admin/available-and-lettings')}`
   const viewingHref = room.let_only_listing_id ? '/lettings/viewings' : `/admin/properties/${room.property_id}?tab=lettings&book=${room.id}`
   return { href, viewingHref, recordHref }
 }
