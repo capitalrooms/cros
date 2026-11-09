@@ -140,9 +140,14 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
           console.error('Error fetching featured photo:', photoError);
         }
         featuredPhoto = photo;
-        console.log('Featured photo data:', { featuredPhotoId: prop.featured_photo_id, photo, error: photoError });
       }
 
+      // no featured photo chosen: the house's first photo, for the header thumbnail (9 Nov 2026)
+      if (!featuredPhoto) {
+        const { data: first } = await supabase.from('property_photos').select('file_path, file_url').eq('property_id', id)
+          .order('is_featured', { ascending: false }).order('display_order', { ascending: true, nullsFirst: false }).limit(1)
+        featuredPhoto = (first as any)?.[0] ?? null
+      }
       // Add featured_photo to property object
       if (prop) {
         (prop as any).featured_photo = featuredPhoto;
@@ -297,6 +302,8 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
       {/* One header, the same as every other screen (24 Oct 2026 tidy): the name once, the facts that matter, the
           figures, and the tabs. Name, address and postcode are edited on the Details tab. */}
       <PageHero
+        image={(property as any)?.featured_photo ? ((property as any).featured_photo.file_url || (property as any).featured_photo.file_path) : null}
+        imageHref={`/admin/properties/${id}?tab=documents`}
         trail={[{ label: 'Properties', href: '/admin/active-rooms' }]}
         title={propertySystemAddress(property) || '—'}
         // the one status: a single let is let or empty; a house says how many rooms are empty

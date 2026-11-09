@@ -5,9 +5,9 @@ import { Bricolage_Grotesque } from 'next/font/google'
 
 export const display = Bricolage_Grotesque({ subsets: ['latin'], weight: ['700', '800'], display: 'swap' })
 
-export const C = { ground: 'bg-[var(--ground,#F3F0E6)]', olive: 'bg-[var(--band,#4A5320)] text-[var(--ground,#F3F0E6)]', mustard: 'bg-[var(--accent,#E8B931)] text-[var(--ink,#23261A)]', paper: 'bg-[var(--paper,#FFFDF6)] text-[var(--ink,#23261A)]', ink: 'text-[var(--ink,#23261A)]', muted: 'text-[var(--muted,#6B6A55)]' }
+export const C = { ground: 'bg-[var(--ground,#F3F0E6)]', olive: 'bg-[var(--band,#1F3B2E)] text-[var(--ground,#F3F0E6)]', mustard: 'bg-[var(--accent,#E8B931)] text-[var(--ink,#23261A)]', paper: 'bg-[var(--paper,#FFFDF6)] text-[var(--ink,#23261A)]', ink: 'text-[var(--ink,#23261A)]', muted: 'text-[var(--muted,#6B6A55)]' }
 export type Tone = 'olive' | 'mustard' | 'paper'
-const BTN: Record<Tone, string> = { olive: 'bg-[var(--accent,#E8B931)] text-[var(--ink,#23261A)]', mustard: 'bg-[var(--ink,#23261A)] text-[var(--ground,#F3F0E6)]', paper: 'bg-[var(--band,#4A5320)] text-[var(--ground,#F3F0E6)]' }
+const BTN: Record<Tone, string> = { olive: 'bg-[var(--accent,#E8B931)] text-[var(--ink,#23261A)]', mustard: 'bg-[var(--ink,#23261A)] text-[var(--ground,#F3F0E6)]', paper: 'bg-[var(--band,#1F3B2E)] text-[var(--ground,#F3F0E6)]' }
 const BTN2: Record<Tone, string> = { olive: 'bg-white/15 text-[var(--ground,#F3F0E6)]', mustard: 'bg-black/10 text-[var(--ink,#23261A)]', paper: 'bg-[var(--line,#EDE8D6)] text-[var(--ink,#23261A)]' }
 
 export function Pill({ href, tone = 'paper', second, children, onClick }: { href?: string; tone?: Tone; second?: boolean; children: React.ReactNode; onClick?: () => void }) {

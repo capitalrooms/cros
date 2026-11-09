@@ -216,7 +216,7 @@ function Row({ href, left, sub, right, cta }: { href: string; left: string; sub?
         </span>
         <span className="flex shrink-0 items-center gap-sm">
           <span className="text-sm font-semibold tabular-nums">{right}</span>
-          {cta && <span className="rounded-full bg-[var(--band,#4A5320)] px-sm py-[2px] text-xs font-bold text-white">{cta}</span>}
+          {cta && <span className="rounded-full bg-[var(--band,#1F3B2E)] px-sm py-[2px] text-xs font-bold text-white">{cta}</span>}
         </span>
       </Link>
     </li>

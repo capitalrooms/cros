@@ -6,7 +6,7 @@
 // expired tenancies. A strip across the top steps through the other rooms in the house. Wording: Current tenancy /
 // Expired tenancies, dates in full, names with titles. The old room page lives on at …/edit for photos, details,
 // advert text, notes and checks. Data: GET /api/admin/rooms/[roomId] (lib/rooms/roomOverview).
-import { use, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, use, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import ListingStatus from '@/components/ListingStatus'
 import AppBar from '@/components/AppBar'
@@ -90,7 +90,7 @@ export default function RoomPage({ params }: { params: Promise<{ id: string; roo
   if (!o) return (
     <div className="min-h-screen bg-neutral-100">
       <AppBar left={<BackButton href="/admin/active-rooms" />} />
-      <div className="h-64 animate-pulse bg-[var(--band,#4A5320)]" />
+      <div className="h-64 animate-pulse bg-[var(--band,#1F3B2E)]" />
       <div className="mx-auto max-w-6xl space-y-md px-lg py-xl">{[0, 1, 2].map(i => <div key={i} className="h-32 animate-pulse rounded-2xl bg-white" />)}</div>
     </div>
   )
@@ -122,7 +122,7 @@ export default function RoomPage({ params }: { params: Promise<{ id: string; roo
           : o.incoming ? [`${o.incoming.tenant} moves in ${full(o.incoming.start)}`]
           : [o.room.askingRent != null ? `Asking ${gbp(o.room.askingRent)} per month` : 'No asking rent set']
         return (
-          <PageHero
+          <PageHero image={photo} imageHref={`/admin/properties/${propertyId}/rooms/${roomId}/edit`}
             trail={[{ label: 'Properties', href: '/admin/active-rooms' }, o.whole
               ? { label: houseNeeds > 0 ? `Property details · ${houseNeeds} to do` : 'Property details', href: `/admin/properties/${propertyId}?tab=details` }   // a single let: the title is already the property
               : { label: houseNeeds > 0 ? `${o.property.name} · ${houseNeeds} to do` : o.property.name, href: `/admin/properties/${propertyId}` }]}
@@ -510,7 +510,7 @@ function TheRoom({ o, wide, propertyId, reload }: { o: RoomOverview; wide: boole
       right={<Link href={`/admin/properties/${propertyId}/rooms/${r.id}/edit`} className={btnLight}>Edit</Link>}>
       {r.photos[0] && <StoredImg src={r.photos[0].src} alt={`${r.name}: ${r.photos[0].caption ?? 'room photo'}`} className="h-48 w-full object-cover" />}
       <div className="space-y-sm px-lg py-md">
-        <dl className="grid grid-cols-[110px_1fr] gap-y-xs text-sm">{facts.map(([k, v]) => <><dt key={`k-${k}`} className="text-neutral-500">{k}</dt><dd key={`v-${k}`}>{v}</dd></>)}</dl>
+        <dl className="grid grid-cols-[110px_1fr] gap-y-xs text-sm">{facts.map(([k, v]) => <Fragment key={String(k)}><dt className="text-neutral-500">{k}</dt><dd>{v}</dd></Fragment>)}</dl>
         {d && Object.keys(d).length > 0 && <p className="text-xs text-neutral-400">Some features were read from the room photo. Confirm them at the next inspection.</p>}
         <RoomTools o={o} propertyId={propertyId} onDone={reload} />
         <ListingStatus roomId={r.id} from={`/admin/properties/${propertyId}/rooms/${r.id}`} className="border-t border-neutral-100 pt-sm" />
@@ -546,7 +546,7 @@ function Safety({ o, wide, propertyId }: { o: RoomOverview; wide: boolean; prope
       <div className="space-y-sm px-lg py-md text-sm">
         <div className="flex justify-between gap-sm"><span>Monthly smoke alarm and fire door check</span><span className={`text-right text-xs font-bold ${last ? 'text-neutral-700' : 'text-amber-800'}`}>{last ? `Answered ${full(last.answered)}` : 'None recorded'}</span></div>
         <dl className="grid grid-cols-[1fr_auto] gap-y-xs border-t border-neutral-100 pt-sm text-[13px]">
-          {o.safety.certs.map((c: { label: string; expiry: string }) => <><dt key={`k-${c.label}`}>{c.label}</dt><dd key={`v-${c.label}`} className={`text-right font-bold ${c.expiry < today ? 'text-red-700' : 'text-green-800'}`}>{c.expiry < today ? 'expired' : 'expires'} {full(c.expiry)}</dd></>)}
+          {o.safety.certs.map((c: { label: string; expiry: string }) => <Fragment key={c.label}><dt>{c.label}</dt><dd className={`text-right font-bold ${c.expiry < today ? 'text-red-700' : 'text-green-800'}`}>{c.expiry < today ? 'expired' : 'expires'} {full(c.expiry)}</dd></Fragment>)}
         </dl>
         <Link href={`/admin/properties/${propertyId}?tab=compliance`} className="text-[13px] font-bold underline">All certificates for {o.property.name}</Link>
       </div>
