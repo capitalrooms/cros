@@ -21,7 +21,7 @@ const base = () => process.env.NEXT_PUBLIC_APP_URL || 'https://cros-sigma.vercel
 
 async function full(s: any, listing: any) {
   const [{ data: photos }, { data: channels }, { data: house }, { data: room }] = await Promise.all([
-    s.from('property_photos').select('id, file_path, file_url, file_type, caption, room_id').eq('property_id', listing.property_id),
+    s.from('property_photos').select('*').eq('property_id', listing.property_id),   // * so the newer area column is read once it exists
     s.from('listing_channels').select('channel, enabled, status, external_ref, last_sent_at, last_result').eq('listing_id', listing.id),
     s.from('properties').select('id, name, address, postcode, property_type').eq('id', listing.property_id).maybeSingle(),
     listing.room_id ? s.from('rooms').select('id, name').eq('id', listing.room_id).maybeSingle() : Promise.resolve({ data: null }),
@@ -32,7 +32,7 @@ async function full(s: any, listing: any) {
     s.from('applicants').select('id', { count: 'exact', head: true }).eq('room_id', listing.room_id).is('archived_at', null).neq('pipeline_stage', 'converted'),
     s.from('viewings').select('id', { count: 'exact', head: true }).eq('room_id', listing.room_id).gte('viewing_date', todayLdn),
   ]) : [{ count: 0 }, { count: 0 }]
-  const ph = ((photos ?? []) as any[]).map(x => ({ id: x.id, url: photoUrl(s, x), video: String(x.file_type ?? '').startsWith('video'), caption: x.caption, ofRoom: !!listing.room_id && x.room_id === listing.room_id, otherRoom: !!x.room_id && x.room_id !== listing.room_id }))
+  const ph = ((photos ?? []) as any[]).map(x => ({ id: x.id, url: photoUrl(s, x), video: String(x.file_type ?? '').startsWith('video'), caption: x.caption, area: x.area ?? (x.room_id ? 'room' : null), ofRoom: !!listing.room_id && x.room_id === listing.room_id, otherRoom: !!x.room_id && x.room_id !== listing.room_id }))
   const inOrder = (listing.media_order ?? []).filter((id: string) => ph.some(p => p.id === id))
   return {
     listing, house, room, photos: ph, mediaCount: inOrder.length, counts: { applicants: applicants ?? 0, viewings: viewings ?? 0 },
