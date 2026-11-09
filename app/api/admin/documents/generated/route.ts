@@ -54,7 +54,11 @@ export async function GET(req: NextRequest) {
     if (isMissingTable(error)) return NextResponse.json({ documents: [], setupNeeded: true })
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
-  return NextResponse.json({ documents: data })
+  // reminders sent for an invoice are kept in content.reminders (9 Nov 2026) — only that list comes back, not the content
+  const ids = ((data ?? []) as any[]).filter(d => d.kind === 'invoice' && d.emailed_at).map(d => d.id)
+  const { data: rem } = ids.length ? await s.from('generated_documents').select('id, reminders:content->reminders').in('id', ids) : { data: [] }
+  const byId = new Map(((rem ?? []) as any[]).map(r => [r.id, Array.isArray(r.reminders) ? r.reminders : []]))
+  return NextResponse.json({ documents: ((data ?? []) as any[]).map(d => ({ ...d, reminders: byId.get(d.id) ?? [] })) })
 }
 
 export async function POST(req: NextRequest) {

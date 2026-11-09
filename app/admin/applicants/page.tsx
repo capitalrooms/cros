@@ -297,6 +297,15 @@ export default function ApplicantsPage() {
     setDeclineFor(null)
   }
 
+  // delete someone set up by mistake — the server refuses if a tenancy, holding deposit or tenant account hangs off them
+  async function deleteApplicant(applicant: Applicant) {
+    if (!window.confirm(`Delete ${applicant.full_name || applicant.email || 'this applicant'} completely?\n\nTheir record, uploaded documents and unpaid offers are removed. This can’t be undone — use Archive if you might need them again.`)) return
+    const res = await fetch(`/api/applicants/${applicant.id}`, { method: 'DELETE' })
+    const d = await res.json().catch(() => ({}))
+    if (!res.ok) { window.alert(d.error ?? 'Couldn’t delete'); return }
+    setApplicants(prev => prev.filter(a => a.id !== applicant.id))
+  }
+
   async function setArchived(applicant: Applicant, archive: boolean, reason = '') {
     if (archive && !reason.trim()) return
     const res = await fetch(`/api/applicants/${applicant.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ archive, reason }) })
@@ -923,6 +932,10 @@ export default function ApplicantsPage() {
                             className="text-xs font-semibold text-neutral-500 underline hover:text-neutral-800">
                             {applicant.archived_at ? `Restore (archived: ${applicant.archived_reason ?? ''})` : 'Archive'}
                           </button>
+                        )}
+                        {!isConverted && archiveFor !== applicant.id && (
+                          <button type="button" onClick={() => deleteApplicant(applicant)} title="Set up by mistake? Remove them from CROS completely"
+                            className="text-xs font-semibold text-red-700 underline hover:text-red-900">Delete</button>
                         )}
 
                         {/* Move to any stage without sending anything (e.g. already referencing, offer agreed by phone) */}

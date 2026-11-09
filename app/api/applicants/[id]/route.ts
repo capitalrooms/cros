@@ -104,3 +104,37 @@ export async function PATCH(req: NextRequest, { params: paramsPromise }: { param
   if (update.email && (data as any)?.offer_id) await sb.from('offers').update({ applicant_email: update.email }).eq('id', (data as any).offer_id)
   return NextResponse.json(data)
 }
+
+// ── DELETE /api/applicants/[id] ───────────────────────────────────────────────
+// Remove someone set up by mistake (9 Nov 2026, Harry: "hard to delete an applicant if they were set up wrong"). Only
+// while nothing real hangs off them — no tenancy, holding deposit or tenant account; those are archived instead so
+// the record of what happened is kept. Their documents (files too) and unpaid offers go with them.
+export async function DELETE(_req: NextRequest, { params: paramsPromise }: { params: Promise<{ id: string }> }) {
+  const params = await paramsPromise
+  const user = await requireAdmin()
+  if (!user) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  const sb = adminClient()
+  const id = params.id
+  const { data: a } = await sb.from('applicants').select('id, full_name, pipeline_stage, converted_person_id').eq('id', id).maybeSingle() as { data: any }
+  if (!a) return NextResponse.json({ error: 'Applicant not found' }, { status: 404 })
+  const [t, h, p] = await Promise.all([
+    sb.from('tenancies').select('id', { count: 'exact', head: true }).eq('applicant_id', id),
+    sb.from('holding_deposits').select('id', { count: 'exact', head: true }).eq('applicant_id', id),
+    sb.from('people').select('id', { count: 'exact', head: true }).eq('applicant_id', id),
+  ])
+  const why = [a.pipeline_stage === 'converted' || a.converted_person_id || (p.count ?? 0) > 0 ? 'they have a tenant account' : null,
+    (t.count ?? 0) > 0 ? 'a tenancy is linked to them' : null, (h.count ?? 0) > 0 ? 'a holding deposit is recorded' : null].filter(Boolean)
+  if (why.length) return NextResponse.json({ error: `Can’t delete — ${why.join(', ')}. Archive them instead so the record is kept.` }, { status: 409 })
+
+  const { data: docs } = await sb.from('applicant_documents').select('id, storage_path').eq('applicant_id', id)
+  const paths = ((docs ?? []) as any[]).map(d => d.storage_path).filter(Boolean)
+  if (paths.length) await sb.storage.from('property-documents').remove(paths)
+  await sb.from('applicant_documents').delete().eq('applicant_id', id)
+  await sb.from('offers').delete().eq('applicant_id', id)
+  await sb.from('landlord_updates').update({ applicant_id: null }).eq('applicant_id', id).then(() => null, () => null)
+  await sb.from('inbox_documents').update({ matched_applicant_id: null }).eq('matched_applicant_id', id).then(() => null, () => null)
+  const { error } = await sb.from('applicants').delete().eq('id', id)
+  if (error) return NextResponse.json({ error: `Couldn’t delete: ${error.message}` }, { status: 500 })
+  console.log(`[applicants] deleted ${id} (${a.full_name ?? ''}) by ${user.email ?? user.id}`)
+  return NextResponse.json({ ok: true, files: paths.length })
+}
