@@ -361,3 +361,24 @@
 @media (max-width:700px){.site .lmap-frame{border-radius:22px;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:none}.site .lmap-frame::-webkit-scrollbar{display:none}.site .lmap-frame svg{width:760px;max-width:none}.site .lmap-swipe{display:block!important}}
 .site .lmap-swipe{display:none;color:var(--muted);font-size:14px;margin:-8px 0 0}
 @media (prefers-reduced-motion:reduce){.site .lmap-river{animation:none;stroke-dashoffset:0}.site .lmap-pin{animation:none;opacity:1}.site .lmap-shine,.site .lmap-pulse{animation:none;opacity:0}}
+
+/* area pages (9 Nov 2026) */
+.site .area-facts .card{gap:10px}
+.site .area-list{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px;font-size:15px;line-height:1.45}
+.site .area-ticks{margin:0;padding:0;list-style:none;display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+.site .area-ticks li{display:flex;gap:10px;align-items:flex-start;background:#fff;border-radius:20px;padding:16px 18px;font-size:17px}
+.site .area-ticks svg{flex:none;margin-top:3px;color:var(--forest)}
+.site .area-fees{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;max-width:820px}
+.site .area-fees div{border:1px solid rgba(212,243,107,.25);border-radius:20px;padding:16px 18px;display:flex;flex-direction:column;gap:4px;color:#D7E2D9;font-size:15px}
+.site .area-fees strong{color:#fff;font-size:24px}
+.site .gold-btn{background:var(--lime);color:var(--deep)}
+.site .gold-btn:hover{background:#fff;color:var(--deep)}
+.site .line.on-dark{color:#fff;border-color:rgba(255,255,255,.35)}
+.site .line.on-dark:hover{background:rgba(255,255,255,.1);color:#fff}
+.site .area-chips{display:flex;flex-wrap:wrap;gap:8px}
+.site .area-chips a{border:1.5px solid #CBD6CB;border-radius:999px;padding:9px 16px;font-weight:600;text-decoration:none;color:var(--ink)}
+.site .area-chips a:hover{background:var(--sage)}
+.site .area-card{text-decoration:none;color:var(--ink);transition:transform .2s}
+.site .area-card:hover{transform:translateY(-3px)}
+.site .area-free{margin-top:auto;font-weight:600;color:var(--forest)}
+@media (max-width:700px){.site .area-fees{grid-template-columns:1fr}}

@@ -54,7 +54,7 @@ export function Footer({ b = '' }: { b?: string }) {
             <p style={{ fontSize: 14, lineHeight: 1.7, color: '#B9C7BC' }}>{OFFICE.address}<br /><a href={OFFICE.phoneHref}>{OFFICE.phone}</a> · <a href={`mailto:${OFFICE.email}`}>{OFFICE.email}</a></p>
           </div>
           <nav aria-label="Landlords"><strong>Landlords</strong><Link href={`${b}/instant_valuation`}>Instant valuation</Link><Link href={`${b}/landlords`}>Landlords</Link><Link href={`${b}/maintenance-services`}>Maintenance</Link></nav>
-          <nav aria-label="Tenants"><strong>Tenants</strong><Link href={`${b}/residential-lettings`}>Flats and houses</Link><Link href={`${b}/shared-accommodation`}>Shared accommodation</Link><Link href={`${b}/tenants`}>Tenants</Link><Link href={`${b}/page/9-guarantor-affordability-calculator`}>Guarantor calculator</Link></nav>
+          <nav aria-label="Tenants"><strong>Tenants</strong><Link href={`${b}/residential-lettings`}>Flats and houses</Link><Link href={`${b}/shared-accommodation`}>Shared accommodation</Link><Link href={`${b}/tenants`}>Tenants</Link><Link href={`${b}/areas`}>Areas we cover</Link><Link href={`${b}/page/9-guarantor-affordability-calculator`}>Guarantor calculator</Link></nav>
           <nav aria-label="Company"><strong>Company</strong><Link href={`${b}/about-us`}>About us</Link><Link href={`${b}/blogs`}>Advice</Link><Link href={`${b}/contact`}>Contact us</Link><Link href={`${b}/testimonial`}>Testimonials</Link><a href={APP_LOGIN}>Log in</a></nav>
         </div>
         <div className="base">
