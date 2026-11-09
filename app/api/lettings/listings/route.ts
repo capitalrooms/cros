@@ -110,6 +110,8 @@ export async function POST(req: NextRequest) {
     const c = String(b.channel) as Channel
     if (!CHANNELS.includes(c)) return NextResponse.json({ error: 'Unknown channel' }, { status: 400 })
     if (b.enabled && !CHANNEL_READY[c]) return NextResponse.json({ error: `${CHANNEL_LABEL[c]} needs its feed set up first — it's ready in the listing, but can't be sent yet.` }, { status: 409 })
+    // the Website switch and the room's "Show on website" tick are one thing (9 Nov 2026)
+    if (c === 'website' && l.room_id) await s.from('rooms').update({ show_on_website: !!b.enabled }).eq('id', l.room_id)
     await s.from('listing_channels').upsert({ listing_id: l.id, channel: c, enabled: !!b.enabled, status: b.enabled ? (l.status === 'live' ? 'live' : 'waiting') : 'off', updated_at: new Date().toISOString() }, { onConflict: 'listing_id,channel' })
     return NextResponse.json(await full(s, l))
   }
