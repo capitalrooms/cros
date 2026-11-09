@@ -96,6 +96,8 @@ export default function ApplicantsPage() {
   const [stageFilter, setStageFilter] = useState<Stage | 'all'>('all')
   const [showArchived, setShowArchived] = useState(false)
   const [search, setSearch] = useState('')
+  // opened from a listing with ?room=<id>: only that room's applicants, with a way back to everyone (9 Nov 2026)
+  const [roomOnly, setRoomOnly] = useState<string | null>(() => typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('room') : null)
 
   // Add applicant form
   const [showAdd, setShowAdd] = useState(false)
@@ -212,6 +214,7 @@ export default function ApplicantsPage() {
     return applicants.filter(a => {
       if (!!a.archived_at !== showArchived) return false   // archived ones only in their own list
       if (stageFilter !== 'all' && a.pipeline_stage !== stageFilter) return false
+      if (roomOnly && (a as any).room_id !== roomOnly) return false
       if (search.trim()) {
         const q = search.toLowerCase()
         const propName = (a.properties as any)?.name || ''
@@ -226,7 +229,7 @@ export default function ApplicantsPage() {
       }
       return true
     })
-  }, [applicants, stageFilter, search, showArchived])
+  }, [applicants, stageFilter, search, showArchived, roomOnly])
 
   const stageCounts = useMemo(() => {
     const live = applicants.filter(a => !a.archived_at)   // archived ones aren't counted in the stages
@@ -495,6 +498,13 @@ export default function ApplicantsPage() {
               </button>
             </div>
           </div>
+        )}
+
+        {roomOnly && (
+          <p className="mb-md flex flex-wrap items-center justify-between gap-sm rounded-xl bg-blue-50 px-md py-sm text-sm text-blue-900 ring-1 ring-blue-200">
+            <span>Showing applicants for <b>{(applicants.find(a => (a as any).room_id === roomOnly)?.rooms as any)?.name ?? 'one room'}</b> only</span>
+            <button type="button" onClick={() => { setRoomOnly(null); try { const u = new URL(window.location.href); u.searchParams.delete('room'); window.history.replaceState(null, '', u.pathname + u.search) } catch {} }} className="font-semibold underline">Show everyone</button>
+          </p>
         )}
 
         {/* Search */}

@@ -102,7 +102,12 @@ export default function SendOfferForm() {
     setRooms(list)
     return list
   }
-  useEffect(() => { loadRooms() }, [])
+  // opened from a listing with ?offer_room=<id> (9 Nov 2026): that room is already picked
+  useEffect(() => { loadRooms().then(list => {
+    const id = new URLSearchParams(window.location.search).get('offer_room')
+    const room = id ? list.find(r => r.id === id) : null
+    if (room) { pickRoom(room); setTimeout(() => document.getElementById('send-offer')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 300) }
+  }) }, [])
 
   // the let-only room just added: pick it (the first room under that property)
   async function letOnlyAdded(property: any) {

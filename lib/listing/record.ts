@@ -7,6 +7,7 @@
 //   live → let_agreed taken down from every channel
 //   → let / withdrawn closes it; the room can then have a new listing
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { isWholeLet } from '@/lib/lettings/letWording'
 
 export type ListingStatus = 'draft' | 'ready' | 'live' | 'let_agreed' | 'let' | 'withdrawn'
 export const CHANNELS = ['share', 'website', 'rightmove', 'zoopla', 'onthemarket', 'spareroom'] as const
@@ -69,21 +70,24 @@ export async function draftFromRoom(s: SupabaseClient, roomId: string | null, pr
   const ph = ((photos ?? []) as any[])
   const media = [...ph.filter(x => x.room_id === roomId), ...ph.filter(x => !x.room_id).sort((a, b) => Number(!!b.is_marketing) - Number(!!a.is_marketing))].map(x => x.id)
   const isHmo = !prop.property_type || /hmo/i.test(String(prop.property_type))
+  // a single let (the whole flat or house) is never advertised as a room in a share (9 Nov 2026)
+  const whole = isWholeLet(prop.property_type, room.name)
+  const street = displayAddressFrom([prop.name, prop.address].filter(Boolean).join(', '), prop.postcode).split(',')[0] || 'London'
   const rent = room.current_asking_rent != null ? Number(room.current_asking_rent) : null
   const { count } = await s.from('listings').select('id', { count: 'exact', head: true })
   return {
     property_id: propertyId, room_id: roomId, status: 'draft' as const, agent_ref: `CR-${String((count ?? 0) + 1).padStart(5, '0')}`,
-    headline: roomId ? `${room.has_ensuite ? 'En-suite double room' : 'Double room'} on ${displayAddressFrom([prop.name, prop.address].filter(Boolean).join(', '), prop.postcode).split(',')[0] || 'London'}` : null,
+    headline: whole ? `Property to rent on ${street}` : roomId ? `${room.has_ensuite ? 'En-suite double room' : 'Double room'} on ${street}` : null,
     description: String(room.marketing_description || room.description || prop.description || '').trim() || null,
     features: Array.isArray(room.features) ? room.features.filter((f: unknown) => typeof f === 'string').slice(0, 10) : [],
     rent, rent_frequency: 'pcm' as const,
     ...(rent ? depositsFor(rent) : { deposit: null, holding_deposit: null }),   // 5 weeks' / 1 week's rent — the most allowed
     bills_included: prop.bills_included ?? null,
-    council_tax_band: (ext as any)?.council_tax_band ?? null, council_tax_included: isHmo && roomId ? true : null,
-    property_type: roomId ? (isHmo ? 'house_share' : 'flat_share') : null,
-    room_size_sqm: room.room_size ?? null, ensuite: room.has_ensuite ?? null, living_room: room.has_lounge ?? null,
+    council_tax_band: (ext as any)?.council_tax_band ?? null, council_tax_included: !whole && isHmo && roomId ? true : null,
+    property_type: whole ? null : roomId ? (isHmo ? 'house_share' : 'flat_share') : null,
+    room_size_sqm: room.room_size ?? null, ensuite: whole ? null : room.has_ensuite ?? null, living_room: whole ? null : room.has_lounge ?? null,
     broadband: (ext as any)?.broadband_max_download_mbps ? `Up to ${(ext as any).broadband_max_download_mbps} Mbps` : null,
-    available_from: room.available_date ?? null, let_type: 'long', sharers_allowed: roomId ? true : null, tenant_type: 'Professionals',
+    available_from: room.available_date ?? null, let_type: 'long', sharers_allowed: whole ? null : roomId ? true : null, tenant_type: 'Professionals',
     // the house's name first ("12 Saltwell Street"), then its address — some addresses on file leave out the street
     display_address: displayAddressFrom([prop.name, prop.address].filter(Boolean).join(', '), prop.postcode) || null,
     latitude: prop.lat ?? null, longitude: prop.lng ?? null,
