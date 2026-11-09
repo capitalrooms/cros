@@ -627,15 +627,27 @@ export default function CleanerDashboard() {
         heading={`Hi ${firstName}`}
         
       >
-        <div className="grid grid-cols-3 gap-sm mb-lg">
-          <StatTile
-            value={overdueCleans.length}
-            label="Overdue"
-            valueColor={overdueCleans.length > 0 ? 'text-red-400' : 'text-white'}
-          />
-          <StatTile value={todayCleans.length} label="Today" valueColor="text-[color:var(--cr-gold)]" />
-          <StatTile value={upcomingCleans.length} label="Upcoming" />
-        </div>
+        {/* what needs you (9 Nov 2026: one short list instead of three number boxes) */}
+        {(() => {
+          const todo = [
+            { n: assignedJobs.length, text: assignedJobs.length === 1 ? 'clean to accept and book' : 'cleans to accept and book', hot: true },
+            { n: overdueCleans.length, text: overdueCleans.length === 1 ? 'clean to log or move' : 'cleans to log or move', hot: true },
+            { n: todayCleans.length, text: todayCleans.length === 1 ? 'clean today' : 'cleans today', hot: false },
+          ].filter(t => t.n > 0)
+          return (
+            <div className="mb-lg overflow-hidden rounded-2xl bg-white/10">
+              {todo.length === 0
+                ? <p className="px-lg py-md text-sm font-semibold text-white">You’re all caught up ✓{upcomingCleans.length ? ` · ${upcomingCleans.length} coming up` : ''}</p>
+                : todo.map((t, i) => (
+                  <button key={t.text} type="button" onClick={() => { setActiveTab('today'); setSelectedDay(todayISO()); setTimeout(() => window.scrollTo({ top: 420, behavior: 'smooth' }), 50) }} className={`flex w-full items-center gap-md px-lg py-md text-left text-white ${i ? 'border-t border-white/10' : ''}`}>
+                    <span className={`grid h-8 min-w-8 place-items-center rounded-full px-sm text-sm font-bold ${t.hot ? 'bg-[color:var(--cr-gold)] text-neutral-900' : 'bg-white text-neutral-900'}`}>{t.n}</span>
+                    <span className="flex-1 text-[15px] font-semibold">{t.text}</span>
+                    <span aria-hidden="true" className="text-white/60">›</span>
+                  </button>
+                ))}
+            </div>
+          )
+        })()}
 
         {/* Week tile strip */}
         {(() => {
@@ -709,11 +721,13 @@ export default function CleanerDashboard() {
             <div className="mt-sm grid grid-cols-2 gap-sm">
               {/* booking and logging cleans live here now — a floating + covered the Accept/Decline buttons (25 Oct 2026) */}
               <button type="button" onClick={() => { setError(''); setPropertyId(properties[0]?.id || ''); setShowBookCleanModal(true) }}
-                className="rounded-xl bg-neutral-950 px-md py-sm text-center text-xs font-bold text-white">Book a clean</button>
+                className="rounded-xl bg-neutral-950 px-md py-md text-center text-sm font-bold text-white">Book a clean</button>
               <button type="button" onClick={() => { setError(''); setPastCleanForm({ propertyId: properties[0]?.id || '', cleanDate: new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }), notes: '', hours: '' }); setShowLogPastCleanModal(true) }}
-                className="rounded-xl border border-neutral-900 bg-white px-md py-sm text-center text-xs font-bold text-neutral-900">Log a past clean</button>
-              <a href="/planner" className="rounded-xl border border-neutral-200 bg-white px-md py-sm text-center text-xs font-bold text-neutral-900">Notes with Capital Rooms</a>
-              <a href={`/cleaner/invoices${viewingAs ? `?as=${viewingAs.id}` : ''}`} className="rounded-xl border border-neutral-200 bg-white px-md py-sm text-center text-xs font-bold text-neutral-900">Invoice your cleans</a>
+                className="rounded-xl border border-neutral-900 bg-white px-md py-md text-center text-sm font-bold text-neutral-900">Log a past clean</button>
+            </div>
+            <div className="mt-sm flex justify-center gap-lg text-sm font-semibold text-neutral-600">
+              <a href="/planner" className="underline">Notes with Capital Rooms</a>
+              <a href={`/cleaner/invoices${viewingAs ? `?as=${viewingAs.id}` : ''}`} className="underline">Invoice your cleans</a>
             </div>
           </div>
         )}
