@@ -74,6 +74,8 @@
 .site .card{background:#fff;border-radius:28px;padding:28px;display:flex;flex-direction:column;gap:12px}
 .site .bubble{background:#fff;border-radius:28px 28px 28px 6px;padding:28px;display:flex;flex-direction:column;gap:16px;font-size:18px;line-height:1.5}
 .site .bubble strong{font-size:15px}
+.site .stars{display:inline-flex;gap:3px;color:#0D241B;line-height:0}
+.site .stars svg{display:block}
 .site .story{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:64px}
 .site .story .pin{position:sticky;top:96px;align-self:flex-start;height:600px}
 .site .story .pin .ph{position:absolute;inset:0;border-radius:32px}
