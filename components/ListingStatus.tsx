@@ -13,7 +13,7 @@ const STATUS: Record<string, [string, string]> = {
 export default function ListingStatus({ roomId, from, className = '' }: { roomId: string; from: string; className?: string }) {
   const [d, setD] = useState<null | { listing: any; missing?: string[]; mediaCount?: number }>(null)
   useEffect(() => { fetch(`/api/lettings/listings?roomId=${roomId}`).then(r => r.ok ? r.json() : null).then(j => j && setD(j)).catch(() => {}) }, [roomId])
-  const href = `/lettings/listing/${roomId}?from=${encodeURIComponent(from)}`
+  const href = `/admin/listing/${roomId}?from=${encodeURIComponent(from)}`
   const l = d?.listing
   const st = l ? STATUS[l.status] ?? [l.status, 'bg-neutral-100 text-neutral-700'] : null
   return (

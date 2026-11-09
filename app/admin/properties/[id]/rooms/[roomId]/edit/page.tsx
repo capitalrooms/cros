@@ -742,7 +742,7 @@ export default function RoomDashboardPage({
         title={`Edit ${room.name}`}
         tabs={tabs.map(t => ({ key: t.id, label: t.label, active: activeTab === t.id, onClick: () => setActiveTab(t.id) }))}
         subtitle={String(property.address ?? '').split('\n').join(', ')}
-        actions={<><HeroButton href={`/admin/properties/${propertyId}/rooms/${roomId}`} primary>Back to the room page</HeroButton><HeroButton href={`/lettings/listing/${roomId}?from=${encodeURIComponent(`/admin/properties/${propertyId}/rooms/${roomId}/edit`)}`}>Marketing view</HeroButton></>}
+        actions={<><HeroButton href={`/admin/properties/${propertyId}/rooms/${roomId}`} primary>Back to the room page</HeroButton><HeroButton href={`/admin/listing/${roomId}?from=${encodeURIComponent(`/admin/properties/${propertyId}/rooms/${roomId}/edit`)}`}>Marketing view</HeroButton></>}
       />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
