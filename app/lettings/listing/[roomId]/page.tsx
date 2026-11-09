@@ -122,6 +122,7 @@ export default function ListingEditor({ params }: { params: Promise<{ roomId: st
     if (withPhotos) await fetch('/api/lettings/spareroom', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: srUrl.trim(), roomId, apply: { photos: ad.photos } }) })
     // a field SpareRoom disagrees on is only taken when it was ticked; the rest fill the gaps
     const differs = new Set(checks.map(c => c.field))
+    const whole0 = isWholeLet(data.house?.property_type, data.room?.name)
     const take = (field: string) => !differs.has(field) || !!takeSr[field]
     const monthly = ad.rent ? (ad.period === 'pw' ? Math.round(ad.rent * 52 / 12) : ad.rent) : null
     const cap = monthly ? Math.floor(monthly * 12 / 52 * 5 * 100) / 100 : null
@@ -134,6 +135,8 @@ export default function ListingEditor({ params }: { params: Promise<{ roomId: st
       living_room: ad.livingRoom != null && take('livingRoom') ? ad.livingRoom : data.listing.living_room,
       bills_included: ad.billsIncluded != null && take('bills') ? ad.billsIncluded : data.listing.bills_included,
       furnished: ad.furnished == null || !take('furnished') ? data.listing.furnished : ad.furnished ? 'furnished' : 'unfurnished',
+      // the house as SpareRoom has it (bedrooms in the house, people living there) — when ticked, or when CROS agrees
+      ...(take('house') && !whole0 ? { ...(ad.totalRooms ? { bedrooms: ad.totalRooms } : {}), ...(ad.flatmates != null ? { housemates: ad.flatmates } : {}) } : {}),
     }
     await fetch('/api/lettings/listings', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: data.listing.id, fields }) })
     // newly copied photos join the end of the listing's photos
@@ -180,7 +183,6 @@ export default function ListingEditor({ params }: { params: Promise<{ roomId: st
     { id: 'price', title: 'Price & availability', done: !!(l.rent && l.deposit != null && l.available_from && l.council_tax_band) },
     { id: 'property', title: whole ? 'The property' : 'The room & house', done: !!(l.property_type && l.furnished && l.display_address) },
     { id: 'suits', title: 'Who it suits', done: !!l.let_type },
-    { id: 'more', title: 'Anything that affects it', done: true },
   ]
   const go = (id: string) => { setMobilePane('edit'); setTimeout(() => document.getElementById(`sec-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 30) }
   const btn = 'rounded-xl px-lg py-2.5 text-sm font-bold transition disabled:opacity-40'
@@ -296,7 +298,7 @@ export default function ListingEditor({ params }: { params: Promise<{ roomId: st
                     <p className="font-bold text-amber-900">SpareRoom and CROS don’t agree on these — tick to take SpareRoom’s</p>
                     <ul className="mt-xs divide-y divide-amber-100 rounded-lg border border-amber-200 bg-white">
                       {checks.map(c => {
-                        const choosable = !['rooms', 'flatmates'].includes(c.field)
+                        const choosable = true
                         return (
                           <li key={c.field} className="flex items-start gap-sm px-md py-sm">
                             {choosable ? <input type="checkbox" checked={!!takeSr[c.field]} onChange={() => setTakeSr(t => ({ ...t, [c.field]: !t[c.field] }))} className="mt-1" /> : <span className="mt-0.5 w-4 text-center text-amber-700">!</span>}
@@ -376,7 +378,8 @@ export default function ListingEditor({ params }: { params: Promise<{ roomId: st
             <label className={lbl}>Type {filled('property_type')}<select className={field} value={l.property_type ?? ''} onChange={e => set('property_type', e.target.value)}><option value="">—</option>
               {whole ? <><option value="studio">Studio</option><option value="flat">Flat</option><option value="maisonette">Maisonette</option><option value="house">House</option></> : <><option value="house_share">Room in a house share</option><option value="flat_share">Room in a flat share</option></>}</select></label>
             <label className={lbl}>Furnished {filled('furnished')}<select className={field} value={l.furnished ?? ''} onChange={e => set('furnished', e.target.value)}><option value="">—</option><option value="furnished">Furnished</option><option value="part">Part furnished</option><option value="unfurnished">Unfurnished</option></select></label>
-            {!(whole && l.property_type === 'studio') && <label className={lbl}>Bedrooms {filled('bedrooms')}<input inputMode="numeric" className={field} value={l.bedrooms ?? ''} onChange={e => set('bedrooms', e.target.value)} /></label>}
+            {!whole && <label className={lbl}>Living there now<input inputMode="numeric" className={field} value={l.housemates ?? ''} onChange={e => set('housemates', e.target.value)} placeholder="Worked out from tenancies" />{hint('The people the new tenant would share with')}</label>}
+            {!(whole && l.property_type === 'studio') && <label className={lbl}>{whole ? 'Bedrooms' : 'Bedrooms in the house'} {filled('bedrooms')}<input inputMode="numeric" className={field} value={l.bedrooms ?? ''} onChange={e => set('bedrooms', e.target.value)} /></label>}
             <label className={lbl}>Bathrooms {filled('bathrooms')}<input inputMode="numeric" className={field} value={l.bathrooms ?? ''} onChange={e => set('bathrooms', e.target.value)} /></label>
             <label className={lbl}>{whole ? 'Floor area (m²)' : 'Room size (m²)'}<input inputMode="decimal" className={field} value={l.room_size_sqm ?? ''} onChange={e => set('room_size_sqm', e.target.value)} /></label>
             {!whole && <><label className={lbl}>En-suite{yn('ensuite')}</label><label className={lbl}>Shared living room{yn('living_room')}</label></>}
@@ -398,13 +401,20 @@ export default function ListingEditor({ params }: { params: Promise<{ roomId: st
           </div>
         </Section>
 
-        <Section id="more" title="Anything that affects it" sub="Material information part C — only fill in what applies; blank means none.">
-          <div className="grid gap-md sm:grid-cols-2">
-            {([['flood', 'Flood risk'], ['restrictions', 'Restrictions'], ['accessibility', 'Accessibility'], ['building_safety', 'Building safety']] as const).map(([k, t]) => (
-              <label key={k} className={lbl}>{t}<input className={field} value={l.part_c?.[k] ?? ''} onChange={e => set('part_c', { ...(l.part_c ?? {}), [k]: e.target.value })} placeholder="None" /></label>
+        {/* Part C — required by law only when something applies (flooding, cladding/building safety, restrictions,
+            access), so it stays folded away as one line unless something's been written (9 Nov 2026, Harry) */}
+        <details id="sec-more" open={Object.values(l.part_c ?? {}).some(v => String(v ?? '').trim()) || undefined} className="group scroll-mt-lg rounded-2xl border border-neutral-200 bg-white px-lg py-md shadow-sm">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-md [&::-webkit-details-marker]:hidden">
+            <span><span className="block text-sm font-semibold text-neutral-800">{Object.values(l.part_c ?? {}).some(v => String(v ?? '').trim()) ? 'Something to declare' : 'Nothing unusual to declare'}</span>
+              <span className="block text-xs text-neutral-500">Flood risk, building safety (e.g. cladding), restrictions or accessibility — only if it applies</span></span>
+            <span className="text-sm font-semibold text-neutral-600 group-open:hidden">Add something</span><span className="hidden text-sm font-semibold text-neutral-600 group-open:inline">Close</span>
+          </summary>
+          <div className="mt-md grid gap-md sm:grid-cols-2">
+            {([['flood', 'Flood risk'], ['building_safety', 'Building safety'], ['restrictions', 'Restrictions'], ['accessibility', 'Accessibility']] as const).map(([k, t]) => (
+              <label key={k} className={lbl}>{t}<input className={field} value={l.part_c?.[k] ?? ''} onChange={e => set('part_c', { ...(l.part_c ?? {}), [k]: e.target.value })} placeholder="Leave blank if none" /></label>
             ))}
           </div>
-        </Section>
+        </details>
 
         <div className="flex flex-wrap items-center justify-between gap-md px-xs pb-lg">
           <button type="button" onClick={() => { setShowImport(true); go('import') }} className="text-sm font-semibold text-neutral-600 underline lg:hidden">Import from SpareRoom</button>
