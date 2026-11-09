@@ -283,3 +283,39 @@
 @media (prefers-reduced-motion:reduce){.site .float,.site .ps-bar .fill,.site .feats li,.site .marquee-track{animation:none}}
 .site .hero .copy{max-width:1040px}
 .site .hero .h1{font-size:clamp(42px,6.2vw,84px)}
+.site .ps-dot{display:grid;place-items:center;flex:0 0 20px;width:20px;height:20px;border-radius:50%;border:2px solid #CBD6CB}
+.site .ps-dot.ok{background:#DDEFE2;border-color:#DDEFE2;color:#14532D}.site .ps-dot.ok svg{width:12px;height:12px}
+.site .ps-dot.now{border-color:var(--forest);background:radial-gradient(circle,var(--forest) 0 4px,transparent 5px)}
+.site .ps-dot.soon{border-color:var(--gold);background:radial-gradient(circle,var(--gold) 0 4px,transparent 5px)}
+.site .ps-faces{display:flex}.site .ps-faces span{display:grid;place-items:center;width:34px;height:34px;margin-right:-8px;border-radius:50%;border:2px solid #fff;background:var(--sage);font-weight:700;font-size:13px}
+.site .ps-faces span:nth-child(2){background:var(--gold)}.site .ps-faces span:nth-child(3){background:#F3D9C9}.site .ps-faces span:nth-child(4){background:#D6E4F5}
+/* a feature row: words one side, the app the other, swapping sides as you go down */
+.site .frow{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:64px;align-items:center;padding:96px 0 0}
+.site .frow:nth-of-type(even) .frow-text{order:2}
+.site .frow-text{display:flex;flex-direction:column;gap:14px;max-width:520px}
+.site .frow-text ul{list-style:none;margin:6px 0 0;padding:0;display:flex;flex-direction:column;gap:10px}
+.site .frow-text li{display:flex;gap:10px;font-size:17px}.site .frow-text li svg{flex:0 0 18px;margin-top:4px;color:var(--forest)}
+@media (max-width:900px){.site .frow{grid-template-columns:1fr;gap:36px;padding-top:64px}.site .frow:nth-of-type(even) .frow-text{order:0}}
+.site .incl{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;list-style:none;margin:0;padding:0}
+.site .incl li{display:flex;gap:12px;align-items:flex-start;background:#fff;border-radius:20px;padding:18px 20px;font-size:16px}
+.site .incl li svg{flex:0 0 18px;margin-top:3px;color:var(--forest)}
+@media (max-width:900px){.site .incl{grid-template-columns:1fr}}
+.site .ps-cat{display:flex;flex-direction:column;gap:4px;padding:3px 0}
+.site .ps-bar.slim{height:6px}
+/* the app's benefits as a grid of tiles */
+.site .benefits{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.site .benefit{background:#fff;border-radius:24px;padding:24px;display:flex;flex-direction:column;gap:8px}
+.site .benefit .ico{display:grid;place-items:center;width:44px;height:44px;border-radius:14px;background:var(--sage);color:var(--forest);margin-bottom:6px}
+.site .benefit strong{font-size:18px}.site .benefit span{color:var(--muted);font-size:15.5px;line-height:1.5}
+.site .dark-block .benefit{background:rgba(255,255,255,.06)}.site .dark-block .benefit .ico{background:rgba(212,243,107,.14);color:var(--lime)}.site .dark-block .benefit span{color:#B9C7BC}
+@media (max-width:1000px){.site .benefits{grid-template-columns:1fr 1fr}}@media (max-width:640px){.site .benefits{grid-template-columns:1fr}}
+/* phones: a gentler float that never reaches the words above, and compact benefit tiles */
+@media (max-width:900px){
+  @supports (animation-timeline: view()){ .site .float{animation-name:cr-float-sm} @keyframes cr-float-sm{from{transform:translateY(24px) rotate(-1.5deg)}to{transform:translateY(-8px) rotate(1deg)}} }
+  .site .show-phone{padding-top:12px}
+  .site .phone{width:min(300px,86vw)}
+  .site .benefits{gap:10px}
+  .site .benefit{display:grid;grid-template-columns:44px 1fr;column-gap:14px;row-gap:2px;padding:16px 18px;border-radius:20px}
+  .site .benefit .ico{grid-row:span 2;margin:0}
+  .site .benefit strong{align-self:end}
+}
