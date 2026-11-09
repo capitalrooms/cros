@@ -22,7 +22,7 @@ export default async function Landlords() {
           {TIERS.map(t => (
             <div key={t.name} className={`tier rise ${t.tone}`}>
               <span style={{ fontWeight: 600, opacity: .85 }}>{t.name}</span>
-              <span className="fee">{t.fee}</span>
+              <span className="fee">{t.fee.replace(' + VAT', '')}<small>+ VAT</small></span>
               <span style={{ opacity: .85 }}>{t.lead}</span>
               <ul>{t.items.map(i => <li key={i}><Tick />{i}</li>)}</ul>
             </div>

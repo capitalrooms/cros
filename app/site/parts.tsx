@@ -76,10 +76,12 @@ export function Footer({ b = '' }: { b?: string }) {
 export function Reviews({ only, limit }: { only?: 'Tenant' | 'Landlord'; limit?: number }) {
   const list = (reviews as { quote: string; name: string; role: string | null }[]).filter(r => !only || r.role === only).slice(0, limit ?? 99)
   return (
-    <div className="grid3" style={{ alignItems: 'start' }}>
+    <div className="wall">
       {list.map((r, i) => (
-        <figure key={i} className="bubble rise" style={{ margin: 0, ...(i % 3 === 1 ? { background: '#E4EBE3' } : {}) }}>
-          <blockquote style={{ margin: 0 }}>“{r.quote}”</blockquote>
+        <figure key={i} className="bubble rise" style={i % 3 === 1 ? { background: '#E4EBE3' } : undefined}>
+          {r.quote.length > 320
+            ? <details><summary><blockquote style={{ margin: 0, display: 'inline' }}>“{r.quote.slice(0, r.quote.lastIndexOf(' ', 300))}…”</blockquote><br /><span style={{ display: 'inline-block', marginTop: 10 }}>Read more</span></summary><blockquote style={{ margin: 0 }}>“{r.quote}”</blockquote></details>
+            : <blockquote style={{ margin: 0 }}>“{r.quote}”</blockquote>}
           <figcaption><strong>{r.name}{r.role ? ` · ${r.role}` : ''}</strong></figcaption>
         </figure>
       ))}
@@ -90,7 +92,7 @@ export function Reviews({ only, limit }: { only?: 'Tenant' | 'Landlord'; limit?:
 /** the top of an inner page: a short title band, optionally beside a photo */
 export function PageTop({ eyebrow, title, lead, photo, children }: { eyebrow?: string; title: string; lead?: string; photo?: string; children?: React.ReactNode }) {
   return (
-    <div className="wrap" style={{ display: 'grid', gridTemplateColumns: photo && hasPhoto(photo) ? 'minmax(0,1.1fr) minmax(0,1fr)' : '1fr', gap: 40, alignItems: 'end', paddingTop: 64 }}>
+    <div className="wrap inner" style={{ display: 'grid', gridTemplateColumns: photo && hasPhoto(photo) ? 'minmax(0,1.1fr) minmax(0,1fr)' : '1fr', gap: 40, alignItems: 'end', paddingTop: 64 }}>
       <div className="page-hero" style={{ padding: 0 }}>
         {eyebrow && <p className="eyebrow load">{eyebrow}</p>}
         <h1 className="h1 load2">{title}</h1>

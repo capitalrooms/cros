@@ -8,9 +8,8 @@ export default async function Home() {
   const b = await siteBase()
   return (
     <>
-      <section className="hero" aria-label="Capital Rooms">
-        <Photo k="hero" className="hero-ph" alt="The Thames and the City of London" />
-        <div className="shade" />
+      <section className={`hero ${hasPhoto('hero') ? '' : 'plain'}`} aria-label="Capital Rooms">
+        {hasPhoto('hero') && <><Photo k="hero" className="hero-ph" alt="The Thames and the City of London" /><div className="shade" /></>}
         <div className="copy">
           <p className="pill load">Independent London lettings &amp; management</p>
           <h1 className="h1 load2">London lettings,<br />done properly.</h1>
@@ -20,6 +19,14 @@ export default async function Home() {
             <Link className="ghost" href={`${b}/residential-lettings`}>I’m looking for a home</Link>
           </div>
         </div>
+        {!hasPhoto('hero') && (
+          <div className="side load3">
+            <Link href={`${b}/instant_valuation`}><span><strong>Free valuation</strong><span>What your property should let for</span></span><span aria-hidden="true">→</span></Link>
+            <Link href={`${b}/residential-lettings`}><span><strong>Flats and houses</strong><span>Whole homes to rent</span></span><span aria-hidden="true">→</span></Link>
+            <Link href={`${b}/shared-accommodation`}><span><strong>Rooms</strong><span>Furnished, bills included</span></span><span aria-hidden="true">→</span></Link>
+            <Link href={`${b}/testimonial`} className="rating" style={{ background: 'transparent', border: 0, padding: '6px 4px' }}><span><b>★★★★★</b> Rated 4.9 out of 5 by our clients on Google</span></Link>
+          </div>
+        )}
       </section>
 
       <section className="block"><div className="wrap">
@@ -41,7 +48,7 @@ export default async function Home() {
           {TIERS.map(t => (
             <div key={t.name} className={`tier rise ${t.tone}`}>
               <span style={{ fontWeight: 600, opacity: .85 }}>{t.name}</span>
-              <span className="fee">{t.fee}</span>
+              <span className="fee">{t.fee.replace(' + VAT', '')}<small>+ VAT</small></span>
               <span style={{ opacity: .85 }}>{t.lead}</span>
               <ul>{t.items.slice(0, 5).map(i => <li key={i}><Tick />{i}</li>)}</ul>
             </div>
