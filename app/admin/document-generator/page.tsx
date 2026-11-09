@@ -16,6 +16,7 @@ import { dearFromText, formalName, landlordFormalNames } from '@/lib/people'
 import type { FormalLetter } from '@/lib/letters/formalLetter'
 import { invoiceNumberFor, type DocInvoice } from '@/lib/invoices/fromDocumentGenerator'
 import SavedDocuments from './SavedDocuments'
+import { useUrlTab } from '@/lib/useUrlTab'
 import ReceiptsBox from './ReceiptsBox'
 import AddressField from '@/app/components/AddressField'
 import { READY_LETTERS, fillLetter, type LetterFacts } from '@/lib/letters/readyLetters'
@@ -178,6 +179,9 @@ export default function DocumentGenerator() {
   const [numberAuto, setNumberAuto] = useState(true)      // number follows date + property until edited by hand
   const [savedId, setSavedId] = useState<string | null>(null)
   const [refreshKey, setRefreshKey] = useState(0)
+  // two tabs (9 Nov 2026 UX tidy): write something new, or everything already made — sent, drafts, reminders
+  const [tab, setTab] = useUrlTab<'write' | 'saved'>(typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('tab') ?? undefined : undefined, ['write', 'saved'] as const, 'write')
+  const [savedCount, setSavedCount] = useState<number | null>(null)
   const [saveNote, setSaveNote] = useState('')
   const [people, setPeople] = useState<Person[]>([])
   // opened from a letting file (?tenancy=…): the tenant is filled in and what's made is filed with that tenancy
@@ -342,7 +346,7 @@ export default function DocumentGenerator() {
     const d = await r.json().catch(() => ({}))
     if (!r.ok) { alert(d.error ?? 'Could not save the draft'); return }
     if (d.doc?.id) setSavedId(d.doc.id)
-    setSaveNote('Draft saved — it’s in Your letters & invoices below (Not emailed). Press Edit there to carry on.'); setRefreshKey(k => k + 1)
+    setSaveNote('Draft saved — find it under Sent & saved (Not emailed yet) and press Edit to carry on.'); setRefreshKey(k => k + 1)
   }
 
   // ── Drafting ──────────────────────────────────────────────────────────────
@@ -510,7 +514,7 @@ export default function DocumentGenerator() {
         const url = URL.createObjectURL(await saved.blob())
         const a = document.createElement('a'); a.href = url; a.download = name; a.click()
         setTimeout(() => URL.revokeObjectURL(url), 5000)
-        setSaveNote('Saved to your letters & invoices below.'); setRefreshKey(k => k + 1)
+        setSaveNote('Saved — it’s under Sent & saved.'); setRefreshKey(k => k + 1)
         return
       }
       const err = await saved.json().catch(() => ({}))
@@ -586,6 +590,7 @@ export default function DocumentGenerator() {
   // Reopen a saved letter / invoice to change it (16 Oct 2026). A letter opens as a new copy, so the list keeps a
   // record of exactly what was sent before; an invoice keeps its number and is updated in place.
   async function editSaved(d: { id: string; kind: string; number: string | null; recipient_email?: string | null; emailed_to?: string[] | null }) {
+    setTab('write'); window.scrollTo({ top: 0, behavior: 'smooth' })
     if ((letter || invoice) && !window.confirm('Open this saved document? The draft you have open now will be replaced.')) return
     setError(null)
     const r = await adminFetch(`/api/admin/documents/generated?id=${d.id}&content=1`)
@@ -620,7 +625,10 @@ export default function DocumentGenerator() {
   return (
     <div className="min-h-screen bg-neutral-100">
       <AppBar left={<BackButton href={tenancyId ? `/admin/lettings/${tenancyId}?tab=letters` : '/admin/communications'} />} title="Letters & Invoices" />
-      <PageHero title="Letters & Invoices" subtitle="Write a letter or an invoice in plain words — it comes out on the letterhead, ready to check, download or email" actions={<HeroButton primary href="/admin/document-generator/landlords">Letter to several landlords</HeroButton>} />
+      <PageHero title="Letters & Invoices" subtitle="Write a letter or an invoice in plain words — it comes out on the letterhead, ready to check, download or email"
+        actions={<HeroButton href="/admin/document-generator/landlords">Letter to several landlords</HeroButton>}
+        tabs={[{ key: 'write', label: 'Write', active: tab === 'write', onClick: () => setTab('write') },
+          { key: 'saved', label: `Sent & saved${savedCount ? ` (${savedCount})` : ''}`, active: tab === 'saved', onClick: () => setTab('saved') }]} />
       <div className="mx-auto max-w-6xl px-lg py-xl">
 
         {tenancyId && (
@@ -630,6 +638,7 @@ export default function DocumentGenerator() {
           </p>
         )}
 
+        {tab === 'write' && <>
         {/* Step indicator */}
         <div className="flex flex-wrap items-center gap-3 mb-xl">
           {['Write', 'Check and send'].map((l, i) => {
@@ -660,6 +669,15 @@ export default function DocumentGenerator() {
         {/* ═══ STEP 1: WRITE ═══ */}
         {step === 'write' && (
           <div className="space-y-lg">
+            <div className="grid gap-sm sm:grid-cols-2">
+              {([['letter', 'Letter', 'On the letterhead, signed by you'], ['invoice', 'Invoice', 'Numbered, with our bank details']] as [DocType, string, string][]).map(([val, lbl, hint]) => (
+                <button key={val} type="button" onClick={() => { setDocType(val); setStep('write') }} aria-pressed={docType === val}
+                  className={`rounded-xl border-2 px-lg py-md text-left transition ${docType === val ? 'border-neutral-900 bg-white shadow-sm' : 'border-transparent bg-white/60 hover:border-neutral-300'}`}>
+                  <span className="block text-base font-bold text-neutral-900">{lbl}</span>
+                  <span className="block text-sm text-neutral-500">{hint}</span>
+                </button>
+              ))}
+            </div>
             <div className="bg-white rounded-xl border border-neutral-200 p-lg space-y-md">
               <h2 className="font-semibold text-neutral-900">Who is it to?</h2>
               <PersonPicker people={people} onPick={pickPerson} />
@@ -681,14 +699,6 @@ export default function DocumentGenerator() {
             </div>
 
             <div className="bg-white rounded-xl border border-neutral-200 p-lg">
-              <div className="inline-flex rounded-lg border border-neutral-200 p-0.5 mb-md bg-neutral-50">
-                {([['letter', 'Letter'], ['invoice', 'Invoice']] as [DocType, string][]).map(([val, lbl]) => (
-                  <button key={val} type="button" onClick={() => { setDocType(val); setStep('write') }}
-                    className={`rounded-md px-md py-xs text-sm font-semibold ${docType === val ? 'bg-neutral-900 text-white' : 'text-neutral-600 hover:text-neutral-900'}`}>
-                    {lbl}
-                  </button>
-                ))}
-              </div>
               {docType === 'invoice' ? (
                 <>
                   <div className="mb-md grid gap-xs sm:grid-cols-3">
@@ -701,11 +711,7 @@ export default function DocumentGenerator() {
                     ))}
                   </div>
                   <h2 className="font-semibold text-neutral-900 mb-sm">What is the invoice for?</h2>
-                  <p className="text-sm text-neutral-500 mb-md">
-                    Say what to charge in your own words — the items, amounts and quantities, and the property if it relates to one.
-                    The assistant sets it out as an invoice in our standard layout with our bank details, numbered and dated.
-                    It won’t make up prices: anything you didn’t give is flagged for you to fill in.
-                  </p>
+                  <p className="text-sm text-neutral-500 mb-md">The items, amounts and the property if there is one. Prices are never made up — anything missing is flagged.</p>
                   <textarea
                     className="w-full h-44 rounded-lg border border-neutral-200 bg-neutral-50 px-md py-sm text-sm text-neutral-900 resize-y focus:outline-none focus:ring-2 focus:ring-neutral-400"
                     placeholder={invoiceKind === 'management'
@@ -735,11 +741,7 @@ export default function DocumentGenerator() {
               <ReadyLetterPicker query={templateQuery} setQuery={setTemplateQuery} saved={saved} setupNeeded={templatesSetup}
                 forTenancy={!!tenancyId || !!tenancyNote} onUse={useTemplate} onRemove={removeTemplate} />
               <h2 className="font-semibold text-neutral-900 mb-sm">Or say what you want in your own words</h2>
-              <p className="text-sm text-neutral-500 mb-md">
-                Write it in your own words — notes, bullet points or a pasted email are fine. Include the facts that matter
-                (amounts, dates, what you need from them). The assistant writes it up as a formal letter on our letterhead, signed by you.
-                It won’t make up figures or dates: anything missing is left in [square brackets] for you to fill in.
-              </p>
+              <p className="text-sm text-neutral-500 mb-md">Notes, bullet points or a pasted email are fine. Figures and dates are never made up — anything missing is left in [brackets] for you.</p>
               <textarea
                 className="w-full h-56 rounded-lg border border-neutral-200 bg-neutral-50 px-md py-sm text-sm text-neutral-900 resize-y focus:outline-none focus:ring-2 focus:ring-neutral-400"
                 placeholder={'e.g. Let Nigel know our fees for let-only from 1 Jan 2027:\n- tenant find £750 + VAT per room\n- referencing £75 per tenant\n- guarantor added to agreement £25\nInvoiced when the tenant moves in, payable within 14 days. Thank him for his continued business.'}
@@ -1006,8 +1008,10 @@ export default function DocumentGenerator() {
           </div>
         )}
 
-        <div className="mt-xl">
-          <SavedDocuments refreshKey={refreshKey} onEdit={editSaved} />
+        </>}
+
+        <div className={tab === 'saved' ? '' : 'hidden'}>
+          <SavedDocuments refreshKey={refreshKey} onEdit={editSaved} onCount={setSavedCount} />
         </div>
       </div>
     </div>
