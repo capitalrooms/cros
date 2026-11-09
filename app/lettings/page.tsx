@@ -800,11 +800,29 @@ export default function LettingsPage() {
         heading="Diary & Leads"
         
       >
-        <div className="grid grid-cols-3 gap-sm">
-          <StatTile value={thisWeekCount} label="This week" />
-          <StatTile value={pendingCount} label="Pending" valueColor="text-amber-400" />
-          <StatTile value={availableRooms.length} label="Available" valueColor="text-green-400" />
-        </div>
+        {/* what needs you (9 Nov 2026: one short list instead of three number boxes, like the other apps) */}
+        {(() => {
+          const todayIso = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
+          const todayCount = viewings.filter(v => v.viewing_date === todayIso && v.viewing_status !== 'completed').length
+          const todo = [
+            { n: pendingCount, text: pendingCount === 1 ? 'viewing to confirm' : 'viewings to confirm', tab: 'viewings' as Tab, hot: true },
+            { n: todayCount, text: todayCount === 1 ? 'viewing today' : 'viewings today', tab: 'viewings' as Tab, hot: false },
+            { n: availableRooms.length, text: availableRooms.length === 1 ? 'room or home to let' : 'rooms and homes to let', tab: 'available' as Tab, hot: false },
+          ].filter(t => t.n > 0)
+          return (
+            <div className="overflow-hidden rounded-2xl bg-white/10">
+              {todo.length === 0
+                ? <p className="px-lg py-md text-sm font-semibold text-white">You’re all caught up ✓{thisWeekCount ? ` · ${thisWeekCount} viewing${thisWeekCount === 1 ? '' : 's'} this week` : ''}</p>
+                : todo.map((t, i) => (
+                  <button key={t.text} type="button" onClick={() => setActiveTab(t.tab)} className={`flex w-full items-center gap-md px-lg py-md text-left text-white ${i ? 'border-t border-white/10' : ''}`}>
+                    <span className={`grid h-8 min-w-8 place-items-center rounded-full px-sm text-sm font-bold ${t.hot ? 'bg-[color:var(--cr-gold)] text-neutral-900' : 'bg-white text-neutral-900'}`}>{t.n}</span>
+                    <span className="flex-1 text-[15px] font-semibold">{t.text}</span>
+                    <span aria-hidden="true" className="text-white/60">›</span>
+                  </button>
+                ))}
+            </div>
+          )
+        })()}
       </DarkHeroHeader>
 
       {/* ── Global banner ──────────────────────────────────────────────────── */}
