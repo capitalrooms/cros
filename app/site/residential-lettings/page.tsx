@@ -7,7 +7,7 @@ export const metadata: Metadata = { title: 'Flats, Houses and Rooms to Rent in L
 export default function Residential() {
   return (
     <>
-      <PageTop eyebrow="To rent" title="Homes to rent." lead="Flats, houses and rooms across London, ready to view." />
+      <PageTop eyebrow="To rent" title="Homes to rent." lead="Flats, houses and rooms across London, ready to view." photo="rent" />
       <section className="block" style={{ paddingTop: 48 }}><div className="wrap" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
         <h2 className="h3">Flats and houses</h2><HomesList whole />
       </div></section>

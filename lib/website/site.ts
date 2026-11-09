@@ -2,8 +2,8 @@
 // PHOTOS: drop a path in (a file under public/website/photos/) and that slot shows the photo; blank = a forest panel.
 export const PHOTOS: Record<string, string> = {
   // from the old capitalrooms.co.uk (9 Nov 2026). Blank = no photo there (the kitchen came out: not a UK kitchen)
-  hero: '/website/photos/thames.jpg', landlords: '/website/photos/terrace.jpg', tenants: '/website/photos/canary-wharf.jpg',
-  valuation: '/website/photos/city.jpg', rooftops: '', about: '/website/photos/terrace.jpg', maintenance: '', keys: '',
+  hero: '/website/photos/thames.jpg', landlords: '/website/photos/terrace.jpg', tenants: '/website/photos/lounge.jpg',
+  valuation: '/website/photos/city.jpg', rooftops: '', about: '/website/photos/terrace.jpg', maintenance: '/website/photos/kitchen-shard.jpg', rent: '/website/photos/kitchen-shard.jpg', keys: '',
 }
 
 // the usual order on London letting agents' sites (9 Nov 2026, Harry): what people come for first, the company last
