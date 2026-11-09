@@ -65,7 +65,7 @@ const ZONES_AS_WRITTEN: Zone[] = [
     subnav: [
       { emoji: '🧭', label: 'Overview',           href: '/admin/lettings' },
       { emoji: '👤', label: 'Applicants',         href: '/admin/applicants' },
-      { emoji: '🔑', label: 'Available Rooms',    href: '/admin/available-and-lettings' },
+      { emoji: '🔑', label: 'Availability',       href: '/admin/available-and-lettings' },
       { emoji: '📄', label: 'Bulk Agreements',    href: '/admin/bulk-tenancy-generator' },
       { emoji: '🤝', label: 'Tenancies',          href: '/admin/tenancies' },
     ],

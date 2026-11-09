@@ -698,7 +698,7 @@ export default function LettingsPage() {
                   <span style={{ display: 'flex', gap: 8 }}><a href="/lettings/board" style={{ background: 'white', color: '#181614', border: '1px solid #D8D2C4', textDecoration: 'none', borderRadius: 10, padding: '8px 16px', fontSize: 12, fontWeight: 600, display: 'inline-block' }}>Marketing board</a><Link href="/admin/let-only-properties" style={{ background: '#181614', color: 'white', textDecoration: 'none', borderRadius: 10, padding: '8px 16px', fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'inline-block' }}>+ Let-only property</Link></span>
                 </div>
                 {availableRooms.length === 0 ? (
-                  <div className="rounded-2xl border-2 border-dashed border-neutral-200 bg-white py-2xl text-center"><p className="text-sm text-neutral-400">No available rooms</p></div>
+                  <div className="rounded-2xl border-2 border-dashed border-neutral-200 bg-white py-2xl text-center"><p className="text-sm text-neutral-400">Nothing available</p></div>
                 ) : (
                   <div className="divide-y divide-neutral-100 overflow-hidden rounded-xl border border-neutral-200 bg-white">{availableRooms.map(room => <AvailableRoomCard key={room.id} room={room} />)}</div>
                 )}
@@ -996,7 +996,7 @@ export default function LettingsPage() {
 
             {availableRooms.length === 0 ? (
               <div className="rounded-2xl border-2 border-dashed border-neutral-200 bg-white py-2xl text-center">
-                <p className="text-sm text-neutral-400">No available rooms right now</p>
+                <p className="text-sm text-neutral-400">Nothing available right now</p>
               </div>
             ) : (
               <div className="divide-y divide-neutral-100 overflow-hidden rounded-xl border border-neutral-200 bg-white">

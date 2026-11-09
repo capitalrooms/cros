@@ -67,7 +67,7 @@ export default function LettingsOverviewPage() {
           { label: 'Applicants in progress', value: c.applicants, href: '/admin/applicants' },
           { label: 'Lets agreed', value: c.letAgreed, tone: 'info', href: '/admin/tenancies' },
           { label: 'On notice', value: c.onNotice, tone: 'warn', href: '/admin/tenancy-management' },
-          { label: 'Rooms free now', value: c.availableNow, tone: c.availableNow ? 'good' : undefined, href: '/admin/available-and-lettings' },
+          { label: 'Free now', value: c.availableNow, tone: c.availableNow ? 'good' : undefined, href: '/admin/available-and-lettings' },
         ] : []}
         actions={<>
           <HeroButton href="/admin/available-and-lettings#send-offer">Send an offer</HeroButton>

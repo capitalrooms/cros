@@ -646,7 +646,7 @@ export default function UnitsTab({ propertyId, propertyType, bedrooms, initialRo
     }
     const { error: e } = await supabase.from('rooms').update({ status, ...(available_date ? { available_date } : {}) }).eq('id', room.id)
     if (e) { setError(e.message); return }
-    setSuccess(status === 'available' ? (wholeLet ? 'The property is available again — it’s back on Available Rooms' : `${room.name} is available again — it’s back on Available Rooms`) : `${room.name} marked as let`)
+    setSuccess(status === 'available' ? (wholeLet ? 'The property is available again — it’s back on Availability' : `${room.name} is available again — it’s back on Availability`) : `${room.name} marked as let`)
     setSelectedRoom(r => r && r.id === room.id ? { ...r, status } : r)
     loadRooms()
   }
