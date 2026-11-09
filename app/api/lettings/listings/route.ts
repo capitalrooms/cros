@@ -39,7 +39,7 @@ async function full(s: any, listing: any) {
     listing, house, room, photos: ph, mediaCount: inOrder.length, counts: { applicants: applicants ?? 0, viewings: viewings ?? 0 },
     channels: CHANNELS.map(c => ({ channel: c, label: CHANNEL_LABEL[c], available: CHANNEL_READY[c], ...(((channels ?? []) as any[]).find(x => x.channel === c) ?? { enabled: false }) })),
     missing: missingForReady(listing, inOrder.length),
-    shareUrl: listing.room_id ? `${base()}${listingPath(listing.room_id)}` : null,
+    shareUrl: listing.room_id ? `https://capitalrooms.co.uk${listingPath(listing.room_id)}` : null,   // listings live on the website
   }
 }
 

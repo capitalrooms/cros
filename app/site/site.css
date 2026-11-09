@@ -190,3 +190,16 @@
 .site .top .wrap{min-height:88px}
 @media (max-width:900px){.site .top nav.open{top:88px}}
 @media (max-width:480px){.site .top .wrap{min-height:72px}.site .top nav.open{top:72px}}
+/* a listing (9 Nov 2026) */
+.site .lst-grid{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:48px;margin-top:32px}
+.site .lst-aside{display:block}.site .lst-phone-price{display:none}
+.site .lst-facts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:18px 24px;margin:28px 0 0;padding:24px;background:#fff;border-radius:24px}
+.site .lst-facts dt{font-size:12px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted)}.site .lst-facts dd{margin:4px 0 0;font-size:17px;font-weight:600}
+.site .lst-sec{margin-top:48px;display:flex;flex-direction:column;gap:16px}
+.site .lst-bar{display:none}
+@media (max-width:900px){
+  .site .lst-grid{grid-template-columns:1fr;gap:24px}.site .lst-aside{display:none}.site .lst-phone-price{display:block;margin-top:20px}
+  .site .lst-facts{grid-template-columns:1fr 1fr}
+  .site .lst-bar{display:flex;gap:8px;position:fixed;left:0;right:0;bottom:0;z-index:40;padding:12px 16px max(12px,env(safe-area-inset-bottom));background:rgba(251,248,241,.96);border-top:1px solid var(--line)}
+  .site .foot{padding-bottom:110px}
+}
