@@ -10,6 +10,7 @@ import { requireStaff } from '@/lib/portalAuth'
 import { createServiceClient } from '@/lib/supabase'
 import { draftFromRoom, depositsFor, missingForReady, EDITABLE, CHANNELS, CHANNEL_READY, CHANNEL_LABEL, type Channel, type ListingStatus } from '@/lib/listing/record'
 import { listingPath } from '@/lib/listing/listing'
+import { smartFill } from '@/lib/listing/smartFill'
 
 export const dynamic = 'force-dynamic'
 const OPEN = ['draft', 'ready', 'live', 'let_agreed']
@@ -22,7 +23,7 @@ async function full(s: any, listing: any) {
   const [{ data: photos }, { data: channels }, { data: house }, { data: room }] = await Promise.all([
     s.from('property_photos').select('id, file_path, file_url, file_type, caption, room_id').eq('property_id', listing.property_id),
     s.from('listing_channels').select('channel, enabled, status, external_ref, last_sent_at, last_result').eq('listing_id', listing.id),
-    s.from('properties').select('id, name, address, postcode').eq('id', listing.property_id).maybeSingle(),
+    s.from('properties').select('id, name, address, postcode, property_type').eq('id', listing.property_id).maybeSingle(),
     listing.room_id ? s.from('rooms').select('id, name').eq('id', listing.room_id).maybeSingle() : Promise.resolve({ data: null }),
   ])
   const ph = ((photos ?? []) as any[]).map(x => ({ id: x.id, url: photoUrl(s, x), video: String(x.file_type ?? '').startsWith('video'), caption: x.caption, ofRoom: !!listing.room_id && x.room_id === listing.room_id, otherRoom: !!x.room_id && x.room_id !== listing.room_id }))
@@ -104,6 +105,23 @@ export async function POST(req: NextRequest) {
     if (b.enabled && !CHANNEL_READY[c]) return NextResponse.json({ error: `${CHANNEL_LABEL[c]} needs its feed set up first — it's ready in the listing, but can't be sent yet.` }, { status: 409 })
     await s.from('listing_channels').upsert({ listing_id: l.id, channel: c, enabled: !!b.enabled, status: b.enabled ? (l.status === 'live' ? 'live' : 'waiting') : 'off', updated_at: new Date().toISOString() }, { onConflict: 'listing_id,channel' })
     return NextResponse.json(await full(s, l))
+  }
+
+  // { action: 'smart-fill' } → the empty fields filled from the advert's own words, and anything that disagrees flagged
+  if (b.action === 'smart-fill') {
+    const [{ data: house }, { data: room }] = await Promise.all([
+      s.from('properties').select('name, address, postcode, property_type').eq('id', l.property_id).maybeSingle(),
+      l.room_id ? s.from('rooms').select('name').eq('id', l.room_id).maybeSingle() : Promise.resolve({ data: null }),
+    ])
+    let got
+    try { got = await smartFill(l, house, room?.name ?? null) } catch (e: any) { return NextResponse.json({ error: e?.message ?? 'Couldn’t read the advert' }, { status: 502 }) }
+    let row = l
+    if (Object.keys(got.fields).length) {
+      const { data, error } = await s.from('listings').update({ ...got.fields, updated_at: new Date().toISOString() }).eq('id', l.id).select('*').single()
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+      row = data
+    }
+    return NextResponse.json({ ...(await full(s, row)), filled: Object.keys(got.fields), checks: got.checks })
   }
 
   if (b.action === 'move') {
