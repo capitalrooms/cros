@@ -26,10 +26,16 @@ async function full(s: any, listing: any) {
     s.from('properties').select('id, name, address, postcode, property_type').eq('id', listing.property_id).maybeSingle(),
     listing.room_id ? s.from('rooms').select('id, name').eq('id', listing.room_id).maybeSingle() : Promise.resolve({ data: null }),
   ])
+  // for the links under the header: this room's live applicants and upcoming viewings (9 Nov 2026)
+  const todayLdn = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
+  const [{ count: applicants }, { count: viewings }] = listing.room_id ? await Promise.all([
+    s.from('applicants').select('id', { count: 'exact', head: true }).eq('room_id', listing.room_id).is('archived_at', null).neq('pipeline_stage', 'converted'),
+    s.from('viewings').select('id', { count: 'exact', head: true }).eq('room_id', listing.room_id).gte('viewing_date', todayLdn),
+  ]) : [{ count: 0 }, { count: 0 }]
   const ph = ((photos ?? []) as any[]).map(x => ({ id: x.id, url: photoUrl(s, x), video: String(x.file_type ?? '').startsWith('video'), caption: x.caption, ofRoom: !!listing.room_id && x.room_id === listing.room_id, otherRoom: !!x.room_id && x.room_id !== listing.room_id }))
   const inOrder = (listing.media_order ?? []).filter((id: string) => ph.some(p => p.id === id))
   return {
-    listing, house, room, photos: ph, mediaCount: inOrder.length,
+    listing, house, room, photos: ph, mediaCount: inOrder.length, counts: { applicants: applicants ?? 0, viewings: viewings ?? 0 },
     channels: CHANNELS.map(c => ({ channel: c, label: CHANNEL_LABEL[c], available: CHANNEL_READY[c], ...(((channels ?? []) as any[]).find(x => x.channel === c) ?? { enabled: false }) })),
     missing: missingForReady(listing, inOrder.length),
     shareUrl: listing.room_id ? `${base()}${listingPath(listing.room_id)}` : null,

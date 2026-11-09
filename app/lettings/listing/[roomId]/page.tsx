@@ -11,6 +11,7 @@ import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
 import type { SpareRoomAd } from '@/lib/listing/spareroom'
 import { isWholeLet } from '@/lib/lettings/letWording'
+import PageHero, { HeroButton } from '@/components/PageHero'
 
 type L = Record<string, any>
 interface Photo { id: string; url: string; video: boolean; caption: string | null; ofRoom: boolean; otherRoom: boolean }
@@ -22,7 +23,7 @@ const today = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/L
 
 export default function ListingEditor({ params }: { params: Promise<{ roomId: string }> }) {
   const { roomId } = use(params)
-  const [data, setData] = useState<null | { listing: L; house: any; room: any; photos: Photo[]; channels: Chan[]; missing: string[]; shareUrl: string | null }>(null)
+  const [data, setData] = useState<null | { listing: L; house: any; room: any; photos: Photo[]; channels: Chan[]; missing: string[]; shareUrl: string | null; counts?: { applicants: number; viewings: number } }>(null)
   const [empty, setEmpty] = useState(false)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
@@ -37,7 +38,14 @@ export default function ListingEditor({ params }: { params: Promise<{ roomId: st
     const d = await r.json().catch(() => ({}))
     if (d.setupNeeded) { setError('Listings need migration 227 running in Supabase first.'); return }
     if (!r.ok) { setError(d.error || 'Could not open the listing'); return }
-    if (!d.listing) { setEmpty(true); return }
+    // no listing yet: make one straight away from what CROS already holds (room, house, photos, rent) — never a blank
+    // "Start the listing" screen (9 Nov 2026, Harry)
+    if (!d.listing) {
+      const r2 = await fetch('/api/lettings/listings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId }) })
+      const d2 = await r2.json().catch(() => ({}))
+      if (!r2.ok) { setEmpty(true); setError(d2.error || ''); return }
+      setEmpty(false); setData(d2); return
+    }
     setEmpty(false); setData(d)
   }, [roomId])
   useEffect(() => { load() }, [load])
@@ -136,7 +144,7 @@ export default function ListingEditor({ params }: { params: Promise<{ roomId: st
     setSrBusy(false); setAd(null); setChecks([]); setSrUrl(''); setShowImport(false); setNotice('Imported from SpareRoom — now filling the gaps from the description…'); await load(); fillFromAdvert(true).then(() => setNotice('Imported from SpareRoom and the gaps filled — check it over.'))
   }
 
-  const shell = (body: React.ReactNode) => <div className="min-h-screen bg-neutral-100 pb-3xl"><AppBar left={<BackButton href={back} />} title="Listing" />{body}</div>
+  const shell = (body: React.ReactNode) => <div className="min-h-screen bg-neutral-100 pb-3xl"><AppBar left={<BackButton href={back} />} />{body}</div>
   if (error && !data) return shell(<p className="mx-auto max-w-5xl px-lg py-xl text-sm text-red-700">{error}</p>)
   if (empty) return shell(
     <main className="mx-auto max-w-xl px-lg py-2xl text-center">
@@ -189,33 +197,42 @@ export default function ListingEditor({ params }: { params: Promise<{ roomId: st
     </div>)
 
   return shell(<>
-    {/* ── header: what it is, where it's at, the one next step ── */}
-    <header className="border-b border-neutral-200 bg-white">
-      <div className="mx-auto max-w-7xl px-lg py-lg">
-        <div className="flex flex-wrap items-start justify-between gap-md">
-          <div className="min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500">{whole ? 'Whole property' : 'Room'} listing · {l.agent_ref}</p>
-            <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-neutral-900 [text-wrap:balance]">{title}</h1>
-            <p className="mt-1 text-sm text-neutral-500">{saving === 'saving' ? 'Saving…' : saving === 'saved' ? 'All changes saved' : 'Saves as you go'} · <Link href="/lettings/board" className="underline hover:text-neutral-800">Marketing board</Link></p>
-          </div>
-          <div className="flex flex-wrap items-center gap-sm">
-            {l.status === 'draft' && <button type="button" onClick={() => move('ready')} className={`${btn} border border-neutral-300 bg-white text-neutral-900 hover:bg-neutral-50`}>Mark ready</button>}
-            {(l.status === 'ready' || l.status === 'draft') && <button type="button" onClick={() => move('live')} className={`${btn} bg-emerald-700 text-white hover:bg-emerald-800`}>Publish</button>}
-            {l.status === 'live' && <button type="button" onClick={() => move('let_agreed')} className={`${btn} bg-neutral-900 text-white`}>Let agreed</button>}
-            {l.status === 'let_agreed' && <button type="button" onClick={() => move('let')} className={`${btn} bg-neutral-900 text-white`}>Mark let</button>}
-            {l.status !== 'draft' && l.status !== 'let_agreed' && <button type="button" onClick={() => move('draft')} className={`${btn} border border-neutral-300 bg-white text-neutral-700`}>Back to draft</button>}
-          </div>
-        </div>
-        <ol className="mt-lg grid grid-cols-4 gap-1 text-xs font-semibold" aria-label="Where the listing is">
-          {STEPS.map(([k, t], i) => (
-            <li key={k} className="space-y-1">
-              <span className={`block h-1.5 rounded-full ${i <= stepIx ? (i === stepIx ? 'bg-neutral-900' : 'bg-emerald-600') : 'bg-neutral-200'}`} />
-              <span className={i === stepIx ? 'text-neutral-900' : i < stepIx ? 'text-emerald-700' : 'text-neutral-400'}>{t}</span>
-            </li>
-          ))}
+    {/* ── header: the site's green band with where you came from (9 Nov 2026), then the next steps one click away ── */}
+    <PageHero
+      eyebrow={`${whole ? 'Whole property' : 'Room'} listing · ${l.agent_ref}`}
+      title={title}
+      chip={{ label: STEPS[stepIx]?.[1] ?? l.status, tone: l.status === 'live' ? 'good' : l.status === 'ready' ? 'info' : l.status === 'let_agreed' ? 'warn' : 'plain' }}
+      subtitle={<>{saving === 'saving' ? 'Saving…' : saving === 'saved' ? 'All changes saved' : 'Saves as you go'}</>}
+      trail={back.startsWith('/admin/properties')
+        ? [{ label: 'Properties', href: '/admin/properties' }, { label: houseLine, href: `/admin/properties/${l.property_id}` }, ...(!whole && data.room ? [{ label: data.room.name, href: `/admin/properties/${l.property_id}/rooms/${roomId}` }] : []), { label: 'Listing' }]
+        : back.startsWith('/admin/active-rooms')
+          ? [{ label: 'All Units', href: '/admin/active-rooms' }, { label: houseLine, href: `/admin/properties/${l.property_id}` }, { label: 'Listing' }]
+        : back.startsWith('/lettings/board')
+          ? [{ label: 'Lettings', href: '/admin/lettings' }, { label: 'Marketing board', href: '/lettings/board' }, { label: 'Listing' }]
+          : [{ label: 'Lettings', href: '/admin/lettings' }, { label: 'Availability', href: '/admin/available-and-lettings' }, { label: 'Listing' }]}
+      actions={<>
+        {l.status === 'draft' && <HeroButton onClick={() => move('ready')}>Mark ready</HeroButton>}
+        {(l.status === 'ready' || l.status === 'draft') && <HeroButton primary onClick={() => move('live')}>Publish</HeroButton>}
+        {l.status === 'live' && <HeroButton primary onClick={() => move('let_agreed')}>Let agreed</HeroButton>}
+        {l.status === 'let_agreed' && <HeroButton primary onClick={() => move('let')}>Mark let</HeroButton>}
+        {l.status !== 'draft' && l.status !== 'let_agreed' && <HeroButton onClick={() => move('draft')}>Back to draft</HeroButton>}
+      </>}
+    />
+    <div className="border-b border-neutral-200 bg-white">
+      <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-lg gap-y-sm px-lg py-sm text-sm">
+        {([
+          [whole ? 'Property record' : 'Room record', whole || !data.room ? `/admin/properties/${l.property_id}` : `/admin/properties/${l.property_id}/rooms/${roomId}`],
+          [`Applicants${data.counts ? ` · ${data.counts.applicants}` : ''}`, `/admin/applicants?room=${roomId}`],
+          [`Viewings${data.counts ? ` · ${data.counts.viewings} coming up` : ''}`, `/admin/properties/${l.property_id}?tab=lettings`],
+          ['Book a viewing', `/admin/properties/${l.property_id}?tab=lettings&book=${roomId}`],
+          ['Send an offer', `/admin/available-and-lettings?offer_room=${roomId}#send-offer`],
+          ['Marketing board', '/lettings/board'],
+        ] as const).map(([t, href]) => <Link key={t} href={href} className="font-semibold text-neutral-700 hover:text-neutral-950 hover:underline">{t}</Link>)}
+        <ol className="ml-auto flex items-center gap-1 text-xs font-semibold" aria-label="Where the listing is">
+          {STEPS.map(([k, t], i) => <li key={k} className={`rounded-full px-sm py-0.5 ${i === stepIx ? 'bg-neutral-900 text-white' : i < stepIx ? 'bg-emerald-100 text-emerald-800' : 'bg-neutral-100 text-neutral-400'}`}>{t}</li>)}
         </ol>
       </div>
-    </header>
+    </div>
 
     {(error || notice) && (
       <div className="mx-auto max-w-7xl space-y-1 px-lg pt-md">

@@ -8,6 +8,7 @@
 // advert text, notes and checks. Data: GET /api/admin/rooms/[roomId] (lib/rooms/roomOverview).
 import { use, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
+import ListingStatus from '@/components/ListingStatus'
 import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
 import PageHero, { HeroButton } from '@/components/PageHero'
@@ -467,7 +468,7 @@ function Relet({ o, wide }: { o: RoomOverview; wide: boolean }) {
           <div className="flex flex-wrap gap-sm border-t border-neutral-100 pt-md">
             {/* a tenant already living there that CROS doesn't know about (4 Nov 2026) — the New tenancy form, filled in */}
             {!o.current && <Link href={`/admin/tenancies?add=${o.property.id}:${o.room.id}`} className={btnLight}>Add an existing tenancy</Link>}
-            <Link href={`/lettings/listing/${o.room.id}`} className={btnLight}>Advertise {o.whole ? 'the property' : o.room.name}</Link>
+            <Link href={`/lettings/listing/${o.room.id}?from=${encodeURIComponent(`/admin/properties/${o.property.id}/rooms/${o.room.id}`)}`} className={btnLight}>Advertise {o.whole ? 'the property' : o.room.name}</Link>
             <Link href="/admin/agency-diary/book-appointment" className={btnLight}>Book a viewing</Link>
             <Link href="/admin/available-and-lettings#send-offer" className={btnLight}>Send an offer</Link>
           </div>
@@ -512,10 +513,9 @@ function TheRoom({ o, wide, propertyId, reload }: { o: RoomOverview; wide: boole
         <dl className="grid grid-cols-[110px_1fr] gap-y-xs text-sm">{facts.map(([k, v]) => <><dt key={`k-${k}`} className="text-neutral-500">{k}</dt><dd key={`v-${k}`}>{v}</dd></>)}</dl>
         {d && Object.keys(d).length > 0 && <p className="text-xs text-neutral-400">Some features were read from the room photo. Confirm them at the next inspection.</p>}
         <RoomTools o={o} propertyId={propertyId} onDone={reload} />
-        <p className="border-t border-neutral-100 pt-sm text-[13px] text-neutral-600">{r.photos.length} photo{r.photos.length === 1 ? '' : 's'} · advert text {r.marketingDescription ? 'written' : <b className="text-amber-800">not written</b>} · {r.showOnWebsite ? 'on the website' : 'not on the website'}</p>
+        <ListingStatus roomId={r.id} from={`/admin/properties/${propertyId}/rooms/${r.id}`} className="border-t border-neutral-100 pt-sm" />
         <div className="flex flex-wrap gap-sm">
           <Link href={`/admin/properties/${propertyId}/rooms/${r.id}/edit`} className={btnLight}>Photos and details</Link>
-          <Link href={`/lettings/listing/${r.id}`} className={btnLight}>Marketing view</Link>
         </div>
       </div>
     </Section>
