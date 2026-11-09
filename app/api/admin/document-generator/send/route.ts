@@ -79,10 +79,15 @@ export async function POST(req: NextRequest) {
     const { data: file, error: dlErr } = await db.storage.from(DOCS_BUCKET).download((doc as any).storage_path)
     if (dlErr || !file) return NextResponse.json({ error: 'The saved PDF could not be opened. Nothing was sent.' }, { status: 500 })
     const filename = fileNameFor(doc as GeneratedDocument)
-    const sent = await sendEmail(to, subject, await bodyWithReceipts(message, (doc as any).id), { kind: 'letter', req, cc, attachments: [{ filename, content: Buffer.from(await file.arrayBuffer()).toString('base64') }] })
+    const sent = await sendEmail(to, subject, await bodyWithReceipts(message, (doc as any).id), { kind: b.reminder === true ? 'invoice-reminder' : 'letter', req, cc, attachments: [{ filename, content: Buffer.from(await file.arrayBuffer()).toString('base64') }] })
     if (!sent.ok) return NextResponse.json({ error: `The email was not sent: ${sent.error ?? 'unknown error'}` }, { status: 502 })
-    await markEmailed((doc as any).id, to)
-    return NextResponse.json({ ok: true, to, cc, attachment: filename, sentAt: new Date().toISOString() })
+    // a reminder keeps the date it was first sent and is logged on the invoice instead (9 Nov 2026)
+    if (b.reminder === true) {
+      const { data: c } = await db.from('generated_documents').select('content').eq('id', (doc as any).id).maybeSingle() as { data: any }
+      const content = c?.content && typeof c.content === 'object' && !Array.isArray(c.content) ? c.content : null
+      if (content) await db.from('generated_documents').update({ content: { ...content, reminders: [...(Array.isArray(content.reminders) ? content.reminders : []), { at: new Date().toISOString(), to }] } }).eq('id', (doc as any).id)
+    } else await markEmailed((doc as any).id, to)
+    return NextResponse.json({ ok: true, to, cc, attachment: filename, sentAt: new Date().toISOString(), reminder: b.reminder === true })
   }
 
   // An invoice from the same page: attach the standard invoice instead of a letter.
