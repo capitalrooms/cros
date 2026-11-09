@@ -98,7 +98,7 @@ export default function RoomPage({ params }: { params: Promise<{ id: string; roo
   const cur = o.current
   const letOnly = o.property.lettingType === 'let_only'   // the landlord manages: no rent account, repairs or deposit jobs here
   const pill = STAGE_PILL[o.stage] ?? STAGE_PILL.live
-  const photo = o.room.photos[0]?.src ?? null
+  const photo = o.room.photos[0]?.src ?? (o.property as any).photo ?? null
   const reletDue = !!(cur?.end && !o.incoming) || o.stage === 'void'
   const houseNeeds = o.needs.filter(n => n.category === 'House certificate').length
 
