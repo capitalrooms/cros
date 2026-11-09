@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { PageTop } from '../parts'
 import HomesList from '../HomesList'
+import HomesMapSection from '../HomesMapSection'
 export const metadata: Metadata = { title: 'Rooms in shared homes', description: 'Fully furnished rooms with bills included in well-kept shared homes across London.' }
 export default function Shared() {
   return (
@@ -12,6 +13,7 @@ export default function Shared() {
       <section className="block" style={{ paddingTop: 64 }}><div className="wrap" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
         <h2 className="h3">Flats and houses</h2><HomesList whole />
       </div></section>
+      <HomesMapSection />
     </>
   )
 }

@@ -321,3 +321,43 @@
   .site .benefit .ico{grid-row:span 2;margin:0}
   .site .benefit strong{align-self:end}
 }
+
+/* London map under the listings (9 Nov 2026): light, in the site's greens, place names in the site's heading font */
+.site .lmap{--lm-land:#EEF2EA;--lm-glow:#F8FAF4;--lm-dot:rgba(31,59,46,.09);--lm-park:#D5E4CF;--lm-z1:rgba(31,59,46,.03);--lm-ring:#A7BBAB;--lm-river:#9EC4C2;--lm-river-edge:#DCE8E3;--lm-shine:rgba(255,255,255,.95);display:flex;flex-direction:column;gap:20px}
+.site .lmap-top{display:flex;justify-content:space-between;align-items:flex-end;gap:20px;flex-wrap:wrap}
+.site .lmap-chips{display:flex;gap:8px;flex-wrap:wrap}
+.site .lmap-chips button{font:inherit;font-size:15px;font-weight:600;border:1.5px solid #CBD6CB;background:transparent;color:var(--ink);border-radius:999px;padding:9px 16px;cursor:pointer}
+.site .lmap-chips button span{opacity:.55;margin-left:4px}
+.site .lmap-chips button.on{background:var(--deep);border-color:var(--deep);color:#fff}
+.site .lmap-frame{border-radius:32px;overflow:hidden;background:var(--lm-land);box-shadow:0 30px 60px -36px rgba(13,36,27,.35)}
+.site .lmap-frame svg{display:block;width:100%;height:auto}
+.site .lmap-park{fill:var(--lm-park)}
+.site .lmap-area{font:700 16px var(--font-bricolage),system-ui,sans-serif;fill:#3E5A4A;letter-spacing:-.01em;pointer-events:none;paint-order:stroke;stroke:var(--lm-land);stroke-width:4px;stroke-linejoin:round}
+.site .lmap-zone{font:700 11px var(--font-figtree),system-ui,sans-serif;fill:#6F8A79;letter-spacing:.12em;text-transform:uppercase;pointer-events:none;paint-order:stroke;stroke:var(--lm-land);stroke-width:4px;stroke-linejoin:round}
+.site .lmap-river{stroke-dasharray:1;stroke-dashoffset:1;animation:lmapRiver 2.4s ease-out .1s forwards}
+@keyframes lmapRiver{to{stroke-dashoffset:0}}
+.site .lmap-shine{stroke-dasharray:18 42;opacity:0;animation:lmapShine 9s linear 2.4s infinite,lmapFade .8s ease 2.4s forwards}
+@keyframes lmapShine{to{stroke-dashoffset:-600}}
+@keyframes lmapFade{to{opacity:1}}
+.site .lmap-pin{cursor:pointer;opacity:0;animation:lmapPin .5s ease forwards;outline:none}
+@keyframes lmapPin{to{opacity:1}}
+.site .lmap-tag{fill:var(--deep);transition:fill .2s}
+.site .lmap-price{font:700 15px var(--font-figtree),system-ui,sans-serif;fill:#fff;pointer-events:none}
+.site .lmap-dot{fill:var(--deep);stroke:#fff;stroke-width:2.5}
+.site .lmap-halo{fill:var(--deep);opacity:.10}
+.site .lmap-pulse{fill:none;stroke:var(--forest);stroke-width:2;transform-box:fill-box;transform-origin:center;animation:lmapPulse 2.6s ease-out infinite}
+@keyframes lmapPulse{0%{transform:scale(.6);opacity:.8}100%{transform:scale(3.2);opacity:0}}
+.site .lmap-pin:hover .lmap-tag,.site .lmap-pin:focus-visible .lmap-tag,.site .lmap-pin.on .lmap-tag{fill:var(--forest)}
+.site .lmap-pin.on .lmap-price{fill:var(--lime)}
+.site .lmap-pin:focus-visible .lmap-halo{opacity:.35}
+.site .lmap-panel{background:#fff;border-radius:28px;padding:22px;display:flex;flex-direction:column;gap:16px}
+.site .lmap-close{font:inherit;font-weight:600;background:none;border:0;color:var(--muted);cursor:pointer;text-decoration:underline}
+.site .lmap-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
+.site .lmap-card{display:grid;grid-template-columns:96px minmax(0,1fr);gap:14px;align-items:center;text-decoration:none;color:var(--ink);padding:8px;border-radius:20px;background:#F6F8F3}
+.site .lmap-card:hover{background:#ECF1E8}
+.site .lmap-card .ph{height:80px;border-radius:14px;display:block;overflow:hidden}
+.site .lmap-card .ph img{width:100%;height:100%;object-fit:cover;display:block}
+.site .lmap-hint{color:var(--muted);margin:0}
+@media (max-width:700px){.site .lmap-frame{border-radius:22px;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:none}.site .lmap-frame::-webkit-scrollbar{display:none}.site .lmap-frame svg{width:760px;max-width:none}.site .lmap-swipe{display:block!important}}
+.site .lmap-swipe{display:none;color:var(--muted);font-size:14px;margin:-8px 0 0}
+@media (prefers-reduced-motion:reduce){.site .lmap-river{animation:none;stroke-dashoffset:0}.site .lmap-pin{animation:none;opacity:1}.site .lmap-shine,.site .lmap-pulse{animation:none;opacity:0}}
