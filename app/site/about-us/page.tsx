@@ -12,7 +12,7 @@ export default async function About() {
     <>
       <PageTop eyebrow="About us" title="The agent people leave the big agencies for." photo="about" />
       <section className="block" style={{ paddingTop: 64 }}><div className="wrap"><div className="prose rise">
-        <p>Capital Rooms is an independent letting and property management agency, looking after landlords’ homes across London since 2018. We manage shared houses and single lets, mostly in east and south east London, and we’re rated {GOOGLE_RATING.stars} out of 5 from {GOOGLE_RATING.count} reviews on Google.</p>
+        <p>Capital Rooms is an independent letting and property management agency, looking after landlords’ properties across London since 2018. We manage shared houses and single lets, mostly in east and south east London, and we’re rated {GOOGLE_RATING.stars} out of 5 from {GOOGLE_RATING.count} reviews on Google.</p>
         <p>We stay deliberately small. Every landlord has one person to call, who knows their property and answers the phone. We keep you compliant as the rules change, chase rent quickly, fix things properly and show you exactly where your money has gone, with every statement, invoice and certificate in your own landlord app.</p>
         <p>For tenants, that means well-kept, fully furnished homes, often with bills included, shared with likeminded housemates you can meet before you move in. Happy tenants stay longer, which is good for everyone.</p>
         <p>We’re members of The Property Ombudsman, client money is protected with ClientMoney Protect, and every deposit is registered with the DPS.</p>
