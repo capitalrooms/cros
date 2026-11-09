@@ -22,10 +22,20 @@ const TENANT_FEATURES: [string, string][] = [
 ]
 const AREAS = ['Canada Water', 'Rotherhithe', 'Surrey Quays', 'Stratford', 'Deptford', 'Canary Wharf', 'Poplar', 'Custom House', 'East Ham', 'Crystal Palace', 'Wandsworth', 'Pimlico', 'Bermondsey']
 
+// who we are, for Google (name, logo, phone, address): helps it show the right logo and details beside us
+const ORG = {
+  '@context': 'https://schema.org', '@type': 'RealEstateAgent', name: 'Capital Rooms', url: 'https://capitalrooms.co.uk',
+  logo: 'https://capitalrooms.co.uk/site-icon-512.png', image: 'https://capitalrooms.co.uk/site-icon-512.png',
+  telephone: '+44 20 7112 9163', email: 'info@capitalrooms.co.uk',
+  address: { '@type': 'PostalAddress', streetAddress: '66 Paul Street', addressLocality: 'London', postalCode: 'EC2A 4NA', addressCountry: 'GB' },
+  areaServed: 'London',
+}
+
 export default async function Home() {
   const b = await siteBase()
   return (
     <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(ORG) }} />
       {/* banner */}
       <section className="hero" aria-label="Capital Rooms">
         <Photo k="hero" className="hero-ph tint" eager alt="Tower Bridge and the Thames at sunset" />
