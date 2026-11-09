@@ -86,6 +86,7 @@ export const EMAIL_KINDS: EmailKind[] = [
   { key: 'password-reset', name: 'Reset your password', audience: 'Everyone', from: 'CROS', when: 'When a password reset is asked for' },
   { key: 'sign-in-link', name: 'Sign-in link', audience: 'Everyone', from: 'CROS', when: 'When someone asks for a link to sign in' },
   { key: 'letter', name: 'Letters & invoices', audience: 'Everyone', from: 'Office', when: 'From Letters & Invoices' },
+  { key: 'website-enquiry', name: 'Website enquiry', audience: 'Office', from: 'Office', when: 'Someone sends a form on capitalrooms.co.uk (contact, landlord, valuation, maintenance quote, preferences)' },
   { key: 'invoice-reminder', name: 'Invoice reminder', audience: 'Landlords', from: 'Office', when: 'Letters & Invoices › Send reminder on an invoice already emailed' },
   { key: 'calendar-invite', name: 'Calendar invitation', audience: 'Everyone', from: 'Office', when: 'When you send a calendar invite', slugs: ['staff-calendar-invite'] },
   { key: 'app-notification', name: 'Notifications from the app', audience: 'Everyone', from: 'CROS', when: 'When someone gets an alert in the app (also by email)' },
