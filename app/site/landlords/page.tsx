@@ -8,7 +8,7 @@ import { PageTop, Tick, Reviews } from '../parts'
 import { LandlordPhone, CompliancePhone, RepairPhone, StatementPhone, LettingPhone, ExpensesPhone, Benefits } from '../Showcase'
 import Enquiry from '../Enquiry'
 
-export const metadata: Metadata = { title: 'Landlords', description: 'Let only 5%, single let 8%, HMO management 12% (+ VAT). Your own landlord portal, compliance tracked, repairs with no mark-up, clear statements.' }
+export const metadata: Metadata = { title: 'Letting and Property Management for London Landlords', alternates: { canonical: '/landlords' }, description: 'Let only 5%, single let 8%, HMO management 12% (+ VAT). Your own landlord portal, compliance tracked, repairs with no mark-up, clear statements.' }
 
 const ROWS: { eyebrow: string; title: string; body: string; points: string[]; phone: React.ReactNode }[] = [
   { eyebrow: 'Your landlord portal', title: 'Your property, on your phone.', body: 'Sign in any time to see how your property is doing. No chasing, no waiting for a call back.', points: ['Monthly statements and every payment', 'Certificates, agreements and inventories', 'Repairs as they happen, with photos'], phone: <LandlordPhone /> },

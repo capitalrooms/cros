@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import { PageTop } from '../parts'
 import HomesList from '../HomesList'
 import HomesMapSection from '../HomesMapSection'
-export const metadata: Metadata = { title: 'Homes to rent', description: 'Flats, houses and rooms to rent across London from Capital Rooms.' }
+export const metadata: Metadata = { title: 'Flats, Houses and Rooms to Rent in London', description: 'Flats, houses and rooms to rent across London from Capital Rooms. See photos, rent and availability, then book a viewing.', alternates: { canonical: '/residential-lettings' } }
 // the menu's "Rent": everything to let — whole homes first, then rooms (9 Nov 2026, Harry couldn't find a room here)
 export default function Residential() {
   return (

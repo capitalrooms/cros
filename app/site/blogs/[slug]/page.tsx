@@ -7,7 +7,7 @@ import { markdownToHtml } from '@/lib/website/markdown'
 export const revalidate = 300
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const p = await livePost((await params).slug)
-  return p ? { title: p.title, description: p.excerpt ?? undefined, openGraph: { images: p.cover_url ? [p.cover_url] : [] } } : { title: 'Not found' }
+  return p ? { title: p.title, description: p.excerpt ?? undefined, alternates: { canonical: `/blogs/${p.slug}` }, openGraph: { type: 'article', title: p.title, description: p.excerpt ?? undefined, images: p.cover_url ? [p.cover_url] : ['/og-capital-rooms.jpg'] } } : { title: 'Not found', robots: { index: false } }
 }
 export default async function Post({ params }: { params: Promise<{ slug: string }> }) {
   const [b, p] = await Promise.all([siteBase(), livePost((await params).slug)])

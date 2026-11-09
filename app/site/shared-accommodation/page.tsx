@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import { PageTop } from '../parts'
 import HomesList from '../HomesList'
 import HomesMapSection from '../HomesMapSection'
-export const metadata: Metadata = { title: 'Rooms in shared homes', description: 'Fully furnished rooms with bills included in well-kept shared homes across London.' }
+export const metadata: Metadata = { title: 'Rooms to Rent in London: Furnished, Bills Included', description: 'Furnished rooms to rent in well-kept shared homes across London, bills included. Meet your housemates before you move in and report repairs in our app.', alternates: { canonical: '/shared-accommodation' } }
 export default function Shared() {
   return (
     <>

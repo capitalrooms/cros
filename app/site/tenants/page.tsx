@@ -7,7 +7,7 @@ import { PageTop, Tick, Reviews } from '../parts'
 import { TenantPhone, HousePhone, MoveInPhone, Benefits } from '../Showcase'
 import { TenantCalc } from '../Calculators'
 
-export const metadata: Metadata = { title: 'Tenants', description: 'Renting with Capital Rooms: repairs reported and sorted in our app, meet your housemates before you move, and move in from your phone.' }
+export const metadata: Metadata = { title: 'Renting in London with Capital Rooms', alternates: { canonical: '/tenants' }, description: 'Renting with Capital Rooms: repairs reported and sorted in our app, meet your housemates before you move, and move in from your phone.' }
 
 const ROWS: { eyebrow: string; title: string; body: string; points: string[]; phone: React.ReactNode }[] = [
   { eyebrow: 'Repairs', title: 'Something broken? Sorted.', body: 'Report it in the app with a photo and you’ll see exactly when it’s booked. Our contractors turn up when they say, and you’re kept in the loop the whole way.', points: ['Report in seconds, with photos', 'See the visit day and time', 'Emergencies answered day or night'], phone: <TenantPhone /> },

@@ -32,6 +32,8 @@ export const metadata: Metadata = {
     apple: '/apple-touch-icon.png',
   },
   formatDetection: { telephone: false },
+  // the app's pages are private: keep them out of search (app/site/layout.tsx turns it back on for the website)
+  robots: { index: false, follow: false },
 }
 
 export const viewport: Viewport = {

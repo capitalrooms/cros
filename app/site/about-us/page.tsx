@@ -3,7 +3,7 @@ import type { Metadata } from 'next'
 import { siteBase } from '@/lib/website/base'
 import { PageTop, Badges } from '../parts'
 
-export const metadata: Metadata = { title: 'About us', description: 'Capital Rooms: an independent London letting and management agency.' }
+export const metadata: Metadata = { title: 'About Us: Independent London Letting Agent', description: 'Capital Rooms is an independent letting and property management agency in Shoreditch, looking after landlords, tenants and shared homes across London.', alternates: { canonical: '/about-us' } }
 
 export default async function About() {
   const b = await siteBase()

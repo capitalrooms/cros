@@ -16,11 +16,11 @@ export const dynamic = 'force-dynamic'
 export async function generateMetadata({ params }: { params: Promise<{ roomId: string; token: string }> }): Promise<Metadata> {
   const { roomId, token } = await params
   const l = await load(roomId, token)
-  if (!l) return { title: 'Not found' }
+  if (!l) return { title: 'Not found', robots: { index: false } }
   const where = l.displayAddress?.split(',')[0] || publicTitle(l.displayName)
   const title = `${adTitle(l)}${l.rent ? `, ${gbp(l.rent)} pcm` : ''}`
   const description = (l.description || `${l.wholeLet ? 'Home' : 'Room'} to rent on ${where}${l.billsIncluded ? ', bills included' : ''}. ${when(l.available)}.`).slice(0, 160)
-  return { title, description, openGraph: { title, description, images: l.media.filter(m => m.kind === 'photo').slice(0, 1).map(m => m.url) } }
+  return { title, description, alternates: { canonical: `/l/${roomId}/${token}` }, openGraph: { title, description, images: l.media.filter(m => m.kind === 'photo').slice(0, 1).map(m => m.url) } }
 }
 
 export default async function Listing({ params }: { params: Promise<{ roomId: string; token: string }> }) {

@@ -1,6 +1,7 @@
 // The homepage (9 Nov 2026 rebuild): sells what Capital Rooms actually does now — a personal agent backed by its own
 // software (CROS): the landlord portal, the tenant app, online move-ins, compliance tracked, repairs with no mark-up.
 import Link from 'next/link'
+import type { Metadata } from 'next'
 import { siteBase } from '@/lib/website/base'
 import { TIERS, STEPS } from '@/lib/website/site'
 import { Photo, Tick, Reviews, Badges } from './parts'
@@ -21,6 +22,8 @@ const TENANT_FEATURES: [string, string][] = [
   ['Meet your housemates', 'Say hello before you move in.'],
 ]
 const AREAS = ['Canada Water', 'Rotherhithe', 'Surrey Quays', 'Stratford', 'Deptford', 'Canary Wharf', 'Poplar', 'Custom House', 'East Ham', 'Crystal Palace', 'Wandsworth', 'Pimlico', 'Bermondsey']
+
+export const metadata: Metadata = { alternates: { canonical: '/' } }
 
 // who we are, for Google (name, logo, phone, address): helps it show the right logo and details beside us
 const ORG = {
