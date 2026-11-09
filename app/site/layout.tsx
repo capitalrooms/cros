@@ -12,7 +12,7 @@ const figtree = Figtree({ subsets: ['latin'], weight: ['400', '500', '600'], var
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://capitalrooms.co.uk'),
-  title: { default: 'Capital Rooms — London lettings and property management', template: '%s · Capital Rooms' },
+  title: { default: 'Capital Rooms | London lettings and property management', template: '%s · Capital Rooms' },
   description: 'Independent London letting agent: let only, single let and HMO management for landlords, and well-kept homes and rooms to rent across London.',
   openGraph: { siteName: 'Capital Rooms', locale: 'en_GB', type: 'website' },
   icons: { icon: '/favicon-32.png', apple: '/apple-touch-icon.png' },

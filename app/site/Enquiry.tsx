@@ -17,9 +17,9 @@ export default function Enquiry({ kind, fields, submit = 'Send' }: { kind: strin
     setState('sending'); setMsg('')
     const r = await fetch('/api/site/enquiry', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind, values, website: String(fd.get('website') ?? ''), ms: Date.now() - started.current }) }).catch(() => null)
     const d = r ? await r.json().catch(() => ({})) : {}
-    if (r?.ok) { setState('sent'); (e.target as HTMLFormElement).reset() } else { setState('error'); setMsg(d.error || 'That didn’t go through — please try again, or call us on 0207 112 9163.') }
+    if (r?.ok) { setState('sent'); (e.target as HTMLFormElement).reset() } else { setState('error'); setMsg(d.error || 'That didn’t go through. Please try again, or call us on 0207 112 9163.') }
   }
-  if (state === 'sent') return <p className="note ok" role="status">Thank you — that’s with us. We’ll be in touch shortly.</p>
+  if (state === 'sent') return <p className="note ok" role="status">Thank you, that’s with us. We’ll be in touch shortly.</p>
   return (
     <form className="f" onSubmit={send} noValidate={false}>
       {fields.map(f => (

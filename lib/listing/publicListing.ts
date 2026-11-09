@@ -43,7 +43,7 @@ export function autoDescription(l: Listing, where: string, stations: Station[]):
   const lines = [first.replace(/\s+/g, ' ')]
   if (!l.wholeLet && f.housemates) lines.push(`You’d be sharing with ${f.housemates} ${f.housemates === 1 ? 'housemate' : 'housemates'}${f.livingRoom ? ', with a shared living room' : ''}${f.bathrooms ? ` and ${f.bathrooms} bathroom${f.bathrooms === 1 ? '' : 's'}` : ''}.`)
   if (stations[0]) lines.push(`${stations[0].name} (${stations[0].lines.slice(0, 2).join(', ') || stations[0].kinds.join(', ')}) is about a ${stations[0].walkMin}-minute walk${stations[1] ? `, and ${stations[1].name} ${stations[1].walkMin} minutes` : ''}.`)
-  lines.push('Professionally managed by Capital Rooms — repairs reported in the app, and a team on hand when you need us.')
+  lines.push('Professionally managed by Capital Rooms, with repairs reported in the app, and a team on hand when you need us.')
   return lines.join(' ')
 }
 

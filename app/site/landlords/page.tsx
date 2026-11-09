@@ -5,7 +5,7 @@ import { TIERS, RENT_GUARANTEE } from '@/lib/website/site'
 import { PageTop, Tick, Reviews } from '../parts'
 import Enquiry from '../Enquiry'
 
-export const metadata: Metadata = { title: 'Landlords', description: 'Let only 5%, single let management 8%, HMO management 12%, and a Rent Guarantee — independent London letting and management.' }
+export const metadata: Metadata = { title: 'Landlords', description: 'Let only 5%, single let management 8%, HMO management 12%, and a Rent Guarantee. Independent London letting and management.' }
 
 export default async function Landlords() {
   const b = await siteBase()

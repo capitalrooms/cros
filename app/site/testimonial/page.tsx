@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import { PageTop, Reviews } from '../parts'
-export const metadata: Metadata = { title: 'Testimonials', description: 'What our landlords and tenants say about Capital Rooms — our Google reviews.' }
+export const metadata: Metadata = { title: 'Testimonials', description: 'What our landlords and tenants say about Capital Rooms on Google.' }
 export default function Testimonials() {
   return (
     <>

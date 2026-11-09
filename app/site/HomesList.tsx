@@ -4,7 +4,7 @@ const when = (d: string | null) => !d ? 'Date to confirm' : d <= new Date().toIS
 
 export default async function HomesList({ whole }: { whole: boolean }) {
   const homes = (await websiteHomes()).filter(h => h.whole === whole)
-  if (!homes.length) return <div className="card"><h2 className="h3">Nothing free right now</h2><p style={{ color: 'var(--muted)' }}>New homes come up all the time — call us on 0207 112 9163 or send a message and we’ll tell you first.</p></div>
+  if (!homes.length) return <div className="card"><h2 className="h3">Nothing free right now</h2><p style={{ color: 'var(--muted)' }}>New homes come up all the time. Call us on 0207 112 9163 or send a message and we’ll tell you first.</p></div>
   return (
     <div className="grid3">
       {homes.map(h => (
