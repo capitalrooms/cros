@@ -24,10 +24,10 @@ interface Doc {
 const when = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
 const money = (n: number) => `£${n.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
-export default function SavedDocuments({ refreshKey, onEdit }: { refreshKey: number; onEdit?: (doc: Doc) => void }) {
+export default function SavedDocuments({ refreshKey, onEdit, onCount }: { refreshKey: number; onEdit?: (doc: Doc) => void; onCount?: (n: number) => void }) {
   const [docs, setDocs] = useState<Doc[] | null>(null)
   const [setupNeeded, setSetupNeeded] = useState(false)
-  const [filter, setFilter] = useState<'all' | Doc['kind']>('all')
+  const [filter, setFilter] = useState<'all' | Doc['kind'] | 'drafts'>('all')
   const [query, setQuery] = useState('')
   const [busy, setBusy] = useState('')
   const [error, setError] = useState('')
@@ -68,9 +68,14 @@ export default function SavedDocuments({ refreshKey, onEdit }: { refreshKey: num
     const r = await adminFetch('/api/admin/documents/generated')
     const d = await r.json().catch(() => ({}))
     if (!r.ok) { setError(d.error ?? 'Could not load your documents'); setDocs([]); return }
-    setDocs(d.documents ?? []); setSetupNeeded(!!d.setupNeeded); setError('')
-  }, [])
+    setDocs(d.documents ?? []); setSetupNeeded(!!d.setupNeeded); setError(''); onCount?.((d.documents ?? []).length)
+  }, [onCount])
   useEffect(() => { load() }, [load, refreshKey])
+  // a "More" menu closes when you click anywhere else
+  useEffect(() => {
+    const close = (e: MouseEvent) => document.querySelectorAll('details[data-more][open]').forEach(d => { if (!d.contains(e.target as Node)) (d as HTMLDetailsElement).open = false })
+    document.addEventListener('click', close); return () => document.removeEventListener('click', close)
+  }, [])
 
   async function open(doc: Doc, mode: 'view' | 'download') {
     const win = mode === 'view' ? window.open('', '_blank') : null   // open now, while the click still allows it
@@ -95,20 +100,20 @@ export default function SavedDocuments({ refreshKey, onEdit }: { refreshKey: num
     const d = await r.json().catch(() => ({}))
     setBusy('')
     if (!r.ok) { setError(d.error ?? 'Could not delete it'); return }
-    setDocs(list => (list ?? []).filter(x => x.id !== doc.id))
+    setDocs(list => { const next = (list ?? []).filter(x => x.id !== doc.id); onCount?.(next.length); return next })
   }
 
   const q = query.trim().toLowerCase()
-  const shown = (docs ?? []).filter(d => (filter === 'all' || d.kind === filter) &&
+  const shown = (docs ?? []).filter(d => (filter === 'all' || (filter === 'drafts' ? !d.emailed_at : d.kind === filter)) &&
     (!q || [d.number, d.title, d.recipient_name].some(v => (v ?? '').toLowerCase().includes(q))))
 
   return (
     <div className="bg-white rounded-xl border border-neutral-200 p-lg">
       <div className="flex flex-wrap items-center justify-between gap-sm mb-md">
-        <h2 className="font-semibold text-neutral-900">Your letters &amp; invoices</h2>
+        <h2 className="font-semibold text-neutral-900">Sent &amp; saved</h2>
         <div className="flex flex-wrap items-center gap-sm">
           <div className="inline-flex rounded-lg border border-neutral-200 p-0.5 bg-neutral-50">
-            {([['all', 'All'], ['invoice', 'Invoices'], ['letter', 'Letters'], ['receipt', 'Receipts']] as const).map(([v, l]) => (
+            {([['all', 'All'], ['invoice', 'Invoices'], ['letter', 'Letters'], ['receipt', 'Receipts'], ['drafts', `Not emailed${(docs ?? []).some(d => !d.emailed_at) ? ` (${(docs ?? []).filter(d => !d.emailed_at).length})` : ''}`]] as const).map(([v, l]) => (
               <button key={v} type="button" onClick={() => setFilter(v)}
                 className={`rounded-md px-sm py-0.5 text-xs font-semibold ${filter === v ? 'bg-neutral-900 text-white' : 'text-neutral-600'}`}>{l}</button>
             ))}
@@ -122,7 +127,7 @@ export default function SavedDocuments({ refreshKey, onEdit }: { refreshKey: num
       {error && <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-md py-sm mb-md">{error}</p>}
       {docs === null && <p className="text-sm text-neutral-400">Loading…</p>}
       {docs !== null && !shown.length && !setupNeeded && (
-        <p className="text-sm text-neutral-500">{docs.length ? 'Nothing matches.' : 'Nothing yet — every letter or invoice you download or email is saved here.'}</p>
+        <p className="text-sm text-neutral-500">{docs.length ? 'Nothing matches.' : 'Nothing yet — every letter or invoice you save, download or email lands here.'}</p>
       )}
 
       {resend && resendDoc && (
@@ -147,42 +152,46 @@ export default function SavedDocuments({ refreshKey, onEdit }: { refreshKey: num
       )}
 
       {shown.length > 0 && (
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-xs uppercase tracking-wide text-neutral-500 border-b border-neutral-200">
-                <th className="py-xs pr-sm font-semibold">Date</th>
-                <th className="py-xs pr-sm font-semibold">Document</th>
-                <th className="py-xs pr-sm font-semibold">To</th>
-                <th className="py-xs pr-sm font-semibold text-right">Amount</th>
-                <th className="py-xs pr-sm font-semibold">Emailed</th>
-                <th className="py-xs font-semibold text-right">&nbsp;</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-neutral-100">
-              {shown.map(d => (
-                <tr key={d.id} className="align-top">
-                  <td className="py-sm pr-sm whitespace-nowrap text-neutral-600 tabular-nums">{when(d.created_at)}</td>
-                  <td className="py-sm pr-sm">
-                    <p className="font-semibold text-neutral-900">{d.kind === 'letter' ? `${d.title}` : `${d.number}`}</p>
-                    {d.kind !== 'letter' && d.title && <p className="text-xs text-neutral-500">{d.title}</p>}
-                  </td>
-                  <td className="py-sm pr-sm text-neutral-700">{d.recipient_name}</td>
-                  <td className="py-sm pr-sm text-right tabular-nums">{d.total != null ? money(Number(d.total)) : '—'}</td>
-                  <td className="py-sm pr-sm text-xs text-neutral-500">{d.emailed_at ? `${when(d.emailed_at)}${d.emailed_to?.length ? ` · ${d.emailed_to.join(', ')}` : ''}` : 'Not emailed'}{d.reminders?.length ? <span className="block text-amber-700">{d.reminders.length === 1 ? 'Reminder' : `${d.reminders.length} reminders`} · last {when(d.reminders[d.reminders.length - 1].at)}</span> : null}</td>
-                  <td className="py-sm text-right"><div className="flex flex-wrap justify-end gap-x-sm gap-y-0.5 [&>button]:mr-0 [&>button]:whitespace-nowrap">
-                    <button type="button" onClick={() => open(d, 'view')} disabled={!!busy} className="text-xs font-semibold text-blue-600 hover:underline mr-sm">View</button>
-                    <button type="button" onClick={() => open(d, 'download')} disabled={!!busy} className="text-xs font-semibold text-blue-600 hover:underline mr-sm">Download</button>
-                    {d.kind === 'invoice' && d.emailed_at && <button type="button" onClick={() => { if (resend?.id === d.id && resend.reminder) { setResend(null); return } startReminder(d); setTimeout(() => document.getElementById('send-again')?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 50) }} disabled={!!busy} className="text-xs font-semibold text-amber-700 hover:underline mr-sm">{resend?.id === d.id && resend.reminder ? 'Close' : 'Send reminder'}</button>}
-                    <button type="button" onClick={() => { if (resend?.id === d.id && !resend.reminder) { setResend(null); return } startResend(d); setTimeout(() => document.getElementById('send-again')?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 50) }} disabled={!!busy} className="text-xs font-semibold text-blue-600 hover:underline mr-sm">{resend?.id === d.id && !resend.reminder ? 'Close' : 'Send again'}</button>
-                    {onEdit && d.kind !== 'receipt' && <button type="button" onClick={() => onEdit(d)} disabled={!!busy} className="text-xs font-semibold text-blue-600 hover:underline mr-sm">Edit</button>}
-                    <button type="button" onClick={() => remove(d)} disabled={!!busy} className="text-xs font-semibold text-red-600 hover:underline">Delete</button>
-                  </div></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <ul className="divide-y divide-neutral-100 border-t border-neutral-100">
+          {shown.map(d => {
+            const scrollTo = () => setTimeout(() => document.getElementById('send-again')?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 50)
+            const remind = d.kind === 'invoice' && !!d.emailed_at
+            const name = d.kind === 'letter' ? d.title : `${d.kind === 'invoice' ? 'Invoice' : 'Receipt'} ${d.number}`
+            const last = d.reminders?.length ? d.reminders[d.reminders.length - 1] : null
+            const status = !d.emailed_at ? <span className="rounded-full bg-neutral-100 px-sm py-0.5 text-xs font-semibold text-neutral-600">Not emailed</span>
+              : last ? <span className="rounded-full bg-amber-50 px-sm py-0.5 text-xs font-semibold text-amber-800">{d.reminders!.length === 1 ? 'Reminded' : `Reminded ${d.reminders!.length}×`} {when(last.at)}</span>
+              : <span className="rounded-full bg-emerald-50 px-sm py-0.5 text-xs font-semibold text-emerald-800">Emailed {when(d.emailed_at)}</span>
+            const primary = remind
+              ? <button type="button" onClick={() => { if (resend?.id === d.id && resend.reminder) { setResend(null); return } startReminder(d); scrollTo() }} disabled={!!busy} className="w-32 rounded-lg border border-amber-300 bg-amber-50 px-md py-1 text-center text-xs font-bold text-amber-900 hover:bg-amber-100">{resend?.id === d.id && resend.reminder ? 'Close' : 'Send reminder'}</button>
+              : <button type="button" onClick={() => { if (resend?.id === d.id && !resend.reminder) { setResend(null); return } startResend(d); scrollTo() }} disabled={!!busy} className="w-32 rounded-lg border border-neutral-300 px-md py-1 text-center text-xs font-bold text-neutral-900 hover:bg-neutral-50">{resend?.id === d.id && !resend.reminder ? 'Close' : d.emailed_at ? 'Send again' : 'Email it'}</button>
+            const item = 'block w-full px-md py-1.5 text-left text-sm text-neutral-800 hover:bg-neutral-50 disabled:text-neutral-300'
+            return (
+              <li key={d.id} className="grid gap-x-md gap-y-xs py-sm md:grid-cols-[1fr_auto] md:items-center">
+                <div className="min-w-0">
+                  <p className="flex flex-wrap items-center gap-x-sm gap-y-0.5">
+                    <span className="font-semibold text-neutral-900">{name}</span>
+                    {d.total != null && <span className="text-sm font-semibold tabular-nums text-neutral-700">{money(Number(d.total))}</span>}
+                    {status}
+                  </p>
+                  <p className="truncate text-xs text-neutral-500">{d.recipient_name}{d.kind !== 'letter' && d.title ? ` · ${d.title}` : ''} · made {when(d.created_at)}{d.emailed_to?.length ? ` · to ${d.emailed_to.join(', ')}` : ''}</p>
+                </div>
+                <div className="flex items-center gap-sm">
+                  <button type="button" onClick={() => open(d, 'view')} disabled={!!busy} className="text-xs font-semibold text-blue-700 hover:underline">View</button>
+                  {primary}
+                  <details className="relative" data-more>
+                    <summary className="cursor-pointer list-none rounded-lg px-sm py-1 text-xs font-semibold text-neutral-600 hover:bg-neutral-100 [&::-webkit-details-marker]:hidden" aria-label="More actions">More ▾</summary>
+                    <div className="absolute right-0 z-20 mt-1 w-56 overflow-hidden rounded-lg border border-neutral-200 bg-white py-1 shadow-lg" onClick={e => (e.currentTarget.parentElement as HTMLDetailsElement).open = false}>
+                      <button type="button" className={item} disabled={!!busy} onClick={() => open(d, 'download')}>Download PDF</button>
+                      {remind && <button type="button" className={item} disabled={!!busy} onClick={() => { startResend(d); scrollTo() }}>Send again (not a reminder)</button>}
+                      {onEdit && d.kind !== 'receipt' && <button type="button" className={item} disabled={!!busy} onClick={() => onEdit(d)}>Edit</button>}
+                      <button type="button" className={`${item} text-red-700`} disabled={!!busy} onClick={() => remove(d)}>Delete</button>
+                    </div>
+                  </details>
+                </div>
+              </li>
+            )
+          })}
+        </ul>
       )}
     </div>
   )
