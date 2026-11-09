@@ -45,7 +45,15 @@ function LoginForm() {
   // signed out" — say who they are and take them to their own screens instead
   const [signedInAs, setSignedInAs]   = useState<{ email: string; role: string } | null>(null)
   useEffect(() => {
-    getCurrentUser().then(u => { if (u?.assignment?.role) setSignedInAs({ email: u.user?.email ?? '', role: u.assignment.role }) }).catch(() => {})
+    getCurrentUser().then(u => {
+      if (!u?.assignment?.role) return
+      // arriving from outside CROS (the website's Log in, a bookmark, a typed address) while already signed in: straight
+      // to your own screens (9 Nov 2026). Only a CROS screen meant for another role shows the "signed in as" box.
+      let fromCros = false
+      try { fromCros = !!document.referrer && new URL(document.referrer).host === location.host } catch {}
+      if (!fromCros && !searchParams.get('email') && !searchParams.get('phone')) { window.location.replace(roleHome(u.assignment.role)); return }
+      setSignedInAs({ email: u.user?.email ?? '', role: u.assignment.role })
+    }).catch(() => {})
   }, [])
 
   useEffect(() => {
