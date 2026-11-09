@@ -11,6 +11,19 @@ export const NAV: [string, string][] = [
   ['To rent', '/residential-lettings'], ['Landlords', '/landlords'], ['Tenants', '/tenants'], ['Maintenance', '/maintenance-services'], ['About us', '/about-us'], ['Advice', '/blogs'], ['Contact', '/contact'],
 ]
 
+// the team on About us (9 Nov 2026, Harry's words tidied). photo: a file under public/website/team/, blank = initial in a circle
+export const TEAM: { name: string; role: string; photo: string; bio: string; quote?: string }[] = [
+  { name: 'Harry', role: 'Founder · your one point of contact', photo: '',
+    bio: 'Harry set up Capital Rooms in 2018 after working at a large estate agency, where he watched landlords get passed from one desk to the next and never quite know who was looking after their home. Here, you have his number. He answers it, knows your property, and keeps you up to date with the rules as they change.',
+    quote: 'Being the person every landlord calls is the busiest part of my job, and the part I’d never give up. Some landlords like a weekly catch-up on Zoom, others prefer to hear from me only when it matters. Either way, you’ll always know what’s happening with your home.' },
+  { name: 'Jacob', role: 'Lettings', photo: '',
+    bio: 'Jacob has let homes for several London agencies and now runs our lettings, from the first viewing to the day the keys are handed over. Tenants love his warmth, especially people new to the city. Landlords get the other side of him too: careful referencing, honest feedback and the right tenant, not just the first one.' },
+  { name: 'Martin', role: 'Accounts', photo: '',
+    bio: 'Martin brings 20 years in property finance, including time at the software companies that produce landlord statements. He chases rent the day it’s late so it doesn’t become arrears, and makes sure every payment, invoice and statement leaves a clear paper trail you and your accountant can rely on.' },
+  { name: 'Ricky', role: 'Maintenance', photo: '',
+    bio: 'Ricky learnt every part of a building at one of London’s biggest construction firms before going it alone. When something needs fixing, he’s who we call: the job is done properly the first time, priced fairly, and you see the photos when it’s finished.' },
+]
+
 // our Google rating (Business Profile, checked 9 Nov 2026): update when it moves
 export const GOOGLE_RATING = { stars: '4.9', count: 101 }
 
