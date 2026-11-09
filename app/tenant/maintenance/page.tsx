@@ -34,9 +34,11 @@ export default function MaintenanceHub() {
           ))}
         </ul>
 
+        <p className="mt-sm text-xs text-neutral-500">We’ll suggest anything quick you could try first, then book it in if it still needs fixing.</p>
+
         <div className="mt-lg space-y-sm text-sm">
-          <Link href="/tenant/maintenance-smart" className="block rounded-xl border border-neutral-200 bg-white px-lg py-md text-neutral-800 hover:bg-neutral-50">
-            <b>Not sure what’s wrong?</b> Answer a few questions and we’ll help you work it out — or report it from there.
+          <Link href="/tenant/housemate-concern" className="block rounded-xl border border-neutral-200 bg-white px-lg py-md text-neutral-800 hover:bg-neutral-50">
+            <b>Not a repair?</b> Having trouble with a housemate? Tell us here
           </Link>
           <Link href="/tenant/emergency" className="block rounded-xl border border-red-200 bg-red-50 px-lg py-md text-red-900 hover:bg-red-100">
             <b>Water pouring, no power or heating, a door that won’t lock?</b> Report an emergency

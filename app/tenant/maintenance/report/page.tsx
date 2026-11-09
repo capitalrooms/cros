@@ -8,12 +8,12 @@ import AppBar from '@/components/AppBar';
 import { repairTarget } from '@/lib/repairs/targets';
 import BackButton from '@/app/components/BackButton';
 import { KINDS, kindFrom } from '@/lib/emergencies/guide';
-import { currentTenancy } from '@/lib/tenancy';
 import LineIcon from '@/components/LineIcon'
+import { adminFetch } from '@/lib/adminFetch'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
-type Step = 'form' | 'triage' | 'photos' | 'urgency' | 'done';
+type Step = 'form' | 'triage' | 'photos' | 'urgency' | 'done' | 'fixed';
 type UrgencyLevel = 'routine' | 'soon' | 'urgent' | 'emergency';
 
 // Locations that will auto-post a notice to the communal board
@@ -256,6 +256,16 @@ function getTenantNote(desc: string, cat: string, loc: string) {
 
 // ── Label scan helper ─────────────────────────────────────────────────────────
 
+/** Shrink a phone photo before it's sent (long side 1600px, JPEG) — fast on mobile data, always under the size limit. */
+async function shrinkPhoto(file: File): Promise<Blob> {
+  const img = await createImageBitmap(file).catch(() => null)
+  if (!img) return file
+  const k = Math.min(1, 1600 / Math.max(img.width, img.height))
+  const c = document.createElement('canvas'); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k)
+  c.getContext('2d')!.drawImage(img, 0, 0, c.width, c.height)
+  return await new Promise<Blob>(res => c.toBlob(b => res(b ?? file), 'image/jpeg', 0.82))
+}
+
 async function scanLabel(file: File): Promise<LabelData> {
   const reader = new FileReader();
   return new Promise((resolve) => {
@@ -334,7 +344,23 @@ function ReportWizardContent() {
   // emergencies: is it contained until morning? and what CROS did about it (shown on the done screen)
   const [controlled, setControlled] = useState<boolean | null>(null);
   const [emStatus, setEmStatus] = useState<string | null>(null);
-  const [triageResult, setTriageResult] = useState<{ tip: string; steps: string[] } | null>(null);
+  const [triageResult, setTriageResult] = useState<{ tip: string; steps: string[]; stopIf?: string } | null>(null);
+  const [tipsLoading, setTipsLoading] = useState(false);
+  const tipsAsked = useRef(0);
+  // the draft lives on the phone until it's sent, so nothing typed is ever lost (a closed app, no signal)
+  const draftKey = `cros-repair-draft-${categoryId || 'other'}`;
+  const [draftRestored, setDraftRestored] = useState(false);
+  useEffect(() => {
+    try {
+      const d = JSON.parse(localStorage.getItem(draftKey) || 'null');
+      if (d && Date.now() - d.at < 7 * 86400_000 && d.description) { setDescription(d.description); setLocation(d.location || 'My Room / Bedroom'); setAnswers(d.answers || {}); setDraftRestored(true) }
+    } catch { /* no draft */ }
+  }, [draftKey]);
+  useEffect(() => {
+    if (step === 'done' || step === 'fixed') return
+    try { if (description.trim()) localStorage.setItem(draftKey, JSON.stringify({ at: Date.now(), description, location, answers })) } catch { /* private mode */ }
+  }, [description, location, answers, draftKey, step]);
+  const clearDraft = () => { try { localStorage.removeItem(draftKey) } catch { /* noop */ } };
   const [triageExpanded, setTriageExpanded] = useState(false);
   const [loading, setLoading] = useState(false);
   const [submitError, setSubmitError] = useState('');
@@ -383,15 +409,21 @@ function ReportWizardContent() {
     return match ? { tip: match.tip, steps: match.steps } : null;
   }
 
-  function handleFormNext() {
+  async function handleFormNext() {
     if (description.trim().length < 6) return;
     const result = runTriage(description);
-    setTriageResult(result);
-    if (result) {
-      setStep('triage');
-    } else {
-      setStep('photos');
-    }
+    if (result) { setTriageResult(result); setStep('triage'); return; }
+    // anything else: ask for quick, safe things to try — never more than a few seconds, and never blocking
+    const ask = ++tipsAsked.current;
+    setTriageResult(null); setTipsLoading(true); setStep('triage');
+    const allQs = catDef ? [catDef.primary, ...catDef.followUps] : [];
+    const details = allQs.map(q => answers[q.id] ? `${q.label} ${answers[q.id]}` : '').filter(Boolean).join('; ');
+    const r = await adminFetch('/api/tenant/repair-tips', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ description, category: categoryLabel, location, details }) }).catch(() => null);
+    const d = r?.ok ? await r.json().catch(() => null) : null;
+    if (ask !== tipsAsked.current) return;   // they skipped ahead
+    setTipsLoading(false);
+    if (d?.tips) { setTriageResult({ tip: d.tips.headline, steps: d.tips.steps, stopIf: d.tips.stopIf }); setTriageExpanded(true); }
+    else setStep('photos');
   }
 
   // ── Auto-urgent logic ─────────────────────────────────────────────────────
@@ -474,46 +506,23 @@ function ReportWizardContent() {
       const finalUrgency = urgency === 'emergency' ? 'emergency' : checkAutoUrgent() ? 'urgent' : urgency;
       // the tenant's own answer counts (25 Oct 2026): "Soon please" (within a week) used to be saved as low priority
       const priority = finalUrgency === 'emergency' ? 'emergency' : finalUrgency === 'urgent' ? 'high' : finalUrgency === 'soon' ? 'medium' : 'low';
-      // the house and room from the tenancy running now, not the static people.property_id that nobody clears
-      const home = await currentTenancy<{ property_id: string; room_id: string | null }>(userData.assignment?.id, 'property_id, room_id');
+      // the house and room come from the tenancy running now — worked out on the server
 
-      const { data: ticketData, error: ticketErr } = await supabase
-        .from('maintenance_tickets')
-        .insert([{
-          reporter_id: userData.assignment?.id ?? userData.user.id,   // the person, as the rest of CROS reads it (not the sign-in id)
-          title,
-          description: fullDescription,
-          category: categoryLabel,
-          location,
-          priority,
-          status: 'reported',
-          property_id: home?.property_id ?? userData.assignment?.property_id,
-          room_id: home?.room_id ?? userData.assignment?.room_id,
-        }])
-        .select();
-
-      if (ticketErr) throw ticketErr;
-      const ticketId = ticketData?.[0]?.id;
+      // the job and its photos are saved together on the server (9 Nov 2026) — all or nothing, no half-saved jobs
+      const fd = new FormData();
+      fd.append('title', title); fd.append('description', fullDescription); fd.append('category', categoryLabel);
+      fd.append('location', location); fd.append('priority', priority);
+      for (const [i, ph] of [...(labelPhoto ? [labelPhoto] : []), ...photos].entries()) {
+        fd.append('photos', new File([await shrinkPhoto(ph.file)], `${ph.isLabel ? 'label-' : ''}${i}.jpg`, { type: 'image/jpeg' }));
+      }
+      const res = await adminFetch('/api/tenant/report-repair', { method: 'POST', body: fd }).catch(() => null);
+      const out = res ? await res.json().catch(() => ({})) : {};
+      if (!res?.ok) throw new Error(out.error || 'No signal? Your report is saved on this phone. Tap send again when you’re back online.');
+      const ticketId: string = out.ticketId;
+      if (out.photosFailed) setSubmitError(`${out.photosFailed} photo${out.photosFailed === 1 ? '' : 's'} didn’t upload, but your report was sent. You can add photos from My requests.`);
+      clearDraft();
       const target = repairTarget({ priority, category: categoryLabel, title, description: fullDescription });
       setPromise(target.tier === 'emergency' ? null : target.message);
-
-      // Upload photos
-      const allPhotos = [...(labelPhoto ? [labelPhoto] : []), ...photos];
-      if (ticketId && allPhotos.length > 0) {
-        for (const photo of allPhotos) {
-          const fileName = `${ticketId}/${Date.now()}-${photo.file.name}`;
-          const { error: uploadErr } = await supabase.storage.from('maintenance-photos').upload(fileName, photo.file);
-          if (!uploadErr) {
-            const { data: urlData } = supabase.storage.from('maintenance-photos').getPublicUrl(fileName);
-            await supabase.from('attachments').insert([{
-              ticket_id: ticketId, attachment_type: 'photo',
-              file_name: photo.isLabel ? `[appliance label] ${photo.file.name}` : photo.file.name,
-              file_path: fileName, file_size: photo.file.size, storage_url: urlData.publicUrl,
-              uploaded_by: userData.user.id,
-            }]);
-          }
-        }
-      }
 
       // emergencies: CROS texts the emergency contractors (or gives 999 advice / books the morning) straight away
       if (ticketId && finalUrgency === 'emergency') {
@@ -545,7 +554,7 @@ function ReportWizardContent() {
 
       setStep('done');
     } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : 'Something went wrong — please try again');
+      setSubmitError(err instanceof Error ? err.message : 'That didn’t send. Your report is saved on this phone, so please try again.');
     } finally {
       setLoading(false);
     }
@@ -598,7 +607,7 @@ function ReportWizardContent() {
           onClick={step !== 'form' ? () => {
             const prev: Record<Step, Step> = {
               triage: 'form', photos: triageResult ? 'triage' : 'form',
-              urgency: 'photos', done: 'urgency', form: 'form',
+              urgency: 'photos', done: 'urgency', fixed: 'triage', form: 'form',
             };
             setStep(prev[step] || 'form');
           } : undefined}
@@ -618,6 +627,12 @@ function ReportWizardContent() {
       <div style={{ padding: '20px 16px 64px', maxWidth: 560, margin: '0 auto' }}>
 
         {/* ── STEP: form ──────────────────────────────────────────────────── */}
+        {step === 'form' && draftRestored && (
+          <div style={{ maxWidth: 540, margin: '0 auto 12px', display: 'flex', gap: 10, alignItems: 'center', background: '#EEF4EC', borderRadius: 14, padding: '10px 14px', fontSize: 14, color: '#1F3B2E' }}>
+            <span style={{ flex: 1 }}>We kept what you wrote last time.</span>
+            <button type="button" onClick={() => { clearDraft(); setDescription(''); setAnswers({}); setDraftRestored(false) }} style={{ background: 'none', border: 'none', fontWeight: 600, textDecoration: 'underline', color: '#1F3B2E', cursor: 'pointer' }}>Start again</button>
+          </div>
+        )}
         {step === 'form' && (
           <div style={card}>
 
@@ -807,39 +822,51 @@ function ReportWizardContent() {
           </div>
         )}
 
-        {/* ── STEP: triage ────────────────────────────────────────────────── */}
-        {step === 'triage' && triageResult && (
+        {/* ── STEP: triage — quick things to try (advisory: carrying on is always one tap) ── */}
+        {step === 'triage' && tipsLoading && (
+          <div style={card}>
+            <div style={{ ...section, textAlign: 'center' }}>
+              <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-neutral-200 border-t-neutral-900" />
+              <p style={{ marginTop: 14, fontSize: 15, fontWeight: 600, color: 'var(--cr-ink)' }}>Checking for a quick fix…</p>
+              <button type="button" onClick={() => { tipsAsked.current++; setTipsLoading(false); setStep('photos') }}
+                style={{ marginTop: 14, background: 'none', border: 'none', color: 'rgb(var(--n-500))', fontSize: 14, textDecoration: 'underline', cursor: 'pointer' }}>Skip, just report it</button>
+            </div>
+          </div>
+        )}
+        {step === 'triage' && !tipsLoading && triageResult && (
           <div style={card}>
             <div style={{ ...section, paddingBottom: 0 }}>
-              <div style={{ fontSize: 32, marginBottom: 10 }}><LineIcon glyph="💡" /></div>
-              <h2 style={{ fontSize: 18, fontWeight: 700, color: 'var(--cr-ink)', marginBottom: 8 }}>You might be able to fix this yourself</h2>
-              <p style={{ fontSize: 14, color: 'rgb(var(--n-700))', lineHeight: 1.6, margin: 0 }}>{triageResult.tip}</p>
+              <p style={{ fontSize: 13, fontWeight: 700, color: '#4B6358', margin: '0 0 6px', textTransform: 'uppercase', letterSpacing: '.06em' }}>Worth a quick try</p>
+              <h2 style={{ fontSize: 18, fontWeight: 700, color: 'var(--cr-ink)', margin: '0 0 8px', lineHeight: 1.35 }}>{triageResult.tip}</h2>
             </div>
-
             <div style={section}>
-              <button type="button" onClick={() => setTriageExpanded(e => !e)}
-                style={{ background: 'none', border: 'none', color: '#4B6358', fontSize: 14, fontWeight: 600, cursor: 'pointer', padding: 0, marginBottom: triageExpanded ? 12 : 0 }}>
-                {triageExpanded ? '▲ Hide steps' : '▼ Show me how'}
-              </button>
-              {triageExpanded && (
-                <ol style={{ paddingLeft: 20, margin: '8px 0 0', lineHeight: 1.9 }}>
-                  {triageResult.steps.map((s, i) => (
-                    <li key={i} style={{ fontSize: 14, color: 'rgb(var(--n-700))', marginBottom: 4 }}>{s}</li>
-                  ))}
-                </ol>
-              )}
+              <ol style={{ paddingLeft: 0, margin: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {triageResult.steps.map((st, i) => (
+                  <li key={i} style={{ display: 'flex', gap: 12, fontSize: 15, color: 'rgb(var(--n-800))', lineHeight: 1.5 }}>
+                    <span style={{ flex: 'none', width: 26, height: 26, borderRadius: 13, background: 'rgb(var(--n-100))', display: 'grid', placeItems: 'center', fontSize: 13, fontWeight: 700 }}>{i + 1}</span>
+                    <span>{st}</span>
+                  </li>
+                ))}
+              </ol>
+              {triageResult.stopIf && <p style={{ marginTop: 14, fontSize: 14, color: '#7C4A03', background: '#FDF3DF', borderRadius: 12, padding: '10px 12px' }}>{triageResult.stopIf}</p>}
             </div>
-
             <Divider />
-            <div style={section}>
-              <p style={{ fontSize: 13, color: 'rgb(var(--n-400))', marginBottom: 12 }}>Tried it and still need help?</p>
-              <button type="button" onClick={() => setStep('photos')} style={nextBtn}>
-                I still need a repair →
-              </button>
-              <button type="button" onClick={() => router.push('/tenant')}
-                style={{ display: 'block', textAlign: 'center', marginTop: 12, fontSize: 13, color: 'rgb(var(--n-400))', cursor: 'pointer', background: 'none', border: 'none', width: '100%' }}>
-                Back to home
-              </button>
+            <div style={{ ...section, display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <button type="button" onClick={() => setStep('photos')} style={nextBtn}>Still needs fixing →</button>
+              <button type="button" onClick={() => { clearDraft(); setStep('fixed') }}
+                style={{ width: '100%', padding: '14px', borderRadius: 14, border: '1.5px solid rgb(var(--n-300))', background: '#fff', fontSize: 15, fontWeight: 600, color: 'var(--cr-ink)', cursor: 'pointer' }}>That fixed it 🎉</button>
+            </div>
+          </div>
+        )}
+
+        {/* ── STEP: fixed — sorted without a repair ── */}
+        {step === 'fixed' && (
+          <div style={card}>
+            <div style={{ ...section, textAlign: 'center' }}>
+              <div style={{ fontSize: 40 }}>🎉</div>
+              <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--cr-ink)', margin: '10px 0 6px' }}>Nice one, sorted!</h2>
+              <p style={{ fontSize: 15, color: 'rgb(var(--n-600))', margin: 0 }}>If it comes back, just report it and we’ll send someone round.</p>
+              <button type="button" onClick={() => router.push('/tenant')} style={{ ...nextBtn, marginTop: 18 }}>Back to home</button>
             </div>
           </div>
         )}

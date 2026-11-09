@@ -1,176 +1,184 @@
 'use client'
-
-import { useEffect, useState } from 'react'
+// Your profile (9 Nov 2026 rebuild): how your housemates see you. A photo or a fun avatar, a short bio and a few
+// light, tap-to-answer questions (lib/icebreaker). Everything optional; you can hide it from housemates any time.
+// Saves through /api/tenant/profile (server side; the photo stays private and is shown through short signed links).
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { getCurrentUser } from '@/lib/auth'
-import { createClient } from '@/lib/supabase'
 import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
-import {
-  ICEBREAKER_QUESTIONS,
-  answeredCount,
-  type IcebreakerAnswers,
-} from '@/lib/icebreaker'
-import LineIcon from '@/components/LineIcon'
+import Face from '@/components/Face'
+import { adminFetch } from '@/lib/adminFetch'
+import { ICEBREAKER_QUESTIONS, type IcebreakerAnswers } from '@/lib/icebreaker'
+import { AVATAR_EMOJI, AVATAR_COLOURS, parseAvatar, avatarValue } from '@/lib/housemates/avatar'
 
-/**
- * Tenant-facing icebreaker questionnaire. A light, optional profile the tenant
- * fills in so new housemates can get to know them. Writes go through the browser
- * Supabase client (carries the logged-in session, so RLS `own_write` passes).
- */
-export default function IcebreakerPage() {
+const BIO_MAX = 160
+
+/** Shrink a phone photo before it leaves the phone (long side 1200px, JPEG). */
+async function shrink(file: File): Promise<Blob> {
+  const img = await createImageBitmap(file).catch(() => null)
+  if (!img) return file
+  const k = Math.min(1, 1200 / Math.max(img.width, img.height))
+  const c = document.createElement('canvas'); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k)
+  c.getContext('2d')!.drawImage(img, 0, 0, c.width, c.height)
+  return await new Promise<Blob>(res => c.toBlob(b => res(b ?? file), 'image/jpeg', 0.85))
+}
+
+export default function MyProfile() {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
-  const [personId, setPersonId] = useState<string | null>(null)
+  const [firstName, setFirstName] = useState('')
   const [answers, setAnswers] = useState<IcebreakerAnswers>({})
   const [visible, setVisible] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [saved, setSaved] = useState(false)
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null)
+  const [avatar, setAvatar] = useState<string | null>(null)
+  const [picking, setPicking] = useState(false)
+  const [dirty, setDirty] = useState(false)
+  const [busy, setBusy] = useState('')
+  const [note, setNote] = useState('')
   const [error, setError] = useState('')
+  const fileRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    async function init() {
-      const data = await getCurrentUser()
-      if (!data || data.assignment?.role !== 'tenant') {
-        router.push('/login')
-        return
-      }
-      const pid = (data.assignment as any)?.id as string
-      setPersonId(pid)
-
-      const supabase = createClient()
-      const { data: existing } = await supabase
-        .from('tenant_icebreakers')
-        .select('answers, visible_to_housemates')
-        .eq('person_id', pid)
-        .maybeSingle()
-
-      if (existing) {
-        setAnswers((existing.answers as IcebreakerAnswers) || {})
-        setVisible(existing.visible_to_housemates !== false)
-      }
+    adminFetch('/api/tenant/profile').then(async r => {
+      if (r.status === 401) { router.push('/login'); return }
+      const d = await r.json()
+      setFirstName(d.firstName ?? ''); setAnswers(d.answers ?? {}); setVisible(d.visible !== false)
+      setPhotoUrl(d.photoUrl ?? null); setAvatar(d.answers?.avatar ?? null)
       setLoading(false)
-    }
-    init()
+    }).catch(() => { setError('Couldn’t load your profile. Check your connection and try again.'); setLoading(false) })
   }, [router])
 
-  function setAnswer(id: string, value: string) {
-    setAnswers((a) => ({ ...a, [id]: value }))
-    setSaved(false)
+  // warn before leaving with unsaved answers
+  useEffect(() => {
+    const h = (e: BeforeUnloadEvent) => { if (dirty) { e.preventDefault(); e.returnValue = '' } }
+    window.addEventListener('beforeunload', h); return () => window.removeEventListener('beforeunload', h)
+  }, [dirty])
+
+  const set = (id: string, v: string) => { setAnswers(a => ({ ...a, [id]: v })); setDirty(true); setNote('') }
+  const toggle = (id: string, opt: string) => {
+    const cur = String(answers[id] ?? '').split(',').map(x => x.trim()).filter(Boolean)
+    set(id, (cur.includes(opt) ? cur.filter(x => x !== opt) : [...cur, opt]).join(', '))
   }
 
-  async function handleSave() {
-    if (!personId) return
-    setSaving(true)
-    setError('')
-    try {
-      const supabase = createClient()
-      // Trim blanks so a wiped field doesn't count as answered.
-      // keep what this page doesn't show (the photo, answers to older questions) — only ours are set or cleared
-      const cleaned: IcebreakerAnswers = { ...answers }
-      for (const q of ICEBREAKER_QUESTIONS) {
-        const v = (answers[q.id] || '').trim()
-        if (v) cleaned[q.id] = v; else delete cleaned[q.id]
-      }
-      const count = Object.keys(cleaned).filter(k => k !== 'photo').length
-      const { error: e } = await supabase.from('tenant_icebreakers').upsert(
-        {
-          person_id: personId,
-          answers: cleaned,
-          visible_to_housemates: visible,
-          completed_at: count > 0 ? new Date().toISOString() : null,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'person_id' }
-      )
-      if (e) throw new Error(e.message)
-      setSaved(true)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not save your profile')
-    } finally {
-      setSaving(false)
-    }
+  async function save() {
+    setBusy('save'); setError('')
+    const r = await adminFetch('/api/tenant/profile', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ answers, visible }) }).catch(() => null)
+    setBusy('')
+    if (r?.ok) { setDirty(false); setNote('Saved. Your housemates will see this.') } else setError((await r?.json().catch(() => ({})))?.error ?? 'Couldn’t save. Check your connection and try again.')
+  }
+  async function choosePhoto(f?: File) {
+    if (!f) return
+    setBusy('photo'); setError('')
+    const fd = new FormData(); fd.append('photo', new File([await shrink(f)], 'photo.jpg', { type: 'image/jpeg' }))
+    const r = await adminFetch('/api/tenant/profile', { method: 'PUT', body: fd }).catch(() => null)
+    const d = await r?.json().catch(() => ({}))
+    setBusy('')
+    if (r?.ok) { setPhotoUrl(d.photoUrl); setPicking(false); setNote('Photo added.') } else setError(d?.error ?? 'Couldn’t add that photo. Try another one.')
+  }
+  async function removePic() {
+    setBusy('photo'); await adminFetch('/api/tenant/profile', { method: 'DELETE' }).catch(() => null); setBusy(''); setPhotoUrl(null)
+  }
+  async function pickAvatar(v: string | null) {
+    setAvatar(v); setBusy('avatar')
+    await adminFetch('/api/tenant/profile', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ avatar: v }) }).catch(() => null)
+    setBusy('')
   }
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-neutral-100">
-        <AppBar left={<BackButton />} />
-        <p className="p-xl text-sm text-neutral-400">Loading…</p>
-      </div>
-    )
-  }
+  if (loading) return <div className="min-h-screen bg-neutral-100"><AppBar left={<BackButton href="/tenant" label="Home" />} /><p className="p-xl text-sm text-neutral-400">Loading…</p></div>
 
-  const count = answeredCount(answers)
+  const av = parseAvatar(avatar) ?? { emoji: '🦊', colour: 'sage' }
+  const bio = String(answers.bio ?? '')
+  const others = ICEBREAKER_QUESTIONS.filter(q => q.id !== 'bio')
 
   return (
-    <div className="min-h-screen bg-neutral-100 pb-3xl">
+    <div className="min-h-screen bg-neutral-100 pb-[120px]">
       <AppBar left={<BackButton href="/tenant" label="Home" />} />
+      <main className="mx-auto max-w-xl px-lg py-lg">
+        <h1 className="text-2xl font-bold text-neutral-900">Your profile</h1>
+        <p className="mt-xs text-sm text-neutral-600">How your housemates see you. Everything is optional.</p>
 
-      <main className="mx-auto max-w-2xl px-lg py-lg">
-        <p className="text-xs font-medium uppercase tracking-widest text-neutral-400">
-          Meet your housemates
-        </p>
-        <h1 className="mt-xs text-3xl font-bold text-neutral-900">Say hello</h1>
-        <p className="mt-sm text-sm text-neutral-600">
-          A few light questions so your housemates can get to know you.
-          Nothing here is compulsory — answer what you like, skip the rest. You can change or
-          hide it any time.
-        </p>
-
-        <div className="mt-lg space-y-md">
-          {ICEBREAKER_QUESTIONS.map((q) => (
-            <div key={q.id} className="rounded-2xl border border-neutral-200 bg-white p-lg">
-              <label className="block text-sm font-bold text-neutral-900">
-                <span className="mr-sm">{<LineIcon glyph={q.emoji} />}</span>
-                {q.prompt}
-              </label>
-              <textarea
-                value={answers[q.id] || ''}
-                onChange={(e) => setAnswer(q.id, e.target.value)}
-                placeholder={q.placeholder}
-                rows={2}
-                className="mt-sm w-full resize-y rounded-lg border border-neutral-300 px-md py-sm text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900"
-              />
+        {/* face */}
+        <section className="mt-lg rounded-2xl border border-neutral-200 bg-white p-lg">
+          <div className="flex items-center gap-lg">
+            <Face name={firstName} photoUrl={photoUrl} avatar={photoUrl ? null : avatar} size={84} ring />
+            <div className="min-w-0 flex-1">
+              <p className="text-lg font-bold text-neutral-900">{firstName || 'You'}</p>
+              <div className="mt-sm flex flex-wrap gap-sm">
+                <button type="button" onClick={() => fileRef.current?.click()} disabled={!!busy} className="rounded-full bg-neutral-900 px-md py-xs text-sm font-semibold text-white disabled:opacity-50">{busy === 'photo' ? 'Adding…' : photoUrl ? 'Change photo' : 'Add a photo'}</button>
+                <button type="button" onClick={() => setPicking(p => !p)} className="rounded-full border border-neutral-300 px-md py-xs text-sm font-semibold text-neutral-800">{picking ? 'Done' : 'Pick an avatar'}</button>
+                {photoUrl && <button type="button" onClick={removePic} disabled={!!busy} className="px-xs text-sm font-semibold text-neutral-500 underline">Remove photo</button>}
+              </div>
+              <input ref={fileRef} type="file" accept="image/*" className="sr-only" onChange={e => { choosePhoto(e.target.files?.[0]); e.target.value = '' }} />
             </div>
-          ))}
-        </div>
+          </div>
+          {picking && (
+            <div className="mt-lg border-t border-neutral-100 pt-lg">
+              {photoUrl && <p className="mb-sm text-xs text-neutral-500">Your photo shows first. Remove it to use an avatar instead.</p>}
+              <div className="grid grid-cols-8 gap-xs">
+                {AVATAR_EMOJI.map(e => (
+                  <button key={e} type="button" onClick={() => pickAvatar(avatarValue({ emoji: e, colour: av.colour }))} aria-label={`Avatar ${e}`}
+                    className={`grid aspect-square place-items-center rounded-full text-2xl ${av.emoji === e && avatar ? 'ring-2 ring-neutral-900' : ''}`} style={{ background: AVATAR_COLOURS[av.colour] }}>{e}</button>
+                ))}
+              </div>
+              <div className="mt-md flex flex-wrap items-center gap-sm">
+                <span className="text-xs font-semibold text-neutral-500">Colour</span>
+                {Object.entries(AVATAR_COLOURS).map(([k, hex]) => (
+                  <button key={k} type="button" onClick={() => pickAvatar(avatarValue({ emoji: av.emoji, colour: k }))} aria-label={`Colour ${k}`}
+                    className={`h-8 w-8 rounded-full ${av.colour === k ? 'ring-2 ring-neutral-900 ring-offset-2' : ''}`} style={{ background: hex }} />
+                ))}
+                {avatar && <button type="button" onClick={() => pickAvatar(null)} className="ml-auto text-xs font-semibold text-neutral-500 underline">No avatar</button>}
+              </div>
+            </div>
+          )}
+        </section>
 
-        <label className="mt-lg flex cursor-pointer items-start gap-sm rounded-2xl border border-neutral-200 bg-white p-lg">
-          <input
-            type="checkbox"
-            checked={visible}
-            onChange={(e) => { setVisible(e.target.checked); setSaved(false) }}
-            className="mt-0.5 h-4 w-4"
-          />
-          <span className="text-sm text-neutral-700">
-            <span className="font-bold text-neutral-900">Show my answers to my housemates.</span>{' '}
-            Turn this off to keep your profile private — Capital Rooms can still see it.
-          </span>
+        {/* bio */}
+        <section className="mt-md rounded-2xl border border-neutral-200 bg-white p-lg">
+          <label htmlFor="bio" className="block text-sm font-bold text-neutral-900">Your bio</label>
+          <textarea id="bio" value={bio} onChange={e => set('bio', e.target.value.slice(0, BIO_MAX))} rows={3} placeholder="e.g. Just moved from Bristol for a new job. Always up for a Sunday roast."
+            className="mt-sm w-full resize-none rounded-xl border border-neutral-300 px-md py-sm text-[15px] text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900" />
+          <p className="mt-xs text-right text-xs text-neutral-400">{bio.length}/{BIO_MAX}</p>
+        </section>
+
+        {/* the light questions */}
+        <section className="mt-md rounded-2xl border border-neutral-200 bg-white p-lg">
+          <p className="text-sm font-bold text-neutral-900">A bit more, if you like</p>
+          <div className="mt-md space-y-lg">
+            {others.map(q => (
+              <div key={q.id}>
+                <p className="text-sm font-semibold text-neutral-800">{q.prompt}</p>
+                {q.kind === 'pick' || q.kind === 'choice' ? (
+                  <div className="mt-sm flex flex-wrap gap-xs">
+                    {q.options!.map(o => {
+                      const on = q.kind === 'choice' ? answers[q.id] === o : String(answers[q.id] ?? '').split(',').map(x => x.trim()).includes(o)
+                      return <button key={o} type="button" aria-pressed={on} onClick={() => q.kind === 'choice' ? set(q.id, on ? '' : o) : toggle(q.id, o)}
+                        className={`rounded-full border px-md py-xs text-sm ${on ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-300 bg-white text-neutral-800'}`}>{o}</button>
+                    })}
+                  </div>
+                ) : (
+                  <input value={String(answers[q.id] ?? '')} onChange={e => set(q.id, e.target.value)} placeholder={q.placeholder}
+                    className="mt-sm w-full rounded-xl border border-neutral-300 px-md py-sm text-[15px] text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900" />
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <label className="mt-md flex cursor-pointer items-start gap-sm rounded-2xl border border-neutral-200 bg-white p-lg">
+          <input type="checkbox" checked={visible} onChange={e => { setVisible(e.target.checked); setDirty(true) }} className="mt-0.5 h-5 w-5" />
+          <span className="text-sm text-neutral-700"><span className="font-bold text-neutral-900">Show my profile to my housemates.</span> Turn this off to keep it private.</span>
         </label>
-
-        {error && <p className="mt-md text-sm text-red-600">{error}</p>}
-
-        <div className="mt-lg flex items-center gap-md">
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="flex-1 rounded-xl bg-neutral-900 py-md text-sm font-bold text-white hover:bg-neutral-800 disabled:opacity-50"
-          >
-            {saving ? 'Saving…' : saved ? '✓ Saved' : 'Save my profile'}
-          </button>
-          <Link
-            href="/tenant/housemates"
-            className="rounded-xl border border-neutral-300 px-lg py-md text-sm font-semibold text-neutral-700 hover:bg-white"
-          >
-            See housemates
-          </Link>
-        </div>
-        <p className="mt-sm text-center text-xs text-neutral-400">
-          {count} of {ICEBREAKER_QUESTIONS.length} answered
-        </p>
+        <p className="mt-lg text-center"><Link href="/tenant/housemates" className="text-sm font-semibold text-neutral-600 underline">See your housemates</Link></p>
       </main>
+
+      {/* save bar */}
+      <div className="fixed inset-x-0 bottom-0 border-t border-neutral-200 bg-white/95 px-lg py-md backdrop-blur" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 12px)' }}>
+        <div className="mx-auto flex max-w-xl items-center gap-md">
+          <p className={`min-w-0 flex-1 text-sm ${error ? 'text-red-700' : 'text-neutral-600'}`} role={error ? 'alert' : undefined}>{error || note || (dirty ? 'You have changes to save.' : 'All saved.')}</p>
+          <button type="button" onClick={save} disabled={!dirty || busy === 'save'} className="rounded-xl bg-neutral-900 px-xl py-md text-sm font-bold text-white disabled:opacity-40">{busy === 'save' ? 'Saving…' : 'Save'}</button>
+        </div>
+      </div>
     </div>
   )
 }

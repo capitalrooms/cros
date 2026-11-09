@@ -63,6 +63,15 @@ export async function savePhoto(s: SupabaseClient, personId: string, bytes: Buff
   if (old && old !== path) await s.storage.from(BUCKET).remove([String(old)]).catch(() => {})
 }
 
+/** The avatar they picked instead of a photo (lib/housemates/avatar), or null to clear it. */
+export async function saveAvatar(s: SupabaseClient, personId: string, value: string | null): Promise<void> {
+  const { data: cur } = await s.from('tenant_icebreakers').select('answers').eq('person_id', personId).maybeSingle() as { data: any }
+  const answers = { ...(cur?.answers ?? {}) }
+  if (value) answers.avatar = value; else delete answers.avatar
+  const { error } = await s.from('tenant_icebreakers').upsert({ person_id: personId, answers, updated_at: new Date().toISOString() }, { onConflict: 'person_id' })
+  if (error) throw new Error(error.message)
+}
+
 export async function removePhoto(s: SupabaseClient, personId: string): Promise<void> {
   const { data: cur } = await s.from('tenant_icebreakers').select('answers').eq('person_id', personId).maybeSingle() as { data: any }
   const old = cur?.answers?.photo

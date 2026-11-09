@@ -661,11 +661,11 @@ export default function TenantDashboard() {
         {/* ── Below the header: the four things tenants come for, as tiles (Garden Square) ── */}
         <div className="pt-xl space-y-md lg:pt-0">
           <div className="grid grid-cols-2 gap-md">
-            <button type="button" onClick={() => setShowReportSheet(true)}
+            <Link href="/tenant/maintenance"
               className="flex h-[116px] flex-col justify-between rounded-[22px] bg-neutral-900 p-lg text-left text-white active:scale-[0.98] transition-transform">
               <GIcon name="wrench" size={26} color="var(--cr-gold)" />
               <span className="text-base font-semibold" style={{ fontFamily: 'var(--font-sora), sans-serif' }}>Report a repair</span>
-            </button>
+            </Link>
             <Link href="/tenant/inbox" className="flex h-[116px] flex-col justify-between rounded-[22px] bg-white p-lg text-neutral-900 active:scale-[0.98] transition-transform">
               <GIcon name="inbox" size={26} />
               <span className="text-base font-semibold" style={{ fontFamily: 'var(--font-sora), sans-serif' }}>Inbox</span>
@@ -953,14 +953,14 @@ export default function TenantDashboard() {
                   <Link href="/tenant/profile" className="flex items-center justify-between rounded-xl border border-neutral-100 bg-neutral-50 p-md hover:border-neutral-200 transition-colors">
                     <div className="flex items-center gap-sm">
                       <GIcon name="user" size={20} className="shrink-0 text-neutral-700" />
-                      <p className="text-sm font-bold text-neutral-900">Your profile</p>
+                      <p className="text-sm font-bold text-neutral-900">Your details</p>
                     </div>
                     <span className="text-neutral-400 text-base">›</span>
                   </Link>
                   <Link href="/tenant/icebreaker" className="flex items-center justify-between rounded-xl border border-neutral-100 bg-neutral-50 p-md hover:border-neutral-200 transition-colors">
                     <div className="flex items-center gap-sm">
                       <GIcon name="smile" size={20} className="shrink-0 text-neutral-700" />
-                      <p className="text-sm font-bold text-neutral-900">Housemate profile</p>
+                      <p className="text-sm font-bold text-neutral-900">Your profile (photo & bio)</p>
                     </div>
                     <span className="text-neutral-400 text-base">›</span>
                   </Link>
