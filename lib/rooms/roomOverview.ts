@@ -303,6 +303,9 @@ export async function loadRoomOverview(s: SupabaseClient, roomId: string) {
   const purchases = ((purchasesQ as any).data ?? []) as any[]
   const spend = r2(purchases.reduce((n, p) => n + (Number(p.cost) || 0), 0) + tickets.reduce((n, m) => n + (Number(m.final_price) || 0), 0))
   const photos = ((photosQ as any).data ?? []) as any[]
+  // the header thumbnail when the room has no photo of its own: the house's featured or first photo (9 Nov 2026)
+  const houseFirst = photos.length ? null : ((await s.from('property_photos').select('file_url, file_path').eq('property_id', prop.id).is('room_id', null)
+    .order('is_featured', { ascending: false }).order('display_order', { ascending: true, nullsFirst: false }).limit(1)).data ?? [])[0] as any
   const lead = applicants.find(a => a.offerSentAt) ?? applicants[0] ?? null
 
   return {
@@ -318,7 +321,7 @@ export async function loadRoomOverview(s: SupabaseClient, roomId: string) {
     },
     // a whole home (single let) — the page talks about the property, not a room (4 Nov 2026)
     whole,
-    property: { id: prop.id, name: firstLine(prop.name), address: prop.address ?? '', postcode: prop.postcode ?? '', code: prop.property_code ?? null, type: prop.property_type ?? null, roomCount: strip.length, furnished: prop.furnished_status ?? null, bills: prop.bills_included ?? null, lettingType: prop.letting_type ?? null },
+    property: { id: prop.id, name: firstLine(prop.name), address: prop.address ?? '', postcode: prop.postcode ?? '', code: prop.property_code ?? null, type: prop.property_type ?? null, roomCount: strip.length, photo: houseFirst ? (houseFirst.file_url || houseFirst.file_path) : null, furnished: prop.furnished_status ?? null, bills: prop.bills_included ?? null, lettingType: prop.letting_type ?? null },
     landlord: (landlordQ as any).data ? { id: (landlordQ as any).data.id, name: pname((landlordQ as any).data), company: (landlordQ as any).data.company ?? null } : null,
     fee: { label: describeFee(fee), perMonth: feeNow, toLandlord: rentNow != null && feeNow != null ? r2(rentNow - feeNow) : null, rent: rentNow },
     strip,
