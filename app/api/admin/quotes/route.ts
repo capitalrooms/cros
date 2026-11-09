@@ -26,7 +26,16 @@ export async function GET(req: NextRequest) {
   const { data, error } = await q
   const msg = quotesError(error)
   if (msg) return NextResponse.json({ error: msg }, { status: 500 })
-  return NextResponse.json({ quotes: data })
+  if (!ticketId) return NextResponse.json({ quotes: data })
+  // the landlord's approval (migration 275 — quietly absent until it's run)
+  let limit: number | null = null, approval: any = null
+  try {
+    const { limitFor } = await import('@/lib/repairs/approvals')
+    limit = (await limitFor(s as any, ticketId)).limit
+    const { data: ap } = await (s as any).from('repair_approvals').select('id, status, amount, sent_to, requested_at, viewed_at, decided_at, decided_note, chosen_quote_id, recommended_quote_id').eq('ticket_id', ticketId).order('requested_at', { ascending: false }).limit(1).maybeSingle()
+    approval = ap ?? null
+  } catch { /* not set up yet */ }
+  return NextResponse.json({ quotes: data, limit, approval })
 }
 
 export async function POST(req: NextRequest) {
