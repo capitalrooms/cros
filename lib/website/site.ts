@@ -19,8 +19,8 @@ export const TEAM: { name: string; role: string; photo: string; bio: string }[] 
     bio: 'Jacob has worked for a few London agencies and now looks after all our lettings. He’s warm, upbeat and brilliant with people who are new to the city. For landlords, that means good tenants, properly referenced, who are happy to stay.' },
   { name: 'Martin', role: 'Accounts Manager', photo: '',
     bio: 'Martin has spent 20 years in property, including time at the companies that make landlord statement software. He loves a spreadsheet, chases late rent straight away and makes sure every penny is accounted for.' },
-  { name: 'Ricky', role: 'Maintenance', photo: '',
-    bio: 'Ricky learnt his trade at one of London’s biggest building firms, working on every part of a building. Now he runs his own business, and when we call him, we know the job will be done properly.' },
+  { name: 'Ricky', role: 'Main Contractor', photo: '',
+    bio: 'Ricky is our main contractor. He learnt his trade at one of London’s biggest building firms, working on every part of a building, and now runs his own business. When we call Ricky, we know the job will be done properly.' },
 ]
 
 // Harry's words above the team
