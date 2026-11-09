@@ -21,6 +21,8 @@ const STEPS = [['draft', 'Draft'], ['ready', 'Ready'], ['live', 'Live'], ['let_a
 const gbp = (n: number | null | undefined) => n == null ? '—' : `£${Number(n).toLocaleString('en-GB', { maximumFractionDigits: 2 })}`
 const day = (d: string | null) => d ? new Date(`${d}T12:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : ''
 const today = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
+/** which part of the page a "still needed" item is in */
+const sectionFor = (m: string) => /photo|video/i.test(m) ? 'photos' : /rent|deposit|council|availab|date|bills/i.test(m) ? 'price' : /type|furnish|address|bed|bath|size/i.test(m) ? 'property' : 'advert'
 
 export default function ListingEditor({ params }: { params: Promise<{ roomId: string }> }) {
   const { roomId } = use(params)
@@ -62,24 +64,43 @@ export default function ListingEditor({ params }: { params: Promise<{ roomId: st
   // save as you go — changes collect for a moment, then go together
   const pending = useRef<L>({})
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // (9 Nov 2026 audit) always the latest copy — an upload or import reloads the data, and a save mustn't put an old
+  // copy back; a failed save keeps your changes for a retry; leaving the page sends anything not yet saved
+  const idRef = useRef<string | null>(null)
+  useEffect(() => { idRef.current = data?.listing?.id ?? null }, [data?.listing?.id])
+  const [saveErr, setSaveErr] = useState('')
+  const [nudge, setNudge] = useState(false)   // Publish pressed with things still missing
   function set(k: string, v: unknown) {
-    if (!data) return
-    setData({ ...data, listing: { ...data.listing, [k]: v } })
+    setData(cur => cur ? { ...cur, listing: { ...cur.listing, [k]: v } } : cur)
     pending.current[k] = v
-    setSaving('saving')
+    setSaving('saving'); setSaveErr('')
     if (timer.current) clearTimeout(timer.current)
     timer.current = setTimeout(flush, 700)
   }
   async function flush() {
-    if (!data) return
+    if (timer.current) { clearTimeout(timer.current); timer.current = null }
+    const id = idRef.current
     const fields = pending.current; pending.current = {}
-    if (!Object.keys(fields).length) return
-    const r = await fetch('/api/lettings/listings', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: data.listing.id, fields }) })
-    const d = await r.json().catch(() => ({}))
-    if (!r.ok) { setError(d.error || 'Could not save'); setSaving('idle'); return }
-    setData(cur => cur ? { ...cur, missing: d.missing, channels: d.channels, listing: { ...d.listing, ...pending.current } } : cur)
-    setSaving('saved')
+    if (!id || !Object.keys(fields).length) return
+    const r = await fetch('/api/lettings/listings', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, fields }) }).catch(() => null)
+    const d = r ? await r.json().catch(() => ({})) : {}
+    if (!r?.ok) { pending.current = { ...fields, ...pending.current }; setSaveErr(d.error || 'Couldn’t save — check your connection'); setSaving('idle'); return }
+    setData(cur => cur ? { ...cur, ...d, listing: { ...d.listing, ...pending.current } } : cur)
+    setSaving(Object.keys(pending.current).length ? 'saving' : 'saved')
   }
+  useEffect(() => {
+    const leave = () => {
+      const id = idRef.current, fields = pending.current
+      if (!id || !Object.keys(fields).length) return
+      pending.current = {}
+      fetch('/api/lettings/listings', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, fields }), keepalive: true }).catch(() => {})
+    }
+    const warn = (e: BeforeUnloadEvent) => { if (Object.keys(pending.current).length) { leave() } }
+    window.addEventListener('pagehide', leave); window.addEventListener('beforeunload', warn)
+    return () => { leave(); window.removeEventListener('pagehide', leave); window.removeEventListener('beforeunload', warn) }
+  }, [])
+  // a green notice fades after a few seconds
+  useEffect(() => { if (!notice) return; const t = setTimeout(() => setNotice(''), 5000); return () => clearTimeout(t) }, [notice])
   async function act(body: L, done?: string) {
     if (!data) return
     await flush()
@@ -170,11 +191,21 @@ export default function ListingEditor({ params }: { params: Promise<{ roomId: st
   const field = 'w-full rounded-xl border border-neutral-300 bg-white px-md py-2.5 text-[15px] text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900/10'
   const lbl = 'block space-y-1.5 text-sm font-semibold text-neutral-800'
   const hint = (t: string) => <span className="block text-xs font-normal text-neutral-500">{t}</span>
+  // Tenant Fees Act caps from the rent: deposit 5 weeks, holding deposit 1 week (rounded down to the penny)
+  const weekly = Number(l.rent) > 0 ? (l.rent_frequency === 'pw' ? Number(l.rent) : Number(l.rent) * 12 / 52) : 0
+  const cap = (weeks: number) => weekly ? Math.floor(weekly * weeks * 100) / 100 : 0
+  const overCap = (v: unknown, weeks: number) => !!weekly && v != null && v !== '' && Number(v) - cap(weeks) > 0.01
   const yn = (k: string) => (
     <select value={l[k] == null ? '' : l[k] ? 'yes' : 'no'} onChange={e => set(k, e.target.value === '' ? null : e.target.value === 'yes')} className={field}>
       <option value="">Not said</option><option value="yes">Yes</option><option value="no">No</option>
     </select>)
-  const move = (to: string) => act({ action: 'move', to }, to === 'live' ? 'Live ✓' : to === 'let_agreed' ? 'Let agreed — taken down everywhere' : undefined)
+  const go = (id: string) => { setMobilePane('edit'); setTimeout(() => document.getElementById(`sec-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 30) }
+  const move = (to: string) => {
+    if ((to === 'ready' || to === 'live') && data.missing.length) { setNudge(true); document.getElementById('sec-ready')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); return }
+    if (to === 'let_agreed' && !window.confirm('Mark as let agreed? The advert comes down everywhere it’s shown.')) return
+    if (to === 'let' && !window.confirm('Mark as let? The listing closes.')) return
+    act({ action: 'move', to }, to === 'live' ? 'Live ✓' : to === 'let_agreed' ? 'Let agreed — taken down everywhere' : to === 'ready' ? 'Marked ready' : undefined)
+  }
   const filled = (k: string) => smart?.filled.includes(k) ? <span className="ml-xs rounded-full bg-violet-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-violet-800">filled in</span> : null
 
   // the sections, each with whether it's done — the contents down the side and the readiness card read from this
@@ -185,7 +216,6 @@ export default function ListingEditor({ params }: { params: Promise<{ roomId: st
     { id: 'property', title: whole ? 'The property' : 'The room & house', done: !!(l.property_type && l.furnished && l.display_address) },
     { id: 'suits', title: 'Who it suits', done: !!l.let_type },
   ]
-  const go = (id: string) => { setMobilePane('edit'); setTimeout(() => document.getElementById(`sec-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 30) }
   const btn = 'rounded-xl px-lg py-2.5 text-sm font-bold transition disabled:opacity-40'
 
   const preview = (
@@ -231,7 +261,7 @@ export default function ListingEditor({ params }: { params: Promise<{ roomId: st
           ['Send an offer', `/admin/available-and-lettings?offer_room=${roomId}#send-offer`],
           ['Marketing board', '/lettings/board'],
         ] as const).map(([t, href]) => <Link key={t} href={href} className="font-semibold text-neutral-700 hover:text-neutral-950 hover:underline">{t}</Link>)}
-        <ol className="ml-auto flex items-center gap-1 text-xs font-semibold" aria-label="Where the listing is">
+        <ol className="ml-auto hidden items-center gap-1 text-xs font-semibold sm:flex" aria-label="Where the listing is">
           {STEPS.map(([k, t], i) => <li key={k} className={`rounded-full px-sm py-0.5 ${i === stepIx ? 'bg-neutral-900 text-white' : i < stepIx ? 'bg-emerald-100 text-emerald-800' : 'bg-neutral-100 text-neutral-400'}`}>{t}</li>)}
         </ol>
       </div>
@@ -239,7 +269,7 @@ export default function ListingEditor({ params }: { params: Promise<{ roomId: st
 
     {(error || notice) && (
       <div className="mx-auto max-w-7xl space-y-1 px-lg pt-md">
-        {error && <p className="rounded-xl border border-red-200 bg-red-50 px-md py-sm text-sm text-red-800">{error}</p>}
+        {error && <p className="flex items-start justify-between gap-md rounded-xl border border-red-200 bg-red-50 px-md py-sm text-sm text-red-800">{error}<button type="button" onClick={() => setError('')} aria-label="Dismiss" className="font-bold text-red-700">×</button></p>}
         {notice && <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-md py-sm text-sm text-emerald-800">{notice}</p>}
       </div>
     )}
@@ -264,16 +294,17 @@ export default function ListingEditor({ params }: { params: Promise<{ roomId: st
 
       <div className={`min-w-0 space-y-lg ${mobilePane === 'preview' ? 'hidden lg:block' : ''}`}>
         {/* what's still needed + the smart fill */}
-        <section className="rounded-2xl border border-neutral-200 bg-white p-lg shadow-sm">
+        <section id="sec-ready" className={`scroll-mt-lg rounded-2xl border bg-white p-lg shadow-sm transition ${nudge && data.missing.length ? 'border-amber-400 ring-4 ring-amber-200' : 'border-neutral-200'}`}>
           <div className="flex flex-wrap items-start justify-between gap-md">
             <div>
+              {nudge && data.missing.length > 0 && <p className="mb-sm text-sm font-bold text-amber-800">Not quite ready to {l.status === 'draft' ? 'go' : 'publish'} — finish these first, then press it again.</p>}
               <h2 className="text-base font-bold text-neutral-900">{data.missing.length ? `${data.missing.length} thing${data.missing.length === 1 ? '' : 's'} before it can go live` : 'Everything needed is in'}</h2>
               <p className="mt-0.5 text-sm text-neutral-500">{data.missing.length ? 'Required by law on every advert (material information) or for the portals.' : 'Check the preview, then Publish.'}</p>
             </div>
             <button type="button" onClick={() => fillFromAdvert()} disabled={smart?.busy || !l.description} title={l.description ? '' : 'Needs a description first'}
               className={`${btn} bg-violet-700 text-white hover:bg-violet-800`}>{smart?.busy ? 'Reading the advert…' : '✨ Fill the gaps from the description'}</button>
           </div>
-          {data.missing.length > 0 && <ul className="mt-md flex flex-wrap gap-xs">{data.missing.map(m => <li key={m} className="rounded-full bg-amber-50 px-md py-1 text-sm font-medium text-amber-900 ring-1 ring-amber-200">{m}</li>)}</ul>}
+          {data.missing.length > 0 && <ul className="mt-md flex flex-wrap gap-xs">{data.missing.map(m => <li key={m}><button type="button" onClick={() => go(sectionFor(m))} className="rounded-full bg-amber-50 px-md py-1 text-sm font-medium text-amber-900 ring-1 ring-amber-200 hover:bg-amber-100">{m} →</button></li>)}</ul>}
           {smart && !smart.busy && (
             <div className="mt-md space-y-sm border-t border-neutral-100 pt-md text-sm">
               <p className="text-neutral-700">{smart.filled.length ? <>Filled in from the advert: <b>{smart.filled.map(k => k.replace(/_/g, ' ')).join(', ')}</b> — marked <span className="rounded-full bg-violet-100 px-1.5 text-[10px] font-bold uppercase text-violet-800">filled in</span> below. Nothing you’d already typed was changed.</> : 'Nothing new to fill — every field the advert covers is already done.'}</p>
@@ -336,7 +367,7 @@ export default function ListingEditor({ params }: { params: Promise<{ roomId: st
                 {p.area && p.area !== 'room' && <span className="absolute right-2 top-2 rounded-full bg-neutral-900/75 px-2 py-0.5 text-[11px] font-semibold text-white">{p.area === 'exterior' ? 'Outside' : whole ? 'Building' : 'Shared'}</span>}
                 <div className="absolute inset-x-2 bottom-2 flex justify-between opacity-100 sm:opacity-0 sm:transition sm:group-hover:opacity-100">
                   <button type="button" disabled={i === 0} onClick={() => { const o = [...order]; const j = o.indexOf(p.id); [o[j - 1], o[j]] = [o[j], o[j - 1]]; set('media_order', o) }} aria-label="Move earlier" className="grid h-8 w-8 place-items-center rounded-full bg-white/95 text-sm shadow disabled:opacity-30">←</button>
-                  <button type="button" onClick={() => set('media_order', order.filter(x => x !== p.id))} aria-label="Leave out of the listing" className="rounded-full bg-white/95 px-sm text-xs font-semibold shadow">Remove</button>
+                  <button type="button" onClick={() => set('media_order', order.filter(x => x !== p.id))} aria-label="Leave out of the listing" title="Leave this out of the listing — the photo stays on the record" className="rounded-full bg-white/95 px-sm text-xs font-semibold shadow">Leave out</button>
                   <button type="button" disabled={i === media.length - 1} onClick={() => { const o = [...order]; const j = o.indexOf(p.id); [o[j + 1], o[j]] = [o[j], o[j + 1]]; set('media_order', o) }} aria-label="Move later" className="grid h-8 w-8 place-items-center rounded-full bg-white/95 text-sm shadow disabled:opacity-30">→</button>
                 </div>
               </div>
@@ -365,8 +396,8 @@ export default function ListingEditor({ params }: { params: Promise<{ roomId: st
                 <select className={`${field} w-40`} value={l.rent_frequency} onChange={e => set('rent_frequency', e.target.value)}><option value="pcm">a month</option><option value="pw">a week</option></select></div>
             </div>
             <label className={lbl}>Available from<input type="date" className={field} value={l.available_from ?? ''} onChange={e => set('available_from', e.target.value)} /></label>
-            <label className={lbl}>Deposit<input inputMode="decimal" className={field} value={l.deposit ?? ''} onChange={e => set('deposit', e.target.value)} />{hint('Five weeks’ rent at most')}</label>
-            <label className={lbl}>Holding deposit<input inputMode="decimal" className={field} value={l.holding_deposit ?? ''} onChange={e => set('holding_deposit', e.target.value)} />{hint('One week’s rent at most')}</label>
+            <label className={lbl}>Deposit<input inputMode="decimal" className={`${field} ${overCap(l.deposit, 5) ? 'border-red-400 bg-red-50' : ''}`} value={l.deposit ?? ''} onChange={e => set('deposit', e.target.value)} />{overCap(l.deposit, 5) ? <span className="block text-xs font-semibold text-red-700">Above the legal limit of {gbp(cap(5))} (five weeks’ rent) <button type="button" onClick={() => set('deposit', cap(5))} className="underline">Use {gbp(cap(5))}</button></span> : hint(`Five weeks’ rent at most${cap(5) ? ` — ${gbp(cap(5))}` : ''}`)}</label>
+            <label className={lbl}>Holding deposit<input inputMode="decimal" className={`${field} ${overCap(l.holding_deposit, 1) ? 'border-red-400 bg-red-50' : ''}`} value={l.holding_deposit ?? ''} onChange={e => set('holding_deposit', e.target.value)} />{overCap(l.holding_deposit, 1) ? <span className="block text-xs font-semibold text-red-700">Above the legal limit of {gbp(cap(1))} (one week’s rent) <button type="button" onClick={() => set('holding_deposit', cap(1))} className="underline">Use {gbp(cap(1))}</button></span> : hint(`One week’s rent at most${cap(1) ? ` — ${gbp(cap(1))}` : ''}`)}</label>
             <label className={lbl}>Bills included{yn('bills_included')}</label>
             <div className="grid grid-cols-2 gap-sm">
               <label className={lbl}>Council tax band<select className={field} value={l.council_tax_band ?? ''} onChange={e => set('council_tax_band', e.target.value)}><option value="">—</option>{'ABCDEFGH'.split('').map(b => <option key={b} value={b}>{b}</option>)}</select></label>
@@ -424,6 +455,13 @@ export default function ListingEditor({ params }: { params: Promise<{ roomId: st
         </div>
       </div>
 
+      {/* save state where you can always see it (9 Nov 2026 audit) */}
+      {(saving === 'saving' || saveErr) && (
+        <div role="status" className={`fixed bottom-lg right-lg z-40 flex items-center gap-sm rounded-full px-md py-2 text-sm font-semibold shadow-lg ${saveErr ? 'bg-red-700 text-white' : 'bg-neutral-900 text-white'}`}>
+          {saveErr ? <>{saveErr}<button type="button" onClick={() => flush()} className="rounded-full bg-white/20 px-sm py-0.5 hover:bg-white/30">Try again</button></> : 'Saving…'}
+        </div>
+      )}
+
       {/* right: where it goes, then the preview */}
       <aside className={`space-y-lg lg:sticky lg:top-lg lg:h-fit ${mobilePane === 'edit' ? 'hidden lg:block' : ''}`}>
         <section className="rounded-2xl border border-neutral-200 bg-white p-lg shadow-sm">
@@ -465,7 +503,7 @@ function Section({ id, title, sub, children }: { id: string; title: string; sub?
 
 function Features({ value, onChange, badge }: { value: string[]; onChange: (v: string[]) => void; badge?: React.ReactNode }) {
   const [t, setT] = useState('')
-  const add = () => { if (t.trim() && value.length < 10) { onChange([...value, t.trim()]); setT('') } }
+  const add = () => { const v = t.trim().slice(0, 80); if (!v || value.length >= 10) return; if (!value.some(x => x.toLowerCase() === v.toLowerCase())) onChange([...value, v]); setT('') }
   return (
     <div className="space-y-1.5">
       <p className="text-sm font-semibold text-neutral-800">Key features {badge}<span className="ml-xs text-xs font-normal text-neutral-500">{value.length}/10 — portals show up to 10</span></p>
@@ -491,7 +529,7 @@ function SitePage({ l, media, roomName, narrow }: { l: L; media: Photo[]; roomNa
         {/* Part A — on the listing itself */}
         <p className="text-[11px] text-neutral-600">Deposit {gbp(l.deposit)}{l.holding_deposit ? ` · holding deposit ${gbp(l.holding_deposit)}` : ''} · Council tax {l.council_tax_included ? 'included' : l.council_tax_band ? `band ${l.council_tax_band}` : '—'}</p>
         {(l.features ?? []).length > 0 && <ul className="flex flex-wrap gap-1">{l.features.map((f: string, i: number) => <li key={i} className="rounded-full border border-neutral-300 px-2 py-0.5 text-[11px]">{f}</li>)}</ul>}
-        {l.description && <p className="max-h-60 overflow-hidden whitespace-pre-line text-[13px] leading-relaxed text-neutral-800">{l.description}</p>}
+        {l.description && <div className="relative"><p className="max-h-60 overflow-hidden whitespace-pre-line text-[13px] leading-relaxed text-neutral-800">{l.description}</p>{String(l.description).length > 500 && <div className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-white" />}</div>}
         <div className="flex gap-2 pt-1"><span className="rounded-full bg-neutral-900 px-3 py-1 text-xs font-semibold text-white">Apply</span><span className="rounded-full border border-neutral-900 px-3 py-1 text-xs font-semibold">Book a viewing</span></div>
       </div>
     </div>
