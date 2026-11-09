@@ -162,7 +162,7 @@ export async function PATCH(req: NextRequest) {
   for (const k of EDITABLE) if (k in f) patch[k] = f[k] === '' ? null : f[k]
   if (Array.isArray(patch.features)) patch.features = (patch.features as unknown[]).map(x => String(x).trim()).filter(Boolean).slice(0, 10)
   for (const k of ['rent', 'deposit', 'holding_deposit', 'room_size_sqm']) if (patch[k] != null) { const n = Number(patch[k]); if (!Number.isFinite(n) || n < 0) return NextResponse.json({ error: `${k.replace(/_/g, ' ')} must be a number` }, { status: 400 }); patch[k] = n }
-  for (const k of ['bedrooms', 'bathrooms', 'min_term_months', 'max_term_months']) if (patch[k] != null) patch[k] = Math.max(0, Math.round(Number(patch[k]) || 0))
+  for (const k of ['bedrooms', 'bathrooms', 'min_term_months', 'max_term_months', 'housemates']) if (patch[k] != null) patch[k] = Math.max(0, Math.round(Number(patch[k]) || 0))
   // rent added or changed: fill in the deposits if they're still blank (5 weeks' and 1 week's rent)
   if (patch.rent != null) {
     const { data: cur } = await s.from('listings').select('deposit, holding_deposit, rent_frequency').eq('id', String(b.id ?? '')).maybeSingle()
@@ -172,6 +172,7 @@ export async function PATCH(req: NextRequest) {
   }
   const { data, error } = await s.from('listings').update(patch).eq('id', String(b.id ?? '')).select('*').single()
   if (notSetUp(error)) return setup()
+  if (error && /housemates/.test(error.message)) return NextResponse.json({ error: 'Saving who lives there needs migration 274 running in Supabase first.' }, { status: 503 })
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json(await full(s, data))
 }

@@ -35,9 +35,24 @@ async function compare(roomId: string, ad: Awaited<ReturnType<typeof readSpareRo
   const gbp = (n: number) => `£${n.toLocaleString('en-GB', { maximumFractionDigits: 2 })}`
   const yes = (v: boolean | null | undefined) => v == null ? '—' : v ? 'Yes' : 'No'
   const houseRooms = (rooms ?? []).length || Number(prop?.bedrooms) || 0
-  if (ad.totalRooms && houseRooms && ad.totalRooms !== houseRooms) out.push({ field: 'rooms', label: 'Bedrooms in the house', spareroom: String(ad.totalRooms), cros: String(houseRooms), note: 'CROS keeps its own count — check the house’s rooms if SpareRoom is right.', warn: true })
   const living = new Set(((lets ?? []) as any[]).filter(t => !t.let_cancelled_at && (!t.end_date || t.end_date >= today) && t.room_id !== roomId).map(t => t.room_id)).size
-  if (ad.flatmates != null && ad.flatmates !== living) out.push({ field: 'flatmates', label: 'Flatmates living there now', spareroom: String(ad.flatmates), cros: String(living), note: 'The listing shows CROS’s figure (from the tenancies).', warn: true })
+  // the house as ONE check (9 Nov 2026, Harry: "surely 4 bedrooms does mean 3 housemates"): SpareRoom's own figures are
+  // read together (4 bedrooms with this one free = 3 flatmates when the rest are full), and when CROS holds fewer rooms
+  // than the house has — a house where we only let some rooms — CROS's count from tenancies can't be right, so
+  // SpareRoom's is offered for the advert rather than flagged as a clash.
+  const srRooms = ad.totalRooms ?? null, srMates = ad.flatmates ?? null
+  const srAddsUp = srRooms != null && srMates != null && srMates <= srRooms - 1
+  const srSays = [srRooms != null ? `${srRooms} bedroom${srRooms === 1 ? '' : 's'}` : '', srMates != null ? `${srMates} living there` : ''].filter(Boolean).join(', ')
+  const crosSays = `${houseRooms} room${houseRooms === 1 ? '' : 's'} on file, ${living} with a current tenancy`
+  if (srSays && ((srRooms != null && srRooms !== houseRooms) || (srMates != null && srMates !== living))) {
+    const partial = srRooms != null && houseRooms < srRooms
+    out.push({ field: 'house', label: 'The house', spareroom: srSays, cros: crosSays,
+      note: partial
+        ? `CROS only holds ${houseRooms} of the ${srRooms} rooms (we don’t let them all), so its count of who lives there isn’t complete.${srAddsUp ? ` SpareRoom’s figures add up${srMates === srRooms! - 1 ? ' — every other room is taken' : ''}.` : ''} Tick to use SpareRoom’s on the advert.`
+        : srAddsUp ? 'SpareRoom’s figures add up, but CROS’s rooms or tenancies say otherwise — tick to use SpareRoom’s on the advert, and check the house’s rooms.'
+          : `SpareRoom’s own figures don’t add up (${srMates} people in ${srRooms} rooms with this one free) — check the advert.`,
+      warn: !srAddsUp })
+  }
   const monthly = ad.rent ? (ad.period === 'pw' ? Math.round(ad.rent * 52 / 12) : ad.rent) : null
   const ours = listing?.rent != null ? Number(listing.rent) : room.current_asking_rent != null ? Number(room.current_asking_rent) : null
   if (monthly && ours && Math.abs(monthly - ours) >= 1) out.push({ field: 'rent', label: 'Rent (a month)', spareroom: gbp(monthly), cros: gbp(ours) })

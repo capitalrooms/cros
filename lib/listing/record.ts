@@ -35,7 +35,7 @@ export interface ListingRecord {
 export const EDITABLE = ['headline', 'summary', 'description', 'features', 'rent', 'rent_frequency', 'deposit', 'holding_deposit', 'bills_included',
   'council_tax_band', 'council_tax_included', 'property_type', 'bedrooms', 'bathrooms', 'room_size_sqm', 'ensuite', 'furnished', 'living_room',
   'parking', 'outside_space', 'heating', 'broadband', 'utilities', 'available_from', 'min_term_months', 'max_term_months', 'let_type',
-  'sharers_allowed', 'pets_allowed', 'smokers_allowed', 'tenant_type', 'display_address', 'part_c', 'media_order', 'floorplan_url', 'video_url', 'virtual_tour_url'] as const
+  'sharers_allowed', 'pets_allowed', 'smokers_allowed', 'tenant_type', 'housemates', 'display_address', 'part_c', 'media_order', 'floorplan_url', 'video_url', 'virtual_tour_url'] as const
 
 /** what's missing before the listing can be Ready (Part A first) */
 export function missingForReady(l: Partial<ListingRecord>, photoCount: number): string[] {

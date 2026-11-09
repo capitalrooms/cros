@@ -108,7 +108,9 @@ export async function loadListing(s: SupabaseClient, roomId: string): Promise<Li
     deposit: L?.deposit != null ? Number(L.deposit) : null, holdingDeposit: L?.holding_deposit != null ? Number(L.holding_deposit) : null,
     councilTax: L ? (L.council_tax_included ? 'Included in the rent' : L.council_tax_band ? `Band ${L.council_tax_band}` : null) : null,
     status: L?.status ?? null, minTermMonths: L?.min_term_months ?? null, rentFrequency: L?.rent_frequency === 'pw' ? 'pw' : 'pcm',
-    facts: { ...facts, councilTaxBand: L?.council_tax_band ?? facts.councilTaxBand, broadband: L?.broadband ?? facts.broadband },
+    facts: { ...facts, councilTaxBand: L?.council_tax_band ?? facts.councilTaxBand, broadband: L?.broadband ?? facts.broadband,
+      // what the advert says about the house wins over CROS's own count (CROS may not hold every room — 9 Nov 2026)
+      ...(L?.housemates != null ? { housemates: Number(L.housemates) } : {}), ...(L?.bedrooms != null && !wholeLet ? { bedrooms: Number(L.bedrooms), roomsInHouse: Math.max(facts.roomsInHouse ?? 0, Number(L.bedrooms)) } : {}) },
     approx,
   }
 }
