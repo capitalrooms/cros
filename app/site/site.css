@@ -391,6 +391,8 @@
 .site .team-face img{width:100%;height:100%;object-fit:cover}
 .site .team-role{margin:4px 0 0;font-weight:600;color:var(--forest);font-size:15px}
 .site .team-bio{margin:0;color:var(--muted);line-height:1.55;font-size:16px}
-.site .team-quote{margin:0;padding:14px 16px;background:var(--sage);border-radius:18px;font-size:15px;line-height:1.55}
+.site .founder-quote{margin:0;max-width:880px;display:flex;flex-direction:column;gap:14px;padding-left:22px;border-left:4px solid var(--forest)}
+.site .founder-quote blockquote{margin:0;font-size:clamp(20px,2.3vw,26px);font-weight:500;line-height:1.45;color:var(--ink)}
+.site .founder-quote figcaption{font-size:16px;color:var(--muted)}
 @media (max-width:1000px){.site .team{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (max-width:600px){.site .team{grid-template-columns:1fr}}

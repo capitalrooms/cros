@@ -2,7 +2,7 @@ import Link from 'next/link'
 import type { Metadata } from 'next'
 import { siteBase } from '@/lib/website/base'
 import { PageTop, Badges } from '../parts'
-import { TEAM, GOOGLE_RATING } from '@/lib/website/site'
+import { TEAM, GOOGLE_RATING, FOUNDER_QUOTE } from '@/lib/website/site'
 
 export const metadata: Metadata = { title: 'About Us: Independent London Letting Agent', description: 'Capital Rooms is an independent letting and property management agency in Shoreditch, looking after landlords, tenants and shared homes across London.', alternates: { canonical: '/about-us' } }
 
@@ -20,6 +20,10 @@ export default async function About() {
       </div></div></section>
       <section className="block" id="team"><div className="wrap" style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
         <div><p className="eyebrow rise" style={{ margin: 0 }}>Meet the team</p><h2 className="h2 rise" style={{ margin: '8px 0 0' }}>A small team you’ll actually know.</h2></div>
+        <figure className="founder-quote rise">
+          <blockquote>“{FOUNDER_QUOTE}”</blockquote>
+          <figcaption><strong>Harry</strong>, founder</figcaption>
+        </figure>
         <div className="team">
           {TEAM.map(t => (
             <article key={t.name} className="team-card rise">
@@ -27,7 +31,6 @@ export default async function About() {
               <div className="team-face" aria-hidden={!t.photo}>{t.photo ? <img src={t.photo} alt={t.name} /> : <span className="disp">{t.name[0]}</span>}</div>
               <div><h3 className="h3" style={{ margin: 0 }}>{t.name}</h3><p className="team-role">{t.role}</p></div>
               <p className="team-bio">{t.bio}</p>
-              {t.quote && <blockquote className="team-quote">“{t.quote}”</blockquote>}
             </article>
           ))}
         </div>
