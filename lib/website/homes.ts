@@ -8,8 +8,15 @@ export interface Home { id: string; title: string; area: string; rent: number | 
 
 export async function websiteHomes(): Promise<Home[]> {
   const s = createServiceClient() as any
-  const { data: rooms } = await s.from('rooms').select('id, name, property_id, current_asking_rent, available_date, status, show_on_website, properties(name, address, postcode, property_type, is_demo)')
-    .eq('show_on_website', true).in('status', ['available', 'on_notice'])
+  // on the website: rooms ticked "Show on website", and any live listing with its Website switch on (9 Nov 2026)
+  const { data: liveWeb } = await s.from('listing_channels').select('listing_id, listings!inner(room_id, status)').eq('channel', 'website').eq('enabled', true).eq('listings.status', 'live')
+  const webRoomIds = ((liveWeb ?? []) as any[]).map(x => x.listings?.room_id).filter(Boolean)
+  const sel = 'id, name, property_id, current_asking_rent, available_date, status, show_on_website, properties(name, address, postcode, property_type, is_demo)'
+  const [{ data: ticked }, { data: published }] = await Promise.all([
+    s.from('rooms').select(sel).eq('show_on_website', true).in('status', ['available', 'on_notice']),
+    webRoomIds.length ? s.from('rooms').select(sel).in('id', webRoomIds) : Promise.resolve({ data: [] }),
+  ])
+  const rooms = [...new Map([...((ticked ?? []) as any[]), ...((published ?? []) as any[])].map(r => [r.id, r])).values()]
   const list = ((rooms ?? []) as any[]).filter(r => !r.properties?.is_demo)
   if (!list.length) return []
   const ids = list.map(r => r.id)
