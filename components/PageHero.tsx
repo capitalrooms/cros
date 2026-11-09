@@ -5,6 +5,7 @@
 // lettings apps. Put it first in the page, outside the page's content wrapper.
 
 import Link from 'next/link'
+import { StoredImg } from '@/components/StoredImg'
 import type { ReactNode } from 'react'
 import { display } from '@/app/components/financeLook'
 
@@ -23,16 +24,23 @@ export interface HeroSiblings { label: string; items: { label: string; href: str
 export interface HeroChip { label: string; tone?: 'good' | 'warn' | 'bad' | 'info' | 'plain' }
 const CHIP: Record<string, string> = { good: 'bg-[#6EAF8B]/25 text-[#CFEBDB]', warn: 'bg-[var(--accent,#C4922A)]/30 text-[#F6E3B8]', bad: 'bg-[#F28B82]/25 text-[#FBD3CF]', info: 'bg-[#8FB4F0]/25 text-[#D6E4FB]', plain: 'bg-[#F6F3EC]/12 text-[#F6F3EC]/85' }
 
-export default function PageHero({ title, subtitle, eyebrow, stats, actions, tabs, look, trail, chip, siblings }: {
+export default function PageHero({ title, subtitle, eyebrow, stats, actions, tabs, look, trail, chip, siblings, image, imageHref }: {
   title: ReactNode; subtitle?: ReactNode; eyebrow?: ReactNode; stats?: HeroStat[]; actions?: ReactNode; tabs?: HeroTab[]; look?: 'olive'; trail?: TrailStep[]
   chip?: HeroChip; siblings?: HeroSiblings
+  /** a small photo of the property or room beside the title (9 Nov 2026, Harry: no thumbnail anywhere) */
+  image?: string | null; imageHref?: string
 }) {
   // every band is olive since the rebuild (3 Nov 2026); look stays accepted so older calls still compile
   const olive = look === 'olive' || true
   return (
-    <section className={olive ? 'bg-[var(--band,#4A5320)] text-[var(--ground,#F3F0E6)]' : 'bg-[#181614] text-[#F6F3EC]'}>
+    <section className={olive ? 'bg-[var(--band,#1F3B2E)] text-[var(--ground,#F3F0E6)]' : 'bg-[#181614] text-[#F6F3EC]'}>
       <div className="mx-auto max-w-6xl px-lg pt-lg">
         <div className="flex flex-wrap items-end justify-between gap-md">
+          <div className="flex min-w-0 items-end gap-md">
+          {image && (() => {
+            const pic = <StoredImg src={image} alt="" className="h-16 w-20 shrink-0 rounded-xl object-cover ring-2 ring-[#F6F3EC]/20 sm:h-20 sm:w-28" />
+            return imageHref ? <Link href={imageHref} prefetch={false} className="shrink-0 transition-opacity hover:opacity-90" title="Photos">{pic}</Link> : pic
+          })()}
           <div className="min-w-0">
             {((trail && trail.length > 0) || siblings) && (
               <nav aria-label="Where this is" className="mb-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[13px] text-[#F3F0E6]/75">
@@ -49,6 +57,7 @@ export default function PageHero({ title, subtitle, eyebrow, stats, actions, tab
               {chip && <span className={`rounded-full px-sm py-0.5 text-[11px] font-bold uppercase tracking-[0.06em] ${CHIP[chip.tone ?? 'plain']}`}>{chip.label}</span>}
             </div>
             {subtitle && <p className="mt-0.5 text-sm text-[#F6F3EC]/60">{subtitle}</p>}
+          </div>
           </div>
           {actions && <div className="flex flex-wrap items-center gap-sm">{actions}</div>}
         </div>

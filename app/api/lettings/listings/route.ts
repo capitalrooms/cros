@@ -11,6 +11,7 @@ import { createServiceClient } from '@/lib/supabase'
 import { draftFromRoom, depositsFor, missingForReady, EDITABLE, CHANNELS, CHANNEL_READY, CHANNEL_LABEL, type Channel, type ListingStatus } from '@/lib/listing/record'
 import { listingPath } from '@/lib/listing/listing'
 import { smartFill } from '@/lib/listing/smartFill'
+import { fromRecord, blanksFrom } from '@/lib/listing/fromRecord'
 
 export const dynamic = 'force-dynamic'
 const OPEN = ['draft', 'ready', 'live', 'let_agreed']
@@ -119,8 +120,12 @@ export async function POST(req: NextRequest) {
       s.from('properties').select('name, address, postcode, property_type').eq('id', l.property_id).maybeSingle(),
       l.room_id ? s.from('rooms').select('name').eq('id', l.room_id).maybeSingle() : Promise.resolve({ data: null }),
     ])
-    let got
-    try { got = await smartFill(l, house, room?.name ?? null) } catch (e: any) { return NextResponse.json({ error: e?.message ?? 'Couldn’t read the advert' }, { status: 502 }) }
+    // first what CROS already holds about the room and house, then the advert's own words for what's still blank
+    const rec = blanksFrom(l, await fromRecord(s, l.room_id, l.property_id))
+    const merged = { ...l, ...rec }
+    let got: { fields: Record<string, unknown>; checks: string[] } = { fields: {}, checks: [] }
+    if (merged.description) { try { got = await smartFill(merged, house, room?.name ?? null) } catch (e: any) { if (!Object.keys(rec).length) return NextResponse.json({ error: e?.message ?? 'Couldn’t read the advert' }, { status: 502 }) } }
+    got = { ...got, fields: { ...rec, ...got.fields } }
     let row = l
     if (Object.keys(got.fields).length) {
       const { data, error } = await s.from('listings').update({ ...got.fields, updated_at: new Date().toISOString() }).eq('id', l.id).select('*').single()

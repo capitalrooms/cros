@@ -169,7 +169,7 @@ export default function ListingEditor({ params }: { params: Promise<{ roomId: st
     setSrBusy(false); setAd(null); setChecks([]); setSrUrl(''); setShowImport(false); setNotice('Imported from SpareRoom — now filling the gaps from the description…'); await load(); fillFromAdvert(true).then(() => setNotice('Imported from SpareRoom and the gaps filled — check it over.'))
   }
 
-  const shell = (body: React.ReactNode) => <div className="min-h-screen bg-neutral-100 pb-3xl"><AppBar left={<BackButton href={back} />} />{body}</div>
+  const shell = (body: React.ReactNode) => <div className="office min-h-screen bg-neutral-100 pb-3xl"><AppBar left={<BackButton href={back} />} />{body}</div>
   if (error && !data) return shell(<p className="mx-auto max-w-5xl px-lg py-xl text-sm text-red-700">{error}</p>)
   if (empty) return shell(
     <main className="mx-auto max-w-xl px-lg py-2xl text-center">
@@ -232,6 +232,7 @@ export default function ListingEditor({ params }: { params: Promise<{ roomId: st
   return shell(<>
     {/* ── header: the site's green band with where you came from (9 Nov 2026), then the next steps one click away ── */}
     <PageHero
+      image={media.find(m => !m.video)?.url ?? null}
       eyebrow={`${whole ? 'Whole property' : 'Room'} listing · ${l.agent_ref}`}
       title={title}
       chip={{ label: STEPS[stepIx]?.[1] ?? l.status, tone: l.status === 'live' ? 'good' : l.status === 'ready' ? 'info' : l.status === 'let_agreed' ? 'warn' : 'plain' }}
@@ -301,13 +302,13 @@ export default function ListingEditor({ params }: { params: Promise<{ roomId: st
               <h2 className="text-base font-bold text-neutral-900">{data.missing.length ? `${data.missing.length} thing${data.missing.length === 1 ? '' : 's'} before it can go live` : 'Everything needed is in'}</h2>
               <p className="mt-0.5 text-sm text-neutral-500">{data.missing.length ? 'Required by law on every advert (material information) or for the portals.' : 'Check the preview, then Publish.'}</p>
             </div>
-            <button type="button" onClick={() => fillFromAdvert()} disabled={smart?.busy || !l.description} title={l.description ? '' : 'Needs a description first'}
-              className={`${btn} bg-violet-700 text-white hover:bg-violet-800`}>{smart?.busy ? 'Reading the advert…' : '✨ Fill the gaps from the description'}</button>
+            <button type="button" onClick={() => fillFromAdvert()} disabled={smart?.busy}
+              className={`${btn} bg-violet-700 text-white hover:bg-violet-800`}>{smart?.busy ? 'Filling the gaps…' : '✨ Fill the gaps'}</button>
           </div>
           {data.missing.length > 0 && <ul className="mt-md flex flex-wrap gap-xs">{data.missing.map(m => <li key={m}><button type="button" onClick={() => go(sectionFor(m))} className="rounded-full bg-amber-50 px-md py-1 text-sm font-medium text-amber-900 ring-1 ring-amber-200 hover:bg-amber-100">{m} →</button></li>)}</ul>}
           {smart && !smart.busy && (
             <div className="mt-md space-y-sm border-t border-neutral-100 pt-md text-sm">
-              <p className="text-neutral-700">{smart.filled.length ? <>Filled in from the advert: <b>{smart.filled.map(k => k.replace(/_/g, ' ')).join(', ')}</b> — marked <span className="rounded-full bg-violet-100 px-1.5 text-[10px] font-bold uppercase text-violet-800">filled in</span> below. Nothing you’d already typed was changed.</> : 'Nothing new to fill — every field the advert covers is already done.'}</p>
+              <p className="text-neutral-700">{smart.filled.length ? <>Filled in from the record and the advert: <b>{smart.filled.map(k => k.replace(/_/g, ' ')).join(', ')}</b> — marked <span className="rounded-full bg-violet-100 px-1.5 text-[10px] font-bold uppercase text-violet-800">filled in</span> below. Nothing you’d already typed was changed.</> : 'Nothing new to fill — every field the advert covers is already done.'}</p>
               {smart.checks.length > 0 && <div className="rounded-xl bg-amber-50 p-md ring-1 ring-amber-200"><p className="font-bold text-amber-900">Worth fixing before you publish</p><ul className="mt-xs list-disc space-y-1 pl-5 text-amber-900">{smart.checks.map((c, i) => <li key={i}>{c}</li>)}</ul></div>}
             </div>
           )}

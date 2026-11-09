@@ -150,7 +150,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
             return (
               <div key={zone.id}>
                 <Link href={(zone.home && allowed(zone.home) ? zone.home : undefined) ?? zone.subnav[0]?.href ?? (zone.id === 'dash' ? '/admin' : '#')} prefetch={false}
-                  className={`flex items-center rounded-[10px] px-3 py-2 text-[13.5px] font-semibold transition-colors ${open ? 'bg-[var(--band,#4A5320)] text-[var(--ground,#F3F0E6)]' : 'text-[#F6F3EC]/60 hover:bg-[#F6F3EC]/5 hover:text-[#F6F3EC]'}`}>
+                  className={`flex items-center rounded-[10px] px-3 py-2 text-[13.5px] font-semibold transition-colors ${open ? 'bg-[var(--band,#1F3B2E)] text-[var(--ground,#F3F0E6)]' : 'text-[#F6F3EC]/60 hover:bg-[#F6F3EC]/5 hover:text-[#F6F3EC]'}`}>
                   <span className="flex-1">{zone.label}</span>
                   {needs[zone.id] > 0 && <span title={`${needs[zone.id]} need${needs[zone.id] === 1 ? 's' : ''} you`} className="ml-2 min-w-[20px] rounded-full bg-[var(--accent,#E8B931)] px-1.5 text-center text-[11px] font-bold leading-5 text-[var(--ink,#23261A)]">{needs[zone.id]}</span>}
                 </Link>

@@ -8,6 +8,7 @@
 //   → let / withdrawn closes it; the room can then have a new listing
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { isWholeLet } from '@/lib/lettings/letWording'
+import { fromRecord } from '@/lib/listing/fromRecord'
 
 export type ListingStatus = 'draft' | 'ready' | 'live' | 'let_agreed' | 'let' | 'withdrawn'
 export const CHANNELS = ['share', 'website', 'rightmove', 'zoopla', 'onthemarket', 'spareroom'] as const
@@ -75,6 +76,7 @@ export async function draftFromRoom(s: SupabaseClient, roomId: string | null, pr
   const street = displayAddressFrom([prop.name, prop.address].filter(Boolean).join(', '), prop.postcode).split(',')[0] || 'London'
   const rent = room.current_asking_rent != null ? Number(room.current_asking_rent) : null
   const { count } = await s.from('listings').select('id', { count: 'exact', head: true })
+  const rec = await fromRecord(s, roomId, propertyId)   // the house and room as CROS holds them (9 Nov 2026)
   return {
     property_id: propertyId, room_id: roomId, status: 'draft' as const, agent_ref: `CR-${String((count ?? 0) + 1).padStart(5, '0')}`,
     headline: whole ? `Property to rent on ${street}` : roomId ? `${room.has_ensuite ? 'En-suite double room' : 'Double room'} on ${street}` : null,
@@ -92,6 +94,8 @@ export async function draftFromRoom(s: SupabaseClient, roomId: string | null, pr
     display_address: displayAddressFrom([prop.name, prop.address].filter(Boolean).join(', '), prop.postcode) || null,
     latitude: prop.lat ?? null, longitude: prop.lng ?? null,
     media_order: media, created_by: createdBy,
+    // anything else on file wins over the defaults above where the default was blank
+    ...Object.fromEntries(Object.entries(rec).filter(([k]) => k !== 'council_tax_included')),
   }
 }
 

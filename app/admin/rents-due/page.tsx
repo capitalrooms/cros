@@ -78,7 +78,7 @@ function RentsDue({ initialMonth }: { initialMonth?: string }) {
       <div className="mx-auto max-w-6xl px-lg py-xl">
         <PageHead eyebrow="" title="" right={
           <div className="flex flex-wrap items-center gap-sm">
-            <span className="inline-flex rounded-full bg-[var(--band,#4A5320)] px-sm py-[2px]"><HeroMonthPicker month={month} onChange={go} /></span>
+            <span className="inline-flex rounded-full bg-[var(--band,#1F3B2E)] px-sm py-[2px]"><HeroMonthPicker month={month} onChange={go} /></span>
             {collects && <Pill tone="mustard" href={`/admin/rent-chase${chosen.length ? `?only=${chosen.join(',')}` : ''}`}>{chosen.length ? `Chase ${chosen.length} selected` : 'Chase'}</Pill>}
             <Pill tone="paper" second href="/admin/bank-import">Import bank CSV</Pill>
             {collects && count('no_charge') > 0 && <Pill tone="paper" second href="/admin/rent-charges">Raise {count('no_charge')} rents</Pill>}
@@ -107,12 +107,12 @@ function RentsDue({ initialMonth }: { initialMonth?: string }) {
               <ul>
                 {rows.map((r, i) => (
                   <li key={r.tenancyId ?? `${r.room}${i}`} className="grid grid-cols-[1.5rem_1fr_auto] items-center gap-x-md gap-y-xs border-t border-[#E7E2CF] py-sm text-sm sm:grid-cols-[1.5rem_1.4fr_1fr_7rem_auto]">
-                    <input type="checkbox" disabled={!r.tenancyId} checked={!!(r.tenancyId && tick[r.tenancyId])} onChange={e => r.tenancyId && setTick(t => ({ ...t, [r.tenancyId!]: e.target.checked }))} className="h-4 w-4 accent-[var(--band,#4A5320)]" aria-label={`Select ${r.tenant || r.room}`} />
+                    <input type="checkbox" disabled={!r.tenancyId} checked={!!(r.tenancyId && tick[r.tenancyId])} onChange={e => r.tenancyId && setTick(t => ({ ...t, [r.tenancyId!]: e.target.checked }))} className="h-4 w-4 accent-[var(--band,#1F3B2E)]" aria-label={`Select ${r.tenant || r.room}`} />
                     <span className="font-semibold">{r.room}{r.tenant ? ` · ${r.tenant}` : ''}</span>
                     <span className={`col-start-2 ${C.muted} sm:col-start-auto`}>{note(r)}</span>
                     <span className="row-start-1 text-right font-semibold tabular-nums sm:row-start-auto">{gbp(r.owed)}</span>
                     {r.tenancyId && (
-                      <span className="col-start-2 flex gap-sm text-xs font-semibold text-[var(--band,#4A5320)] sm:col-start-auto">
+                      <span className="col-start-2 flex gap-sm text-xs font-semibold text-[var(--band,#1F3B2E)] sm:col-start-auto">
                         <Link href={`/admin/lettings/${r.tenancyId}?tab=messages`} className="hover:underline">Messages</Link>
                         <Link href={`/admin/lettings/${r.tenancyId}?tab=money`} className="hover:underline">Money ›</Link>
                       </span>

@@ -131,7 +131,7 @@ export default function DashboardInfographic({ d, name }: { d: DashboardData; na
 
   return (
     <div>
-      <section className="bg-[var(--band,#4A5320)] text-[var(--ground,#F3F0E6)]">
+      <section className="bg-[var(--band,#1F3B2E)] text-[var(--ground,#F3F0E6)]">
         <div className="mx-auto max-w-6xl px-lg pb-lg pt-lg">
           <div className="flex flex-wrap items-end justify-between gap-md">
             <div>
