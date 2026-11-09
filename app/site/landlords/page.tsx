@@ -1,11 +1,11 @@
 import Link from 'next/link'
 import type { Metadata } from 'next'
 import { siteBase } from '@/lib/website/base'
-import { TIERS, RENT_GUARANTEE } from '@/lib/website/site'
+import { TIERS } from '@/lib/website/site'
 import { PageTop, Tick, Reviews } from '../parts'
 import Enquiry from '../Enquiry'
 
-export const metadata: Metadata = { title: 'Landlords', description: 'Let only 5%, single let management 8%, HMO management 12%, and a Rent Guarantee. Independent London letting and management.' }
+export const metadata: Metadata = { title: 'Landlords', description: 'Let only 5%, single let management 8%, HMO management 12%. Independent London letting and management.' }
 
 export default async function Landlords() {
   const b = await siteBase()
@@ -28,13 +28,6 @@ export default async function Landlords() {
             </div>
           ))}
         </div>
-        <div className="tier rise" style={{ marginTop: 20, display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,2fr)', gap: 32 }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <span style={{ fontWeight: 600 }}>Rent Guarantee</span>
-            <span className="disp" style={{ fontSize: 40, lineHeight: 1 }}>A full, stress-free solution.</span>
-          </div>
-          <ul style={{ display: 'grid', gridTemplateColumns: 'repeat(2,minmax(0,1fr))', gap: 10 }}>{RENT_GUARANTEE.map(i => <li key={i}><Tick />{i}</li>)}</ul>
-        </div>
       </div></section>
 
       <section className="block"><div className="wrap">
@@ -51,7 +44,7 @@ export default async function Landlords() {
           <Enquiry kind="landlord" submit="Send enquiry" fields={[
             { name: 'name', label: 'Name', required: true }, { name: 'email', label: 'Email', type: 'email', required: true },
             { name: 'phone', label: 'Phone number', type: 'tel' }, { name: 'rooms', label: 'Rooms in property', type: 'number' },
-            { name: 'area', label: 'Area' }, { name: 'service', label: 'Service required', type: 'select', options: ['Let only', 'Full management', 'HMO management', 'Rent Guarantee', 'Not sure yet'] },
+            { name: 'area', label: 'Area' }, { name: 'service', label: 'Service required', type: 'select', options: ['Let only', 'Full management', 'HMO management', 'Not sure yet'] },
             { name: 'message', label: 'Message', type: 'textarea' },
           ]} />
         </div>
