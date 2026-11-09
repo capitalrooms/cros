@@ -73,12 +73,22 @@ export function Footer({ b = '' }: { b?: string }) {
   )
 }
 
+/** five black stars at the top of every review */
+export function Stars() {
+  return (
+    <span className="stars" role="img" aria-label="Rated 5 out of 5">
+      {[0, 1, 2, 3, 4].map(i => <svg key={i} viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M10 1.6l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 14.9l-5.2 2.7 1-5.8-4.2-4.1 5.8-.8z" fill="currentColor" /></svg>)}
+    </span>
+  )
+}
+
 export function Reviews({ only, limit }: { only?: 'Tenant' | 'Landlord'; limit?: number }) {
   const list = (reviews as { quote: string; name: string; role: string | null }[]).filter(r => !only || r.role === only).slice(0, limit ?? 99)
   return (
     <div className="wall">
       {list.map((r, i) => (
         <figure key={i} className="bubble rise" style={i % 3 === 1 ? { background: '#E4EBE3' } : undefined}>
+          <Stars />
           {r.quote.length > 320
             ? <details><summary><blockquote style={{ margin: 0, display: 'inline' }}>“{r.quote.slice(0, r.quote.lastIndexOf(' ', 300))}…”</blockquote><br /><span style={{ display: 'inline-block', marginTop: 10 }}>Read more</span></summary><blockquote style={{ margin: 0 }}>“{r.quote}”</blockquote></details>
             : <blockquote style={{ margin: 0 }}>“{r.quote}”</blockquote>}
