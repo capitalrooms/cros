@@ -15,7 +15,7 @@ export default function Valuation() {
           { name: 'address', label: 'Property address', full: true },
           { name: 'type', label: 'Property type', type: 'select', options: ['Flat', 'Studio', 'Terraced house', 'Semi-detached house', 'Detached house', 'House share (HMO)'] },
           { name: 'bedrooms', label: 'Bedrooms', type: 'select', options: ['Studio', '1', '2', '3', '4', '5', '6', '7+'] },
-          { name: 'service', label: 'Interested in', type: 'select', options: ['Let only', 'Full management', 'HMO management', 'Rent Guarantee', 'Not sure yet'] },
+          { name: 'service', label: 'Interested in', type: 'select', options: ['Let only', 'Full management', 'HMO management', 'Not sure yet'] },
           { name: 'message', label: 'Anything else?', type: 'textarea' },
         ]} />
       </div></div></section>

@@ -19,7 +19,6 @@ export const TIERS = [
   { name: 'Single let management', fee: '8% + VAT', lead: 'Our comprehensive service for a house or flat let to one household.', tone: 'dark', items: ['Professional photography', 'Tenant sourcing and referencing', 'New tenancy documentation', 'Quarterly inspections', 'Monthly statements', '24/7 maintenance and repairs', 'Property licences and health & safety certificates organised'] },
   { name: 'HMO management', fee: '12% + VAT', lead: 'Our comprehensive service for shared houses, run room by room.', tone: 'soft', items: ['Professional photography', 'Tenant sourcing and referencing', 'New tenancy documentation', 'Quarterly inspections', 'Monthly statements', '24/7 maintenance and repairs', 'Property licences and health & safety certificates organised'] },
 ]
-export const RENT_GUARANTEE = ['A guaranteed amount paid to you every month', 'No lettings fees', 'Tenant procurement and tenant vacation', 'HMO licensing', 'Weekly cleaning', 'No standard admin fees', 'All relevant health & safety certificates maintained', 'Utility bills arranged if requested']
 
 export const STEPS = [
   { title: 'A valuation you can trust', body: 'We tell you what your property should let for today, and what would help it let faster.' },

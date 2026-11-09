@@ -35,7 +35,7 @@ export default async function Home() {
           <p className="lead" style={{ maxWidth: 380 }}>Rated 4.9 out of 5 by our landlords and tenants on Google.</p>
         </div>
         <div className="grid3">
-          <HelpCard href={`${b}/landlords`} k="landlords" tone="forest" icon={ICONS.key} title="Landlords" text="Let only, fully managed, or HMO management." />
+          <HelpCard href={`${b}/landlords`} k="landlords" tone="forest" icon={ICONS.key} title="Landlords" text="Let only, fully managed, or HMOs." />
           <HelpCard href={`${b}/residential-lettings`} k="tenants" tone="gold" icon={ICONS.home} title="Tenants" text="Flats, houses and rooms across London." />
           <HelpCard href={`${b}/instant_valuation`} k="valuation" tone="sage" icon={ICONS.chart} title="Valuations" text="What your property should let for, today." />
         </div>
@@ -54,7 +54,7 @@ export default async function Home() {
             </div>
           ))}
         </div>
-        <p className="rise" style={{ marginTop: 24 }}><Link href={`${b}/landlords`} style={{ fontWeight: 600 }}>Everything included, and our Rent Guarantee →</Link></p>
+        <p className="rise" style={{ marginTop: 24 }}><Link href={`${b}/landlords`} style={{ fontWeight: 600 }}>Everything that’s included →</Link></p>
       </div></section>
 
       {hasPhoto('keys') ? (

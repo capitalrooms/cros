@@ -214,3 +214,7 @@
   .site .top nav.open a{font-size:18px;padding:14px 12px;border-radius:12px}
 }
 @media (max-width:900px){.site .top .wrap > div{order:2}.site .top .menu-btn{order:3}}
+
+/* card titles on one line across the row, whatever the description length (9 Nov 2026) */
+.site .who .txt{height:170px;justify-content:flex-start;padding-top:56px;box-sizing:border-box}
+@media (max-width:900px){.site .who .txt{min-height:0;padding-top:28px}}
