@@ -19,7 +19,7 @@ export function Header({ here, b = '' }: { here?: string; b?: string }) {
   return (
     <header className="top">
       <div className="wrap">
-        <Link href={b || '/'} aria-label="Capital Rooms home"><img src="/brand/lockup-ink.png" alt="Capital Rooms" style={{ height: 30, width: 'auto', display: 'block' }} /></Link>
+        <Link href={b || '/'} aria-label="Capital Rooms home"><img src="/brand/logo-ink.png" alt="Capital Rooms" style={{ height: 58, width: 'auto', display: 'block' }} /></Link>
         <MobileMenu>
           {NAV.map(([t, h]) => <Link key={h} href={b + h}>{t}</Link>)}
         </MobileMenu>
@@ -50,7 +50,7 @@ export function Footer({ b = '' }: { b?: string }) {
       <div className="wrap">
         <div className="cols">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <img src="/brand/lockup-white.png" alt="Capital Rooms" style={{ height: 34, width: 'auto', alignSelf: 'flex-start' }} />
+            <img src="/brand/logo-white.png" alt="Capital Rooms" style={{ height: 72, width: 'auto', alignSelf: 'flex-start' }} />
             <p style={{ fontSize: 14, lineHeight: 1.7, color: '#B9C7BC' }}>{OFFICE.address}<br /><a href={OFFICE.phoneHref}>{OFFICE.phone}</a> · <a href={`mailto:${OFFICE.email}`}>{OFFICE.email}</a></p>
           </div>
           <nav aria-label="Landlords"><strong>Landlords</strong><Link href={`${b}/instant_valuation`}>Instant valuation</Link><Link href={`${b}/landlords`}>Landlords</Link><Link href={`${b}/maintenance-services`}>Maintenance</Link></nav>
