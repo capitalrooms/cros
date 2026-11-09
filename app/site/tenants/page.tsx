@@ -2,7 +2,7 @@ import Link from 'next/link'
 import type { Metadata } from 'next'
 import { siteBase } from '@/lib/website/base'
 import { TENANT_BENEFITS, TENANT_STEPS } from '@/lib/website/site'
-import { PageTop, Tick, Reviews } from '../parts'
+import { PageTop, Tick, Reviews, hasPhoto } from '../parts'
 import { TenantCalc } from '../Calculators'
 
 export const metadata: Metadata = { title: 'Tenants', description: 'Renting with Capital Rooms: all-inclusive rent, furnished rooms, a cleaner, and a simple online move-in.' }
@@ -20,8 +20,7 @@ export default async function Tenants() {
           {TENANT_BENEFITS.map(x => <li key={x} className="card" style={{ flexDirection: 'row', alignItems: 'center', padding: '18px 22px' }}><Tick />{x}</li>)}
         </ul>
       </div></section>
-      <section className="block"><div className="wrap story">
-        <div className="pin"><div className="ph grow" style={{ position: 'absolute', inset: 0, borderRadius: 32 }} /></div>
+      <section className="block"><div className="wrap" style={{ maxWidth: 900 }}>
         <div>
           <p className="eyebrow">Moving in</p>
           <h2 className="h2" style={{ margin: '8px 0 20px' }}>Three simple steps.</h2>

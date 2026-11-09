@@ -6,6 +6,8 @@ import MobileMenu from './MobileMenu'
 
 export function Tick() { return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden="true"><path d="M5 12l5 5 9-10" /></svg> }
 
+export const hasPhoto = (k: string) => !!PHOTOS[k]
+
 /** a photo slot — the photo when one is set (lib/website/site PHOTOS), else a quiet forest panel */
 export function Photo({ k, className = '', alt = '', tone }: { k: string; className?: string; alt?: string; tone?: 'sage' }) {
   const src = PHOTOS[k]
@@ -88,14 +90,32 @@ export function Reviews({ only, limit }: { only?: 'Tenant' | 'Landlord'; limit?:
 /** the top of an inner page: a short title band, optionally beside a photo */
 export function PageTop({ eyebrow, title, lead, photo, children }: { eyebrow?: string; title: string; lead?: string; photo?: string; children?: React.ReactNode }) {
   return (
-    <div className="wrap" style={{ display: 'grid', gridTemplateColumns: photo ? 'minmax(0,1.1fr) minmax(0,1fr)' : '1fr', gap: 40, alignItems: 'end', paddingTop: 64 }}>
+    <div className="wrap" style={{ display: 'grid', gridTemplateColumns: photo && hasPhoto(photo) ? 'minmax(0,1.1fr) minmax(0,1fr)' : '1fr', gap: 40, alignItems: 'end', paddingTop: 64 }}>
       <div className="page-hero" style={{ padding: 0 }}>
         {eyebrow && <p className="eyebrow load">{eyebrow}</p>}
         <h1 className="h1 load2">{title}</h1>
         {lead && <p className="lead load3">{lead}</p>}
         {children}
       </div>
-      {photo && <Photo k={photo} className="grow" alt="" />}
+      {photo && hasPhoto(photo) && <Photo k={photo} className="grow" alt="" />}
     </div>
   )
+}
+
+/** a "how can we help" card: the photo version when there's a photo, else a solid card with an icon */
+export function HelpCard({ href, k, title, text, icon, tone }: { href: string; k: string; title: string; text: string; icon: React.ReactNode; tone: 'forest' | 'gold' | 'sage' }) {
+  if (hasPhoto(k)) return <Link className="who rise" href={href}><Photo k={k} alt="" /><div className="txt"><span className="disp" style={{ fontSize: 34, lineHeight: 1 }}>{title}</span><span style={{ color: '#E4EBE3' }}>{text}</span></div></Link>
+  return (
+    <Link className={`help rise ${tone}`} href={href}>
+      <span className="ico" aria-hidden="true">{icon}</span>
+      <span className="disp" style={{ fontSize: 32, lineHeight: 1 }}>{title}</span>
+      <span className="txt2">{text}</span>
+      <span className="go" aria-hidden="true">→</span>
+    </Link>
+  )
+}
+export const ICONS = {
+  key: <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="8" cy="15" r="4" /><path d="M11 12l9-9M17 6l3 3M15 8l2 2" /></svg>,
+  home: <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z" /></svg>,
+  chart: <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" /></svg>,
 }

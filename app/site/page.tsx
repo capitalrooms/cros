@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { siteBase } from '@/lib/website/base'
 import { TIERS, STEPS } from '@/lib/website/site'
-import { Photo, Tick, Reviews, Badges } from './parts'
+import { Photo, Tick, Reviews, Badges, HelpCard, ICONS, hasPhoto } from './parts'
 import { TenantCalc } from './Calculators'
 
 export default async function Home() {
@@ -28,9 +28,9 @@ export default async function Home() {
           <p className="lead" style={{ maxWidth: 380 }}>One small team, from the first viewing to the day the tenancy ends.</p>
         </div>
         <div className="grid3">
-          <Link className="who rise" href={`${b}/landlords`}><Photo k="landlords" alt="A London terrace" /><div className="txt"><span className="disp" style={{ fontSize: 34, lineHeight: 1 }}>Landlords</span><span style={{ color: '#E4EBE3' }}>Let only, fully managed, or HMO management.</span></div></Link>
-          <Link className="who rise" href={`${b}/residential-lettings`}><Photo k="tenants" alt="A London street" /><div className="txt"><span className="disp" style={{ fontSize: 34, lineHeight: 1 }}>Tenants</span><span style={{ color: '#E4EBE3' }}>Flats, houses and rooms across London.</span></div></Link>
-          <Link className="who rise" href={`${b}/instant_valuation`}><Photo k="valuation" alt="London canal and warehouses" /><div className="txt"><span className="disp" style={{ fontSize: 34, lineHeight: 1 }}>Valuations</span><span style={{ color: '#E4EBE3' }}>What your property should let for, today.</span></div></Link>
+          <HelpCard href={`${b}/landlords`} k="landlords" tone="forest" icon={ICONS.key} title="Landlords" text="Let only, fully managed, or HMO management." />
+          <HelpCard href={`${b}/residential-lettings`} k="tenants" tone="gold" icon={ICONS.home} title="Tenants" text="Flats, houses and rooms across London." />
+          <HelpCard href={`${b}/instant_valuation`} k="valuation" tone="sage" icon={ICONS.chart} title="Valuations" text="What your property should let for, today." />
         </div>
       </div></section>
 
@@ -50,6 +50,7 @@ export default async function Home() {
         <p className="rise" style={{ marginTop: 24 }}><Link href={`${b}/landlords`} style={{ fontWeight: 600 }}>Everything included, and our Rent Guarantee →</Link></p>
       </div></section>
 
+      {hasPhoto('keys') ? (
       <section className="block"><div className="wrap story">
         <div className="pin"><Photo k="keys" className="grow" alt="Keys handed over at a London front door" /></div>
         <div>
@@ -64,11 +65,19 @@ export default async function Home() {
           ))}
         </div>
       </div></section>
+      ) : (
+      <section className="block"><div className="wrap">
+        <p className="eyebrow rise">How it works</p>
+        <h2 className="h2 rise" style={{ margin: '8px 0 32px', maxWidth: 820 }}>From valuation to keys — and every year after.</h2>
+        <ol className="steps5" style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+          {STEPS.map((s, i) => <li key={s.title} className="s rise"><span className="n">{i + 1}</span><h3 className="h3" style={{ fontSize: 22 }}>{s.title}</h3><p style={{ color: 'var(--muted)', fontSize: 16 }}>{s.body}</p></li>)}
+        </ol>
+      </div></section>
+      )}
 
       <section className="block" style={{ padding: '110px 16px 0' }}>
-        <div className="band">
-          <Photo k="rooftops" className="drift" alt="London rooftops" />
-          <div className="shade" />
+        <div className={`band ${hasPhoto('rooftops') ? '' : 'plain'}`}>
+          {hasPhoto('rooftops') && <><Photo k="rooftops" className="drift" alt="London rooftops" /><div className="shade" /></>}
           <div className="copy rise">
             <h2 className="h2">A personal service,<br />right across London.</h2>
             <p style={{ fontSize: 18, color: '#E4EBE3' }}>One team that knows your property by name.</p>
