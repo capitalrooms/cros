@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import type { Metadata } from 'next'
 import { siteBase } from '@/lib/website/base'
-import { TIERS, STEPS } from '@/lib/website/site'
+import { TIERS, STEPS, GOOGLE_RATING } from '@/lib/website/site'
 import { Photo, Tick, Reviews, Badges } from './parts'
 import { LandlordPhone, TenantPhone } from './Showcase'
 import HomesStrip from './HomesStrip'
@@ -56,7 +56,7 @@ export default async function Home() {
 
       {/* trust */}
       <section className="trust"><div className="wrap trust-row">
-        <Link href={`${b}/testimonial`} className="trust-rating"><b>★★★★★</b><span><strong>4.9 on Google</strong> from our landlords and tenants</span></Link>
+        <Link href={`${b}/testimonial`} className="trust-rating"><b>★★★★★</b><span><strong>{GOOGLE_RATING.stars} on Google</strong> from {GOOGLE_RATING.count} landlord and tenant reviews</span></Link>
         <Badges />
       </div></section>
 

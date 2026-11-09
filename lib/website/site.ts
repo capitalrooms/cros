@@ -11,6 +11,9 @@ export const NAV: [string, string][] = [
   ['Rent', '/residential-lettings'], ['Landlords', '/landlords'], ['Tenants', '/tenants'], ['Maintenance', '/maintenance-services'], ['About us', '/about-us'], ['Advice', '/blogs'], ['Contact', '/contact'],
 ]
 
+// our Google rating (Business Profile, checked 9 Nov 2026): update when it moves
+export const GOOGLE_RATING = { stars: '4.9', count: 101 }
+
 export const OFFICE = { address: 'Hoxton Mix, 66 Paul Street, London EC2A 4NA', phone: '0207 112 9163', phoneHref: 'tel:+442071129163', email: 'info@capitalrooms.co.uk' }
 export const APP_LOGIN = '/login'
 
