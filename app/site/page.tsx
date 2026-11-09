@@ -9,7 +9,7 @@ export default async function Home() {
   return (
     <>
       <section className={`hero ${hasPhoto('hero') ? '' : 'plain'}`} aria-label="Capital Rooms">
-        {hasPhoto('hero') && <><Photo k="hero" className="hero-ph" alt="The Thames and the City of London" /><div className="shade" /></>}
+        {hasPhoto('hero') && <><Photo k="hero" className="hero-ph" eager alt="Tower Bridge and the Thames at sunset" /><div className="shade" /></>}
         <div className="copy">
           <p className="pill load">Independent London lettings &amp; management</p>
           <h1 className="h1 load2">London lettings,<br />done properly.</h1>

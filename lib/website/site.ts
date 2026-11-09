@@ -1,7 +1,10 @@
 // The website's fixed content (9 Nov 2026): the words and fees from the old capitalrooms.co.uk, kept exact.
 // PHOTOS: drop a path in (a file under public/website/photos/) and that slot shows the photo; blank = a forest panel.
 export const PHOTOS: Record<string, string> = {
-  hero: '', landlords: '', tenants: '', valuation: '', keys: '', rooftops: '', about: '', maintenance: '',
+  // from the old capitalrooms.co.uk (9 Nov 2026, Harry: "get some of the old photos we had involved")
+  hero: '/website/photos/thames.jpg', landlords: '/website/photos/terrace.jpg', tenants: '/website/photos/kitchen.jpg',
+  valuation: '/website/photos/canary-wharf.jpg', rooftops: '/website/photos/city.jpg', about: '/website/photos/terrace.jpg',
+  maintenance: '/website/photos/kitchen.jpg', keys: '',
 }
 
 // the usual order on London letting agents' sites (9 Nov 2026, Harry): what people come for first, the company last

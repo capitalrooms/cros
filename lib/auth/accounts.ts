@@ -69,7 +69,7 @@ function appGuide(role?: string | null): string {
   const li = (t: string) => `<li style="margin:0 0 6px;">${t}</li>`
   return `<div style="margin:6px 0 22px;padding:16px 18px;border:1px solid #e7e5e4;border-radius:12px;">`
     + `<p style="margin:0 0 8px;font-size:15px;font-weight:700;color:#1c1917;">Put the app on your phone</p>`
-    + `<p style="margin:0 0 10px;font-size:14px;color:#44403c;line-height:1.55;">There’s nothing to download from an app store. After you’ve chosen your password, open <strong>${PORTAL_URL.replace(/^https?:\/\//, '')}</strong> on your phone, then:</p>`
+    + `<p style="margin:0 0 10px;font-size:14px;color:#44403c;line-height:1.55;">There’s nothing to download from an app store. After you’ve chosen your password, open <strong>${PORTAL_URL.replace(/^https?:\/\//, '')}/app</strong> on your phone, then:</p>`
     + `<ul style="margin:0 0 12px;padding-left:20px;font-size:14px;color:#44403c;line-height:1.55;">`
     + li('<strong>iPhone</strong> — in Safari, tap the Share button (the square with an arrow), then <strong>Add to Home Screen</strong>, then <strong>Add</strong>.')
     + li('<strong>Android</strong> — in Chrome, tap the ⋮ menu, then <strong>Add to Home screen</strong> or <strong>Install app</strong>.')

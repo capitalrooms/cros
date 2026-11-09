@@ -4,6 +4,7 @@ import type { Metadata, Viewport } from 'next'
 import { Bricolage_Grotesque, Figtree } from 'next/font/google'
 import { siteBase } from '@/lib/website/base'
 import { Header, Footer } from './parts'
+import StandaloneToApp from './StandaloneToApp'
 import './site.css'
 
 const bricolage = Bricolage_Grotesque({ subsets: ['latin'], weight: ['500', '700', '800'], variable: '--font-bricolage', display: 'swap' })
@@ -24,6 +25,7 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
   const b = await siteBase()
   return (
     <div className={`site ${bricolage.variable} ${figtree.variable}`}>
+      <StandaloneToApp />
       <a href="#main" style={{ position: 'absolute', left: -9999 }}>Skip to content</a>
       <Header b={b} />
       <main id="main">{children}</main>

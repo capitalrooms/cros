@@ -2,7 +2,7 @@
   "name": "Capital Rooms",
   "short_name": "Capital Rooms",
   "description": "Capital Rooms property management portal",
-  "start_url": "/",
+  "start_url": "/app",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
@@ -34,6 +34,10 @@
       "purpose": "any"
     }
   ],
-  "categories": ["business", "productivity"],
-  "lang": "en-GB"
+  "categories": [
+    "business",
+    "productivity"
+  ],
+  "lang": "en-GB",
+  "id": "/app"
 }

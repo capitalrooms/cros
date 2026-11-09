@@ -91,7 +91,7 @@ export const TENANT_MESSAGES: TenantMessage[] = [
     body: 'With the colder weather: keep the heating low and steady rather than on and off, and open the windows for a few minutes after showers and cooking. Run the extractor fans and keep the trickle vents open.\n\nIt stops condensation and mould – and if you do spot any mould, report it in the app straight away.',
     fields: [] },
   { id: 'get-the-app', purpose: 'house', name: 'Get the app on your phone', subject: 'Get updates straight to your phone',
-    body: 'To get updates from us straight away, add the Capital Rooms app to your phone: open capitalrooms.co.uk, sign in, then tap Share → Add to Home Screen (iPhone, in Safari) or ⋮ → Install app (Android, in Chrome). Allow notifications when it asks.\n\nIt’s where you report repairs, see visits booked at {house} and read the house guides.',
+    body: 'To get updates from us straight away, add the Capital Rooms app to your phone: open capitalrooms.co.uk/app, sign in, then tap Share → Add to Home Screen (iPhone, in Safari) or ⋮ → Install app (Android, in Chrome). Allow notifications when it asks.\n\nIt’s where you report repairs, see visits booked at {house} and read the house guides.',
     fields: [] },
 
   // ── maintenance updates ──
