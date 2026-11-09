@@ -1,10 +1,9 @@
 // The website's fixed content (9 Nov 2026): the words and fees from the old capitalrooms.co.uk, kept exact.
 // PHOTOS: drop a path in (a file under public/website/photos/) and that slot shows the photo; blank = a forest panel.
 export const PHOTOS: Record<string, string> = {
-  // from the old capitalrooms.co.uk (9 Nov 2026, Harry: "get some of the old photos we had involved")
-  hero: '/website/photos/thames.jpg', landlords: '/website/photos/terrace.jpg', tenants: '/website/photos/kitchen.jpg',
-  valuation: '/website/photos/canary-wharf.jpg', rooftops: '/website/photos/city.jpg', about: '/website/photos/terrace.jpg',
-  maintenance: '/website/photos/kitchen.jpg', keys: '',
+  // from the old capitalrooms.co.uk (9 Nov 2026). Blank = no photo there (the kitchen came out: not a UK kitchen)
+  hero: '/website/photos/thames.jpg', landlords: '/website/photos/terrace.jpg', tenants: '/website/photos/canary-wharf.jpg',
+  valuation: '/website/photos/city.jpg', rooftops: '', about: '/website/photos/terrace.jpg', maintenance: '', keys: '',
 }
 
 // the usual order on London letting agents' sites (9 Nov 2026, Harry): what people come for first, the company last
@@ -16,7 +15,7 @@ export const OFFICE = { address: 'Hoxton Mix, 66 Paul Street, London EC2A 4NA', 
 export const APP_LOGIN = '/login'
 
 export const TIERS = [
-  { name: 'Let only', fee: '5% + VAT', lead: 'Our basic service. We find the tenant and set everything up — you take it from there.', tone: '', items: ['Professional property photography', 'Multi-platform property marketing', 'Tenant referencing', 'New tenancy documentation', 'Registering the deposit'] },
+  { name: 'Let only', fee: '5% + VAT', lead: 'Our basic service. We find the tenant and set everything up, then you take it from there.', tone: '', items: ['Professional property photography', 'Multi-platform property marketing', 'Tenant referencing', 'New tenancy documentation', 'Registering the deposit'] },
   { name: 'Single let management', fee: '8% + VAT', lead: 'Our comprehensive service for a house or flat let to one household.', tone: 'dark', items: ['Professional photography', 'Tenant sourcing and referencing', 'New tenancy documentation', 'Quarterly inspections', 'Monthly statements', '24/7 maintenance and repairs', 'Property licences and health & safety certificates organised'] },
   { name: 'HMO management', fee: '12% + VAT', lead: 'Our comprehensive service for shared houses, run room by room.', tone: 'soft', items: ['Professional photography', 'Tenant sourcing and referencing', 'New tenancy documentation', 'Quarterly inspections', 'Monthly statements', '24/7 maintenance and repairs', 'Property licences and health & safety certificates organised'] },
 ]
@@ -27,7 +26,7 @@ export const STEPS = [
   { title: 'Marketed properly', body: 'Professional photography and a clear advert across the major platforms.' },
   { title: 'The right tenant', body: 'Viewings, referencing and the tenancy paperwork, done carefully and on time.' },
   { title: 'Move-in, sorted', body: 'Agreement signed, deposit registered, keys handed over.' },
-  { title: 'Looked after, every year', body: 'Inspections, repairs, certificates and monthly statements — with no mark-up on contractors’ invoices.' },
+  { title: 'Looked after, every year', body: 'Inspections, repairs, certificates and monthly statements, with no mark-up on contractors’ invoices.' },
 ]
 
 export const TENANT_BENEFITS = ['All inclusive rent', 'Fastest wifi possible', 'A fully furnished modern bedroom', 'Complimentary cleaning service', '24hr maintenance assistance', 'Spacious living areas', 'Earn money with our refer a friend scheme', 'Avoiding hefty rent increases', 'Reduced local gym memberships', 'Deals at local restaurants']

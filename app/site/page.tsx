@@ -13,7 +13,7 @@ export default async function Home() {
         <div className="copy">
           <p className="pill load">Independent London lettings &amp; management</p>
           <h1 className="h1 load2">London lettings,<br />done properly.</h1>
-          <p className="lead load3">We let and look after homes across London for landlords who want a personal service — and we look after the people who live in them.</p>
+          <p className="lead load3">We let and look after homes across London for landlords who want a personal service, and we look after the people who live in them.</p>
           <div className="load3" style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
             <Link className="gold" href={`${b}/landlords`}>I’m a landlord</Link>
             <Link className="ghost" href={`${b}/residential-lettings`}>I’m looking for a home</Link>
@@ -62,7 +62,7 @@ export default async function Home() {
         <div className="pin"><Photo k="keys" className="grow" alt="Keys handed over at a London front door" /></div>
         <div>
           <p className="eyebrow">How it works</p>
-          <h2 className="h2" style={{ margin: '8px 0 20px' }}>From valuation to keys — and every year after.</h2>
+          <h2 className="h2" style={{ margin: '8px 0 20px' }}>From valuation to keys, and every year after.</h2>
           {STEPS.map((s, i) => (
             <div key={s.title} className="step">
               <span style={{ fontSize: 14, fontWeight: 600, color: '#6B7A70' }}>{['One', 'Two', 'Three', 'Four', 'Five'][i]}</span>
@@ -75,7 +75,7 @@ export default async function Home() {
       ) : (
       <section className="block"><div className="wrap">
         <p className="eyebrow rise">How it works</p>
-        <h2 className="h2 rise" style={{ margin: '8px 0 32px', maxWidth: 820 }}>From valuation to keys — and every year after.</h2>
+        <h2 className="h2 rise" style={{ margin: '8px 0 32px', maxWidth: 820 }}>From valuation to keys, and every year after.</h2>
         <ol className="steps5" style={{ listStyle: 'none', margin: 0, padding: 0 }}>
           {STEPS.map((s, i) => <li key={s.title} className="s rise"><span className="n">{i + 1}</span><h3 className="h3" style={{ fontSize: 22 }}>{s.title}</h3><p style={{ color: 'var(--muted)', fontSize: 16 }}>{s.body}</p></li>)}
         </ol>

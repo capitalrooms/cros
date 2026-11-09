@@ -2,12 +2,12 @@ import type { Metadata } from 'next'
 import { PageTop } from '../parts'
 import Enquiry from '../Enquiry'
 
-export const metadata: Metadata = { title: 'Free valuation', description: 'Find out what your London property should let for — a written lettings valuation on our letterhead.' }
+export const metadata: Metadata = { title: 'Free valuation', description: 'Find out what your London property should let for: a written lettings valuation on our letterhead.' }
 
 export default function Valuation() {
   return (
     <>
-      <PageTop eyebrow="Free valuation" title="What could your property earn?" photo="valuation" lead="Tell us a little about it and we’ll send a written lettings valuation on our letterhead — what it should let for today, and what would help it let faster." />
+      <PageTop eyebrow="Free valuation" title="What could your property earn?" photo="valuation" lead="Tell us a little about it and we’ll send a written lettings valuation on our letterhead: what it should let for today, and what would help it let faster." />
       <section className="block" style={{ paddingTop: 56 }}><div className="wrap"><div className="card" style={{ maxWidth: 860 }}>
         <Enquiry kind="valuation" submit="Send my valuation request" fields={[
           { name: 'name', label: 'Name', required: true }, { name: 'email', label: 'Email', type: 'email', required: true },

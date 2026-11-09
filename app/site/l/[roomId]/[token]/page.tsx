@@ -18,7 +18,7 @@ export async function generateMetadata({ params }: { params: Promise<{ roomId: s
   const l = await load(roomId, token)
   if (!l) return { title: 'Not found' }
   const where = l.displayAddress?.split(',')[0] || publicTitle(l.displayName)
-  const title = `${adTitle(l)}${l.rent ? ` — ${gbp(l.rent)} pcm` : ''}`
+  const title = `${adTitle(l)}${l.rent ? `, ${gbp(l.rent)} pcm` : ''}`
   const description = (l.description || `${l.wholeLet ? 'Home' : 'Room'} to rent on ${where}${l.billsIncluded ? ', bills included' : ''}. ${when(l.available)}.`).slice(0, 160)
   return { title, description, openGraph: { title, description, images: l.media.filter(m => m.kind === 'photo').slice(0, 1).map(m => m.url) } }
 }
@@ -51,7 +51,7 @@ export default async function Listing({ params }: { params: Promise<{ roomId: st
     ['Deposit', l.deposit != null ? `£${l.deposit.toLocaleString('en-GB')}` : null],
     ['Holding deposit', l.holdingDeposit != null ? `£${l.holdingDeposit.toLocaleString('en-GB')} (one week’s rent, taken off your first payment)` : null],
     ['Bills', l.billsIncluded == null ? null : l.billsIncluded ? 'Included in the rent' : 'Paid separately'],
-    ['Council tax', l.councilTax ?? (f.councilTaxBand ? `Band ${f.councilTaxBand}${!l.wholeLet && l.billsIncluded ? ' — included' : ''}` : null)],
+    ['Council tax', l.councilTax ?? (f.councilTaxBand ? `Band ${f.councilTaxBand}${!l.wholeLet && l.billsIncluded ? ', included' : ''}` : null)],
     ['Broadband', f.broadband], ['Energy rating (EPC)', f.epc], ['Heating', f.gas ? 'Gas central heating' : null], ['Local council', f.council], ['Available', when(l.available)],
   ] as [string, string | null][]).filter((x): x is [string, string] => !!x[1])
   const map = l.approx ? (() => {
@@ -82,7 +82,7 @@ export default async function Listing({ params }: { params: Promise<{ roomId: st
     <>
       <article className="wrap" style={{ paddingTop: 32 }}>
         <BackLink whole={!!l.wholeLet} />
-        {l.status === 'let_agreed' && <p className="note" style={{ background: 'var(--ink)', color: 'var(--cream)', marginBottom: 16 }}>Let agreed — this {unit} has been taken. <a href={`${b}/contact`} style={{ color: 'var(--gold)' }}>Ask us</a> about others like it.</p>}
+        {l.status === 'let_agreed' && <p className="note" style={{ background: 'var(--ink)', color: 'var(--cream)', marginBottom: 16 }}>Let agreed. This {unit} has been taken. <a href={`${b}/contact`} style={{ color: 'var(--gold)' }}>Ask us</a> about others like it.</p>}
         <div style={{ borderRadius: 28, overflow: 'hidden' }}>
           <ListingGallery photos={photos.map((m, i) => ({ id: m.id, url: m.url, alt: m.caption || (m.ofRoom ? `${l.roomName}, photo ${i + 1}` : `The ${l.wholeLet ? 'home' : 'house'}, photo ${i + 1}`) }))} videoCount={videos.length} />
         </div>
@@ -122,7 +122,7 @@ export default async function Listing({ params }: { params: Promise<{ roomId: st
                   <ul className="card" style={{ listStyle: 'none', margin: 0, padding: '8px 24px', gap: 0 }}>
                     {stations.map(st => (
                       <li key={st.name} style={{ display: 'flex', justifyContent: 'space-between', gap: 16, padding: '14px 0', borderTop: '1px solid var(--line)' }}>
-                        <span style={{ minWidth: 0 }}><strong style={{ display: 'block' }}>{st.name}</strong><span style={{ fontSize: 14, color: 'var(--muted)' }}>{[st.kinds.join(' · '), st.lines.slice(0, 4).join(', ')].filter(Boolean).join(' — ')}</span></span>
+                        <span style={{ minWidth: 0 }}><strong style={{ display: 'block' }}>{st.name}</strong><span style={{ fontSize: 14, color: 'var(--muted)' }}>{[st.kinds.join(' · '), st.lines.slice(0, 4).join(', ')].filter(Boolean).join(', ')}</span></span>
                         <span style={{ whiteSpace: 'nowrap' }}><strong>{st.walkMin} min</strong> <span style={{ color: 'var(--muted)' }}>walk</span></span>
                       </li>
                     ))}
@@ -131,7 +131,7 @@ export default async function Listing({ params }: { params: Promise<{ roomId: st
                 {map && (
                   <div style={{ marginTop: 16, borderRadius: 24, overflow: 'hidden', background: '#fff' }}>
                     <iframe title={`Map of the area around ${where}`} src={map.embed} style={{ display: 'block', width: '100%', height: 320, border: 0 }} loading="lazy" />
-                    <p style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '10px 18px', fontSize: 14, color: 'var(--muted)' }}><span>The area — the exact address is given when your viewing is booked.</span><a href={map.link} target="_blank" rel="noreferrer" style={{ fontWeight: 600 }}>Bigger map</a></p>
+                    <p style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '10px 18px', fontSize: 14, color: 'var(--muted)' }}><span>The area only. The exact address is given when your viewing is booked.</span><a href={map.link} target="_blank" rel="noreferrer" style={{ fontWeight: 600 }}>Bigger map</a></p>
                   </div>
                 )}
               </section>

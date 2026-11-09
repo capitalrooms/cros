@@ -8,7 +8,7 @@ export const metadata: Metadata = { title: 'Contact us', description: 'Call 0207
 export default function Contact() {
   return (
     <>
-      <PageTop eyebrow="Contact us" title="Talk to a real person." lead="Call, email, or send a message — we’ll come back to you quickly." />
+      <PageTop eyebrow="Contact us" title="Talk to a real person." lead="Call, email, or send a message and we’ll come back to you quickly." />
       <section className="block" style={{ paddingTop: 56 }}><div className="wrap grid2" style={{ alignItems: 'start' }}>
         <div className="card" style={{ gap: 18 }}>
           <div><p className="eyebrow">Phone</p><a className="disp" style={{ fontSize: 34, textDecoration: 'none' }} href={OFFICE.phoneHref}>{OFFICE.phone}</a></div>
