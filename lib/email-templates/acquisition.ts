@@ -6,7 +6,7 @@
 
 import { buildEmail } from '@/lib/emailWrapper'
 
-const DEFAULT_HEADSHOT = 'https://cros-sigma.vercel.app/harry.jpg'
+const DEFAULT_HEADSHOT = 'https://capitalrooms.co.uk/harry.jpg'
 
 export interface AcquisitionEmailOptions {
   firstName: string           // replaces *|FNAME|*

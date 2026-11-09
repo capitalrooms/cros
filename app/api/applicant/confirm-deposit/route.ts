@@ -85,7 +85,7 @@ export async function POST(request: Request) {
         const ref = holdingDepositRef(room?.properties?.name ?? null, room?.name ?? null)
         const due = new Date(Date.now() + 15 * 86_400_000).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
         const esc = (v: string) => v.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!))
-        const app = process.env.NEXT_PUBLIC_APP_URL || 'https://cros-sigma.vercel.app'
+        const app = process.env.NEXT_PUBLIC_APP_URL || 'https://capitalrooms.co.uk'
         await sendEmail(to, `Reserved — holding deposit paid — ${applicant.full_name}, ${roomLabel}`, `
           <p>Hello,</p>
           <p><strong>${esc(String(applicant.full_name ?? 'An applicant'))}</strong> has just pressed “I’ve paid” for the holding deposit on <strong>${esc(roomLabel)}</strong>.</p>

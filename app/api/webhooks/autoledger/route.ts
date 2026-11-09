@@ -1074,7 +1074,7 @@ Respond with JSON only in this exact shape:
   <tr><td style="padding:8px;color:#555">Items imported</td><td style="padding:8px;font-weight:bold;color:#16a34a">${inserted}</td></tr>
   <tr><td style="padding:8px;color:#555">Duplicates skipped</td><td style="padding:8px">${duplicates}</td></tr>
 </table>
-${inserted > 0 ? `<a href="https://cros-sigma.vercel.app/admin/expense-review" style="display:inline-block;background:#86284a;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold">Review in CROS →</a>` : ''}`
+${inserted > 0 ? `<a href="https://capitalrooms.co.uk/admin/expense-review" style="display:inline-block;background:#86284a;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold">Review in CROS →</a>` : ''}`
     const notifyHtml = await buildEmail(notifyBody, { kind: 'office-autoledger' })
     await deliverEmail({
       to: ['harry@capitalrooms.co.uk'],

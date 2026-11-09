@@ -10,7 +10,7 @@ export const NAV: [string, string][] = [
 ]
 
 export const OFFICE = { address: 'Hoxton Mix, 66 Paul Street, London EC2A 4NA', phone: '0207 112 9163', phoneHref: 'tel:+442071129163', email: 'info@capitalrooms.co.uk' }
-export const APP_LOGIN = 'https://cros-sigma.vercel.app/login'
+export const APP_LOGIN = '/login'
 
 export const TIERS = [
   { name: 'Let only', fee: '5% + VAT', lead: 'Our basic service. We find the tenant and set everything up — you take it from there.', tone: '', items: ['Professional property photography', 'Multi-platform property marketing', 'Tenant referencing', 'New tenancy documentation', 'Registering the deposit'] },

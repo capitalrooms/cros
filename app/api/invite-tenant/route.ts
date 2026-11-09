@@ -16,7 +16,7 @@ function createServiceClient() {
   )
 }
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://cros-sigma.vercel.app'
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://capitalrooms.co.uk'
 
 // POST /api/invite-tenant
 // Body: { personId }

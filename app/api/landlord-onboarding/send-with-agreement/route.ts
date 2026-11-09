@@ -32,7 +32,7 @@ import { rentCollectionTermsFrom }    from '@/lib/managementAgreement/rentCollec
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://cros-sigma.vercel.app'
+const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://capitalrooms.co.uk'
 
 const svc = () =>
   createClient(

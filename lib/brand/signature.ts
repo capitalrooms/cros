@@ -13,7 +13,7 @@ export interface SignaturePerson {
   email: string         // "harry@capitalrooms.co.uk"
 }
 
-export const SIGNATURE_ASSET_BASE = 'https://cros-sigma.vercel.app'
+export const SIGNATURE_ASSET_BASE = 'https://capitalrooms.co.uk'
 // The first font in each list is one every computer has (26 Oct 2026): Outlook doesn't try the rest of the list — when
 // the first font was missing (Lato, SF Mono) it drew the signature in Times New Roman, which is how it looked broken
 // when quoted back in a reply.

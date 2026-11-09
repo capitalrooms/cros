@@ -22,7 +22,7 @@ export default function AcquisitionEmailPage() {
   const [greeting, setGreeting]       = useState(GREETING_PRESETS[0])
   const [customGreeting, setCustomGreeting] = useState('')
   const [useCustom, setUseCustom]     = useState(false)
-  const [headshotUrl, setHeadshotUrl] = useState('https://cros-sigma.vercel.app/harry.jpg')
+  const [headshotUrl, setHeadshotUrl] = useState('https://capitalrooms.co.uk/harry.jpg')
   const [step, setStep]               = useState<'compose' | 'preview' | 'sent'>('compose')
   const [previewSrc, setPreviewSrc]   = useState('')
   const [sending, setSending]         = useState(false)

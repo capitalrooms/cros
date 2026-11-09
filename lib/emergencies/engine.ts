@@ -23,7 +23,7 @@ import { tellContractor as tellPerson } from '@/lib/contractorContact'
 import { KINDS, type EmergencyKind } from './guide'
 
 type S = SupabaseClient
-export const SITE = process.env.NEXT_PUBLIC_APP_URL || 'https://cros-sigma.vercel.app'
+export const SITE = process.env.NEXT_PUBLIC_APP_URL || 'https://capitalrooms.co.uk'
 const OFFICE_ROLES = ['administrator', 'admin']
 const OPEN = ['collecting', 'awaiting_office', 'assigned', 'on_site', 'needs_return', 'office_handling', 'morning', 'call_999']
 

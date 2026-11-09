@@ -56,7 +56,7 @@ function fmt(iso?: string | null) {
   return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
 }
 
-const BASE_URL = typeof window !== 'undefined' ? window.location.origin : 'https://cros-sigma.vercel.app'
+const BASE_URL = typeof window !== 'undefined' ? window.location.origin : 'https://capitalrooms.co.uk'
 
 // ── Main component ─────────────────────────────────────────────────────────────
 

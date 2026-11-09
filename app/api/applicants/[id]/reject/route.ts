@@ -92,7 +92,7 @@ export async function POST(req: NextRequest, { params: paramsPromise }: { params
     const askingRent = (applicant.rooms as any)?.current_asking_rent
     const rentStr = askingRent ? `£${Number(askingRent).toLocaleString()} per month` : 'the asking rent'
     const token = makeCounterOfferToken(params.id)
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://cros-sigma.vercel.app'
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://capitalrooms.co.uk'
     const counterOfferUrl = `${baseUrl}/api/applicants/counter-offer?id=${params.id}&token=${token}`
 
     ctaSection = `

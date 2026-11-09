@@ -23,7 +23,7 @@ const card = 'rounded-2xl border border-neutral-200 bg-white'
 const input = 'w-full rounded-lg border border-neutral-300 bg-white px-sm py-xs text-sm text-neutral-900'
 const btn = 'rounded-lg border border-neutral-300 px-md py-xs text-sm font-semibold text-neutral-800 hover:bg-neutral-50 disabled:opacity-40'
 const btnDark = 'rounded-lg bg-neutral-900 px-md py-xs text-sm font-bold text-white hover:bg-neutral-700 disabled:opacity-40'
-const SITE = typeof window !== 'undefined' ? window.location.origin : 'https://cros-sigma.vercel.app'
+const SITE = typeof window !== 'undefined' ? window.location.origin : 'https://capitalrooms.co.uk'
 
 /** A small JPEG of a photo for the quick look (cheaper and faster than the original). */
 async function thumbnail(file: File, max = 900): Promise<string | null> {

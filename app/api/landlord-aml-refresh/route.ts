@@ -15,7 +15,7 @@ const svc = () =>
     { auth: { autoRefreshToken: false, persistSession: false } }
   )
 
-const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://cros-sigma.vercel.app'
+const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://capitalrooms.co.uk'
 
 // POST /api/landlord-aml-refresh
 // Body: { landlordId, reason? }
