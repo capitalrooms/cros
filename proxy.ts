@@ -30,7 +30,12 @@ export async function proxy(request: NextRequest) {
   // the old app address: people's pages move to the one domain; its API stays (webhooks, cron, the deploy check)
   if (OLD_APP_HOSTS.has(host) && !path.startsWith('/api/') && !path.startsWith('/_next/')) {
     // the old address's front page was the app's front door (phones that installed it there start at '/')
-    return NextResponse.redirect(`https://${SITE}${path === '/' ? '/app' : path === '/site' ? '/' : path.replace(/^\/site(?=\/)/, '')}${url.search}`, 308)
+    // an installed app opens the front door ('/' or '/app'): flag it so the new address can explain how to reinstall
+    // (an installed app can't move address — it shows browser bars — app/components/ReinstallNotice). Old links in
+    // emails go to deeper pages and aren't flagged.
+    const fromApp = path === '/' || path === '/app'
+    const search = fromApp ? `${url.search ? `${url.search}&` : '?'}from=old-app` : url.search
+    return NextResponse.redirect(`https://${SITE}${path === '/' ? '/app' : path === '/site' ? '/' : path.replace(/^\/site(?=\/)/, '')}${search}`, 308)
   }
 
   if (host === SITE) {
