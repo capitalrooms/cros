@@ -9,6 +9,8 @@ import { approvedGuide } from '@/lib/house/applianceGuide'
 
 export const dynamic = 'force-dynamic'
 const client = new Anthropic()
+// a long line is cut at a word, never mid-word (10 Nov 2026: "…and restarted the m")
+const clip = (v: unknown, n: number) => { const t = String(v ?? '').trim(); return t.length <= n ? t : `${t.slice(0, t.lastIndexOf(' ', n - 1))}…` }
 
 export async function POST(req: NextRequest) {
   const c = await requireSignedIn(req)
@@ -33,7 +35,7 @@ Rules:
 Reply with JSON only:
 {"tips": null}
 or
-{"tips": {"headline": "one short sentence on what it might be", "steps": ["step", "step"], "stopIf": "one short sentence on when to stop and just report it"}}`
+{"tips": {"headline": "one short sentence (under 20 words) on what it might be", "steps": ["step", "step"], "stopIf": "one short sentence (under 30 words) on when to stop and just report it"}}`
   try {
     const ctrl = new AbortController(); const t = setTimeout(() => ctrl.abort(), 9000)
     const r = await client.messages.create({ model: AI_MODEL, max_tokens: 500, messages: [{ role: 'user', content: prompt }] }, { signal: ctrl.signal })
@@ -42,6 +44,6 @@ or
     const json = JSON.parse(text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1))
     const tips = json?.tips
     if (!tips || !Array.isArray(tips.steps) || !tips.steps.length) return NextResponse.json({ tips: null })
-    return NextResponse.json({ tips: { headline: String(tips.headline ?? '').slice(0, 200), steps: tips.steps.slice(0, 5).map((x: unknown) => String(x).slice(0, 240)), stopIf: String(tips.stopIf ?? '').slice(0, 200) } })
+    return NextResponse.json({ tips: { headline: clip(tips.headline, 220), steps: tips.steps.slice(0, 5).map((x: unknown) => clip(x, 320)), stopIf: clip(tips.stopIf, 320) } })
   } catch { return NextResponse.json({ tips: null }) }
 }
