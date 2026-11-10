@@ -7,6 +7,7 @@ import './globals.css'
 import './globals-fonts.css'
 import ServiceWorkerRegister from './components/ServiceWorkerRegister'
 import AuthFetchBridge from './components/AuthFetchBridge'
+import ReinstallNotice from './components/ReinstallNotice'
 import Footer from './components/Footer'
 
 export const dynamic = 'force-dynamic'
@@ -63,6 +64,7 @@ export default async function RootLayout({
     <html lang="en" className={baloo2.variable}>
       <body className="flex flex-col min-h-screen">
         <AuthFetchBridge />
+        <ReinstallNotice />
         <Suspense fallback={null}><NavTrail /></Suspense>
         <div className="flex-1">
           {children}

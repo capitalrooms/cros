@@ -1,4 +1,4 @@
-import { welcomeLink, greeting } from '@/lib/auth/accounts'
+import { welcomeLink, greeting, installSteps } from '@/lib/auth/accounts'
 import { deliverEmail } from '@/lib/sendEmail'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
@@ -102,15 +102,7 @@ export async function POST(req: NextRequest) {
       Your login: <strong style="color:#78716c;">${person.email}</strong>
     </p>
 
-    <div style="background:#f5f5f4;border-radius:6px;padding:16px;border:1px solid #e7e5e4;">
-      <p style="margin:0 0 6px;font-size:13px;font-weight:700;color:#1c1917;">Add to your home screen</p>
-      <p style="margin:0 0 10px;font-size:12px;color:#78716c;line-height:1.5;">
-        Capital Rooms works as an app on your phone — no download required.
-        Once signed in, tap Share → "Add to Home Screen" on iPhone, or use the
-        Chrome menu on Android.
-      </p>
-      <p style="margin:0;font-size:11px;color:#a8a29e;">Your housemates are already using it. It takes 30 seconds to set up.</p>
-    </div>
+    ${installSteps('tenant')}
 
     <p style="margin:20px 0 0;font-size:13px;color:#78716c;">
       Kind regards,

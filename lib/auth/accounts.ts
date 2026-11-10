@@ -57,25 +57,36 @@ const para = (t: string) => `<p style="margin:0 0 14px;font-size:15px;color:#1c1
 const note = (t: string, last = false) => `<p style="margin:0 0 ${last ? 0 : 8}px;font-size:13px;color:#57534e;line-height:1.5;">${t}</p>`
 
 /** What each app is for, and how to put it on the phone's home screen (26 Oct 2026, Harry: "send her an email saying how
- *  to download the app and save it as a web app"). Only the phone apps — office logins don't need it. */
+ *  to download the app and save it as a web app"). Rewritten 10 Nov 2026 for the move to capitalrooms.co.uk: tapping a
+ *  link inside Gmail/Outlook opens their own browser, which can't add to the home screen — so they open Safari/Chrome
+ *  themselves; and on iPhone the home-screen app signs in separately from Safari. Office logins don't get it. */
 const USES: Record<string, string[]> = {
-  cleaner: ['See the houses and cleans you’ve been booked for', 'Book a clean, or move one — the tenants are told for you', 'Tap “Arrived” and “Finished”, add photos and notes for the office', 'Pick your finished cleans and send Capital Rooms one invoice for them'],
-  contractor: ['See the jobs you’ve been sent, with photos and access details', 'Book the visit — the tenants are told for you', 'Finish the job with before and after photos'],
+  cleaner: ['See the houses and cleans you’ve been booked for', 'Book a clean, or move one: the tenants are told for you', 'Tap “Arrived” and “Finished”, add photos and notes for the office', 'Pick your finished cleans and send Capital Rooms one invoice for them'],
+  contractor: ['See the jobs you’ve been sent, with photos and access details', 'Book the visit: the tenants are told for you', 'Finish the job with before and after photos'],
+  landlord: ['Your monthly statements, invoices and payments', 'Certificates and documents for each property', 'Repairs as they happen, and approve the bigger ones'],
+  lettings: ['Viewings to confirm, and today’s viewings', 'Rooms and homes to let, with their adverts', 'Book a viewing while you’re out'],
   tenant: ['Report a repair, with photos', 'See when visits and cleans are booked', 'Messages from the office in one place'],
 }
-function appGuide(role?: string | null): string {
+const APP_HOST = PORTAL_URL.replace(/^https?:\/\//, '').replace(/\/$/, '')
+/** The "put the app on your phone" box — every welcome email uses this one (lib/auth, invite-tenant, invite-landlord). */
+export function installSteps(role?: string | null, opts: { afterPassword?: boolean } = {}): string {
   const uses = USES[role ?? '']
   if (!uses) return ''
-  const li = (t: string) => `<li style="margin:0 0 6px;">${t}</li>`
-  return `<div style="margin:6px 0 22px;padding:16px 18px;border:1px solid #e7e5e4;border-radius:12px;">`
-    + `<p style="margin:0 0 8px;font-size:15px;font-weight:700;color:#1c1917;">Put the app on your phone</p>`
-    + `<p style="margin:0 0 10px;font-size:14px;color:#44403c;line-height:1.55;">There’s nothing to download from an app store. After you’ve chosen your password, open <strong>${PORTAL_URL.replace(/^https?:\/\//, '')}/app</strong> on your phone, then:</p>`
-    + `<ul style="margin:0 0 12px;padding-left:20px;font-size:14px;color:#44403c;line-height:1.55;">`
-    + li('<strong>iPhone</strong> — in Safari, tap the Share button (the square with an arrow), then <strong>Add to Home Screen</strong>, then <strong>Add</strong>.')
-    + li('<strong>Android</strong> — in Chrome, tap the ⋮ menu, then <strong>Add to Home screen</strong> or <strong>Install app</strong>.')
-    + `</ul><p style="margin:0 0 6px;font-size:14px;color:#44403c;line-height:1.55;">It then opens like any other app. Allow notifications when it asks, so you hear about new work straight away. With it you can:</p>`
-    + `<ul style="margin:0;padding-left:20px;font-size:14px;color:#44403c;line-height:1.55;">${uses.map(li).join('')}</ul></div>`
+  const li = (t: string) => `<li style="margin:0 0 8px;">${t}</li>`
+  return `<div style="margin:6px 0 22px;padding:18px 20px;border:1px solid #e7e5e4;border-radius:12px;">`
+    + `<p style="margin:0 0 6px;font-size:16px;font-weight:700;color:#1c1917;">Put the app on your phone</p>`
+    + `<p style="margin:0 0 12px;font-size:14px;color:#44403c;line-height:1.55;">There’s nothing to download from an app store and it takes about a minute.${opts.afterPassword === false ? '' : ' Do this once you’ve chosen your password.'}</p>`
+    + `<ol style="margin:0 0 12px;padding-left:20px;font-size:14px;color:#1c1917;line-height:1.55;">`
+    + li(`Open <strong>Safari</strong> (iPhone) or <strong>Chrome</strong> (Android) yourself and type <strong>${APP_HOST}/app</strong> into the address bar. <span style="color:#57534e;">Don’t tap the link in this email for this step: email apps open their own browser, which can’t add apps to your home screen.</span>`)
+    + li('<strong>iPhone:</strong> tap the Share button <span style="white-space:nowrap;">(a square with an arrow)</span>. If you can’t see it, tap <strong>⋯</strong> first, then <strong>Share</strong>. Then tap <strong>Add to Home Screen</strong>, then <strong>Add</strong>.<br><strong>Android:</strong> tap the <strong>⋮</strong> menu, then <strong>Install app</strong> or <strong>Add to Home screen</strong>.')
+    + li('Open <strong>Capital Rooms</strong> from your home screen and sign in with your email address and password. On an iPhone you sign in once more here, even if you already did in Safari.')
+    + li('Allow notifications when it asks, so you hear about anything new straight away.')
+    + `</ol>`
+    + `<p style="margin:0 0 6px;font-size:14px;color:#44403c;line-height:1.55;">With it you can:</p>`
+    + `<ul style="margin:0 0 12px;padding-left:20px;font-size:14px;color:#44403c;line-height:1.55;">${uses.map(t => `<li style="margin:0 0 4px;">${t}</li>`).join('')}</ul>`
+    + `<p style="margin:0;font-size:13px;color:#57534e;line-height:1.5;">Had the app before? If your old icon opens with browser bars at the top and bottom, delete it and add it again as above. We moved to ${APP_HOST} in November 2026.</p></div>`
 }
+const appGuide = (role?: string | null) => installSteps(role)
 
 type AccountPerson = { email: string; role?: string | null; salutation?: string | null; first_name?: string | null; last_name?: string | null }
 
