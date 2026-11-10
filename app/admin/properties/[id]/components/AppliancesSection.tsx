@@ -31,14 +31,44 @@ export default function AppliancesSection({ propertyId }: { propertyId: string }
     const t = setTimeout(load, 20000)
     return () => clearTimeout(t)
   }, [d])   // eslint-disable-line react-hooks/exhaustive-deps
+  // added by hand, when there's no label photo (10 Nov 2026)
+  const [adding, setAdding] = useState<{ kind: string; brand: string; model: string; location: string } | null>(null)
+  const [addErr, setAddErr] = useState('')
+  const add = async () => {
+    if (!adding) return
+    setAddErr('')
+    const r = await adminFetch('/api/admin/appliances', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ propertyId, ...adding }) })
+    const j = await r.json().catch(() => ({}))
+    if (!r.ok) { setAddErr(j.error || 'That didn’t save. Try again.'); return }
+    setAdding(null); load()
+  }
   const remove = async (id: string) => { if (!confirm('Take this off the house’s appliances?')) return; await adminFetch(`/api/admin/appliances?id=${id}`, { method: 'DELETE' }); load() }
 
   return (
     <section className="border-t border-neutral-100 pt-2xl">
       <div className="mb-xs flex flex-wrap items-baseline justify-between gap-sm">
         <h3 className="text-base font-bold text-neutral-900">Appliances</h3>
-        <Link href={`/admin/house-snap?propertyId=${propertyId}`} className="rounded-lg bg-neutral-900 px-md py-xs text-sm font-bold text-white hover:bg-neutral-700">Add from photos</Link>
+        <span className="flex gap-xs">
+          <button type="button" onClick={() => setAdding(adding ? null : { kind: 'washing_machine', brand: '', model: '', location: '' })} className="rounded-lg border border-neutral-300 bg-white px-md py-xs text-sm font-bold text-neutral-900 hover:bg-neutral-50">Add by hand</button>
+          <Link href={`/admin/house-snap?propertyId=${propertyId}`} className="rounded-lg bg-neutral-900 px-md py-xs text-sm font-bold text-white hover:bg-neutral-700">Add from photos</Link>
+        </span>
       </div>
+      {adding && (
+        <div className="mb-md flex flex-wrap items-end gap-sm rounded-xl border border-neutral-200 bg-neutral-50 p-md text-sm">
+          <label className="flex flex-col gap-0.5"><span className="text-xs font-semibold text-neutral-600">What</span>
+            <select value={adding.kind} onChange={e => setAdding({ ...adding, kind: e.target.value })} className="rounded-lg border border-neutral-300 bg-white px-sm py-xs">
+              {Object.entries(KINDS).sort((a, b) => a[1].localeCompare(b[1])).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+            </select></label>
+          <label className="flex flex-col gap-0.5"><span className="text-xs font-semibold text-neutral-600">Make</span>
+            <input value={adding.brand} onChange={e => setAdding({ ...adding, brand: e.target.value })} placeholder="Bosch" className="w-32 rounded-lg border border-neutral-300 bg-white px-sm py-xs" /></label>
+          <label className="flex flex-col gap-0.5"><span className="text-xs font-semibold text-neutral-600">Model</span>
+            <input value={adding.model} onChange={e => setAdding({ ...adding, model: e.target.value })} placeholder="WAN28281GB" className="w-36 rounded-lg border border-neutral-300 bg-white px-sm py-xs" /></label>
+          <label className="flex flex-col gap-0.5"><span className="text-xs font-semibold text-neutral-600">Where</span>
+            <input value={adding.location} onChange={e => setAdding({ ...adding, location: e.target.value })} placeholder="Kitchen" className="w-32 rounded-lg border border-neutral-300 bg-white px-sm py-xs" /></label>
+          <button type="button" onClick={add} className="rounded-lg bg-neutral-900 px-md py-xs font-bold text-white hover:bg-neutral-700">Add</button>
+          {addErr && <p className="w-full text-xs text-red-700">{addErr}</p>}
+        </div>
+      )}
       <p className="mb-md text-sm text-neutral-500">Tenants see these in the app, and pick one when they report a fault — so the troubleshooting and the job name the exact model. Photos of labels, WiFi screenshots, meters and the fuse box can all go in through “Add from photos”.</p>
       {!d ? <p className="text-sm text-neutral-400">Loading…</p> : !d.ready ? <p className="text-sm text-amber-800">Run migration 268 in Supabase to record appliances.</p>
         : !d.appliances.length ? <p className="text-sm text-neutral-500">None recorded yet.</p> : (

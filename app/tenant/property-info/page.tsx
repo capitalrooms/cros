@@ -7,6 +7,8 @@ import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
 import Link from 'next/link'
 import LineIcon from '@/components/LineIcon'
+import { adminFetch } from '@/lib/adminFetch'
+import ApplianceGuide from '@/components/ApplianceGuide'
 
 interface PropertyDocument {
   id: string
@@ -48,7 +50,8 @@ export default function PropertyInfoPage() {
   const [error, setError] = useState('')
   // the appliances in the house the office has recorded (migration 268)
   const [appliances, setAppliances] = useState<{ id: string; label: string; brand: string | null; model: string | null; location: string | null; guide: any | null }[]>([])
-  useEffect(() => { fetch('/api/tenant/appliances').then(r => r.ok ? r.json() : { appliances: [] }).then(j => setAppliances(j.appliances ?? [])).catch(() => {}) }, [])
+  // signed in (10 Nov 2026): a plain fetch carried no sign-in, so this list never showed
+  useEffect(() => { adminFetch('/api/tenant/appliances').then(r => r.ok ? r.json() : { appliances: [] }).then(j => setAppliances(j.appliances ?? [])).catch(() => {}) }, [])
 
   useEffect(() => {
     async function load() {
@@ -162,20 +165,9 @@ export default function PropertyInfoPage() {
                   {a.location && <span className="block text-xs text-neutral-500">{a.location}</span>}
                   {/* the care guide the office approved: batteries, filters, resets, what the codes mean */}
                   {a.guide && (
-                    <details className="mt-xs">
+                    <details className="mt-xs" id={`appliance-${a.id}`} open={typeof window !== 'undefined' && window.location.hash === `#appliance-${a.id}`}>
                       <summary className="cursor-pointer text-xs font-semibold text-blue-700">How to look after it</summary>
-                      <div className="mt-xs space-y-sm text-sm text-neutral-700">
-                        {a.guide.summary && <p>{a.guide.summary}</p>}
-                        {(a.guide.sections ?? []).map((sec: any) => (
-                          <div key={sec.title}><p className="font-semibold text-neutral-900">{sec.title}</p>
-                            <ol className="mt-0.5 list-decimal space-y-0.5 pl-lg">{sec.steps.map((t: string, i: number) => <li key={i}>{t}</li>)}</ol></div>
-                        ))}
-                        {(a.guide.errorCodes ?? []).length > 0 && <div><p className="font-semibold text-neutral-900">Error codes</p>
-                          <ul className="mt-0.5 space-y-0.5">{a.guide.errorCodes.map((e: any) => <li key={e.code}><strong>{e.code}</strong> — {e.meaning}. {e.whatToDo}</li>)}</ul></div>}
-                        {(a.guide.reportIf ?? []).length > 0 && <div><p className="font-semibold text-neutral-900">Report it to us if</p>
-                          <ul className="mt-0.5 list-disc pl-lg">{a.guide.reportIf.map((t: string) => <li key={t}>{t}</li>)}</ul></div>}
-                        {a.guide.manualUrl && <a href={a.guide.manualUrl} target="_blank" rel="noreferrer" className="text-xs font-semibold text-blue-700 underline">The manufacturer’s manual ↗</a>}
-                      </div>
+                      <div className="mt-xs"><ApplianceGuide guide={a.guide} /></div>
                     </details>
                   )}
                 </li>

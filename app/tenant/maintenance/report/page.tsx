@@ -10,6 +10,7 @@ import BackButton from '@/app/components/BackButton';
 import { KINDS, kindFrom } from '@/lib/emergencies/guide';
 import LineIcon from '@/components/LineIcon'
 import { adminFetch } from '@/lib/adminFetch'
+import ApplianceGuide from '@/components/ApplianceGuide'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -147,8 +148,8 @@ const CATEGORY_QUESTIONS: Record<string, { primary: Question; followUps: Questio
     primary: { id: 'appliance_type', type: 'chips', label: 'Which appliance?', options: ['Washing Machine', 'Oven', 'Hob / Cooker', 'Fridge / Freezer', 'Dishwasher', 'Tumble Dryer', 'Microwave', 'Other'] },
     followUps: [
       { id: 'appliance_symptom', type: 'chips', label: 'What is it doing?', options: ['Won\'t turn on', 'Making noise', 'Not heating or cooling', 'Leaking water', 'Error code showing', 'Takes too long', 'Other'] },
-      { id: 'appliance_duration', type: 'chips', label: 'When did this start?', options: ['Just now', 'Today', 'This week', 'A while ago'] },
       { id: 'error_code', type: 'text', label: 'Error code shown?', hint: 'Write it exactly, e.g. "E3" or "F08"', conditionalOn: { field: 'appliance_symptom', values: ['Error code showing'] } },
+      { id: 'appliance_duration', type: 'chips', label: 'When did this start?', options: ['Just now', 'Today', 'This week', 'A while ago'] },
     ],
   },
   plumbing: {
@@ -207,6 +208,21 @@ const CATEGORY_QUESTIONS: Record<string, { primary: Question; followUps: Questio
     ],
   },
 };
+
+// the house's recorded appliances (migration 268): which ones fit each kind of repair, and the chip each one answers
+interface Appliance { id: string; kind: string; label: string; brand: string | null; model: string | null; location: string | null; bought_on: string | null; guide: any | null }
+const APPLIANCE_CHIP: Record<string, string> = {
+  washing_machine: 'Washing Machine', washer_dryer: 'Washing Machine', oven: 'Oven', cooker: 'Oven', hob: 'Hob / Cooker',
+  fridge_freezer: 'Fridge / Freezer', fridge: 'Fridge / Freezer', freezer: 'Fridge / Freezer', dishwasher: 'Dishwasher',
+  tumble_dryer: 'Tumble Dryer', microwave: 'Microwave',
+}
+const APPLIANCES_FOR: Record<string, string[] | 'all'> = {
+  appliances: 'all',
+  'heating-cooling': ['boiler', 'water_heater', 'heater'],
+  plumbing: ['washing_machine', 'washer_dryer', 'dishwasher', 'boiler', 'water_heater', 'shower'],
+  electrical: ['shower', 'extractor', 'heater', 'water_heater', 'oven', 'hob', 'cooker'],
+}
+const applianceName = (a: Appliance) => [a.brand, a.label.toLowerCase()].filter(Boolean).join(' ')
 
 const LOCATION_OPTIONS = [
   'My Room / Bedroom', 'Kitchen', 'Bathroom (ground floor)', 'Bathroom (first floor)',
@@ -362,6 +378,19 @@ function ReportWizardContent() {
   }, [description, location, answers, draftKey, step]);
   const clearDraft = () => { try { localStorage.removeItem(draftKey) } catch { /* noop */ } };
   const [triageExpanded, setTriageExpanded] = useState(false);
+  // the appliances recorded for their house — "is it one of these?" names the exact model for the tips and the engineer
+  const [appliances, setAppliances] = useState<Appliance[]>([]);
+  const [applianceId, setApplianceId] = useState('');
+  useEffect(() => { adminFetch('/api/tenant/appliances').then(r => r.ok ? r.json() : { appliances: [] }).then(j => setAppliances(j.appliances ?? [])).catch(() => {}) }, []);
+  const forCat = APPLIANCES_FOR[categoryId];
+  const myAppliances = !forCat ? [] : forCat === 'all' ? appliances : appliances.filter(a => forCat.includes(a.kind));
+  const chosen = appliances.find(a => a.id === applianceId) ?? null;
+  function pickAppliance(a: Appliance) {
+    if (applianceId === a.id) { setApplianceId(''); return }
+    setApplianceId(a.id);
+    if (categoryId === 'appliances' && catDef) setAnswers(prev => ({ ...prev, [catDef.primary.id]: APPLIANCE_CHIP[a.kind] ?? 'Other' }));
+    if (a.location && LOCATION_OPTIONS.includes(a.location)) setLocation(a.location);
+  }
   const [loading, setLoading] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [errorLookupLoading, setErrorLookupLoading] = useState(false);
@@ -385,8 +414,8 @@ function ReportWizardContent() {
         body: JSON.stringify({
           errorCode: errorCode.trim(),
           applianceType: answers['appliance_type'] || null,
-          make: labelData.make || null,
-          model: labelData.model || null,
+          make: labelData.make || chosen?.brand || null,
+          model: labelData.model || chosen?.model || null,
         }),
       });
       const data = await res.json();
@@ -418,11 +447,12 @@ function ReportWizardContent() {
     setTriageResult(null); setTipsLoading(true); setStep('triage');
     const allQs = catDef ? [catDef.primary, ...catDef.followUps] : [];
     const details = allQs.map(q => answers[q.id] ? `${q.label} ${answers[q.id]}` : '').filter(Boolean).join('; ');
-    const r = await adminFetch('/api/tenant/repair-tips', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ description, category: categoryLabel, location, details }) }).catch(() => null);
+    const r = await adminFetch('/api/tenant/repair-tips', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ description, category: categoryLabel, location, details, applianceId: applianceId || undefined }) }).catch(() => null);
     const d = r?.ok ? await r.json().catch(() => null) : null;
     if (ask !== tipsAsked.current) return;   // they skipped ahead
     setTipsLoading(false);
     if (d?.tips) { setTriageResult({ tip: d.tips.headline, steps: d.tips.steps, stopIf: d.tips.stopIf }); setTriageExpanded(true); }
+    else if (chosen?.guide) setTriageResult({ tip: `Your ${applianceName(chosen)}’s own guide might help.`, steps: [] });
     else setStep('photos');
   }
 
@@ -491,6 +521,7 @@ function ReportWizardContent() {
         const ans = answers[q.id];
         if (ans) lines.push(`${q.label.replace(/\?$/, '')}: ${ans}`);
       }
+      if (chosen) lines.push(`Appliance: ${[chosen.brand, chosen.label.toLowerCase(), chosen.model].filter(Boolean).join(' ')}${chosen.bought_on ? ` (bought ${chosen.bought_on.slice(0, 7)})` : ''}${chosen.location ? `, ${chosen.location}` : ''}`);
       if (labelData.make) lines.push(`Make: ${labelData.make}`);
       if (labelData.model) lines.push(`Model: ${labelData.model}`);
       if (labelData.serial) lines.push(`Serial: ${labelData.serial}`);
@@ -640,12 +671,34 @@ function ReportWizardContent() {
             {catDef && (
               <div style={{ ...section, paddingBottom: 16 }}>
                 <span style={label12}>{catDef.primary.label}</span>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                {myAppliances.length > 0 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 14 }}>
+                    <span style={{ fontSize: 14, color: 'rgb(var(--n-600))' }}>Is it one of these?</span>
+                    {myAppliances.map(a => {
+                      const on = applianceId === a.id
+                      return (
+                        <button key={a.id} type="button" onClick={() => pickAppliance(a)} aria-pressed={on}
+                          style={{ display: 'flex', alignItems: 'center', gap: 12, textAlign: 'left', padding: '12px 14px', borderRadius: 14, cursor: 'pointer',
+                            border: on ? '2px solid var(--cr-ink)' : '1.5px solid rgb(var(--n-200))', background: on ? 'rgb(var(--n-50))' : '#fff' }}>
+                          <span style={{ flex: 'none', width: 22, height: 22, borderRadius: 11, display: 'grid', placeItems: 'center', fontSize: 13, fontWeight: 700,
+                            border: on ? 'none' : '2px solid rgb(var(--n-300))', background: on ? 'var(--cr-ink)' : 'transparent', color: '#fff' }}>{on ? '✓' : ''}</span>
+                          <span style={{ minWidth: 0, flex: 1 }}>
+                            <span style={{ display: 'block', fontSize: 15, fontWeight: 600, color: 'var(--cr-ink)' }}>{a.brand ? `${a.brand} ` : ''}{a.label.toLowerCase()}</span>
+                            <span style={{ display: 'block', fontSize: 13, color: 'rgb(var(--n-500))' }}>{[a.location, a.model].filter(Boolean).join(' · ')}</span>
+                          </span>
+                          {a.guide && <span style={{ flex: 'none', fontSize: 12, fontWeight: 600, color: '#2F5D46', background: '#EEF4EC', borderRadius: 20, padding: '3px 9px' }}>Guide</span>}
+                        </button>
+                      )
+                    })}
+                    {categoryId === 'appliances' && !chosen && <span style={{ fontSize: 14, color: 'rgb(var(--n-600))', marginTop: 6 }}>Or something else:</span>}
+                  </div>
+                )}
+                {!(categoryId === 'appliances' && chosen) && <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                   {catDef.primary.options?.map(opt => (
                     <Chip key={opt} label={opt} selected={answers[catDef.primary.id] === opt}
                       onClick={() => setAnswers(prev => ({ ...prev, [catDef.primary.id]: opt }))} />
                   ))}
-                </div>
+                </div>}
               </div>
             )}
 
@@ -659,7 +712,7 @@ function ReportWizardContent() {
                 onChange={e => setLocation(e.target.value)}
                 style={{
                   width: '100%', padding: '11px 12px', borderRadius: 10,
-                  border: '1.5px solid rgb(var(--n-200))', fontSize: 14,
+                  border: '1.5px solid rgb(var(--n-200))', fontSize: 16,
                   background: '#fff', fontFamily: 'inherit', color: 'var(--cr-ink)',
                 }}
               >
@@ -680,7 +733,7 @@ function ReportWizardContent() {
                 rows={3}
                 style={{
                   width: '100%', borderRadius: 10, border: '1.5px solid rgb(var(--n-200))',
-                  padding: '11px 14px', fontSize: 14, resize: 'none',
+                  padding: '11px 14px', fontSize: 16, resize: 'none',
                   fontFamily: 'inherit', lineHeight: 1.5, boxSizing: 'border-box',
                   outline: 'none', color: 'var(--cr-ink)',
                 }}
@@ -727,13 +780,13 @@ function ReportWizardContent() {
                             placeholder={q.hint || ''}
                             style={{
                               width: '100%', padding: '11px 12px', borderRadius: 10,
-                              border: '1.5px solid rgb(var(--n-200))', fontSize: 14,
+                              border: '1.5px solid rgb(var(--n-200))', fontSize: 16,
                               fontFamily: 'inherit', boxSizing: 'border-box', color: 'var(--cr-ink)',
                             }}
                           />
 
                           {/* AI error code lookup */}
-                          {(q.id === 'error_code' || q.id === 'boiler_error') && answers[q.id]?.trim() && (
+                          {(q.id === 'error_code' || q.id === 'boiler_error') && answers[q.id]?.trim() && !chosen?.guide && (
                             <div style={{ marginTop: 10 }}>
                               {!errorLookupResult && (
                                 <button type="button" onClick={handleErrorCodeLookup} disabled={errorLookupLoading}
@@ -840,15 +893,32 @@ function ReportWizardContent() {
               <h2 style={{ fontSize: 18, fontWeight: 700, color: 'var(--cr-ink)', margin: '0 0 8px', lineHeight: 1.35 }}>{triageResult.tip}</h2>
             </div>
             <div style={section}>
-              <ol style={{ paddingLeft: 0, margin: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {triageResult.steps.length > 0 && <ol style={{ paddingLeft: 0, margin: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {triageResult.steps.map((st, i) => (
                   <li key={i} style={{ display: 'flex', gap: 12, fontSize: 15, color: 'rgb(var(--n-800))', lineHeight: 1.5 }}>
                     <span style={{ flex: 'none', width: 26, height: 26, borderRadius: 13, background: 'rgb(var(--n-100))', display: 'grid', placeItems: 'center', fontSize: 13, fontWeight: 700 }}>{i + 1}</span>
                     <span>{st}</span>
                   </li>
                 ))}
-              </ol>
+              </ol>}
               {triageResult.stopIf && <p style={{ marginTop: 14, fontSize: 14, color: '#7C4A03', background: '#FDF3DF', borderRadius: 12, padding: '10px 12px' }}>{triageResult.stopIf}</p>}
+              {/* the office-checked guide for the exact appliance they picked */}
+              {chosen?.guide && (
+                <details className="guide-box" open={!triageResult.steps.length} style={{ marginTop: 14, border: '1.5px solid rgb(var(--n-200))', borderRadius: 14, padding: '12px 14px' }}>
+                  <style>{`.guide-box summary{list-style:none;display:flex;align-items:center;gap:10px;cursor:pointer}.guide-box summary::-webkit-details-marker{display:none}.guide-box .chev{margin-left:auto;transition:transform .15s}.guide-box[open] .chev{transform:rotate(180deg)}`}</style>
+                  <summary>
+                    <span style={{ flex: 'none', width: 32, height: 32, borderRadius: 10, background: '#EEF4EC', display: 'grid', placeItems: 'center' }} aria-hidden="true">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2F5D46" strokeWidth="2"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z" /><path d="M4 21V5" /></svg>
+                    </span>
+                    <span style={{ minWidth: 0 }}>
+                      <span style={{ display: 'block', fontSize: 15, fontWeight: 600, color: 'var(--cr-ink)' }}>Your {applianceName(chosen)}’s guide</span>
+                      <span style={{ display: 'block', fontSize: 13, color: 'rgb(var(--n-500))' }}>{chosen.model ? `${chosen.model} · ` : ''}checked by our office</span>
+                    </span>
+                    <svg className="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
+                  </summary>
+                  <div style={{ marginTop: 10 }}><ApplianceGuide guide={chosen.guide} codeFilter={answers['error_code'] || answers['boiler_error']} /></div>
+                </details>
+              )}
             </div>
             <Divider />
             <div style={{ ...section, display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -902,7 +972,7 @@ function ReportWizardContent() {
             </div>
 
             {/* Appliance label scan */}
-            {categoryId === 'appliances' && (
+            {categoryId === 'appliances' && !chosen?.model && (
               <>
                 <Divider />
                 <div style={{ ...section, background: '#F0FDF4' }}>
