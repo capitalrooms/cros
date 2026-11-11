@@ -121,6 +121,8 @@ export default function ApplicantsPage() {
   const [declining, setDeclining] = useState(false)
   const [depositBanner, setDepositBanner] = useState('')
   const [lettingFiles, setLettingFiles] = useState<Record<string, string>>({})   // applicant id → their tenancy's letting file
+  const [claimed, setClaimed] = useState<Set<string>>(new Set())   // applicants who say they've paid the holding deposit
+  const [offerRent, setOfferRent] = useState<Record<string, number>>({})   // applicant id → the rent on the offer we sent them
 
   // Accept offer & send reserve email
   const [acceptingSending, setAcceptingSending] = useState<string | null>(null)
@@ -201,6 +203,16 @@ export default function ApplicantsPage() {
     }
     setProperties(sortPropertiesNumerically(pData || []))
     setRooms(rData || [])
+    // the offers we sent: their rent is THE agreed rent (lib/lettings/holdingDeposit agreedRent, 11 Nov 2026), and
+    // "I've paid" on the reserve page shows as deposit_claimed
+    const ids = (aData || []).map((a: any) => a.id)
+    if (ids.length) {
+      const { data: os } = await sb.from('offers').select('applicant_id, status, advertised_rent, created_at').in('applicant_id', ids).order('created_at', { ascending: true })
+      const rents: Record<string, number> = {}
+      for (const o of (os || []) as any[]) if (Number(o.advertised_rent) > 0) rents[o.applicant_id] = Number(o.advertised_rent)   // the latest wins
+      setOfferRent(rents)
+      setClaimed(new Set(((os || []) as any[]).filter(o => o.status === 'deposit_claimed').map(o => o.applicant_id)))
+    } else { setOfferRent({}); setClaimed(new Set()) }
 
     // Seed local notes state
     const noteMap: Record<string, string> = {}
@@ -430,7 +442,7 @@ export default function ApplicantsPage() {
         {/* Add form */}
         {showAdd && (
           <div className="mb-xl rounded-2xl border-2 border-neutral-900 bg-white p-lg">
-            <h2 className="text-base font-bold text-neutral-900 mb-md">Add Applicant Directly</h2>
+            <h2 className="text-base font-bold text-neutral-900 mb-md">Add an applicant</h2>
             <div className="grid gap-md sm:grid-cols-2">
               <div className="sm:col-span-2">
                 <NameInput
@@ -575,7 +587,9 @@ export default function ApplicantsPage() {
                       {/* Name + email */}
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold text-neutral-900 truncate">{displayName(applicant as any)}</p>
-                        <p className="text-xs text-neutral-500 truncate">{applicant.email}{applicant.phone ? ` · ${applicant.phone}` : ''}</p>
+                        {/* on a phone: which room (the property column is hidden there); on a computer: how to reach them */}
+                        <p className="text-xs text-neutral-500 truncate sm:hidden">{prop ? [room?.name, prop.name || prop.address].filter(Boolean).join(' · ') : applicant.email}</p>
+                        <p className="hidden text-xs text-neutral-500 truncate sm:block">{applicant.email}{applicant.phone ? ` · ${applicant.phone}` : ''}</p>
                       </div>
 
                       {/* Property + room */}
@@ -594,8 +608,8 @@ export default function ApplicantsPage() {
                       )}
 
                       {/* Stage badge */}
-                      <span className={`text-xs font-semibold px-sm py-xs rounded-full whitespace-nowrap ${stage.color}`}>
-                        {stage.label}
+                      <span className={`text-xs font-semibold px-sm py-xs rounded-full whitespace-nowrap ${claimed.has(applicant.id) ? 'bg-green-100 text-green-800' : stage.color}`}>
+                        {claimed.has(applicant.id) ? 'Says they’ve paid' : stage.label}
                       </span>
 
                       {/* Chevron */}
@@ -606,59 +620,102 @@ export default function ApplicantsPage() {
                   {/* Expanded detail */}
                   {isOpen && (
                     <div className="border-t border-neutral-100 px-lg py-md space-y-md">
-                      {/* Next step first (Harry, 12 Oct: "still cannot open tenancy file … no way to progress it") — the letting file if
-                          there is one, else what has to happen before it can start. Was at the bottom of a long card. */}
-                      {lettingFiles[applicant.id] && (
-                        <Link href={`/admin/lettings/${lettingFiles[applicant.id]}?from=/admin/applicants`}
-                          className="flex items-center justify-between rounded-lg bg-blue-700 px-md py-sm text-sm font-semibold text-white hover:bg-blue-600">
-                          <span>Let agreed — the letting file tracks it from here</span><span>Open letting file →</span>
-                        </Link>
-                      )}
-                      {/* The way to the letting file (Harry, 12 Oct 2026: "it should say you cannot start the letting file until
-                          x is done"): recording the holding deposit creates the tenancy and opens its letting file; a let with no
-                          holding deposit goes through Set up tenancy instead. Nothing else marks someone let agreed. */}
-                      {((!isConverted && ['applied', 'offer_sent', 'referencing', 'referencing_passed', 'docs_uploaded'].includes(applicant.pipeline_stage))
-                        || (isConverted && !lettingFiles[applicant.id] && !applicant.converted_person_id)) && (
-                        <div className={`w-full rounded-lg border px-md py-sm text-xs ${isConverted ? 'border-amber-300 bg-amber-50 text-amber-900' : 'border-neutral-200 bg-neutral-50 text-neutral-700'}`}>
-                          <p className="font-semibold">
-                            {isConverted
-                              ? 'Marked let agreed, but the holding deposit was never recorded — so there’s no tenancy or letting file yet.'
-                              : 'The letting file starts once the holding deposit is recorded.'}
-                          </p>
-                          <div className="mt-xs flex flex-wrap items-center gap-sm">
-                            <button type="button" onClick={() => setDepositFor(applicant.id)}
-                              className="rounded-lg border border-green-700 bg-green-700 px-md py-xs font-semibold text-white hover:bg-green-600">
-                              Holding deposit received
-                            </button>
-                            <span className="text-neutral-500">creates the tenancy and opens its letting file ·</span>
-                            <Link href={`/admin/applicants/${applicant.id}/create-tenancy`}
-                              onClick={e => { if (!confirm(`Set up ${applicant.full_name}’s tenancy without a holding deposit? Only do this if no holding deposit was taken for this let.`)) e.preventDefault() }}
-                              className="font-semibold text-neutral-700 underline hover:text-neutral-900">No holding deposit on this let? Set up the tenancy</Link>
+                      {/* ── Next step: one box, one main button (11 Nov 2026, Harry: "make this process clean and tidy, it's
+                          all a bit fiddly"). Everything occasional is under More at the bottom. ── */}
+                      {(() => {
+                        const first = (applicant as any).first_name || displayName(applicant as any).split(' ').slice(-2, -1)[0] || 'They'
+                        const asking = Number(room?.current_asking_rent) || null
+                        const below = applicant.rent_offer_type === 'below_asking' && Number(applicant.offered_rent) > 0 && (!asking || Number(applicant.offered_rent) < asking)
+                        const btn = 'rounded-xl px-lg py-sm text-sm font-bold text-white disabled:opacity-50'
+                        const link = 'text-sm font-semibold text-neutral-700 underline hover:text-neutral-900'
+                        const recordDeposit = <button type="button" onClick={() => setDepositFor(applicant.id)} className={`${btn} bg-green-700 hover:bg-green-600`}>Record holding deposit</button>
+                        const resendReserve = <button type="button" onClick={() => acceptOffer(applicant)} className={link}>{acceptSentFor.has(applicant.id) ? 'Reserve email sent ✓' : 'Resend reserve email'}</button>
+                        let tone = 'border-neutral-200 bg-neutral-50', title = '', text = '', main: React.ReactNode = null, extra: React.ReactNode[] = []
+                        if (applicant.archived_at) {
+                          title = `Archived${applicant.archived_reason ? `: ${applicant.archived_reason}` : ''}`; text = 'Not in the active list.'
+                          main = <button type="button" onClick={() => setArchived(applicant, false)} className={`${btn} bg-neutral-900 hover:bg-neutral-700`}>Restore</button>
+                        } else if (lettingFiles[applicant.id]) {
+                          tone = 'border-green-200 bg-green-50'; title = 'Let agreed'; text = 'Referencing (Homeppl), the agreement and move-in all carry on in the letting file.'
+                          main = <Link href={`/admin/lettings/${lettingFiles[applicant.id]}?from=/admin/applicants`} className={`${btn} bg-neutral-900 hover:bg-neutral-700`}>Open letting file →</Link>
+                        } else if (isConverted) {
+                          tone = 'border-amber-300 bg-amber-50'; title = 'Marked let agreed, but no holding deposit recorded'; text = 'So there’s no tenancy or letting file yet. Record it to open the letting file.'
+                          main = recordDeposit
+                          extra = [<Link key="nt" href={`/admin/applicants/${applicant.id}/create-tenancy`} onClick={e => { if (!confirm(`Set up ${applicant.full_name}’s tenancy without a holding deposit?`)) e.preventDefault() }} className={link}>No holding deposit? Set up the tenancy</Link>]
+                        } else if (applicant.pipeline_stage === 'invited') {
+                          title = `Waiting for ${first} to apply`; text = 'They have the application link. Agreed already? Send the reserve email instead.'
+                          main = <button type="button" onClick={() => acceptOffer(applicant)} className={`${btn} bg-neutral-900 hover:bg-neutral-700`}>Send reserve email</button>
+                          extra = [<button key="ap" type="button" onClick={() => setInviteFor({ a: applicant, mode: 'apply' })} className={link}>Resend application link</button>]
+                        } else if (applicant.pipeline_stage === 'applied') {
+                          tone = 'border-blue-200 bg-blue-50'; title = `${first} has applied`
+                          text = below ? `They offered £${Number(applicant.offered_rent).toLocaleString()} a month${asking ? ` (asking £${asking.toLocaleString()})` : ''}. Accept it, or decline and they can come back at the asking rent.` : 'Happy to go ahead? Accept and they get the reserve email with the holding deposit to pay.'
+                          main = <button type="button" onClick={() => acceptOffer(applicant)} disabled={acceptSentFor.has(applicant.id)} className={`${btn} bg-emerald-700 hover:bg-emerald-600`}>{acceptSentFor.has(applicant.id) ? 'Reserve email sent ✓' : below ? `Accept £${Number(applicant.offered_rent).toLocaleString()} & send reserve email` : 'Accept & send reserve email'}</button>
+                          extra = [
+                            ...(below ? [<button key="dc" type="button" onClick={() => declineFor === applicant.id ? setDeclineFor(null) : openDecline(applicant)} className={link}>Decline the offer…</button>] : []),
+                            <button key="ll" type="button" onClick={() => setLandlordFor(landlordFor === applicant.id ? null : applicant.id)} className={link}>Show the landlord first…</button>,
+                          ]
+                        } else if (applicant.pipeline_stage === 'offer_sent') {
+                          if (claimed.has(applicant.id)) { tone = 'border-green-300 bg-green-50'; title = `${first} says they’ve paid the holding deposit`; text = 'Check it’s in the bank, then record it. That agrees the let and opens the letting file.' }
+                          else { tone = 'border-amber-200 bg-amber-50'; title = 'Waiting for the holding deposit'; text = `Reserve email sent. When the money arrives, record it here.` }
+                          main = recordDeposit; extra = [resendReserve]
+                        } else if (applicant.pipeline_stage === 'rejected') {
+                          title = 'Offer declined'; text = 'If they come back at the asking rent, they’re moved back to Applied and you get an email.'
+                        } else {
+                          // referencing / ref. passed / docs uploaded without a recorded deposit
+                          tone = 'border-amber-200 bg-amber-50'; title = 'Record the holding deposit to open the letting file'; text = 'Homeppl referencing is sent from the letting file.'
+                          main = recordDeposit
+                          extra = [<Link key="nt" href={`/admin/applicants/${applicant.id}/create-tenancy`} onClick={e => { if (!confirm(`Set up ${applicant.full_name}’s tenancy without a holding deposit?`)) e.preventDefault() }} className={link}>No holding deposit? Set up the tenancy</Link>]
+                        }
+                        return (
+                          <div className={`rounded-xl border p-md ${tone}`}>
+                            <p className="text-[11px] font-bold uppercase tracking-wide text-neutral-500">Next step</p>
+                            <p className="mt-0.5 text-base font-bold text-neutral-900">{title}</p>
+                            {text && <p className="mt-0.5 text-sm text-neutral-700">{text}</p>}
+                            {(main || extra.length > 0) && <div className="mt-sm flex flex-wrap items-center gap-x-md gap-y-sm">{main}{extra}</div>}
+                          </div>
+                        )
+                      })()}
+                      {declineFor === applicant.id && (
+                        <div className="rounded-xl border border-red-200 bg-red-50/40 p-md space-y-sm">
+                          <p className="text-xs font-bold uppercase tracking-wide text-red-800">Decline this offer: the email they’ll get</p>
+                          <input value={declineText.subject} onChange={e => setDeclineText(t => ({ ...t, subject: e.target.value }))} className="w-full rounded-lg border border-neutral-300 bg-white px-sm py-xs text-sm" />
+                          <textarea value={declineText.body} onChange={e => setDeclineText(t => ({ ...t, body: e.target.value }))} rows={9} className="w-full rounded-lg border border-neutral-300 bg-white px-sm py-xs text-sm" />
+                          <p className="text-xs text-neutral-600">Under your message they’ll see a button: <strong>“Yes, I’m happy to offer £{Number((applicant.rooms as any)?.current_asking_rent ?? 0).toLocaleString()} per month →”</strong>. Pressing it puts the application back to Applied at that rent and emails you.</p>
+                          <div className="flex gap-sm">
+                            <button type="button" disabled={declining || !declineText.subject.trim() || !declineText.body.trim()} onClick={() => sendDecline(applicant)} className="rounded-lg bg-red-700 px-md py-xs text-sm font-bold text-white disabled:opacity-40">{declining ? 'Sending…' : 'Send and decline'}</button>
+                            <button type="button" onClick={() => setDeclineFor(null)} className="text-sm font-semibold text-neutral-600 underline">Cancel</button>
                           </div>
                         </div>
                       )}
-
-                      <DetailsToCopy a={applicant} onSaved={loadAll} />
-                      {/* Pipeline progress bar */}
-                      <div>
-                        <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-sm">Pipeline</p>
-                        <div className="flex items-center gap-xs flex-wrap">
-                          {STAGES.map((s, i) => {
-                            const isCurrentOrPast = STAGES.findIndex(x => x.key === applicant.pipeline_stage) >= i
-                            return (
-                              <div key={s.key} className="flex items-center gap-xs">
-                                <span className={`text-xs px-sm py-xs rounded-full font-medium ${isCurrentOrPast ? s.color : 'bg-neutral-100 text-neutral-400'}`}>
-                                  {s.label}
-                                </span>
-                                {i < STAGES.length - 1 && <span className={`text-xs ${isCurrentOrPast ? 'text-neutral-400' : 'text-neutral-200'}`}>›</span>}
-                              </div>
-                            )
-                          })}
+                      {landlordFor === applicant.id && (
+                        <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-md">
+                          <LandlordUpdates applicantId={applicant.id} bare />
                         </div>
-                      </div>
+                      )}
 
-                      {/* ── Application details ── */}
-                      <div className="space-y-md">
+                      {/* where they are, at a glance */}
+                      {(() => {
+                        const order = STAGES.filter(x => x.key !== 'rejected')
+                        const at = order.findIndex(x => x.key === applicant.pipeline_stage)
+                        return (
+                          <ol className="flex flex-wrap items-center gap-x-xs gap-y-1 text-[11px] font-semibold" aria-label="Progress">
+                            {order.map((s2, i) => (
+                              <li key={s2.key} className={`flex items-center gap-xs ${i <= at ? 'text-neutral-900' : 'text-neutral-400'}`}>
+                                <span className={`h-1.5 w-1.5 rounded-full ${i < at ? 'bg-neutral-900' : i === at ? s2.dot : 'bg-neutral-300'}`} />{s2.label.replace(' ✓', '')}
+                                {i < order.length - 1 && <span className="text-neutral-300">›</span>}
+                              </li>
+                            ))}
+                          </ol>
+                        )
+                      })()}
+
+                      <DetailsToCopy a={applicant} agreed={offerRent[applicant.id] ?? null} onSaved={loadAll} />
+
+                      {/* ── Application details: folded away, one tap to open (11 Nov 2026) ── */}
+                      <details className="group rounded-xl border border-neutral-200">
+                        <summary className="flex cursor-pointer list-none items-center justify-between px-md py-sm text-sm font-semibold text-neutral-900 [&::-webkit-details-marker]:hidden">
+                          <span>Application details</span><span className="text-neutral-400 transition-transform group-open:rotate-180" aria-hidden="true">▾</span>
+                        </summary>
+                      <div className="space-y-md border-t border-neutral-100 px-md py-md">
 
                         {/* Room + rent snapshot */}
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-md text-xs">
@@ -809,6 +866,7 @@ export default function ApplicantsPage() {
                           </div>
                         )}
                       </div>
+                      </details>
 
                       {/* Admin notes */}
                       <div>
@@ -831,137 +889,56 @@ export default function ApplicantsPage() {
                         </div>
                       </div>
 
-                      {/* Actions */}
-                      <div className="flex flex-wrap gap-sm pt-xs border-t border-neutral-100">
-                        {/* Links */}
-                        <a href={`mailto:${applicant.email}`} className="text-xs font-semibold border border-neutral-300 rounded-lg px-md py-sm hover:bg-neutral-50">Email</a>
-                        <CopyButton label="Copy email" value={applicant.email} />
-                        {applicant.phone && (
-                          <>
-                            <a href={`tel:${applicant.phone}`} className="text-xs font-semibold border border-neutral-300 rounded-lg px-md py-sm hover:bg-neutral-50">Call</a>
-                            <CopyButton label={`Copy ${applicant.phone}`} value={applicant.phone} />
-                          </>
-                        )}
-                        {lettingFiles[applicant.id] ? (
-                          <Link href={`/admin/lettings/${lettingFiles[applicant.id]}?from=/admin/applicants`} className="text-xs font-semibold border border-blue-700 bg-blue-700 text-white rounded-lg px-md py-sm hover:bg-blue-600">
-                            Open letting file →
-                          </Link>
-                        ) : applicant.converted_person_id && (
-                          <Link href={`/admin/tenant/${applicant.converted_person_id}`} className="text-xs font-semibold border border-blue-200 text-blue-700 rounded-lg px-md py-sm hover:bg-blue-50">
-                            View tenant profile →
-                          </Link>
-                        )}
-
-
-                        {/* Accept offer & send the reserve email — on 'applied', and again on 'offer_sent' (no holding deposit yet:
-                            recording one moves them on to referencing). An offer email that failed used to leave people at
-                            'offer_sent' with no way to send the link (Chloe, 15 Oct 2026). */}
-                        {['applied', 'offer_sent'].includes(applicant.pipeline_stage) && applicant.rent_offer_type === 'below_asking' && applicant.offered_rent && (applicant.rooms as any)?.current_asking_rent && Number(applicant.offered_rent) < Number((applicant.rooms as any).current_asking_rent) && (
-                          <button type="button" onClick={() => declineFor === applicant.id ? setDeclineFor(null) : openDecline(applicant)}
-                            className="text-xs font-semibold border border-red-300 text-red-700 rounded-lg px-md py-sm hover:bg-red-50">
-                            Decline £{Number(applicant.offered_rent).toLocaleString()} offer…
-                          </button>
-                        )}
-
-                        {/* the landlord sees the offer first (Nigel likes to review) — and every later update (17 Oct 2026) */}
-                        {!applicant.archived_at && (
-                          <button type="button" onClick={() => setLandlordFor(landlordFor === applicant.id ? null : applicant.id)}
-                            className="text-xs font-semibold border border-neutral-300 text-neutral-800 rounded-lg px-md py-sm hover:bg-neutral-50">
-                            {['applied', 'offer_sent'].includes(applicant.pipeline_stage) ? 'Send to landlord to review…' : 'Landlord updates…'}
-                          </button>
-                        )}
-                        {landlordFor === applicant.id && (
-                          <div className="basis-full rounded-xl border border-neutral-200 bg-neutral-50 p-md">
-                            <LandlordUpdates applicantId={applicant.id} bare />
-                          </div>
-                        )}
-
-                        {/* also on 'invited' — an invite sent to a mistyped email left no way to send the reserve email once the
-                            address was corrected (Hugh Elliot, 17 Oct 2026); it always goes to the email on file now */}
-                        {!isConverted && (
-                          <button type="button" onClick={() => setInviteFor({ a: applicant, mode: applicant.pipeline_stage === 'invited' ? 'fasttrack' : applicant.pipeline_stage === 'applied' ? 'reserve' : 'apply' })}
-                            className="text-xs font-semibold border border-neutral-300 bg-white text-neutral-800 rounded-lg px-md py-sm hover:bg-neutral-50">
-                            Email / invite…
-                          </button>
-                        )}
-                        {(applicant.pipeline_stage === 'invited' || applicant.pipeline_stage === 'applied' || applicant.pipeline_stage === 'offer_sent') && (
-                          <button
-                            onClick={() => acceptOffer(applicant)}
-                            disabled={acceptingSending === applicant.id || acceptSentFor.has(applicant.id)}
-                            className="text-xs font-semibold border border-emerald-700 bg-emerald-700 text-white rounded-lg px-md py-sm hover:bg-emerald-600 disabled:opacity-50 ml-auto"
-                          >
-                            {acceptingSending === applicant.id
-                              ? 'Sending…'
-                              : acceptSentFor.has(applicant.id)
-                                ? '✓ Reserve email sent'
-                                : applicant.pipeline_stage === 'offer_sent' ? 'Resend reserve email'
-                                  : applicant.pipeline_stage === 'invited' ? `Send reserve email to ${applicant.email}`
-                                  : applicant.rent_offer_type === 'below_asking' && applicant.offered_rent ? `✓ Accept £${Number(applicant.offered_rent).toLocaleString()} offer & send reserve email` : '✓ Accept offer & send reserve email'}
-                          </button>
-                        )}
-
-                        {/* Stage advance — generic for all other transitions */}
-                        {/* never "Let agreed" from here — only the holding deposit or Set up tenancy (above) creates the tenancy and letting file */}
-                        {!isConverted && nextStage && nextStage.key !== 'converted' && applicant.pipeline_stage !== 'applied' && (
-                          <button
-                            onClick={() => advanceStage(applicant, nextStage.key as Stage)}
-                            disabled={advancing === applicant.id}
-                            className={`text-xs font-semibold border border-neutral-900 bg-neutral-900 text-white rounded-lg px-md py-sm hover:bg-neutral-700 disabled:opacity-50 ${applicant.pipeline_stage !== 'applied' ? 'ml-auto' : ''}`}
-                          >
-                            {advancing === applicant.id ? 'Updating…' : `→ Mark as ${nextStage.label}`}
-                          </button>
-                        )}
-
-                        {declineFor === applicant.id && (
-                          <div className="basis-full rounded-xl border border-red-200 bg-red-50/40 p-md space-y-sm">
-                            <p className="text-xs font-bold uppercase tracking-wide text-red-800">Decline this offer — the email they’ll get</p>
-                            <input value={declineText.subject} onChange={e => setDeclineText(t => ({ ...t, subject: e.target.value }))} className="w-full rounded-lg border border-neutral-300 bg-white px-sm py-xs text-sm" />
-                            <textarea value={declineText.body} onChange={e => setDeclineText(t => ({ ...t, body: e.target.value }))} rows={9} className="w-full rounded-lg border border-neutral-300 bg-white px-sm py-xs text-sm" />
-                            <p className="text-xs text-neutral-600">Under your message they’ll see a button: <strong>“Yes — I’m happy to offer £{Number((applicant.rooms as any)?.current_asking_rent ?? 0).toLocaleString()} per month →”</strong>. Pressing it puts the application back to Applied at that rent and emails you. The application shows as “Offer declined” until then.</p>
-                            <div className="flex gap-sm">
-                              <button type="button" disabled={declining || !declineText.subject.trim() || !declineText.body.trim()} onClick={() => sendDecline(applicant)} className="rounded-lg bg-red-700 px-md py-xs text-sm font-bold text-white disabled:opacity-40">{declining ? 'Sending…' : 'Send and decline'}</button>
-                              <button type="button" onClick={() => setDeclineFor(null)} className="text-sm font-semibold text-neutral-600 underline">Cancel</button>
-                            </div>
-                          </div>
-                        )}
-
-                        {archiveFor === applicant.id ? (
-                          <span className="flex flex-wrap items-center gap-xs rounded-lg bg-neutral-100 px-sm py-xs text-xs">
-                            <span className="font-semibold text-neutral-700">Archive — why?</span>
-                            <select value={['Not interested', 'Withdrew', 'Duplicate', 'Test'].includes(archiveReason) ? archiveReason : 'Other'} onChange={e => setArchiveReason(e.target.value === 'Other' ? '' : e.target.value)} className="rounded border border-neutral-300 bg-white px-xs py-0.5 text-xs">
-                              {['Not interested', 'Withdrew', 'Duplicate', 'Test', 'Other'].map(x => <option key={x}>{x}</option>)}
-                            </select>
-                            {!['Not interested', 'Withdrew', 'Duplicate', 'Test'].includes(archiveReason) && (
-                              <input autoFocus value={archiveReason} onChange={e => setArchiveReason(e.target.value)} placeholder="Reason" className="w-36 rounded border border-neutral-300 bg-white px-xs py-0.5 text-xs" />
-                            )}
-                            <button type="button" disabled={!archiveReason.trim()} onClick={() => setArchived(applicant, true, archiveReason)} className="rounded bg-neutral-900 px-sm py-0.5 font-bold text-white disabled:opacity-40">Archive</button>
-                            <button type="button" onClick={() => setArchiveFor(null)} className="font-semibold text-neutral-500 underline">Cancel</button>
-                          </span>
-                        ) : (
-                          <button type="button" onClick={() => applicant.archived_at ? setArchived(applicant, false) : (setArchiveFor(applicant.id), setArchiveReason('Not interested'))}
-                            className="text-xs font-semibold text-neutral-500 underline hover:text-neutral-800">
-                            {applicant.archived_at ? `Restore (archived: ${applicant.archived_reason ?? ''})` : 'Archive'}
-                          </button>
-                        )}
-                        {!isConverted && archiveFor !== applicant.id && (
-                          <button type="button" onClick={() => deleteApplicant(applicant)} title="Set up by mistake? Remove them from CROS completely"
-                            className="text-xs font-semibold text-red-700 underline hover:text-red-900">Delete</button>
-                        )}
-
-                        {/* Move to any stage without sending anything (e.g. already referencing, offer agreed by phone) */}
-                        {!isConverted && (
-                          <label className="flex items-center gap-xs text-xs text-neutral-600">
-                            Stage
-                            <select value={applicant.pipeline_stage} disabled={advancing === applicant.id}
-                              onChange={e => { const to = e.target.value as Stage; if (to !== applicant.pipeline_stage && confirm(`Move ${applicant.full_name} to “${STAGES.find(x => x.key === to)?.label}”? No email is sent.`)) advanceStage(applicant, to, true) }}
-                              className="rounded-lg border border-neutral-300 bg-white px-sm py-xs text-xs font-semibold text-neutral-800">
-                              {STAGES.filter(x => x.key !== 'converted').map(x => <option key={x.key} value={x.key}>{x.label}</option>)}
-                            </select>
-                            <span className="text-neutral-400">(no email)</span>
-                          </label>
-                        )}
-
-                      </div>
+                      {/* ── More: the occasional things (11 Nov 2026) ── */}
+                      <details className="group">
+                        <summary className="cursor-pointer list-none text-sm font-semibold text-neutral-600 hover:text-neutral-900 [&::-webkit-details-marker]:hidden">More <span aria-hidden="true" className="inline-block transition-transform group-open:rotate-180">▾</span></summary>
+                        <div className="mt-sm flex flex-wrap items-center gap-sm">
+                          <a href={`mailto:${applicant.email}`} className="rounded-lg border border-neutral-300 px-md py-xs text-xs font-semibold hover:bg-neutral-50">Email</a>
+                          {applicant.phone && <a href={`tel:${applicant.phone}`} className="rounded-lg border border-neutral-300 px-md py-xs text-xs font-semibold hover:bg-neutral-50">Call</a>}
+                          {!isConverted && (
+                            <button type="button" onClick={() => setInviteFor({ a: applicant, mode: applicant.pipeline_stage === 'invited' ? 'fasttrack' : applicant.pipeline_stage === 'applied' ? 'reserve' : 'apply' })}
+                              className="rounded-lg border border-neutral-300 px-md py-xs text-xs font-semibold hover:bg-neutral-50">Send an email or invite…</button>
+                          )}
+                          {!applicant.archived_at && applicant.pipeline_stage !== 'applied' && (
+                            <button type="button" onClick={() => setLandlordFor(landlordFor === applicant.id ? null : applicant.id)}
+                              className="rounded-lg border border-neutral-300 px-md py-xs text-xs font-semibold hover:bg-neutral-50">Landlord updates…</button>
+                          )}
+                          {applicant.converted_person_id && !lettingFiles[applicant.id] && (
+                            <Link href={`/admin/tenant/${applicant.converted_person_id}`} className="rounded-lg border border-neutral-300 px-md py-xs text-xs font-semibold hover:bg-neutral-50">Tenant profile →</Link>
+                          )}
+                          {/* move to any stage without sending anything (agreed by phone, already referencing) — never Let agreed:
+                              only the holding deposit or Set up tenancy creates the tenancy and letting file */}
+                          {!isConverted && (
+                            <label className="flex items-center gap-xs text-xs text-neutral-600">
+                              Move to
+                              <select value={applicant.pipeline_stage} disabled={advancing === applicant.id}
+                                onChange={e => { const to = e.target.value as Stage; if (to !== applicant.pipeline_stage && confirm(`Move ${applicant.full_name} to “${STAGES.find(x => x.key === to)?.label}”? No email is sent.`)) advanceStage(applicant, to, true) }}
+                                className="rounded-lg border border-neutral-300 bg-white px-sm py-xs text-xs font-semibold text-neutral-800">
+                                {STAGES.filter(x => x.key !== 'converted').map(x => <option key={x.key} value={x.key}>{x.label}</option>)}
+                              </select>
+                              <span className="text-neutral-400">(no email)</span>
+                            </label>
+                          )}
+                          {archiveFor === applicant.id ? (
+                            <span className="flex flex-wrap items-center gap-xs rounded-lg bg-neutral-100 px-sm py-xs text-xs">
+                              <span className="font-semibold text-neutral-700">Archive: why?</span>
+                              <select value={['Not interested', 'Withdrew', 'Duplicate', 'Test'].includes(archiveReason) ? archiveReason : 'Other'} onChange={e => setArchiveReason(e.target.value === 'Other' ? '' : e.target.value)} className="rounded border border-neutral-300 bg-white px-xs py-0.5 text-xs">
+                                {['Not interested', 'Withdrew', 'Duplicate', 'Test', 'Other'].map(x => <option key={x}>{x}</option>)}
+                              </select>
+                              {!['Not interested', 'Withdrew', 'Duplicate', 'Test'].includes(archiveReason) && (
+                                <input autoFocus value={archiveReason} onChange={e => setArchiveReason(e.target.value)} placeholder="Reason" className="w-36 rounded border border-neutral-300 bg-white px-xs py-0.5 text-xs" />
+                              )}
+                              <button type="button" disabled={!archiveReason.trim()} onClick={() => setArchived(applicant, true, archiveReason)} className="rounded bg-neutral-900 px-sm py-0.5 font-bold text-white disabled:opacity-40">Archive</button>
+                              <button type="button" onClick={() => setArchiveFor(null)} className="font-semibold text-neutral-500 underline">Cancel</button>
+                            </span>
+                          ) : !applicant.archived_at && (
+                            <button type="button" onClick={() => { setArchiveFor(applicant.id); setArchiveReason('Not interested') }} className="text-xs font-semibold text-neutral-500 underline hover:text-neutral-800">Archive</button>
+                          )}
+                          {!isConverted && archiveFor !== applicant.id && (
+                            <button type="button" onClick={() => deleteApplicant(applicant)} title="Set up by mistake? Remove them from CROS completely" className="text-xs font-semibold text-red-700 underline hover:text-red-900">Delete</button>
+                          )}
+                        </div>
+                      </details>
                     </div>
                   )}
                 </div>
@@ -1013,7 +990,7 @@ function CopyButton({ label, value }: { label: string; value: string }) {
 
 // Everything the office needs to copy out — into Homeppl, an email or a call — with a Copy on each line and one for
 // all of it. (The row above is a button, and browsers don't let you select text inside a button.)
-function DetailsToCopy({ a, onSaved }: { a: Applicant; onSaved?: () => void }) {
+function DetailsToCopy({ a, agreed, onSaved }: { a: Applicant; agreed?: number | null; onSaved?: () => void }) {
   // email and mobile can be corrected here (17 Oct 2026) — a typo on the application otherwise blocked every email
   const [editing, setEditing] = useState<'Email' | 'Mobile' | null>(null)
   const [value, setValue] = useState('')
@@ -1029,7 +1006,8 @@ function DetailsToCopy({ a, onSaved }: { a: Applicant; onSaved?: () => void }) {
     setEditing(null); onSaved?.()
   }
   const room = (a.rooms as any), prop = (a.properties as any)
-  const rent = a.rent_offer_type === 'below_asking' && a.offered_rent ? a.offered_rent : a.advertised_rent ?? room?.current_asking_rent ?? null
+  // the rent on the offer we sent first — the same rule as the holding deposit (11 Nov 2026)
+  const rent = agreed ?? (a.rent_offer_type === 'below_asking' && a.offered_rent ? a.offered_rent : a.advertised_rent ?? room?.current_asking_rent ?? null)
   const dob = a.date_of_birth ? new Date(a.date_of_birth + 'T12:00:00').toLocaleDateString('en-GB') : ''
   const start = a.preferred_start_date ? new Date(a.preferred_start_date + 'T12:00:00').toLocaleDateString('en-GB') : ''
   const rows: [string, string][] = [
@@ -1064,8 +1042,9 @@ function DetailsToCopy({ a, onSaved }: { a: Applicant; onSaved?: () => void }) {
       {fullEdit && <EditDetails a={a} onDone={() => { setFullEdit(false); onSaved?.() }} />}
       <dl className="divide-y divide-neutral-200/70 select-text">
         {rows.map(([k, v]) => (
-          <div key={k} className="flex items-baseline gap-md py-1.5 text-sm">
-            <dt className="w-32 shrink-0 text-xs text-neutral-500">{k}</dt>
+          // on a phone the label sits above the value, so the value gets the full width (11 Nov 2026)
+          <div key={k} className="flex flex-wrap items-baseline gap-x-md gap-y-0.5 py-2 text-sm sm:flex-nowrap sm:py-1.5">
+            <dt className="basis-full text-xs text-neutral-500 sm:basis-auto sm:w-32 sm:shrink-0">{k}</dt>
             {editing === k ? (
               <dd className="flex min-w-0 flex-1 flex-wrap items-center gap-xs">
                 <input autoFocus value={value} onChange={e => setValue(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') save(); if (e.key === 'Escape') setEditing(null) }}
