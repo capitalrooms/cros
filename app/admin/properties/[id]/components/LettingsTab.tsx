@@ -1,5 +1,6 @@
 'use client'
 
+import { viewingSubject } from '@/lib/lettings/viewingSubject'
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
@@ -428,7 +429,7 @@ export default function LettingsTab({ propertyId, rooms, propertyName, propertyA
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           property_id: propertyId,
-          subject: 'Viewing Scheduled',
+          subject: viewingSubject(propertyName, selectedViewingForNotify.viewing_date, selectedViewingForNotify.viewing_slot),
           message: `Hi All, we have a viewing scheduled for ${selectedViewingForNotify.room?.name} on ${formatDate(selectedViewingForNotify.viewing_date)}${selectedViewingForNotify.viewing_slot ? ` at ${selectedViewingForNotify.viewing_slot}` : ''}. We will try to keep disruption to the communal areas minimal during this period.`,
           selector_type: 'single',
           viewing_id: selectedViewingForNotify.id,

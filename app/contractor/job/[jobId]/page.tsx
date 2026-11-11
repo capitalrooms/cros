@@ -85,6 +85,14 @@ export default function JobDetailPage() {
     fetch(`/api/jobs/${jobId}/photos`).then(r => r.ok ? r.json() : { photos: [] }).then(d => setJobPhotos(d.photos ?? [])).catch(() => {})
   }, [jobId])
   const [keySafe, setKeySafe] = useState<string | null>(null)
+  // who lives in the room on the visit day, first names only, worked out fresh by the server (api/contractor/occupant)
+  const [occupants, setOccupants] = useState<string[] | null>(null)
+  // again whenever the visit day changes (booked or moved), so it's always the person living there that day
+  const bookedDay = (job as any)?.booked_date ?? null
+  useEffect(() => {
+    if (!jobId) return
+    adminFetch(`/api/contractor/occupant?jobId=${jobId}`).then(r => r.ok ? r.json() : null).then(d => setOccupants(d?.names ?? null)).catch(() => setOccupants(null))
+  }, [jobId, bookedDay])
   // Opened from a quote request (?quote=<id>): the job isn't theirs yet — price only, no booking/completion.
   const quoteId = searchParams.get('quote')
   const [quoteOnly, setQuoteOnly] = useState(false)
@@ -149,7 +157,7 @@ export default function JobDetailPage() {
       const supabase = createClient()
       const { data: jobData } = await supabase
         .from('maintenance_tickets')
-        .select('*, properties(name, address, lat, lng), rooms(name)')
+        .select('*, properties(name, address, lat, lng), rooms(name, location_in_house)')
         .eq('id', jobId)
         .single()
       if (jobData) {
@@ -327,6 +335,13 @@ export default function JobDetailPage() {
 
   async function handleArrive() {
     if (!job) return
+    // booked for another day (11 Nov 2026): the tenants are told "your contractor has arrived", so check first
+    const todayIso = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
+    const bookedFor = (job as any).booked_date as string | null
+    if (bookedFor && bookedFor !== todayIso) {
+      const day = new Date(`${bookedFor}T12:00:00Z`).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' })
+      if (!window.confirm(`This visit is booked for ${day}, not today. Are you at the property now? The tenants will be told you’ve arrived.`)) return
+    }
     setBusy('arrive')
     const finish = async () => {
       try {
@@ -614,7 +629,8 @@ export default function JobDetailPage() {
           <p className="text-xs font-bold uppercase tracking-widest text-white/60 mb-md">
             {String(job.category || 'General').replace(/-/g, ' ')}
           </p>
-          <h1 className="text-3xl font-bold mb-lg">{job.title}</h1>
+          {/* what's wrong, as the job cards show it: "Tap — basin tap drips" → "basin tap drips" (the kind is above) */}
+          <h1 className="text-3xl font-bold mb-lg">{job.title ? String(job.title).split(' — ').pop() : 'Job'}</h1>
           <div className="grid grid-cols-2 gap-lg">
             <div>
               <p className="text-xs text-white/60">Property</p>
@@ -629,7 +645,9 @@ export default function JobDetailPage() {
                 <div>
                   <p className="text-xs text-white/60">Where</p>
                   <p className="text-base font-bold mt-xs">{jobWhere(job)}</p>
-                  <p className="text-xs text-white/60">{inRoom ? 'A tenant’s room' : 'Shared area — not anyone’s room'}</p>
+                  {/* where the room is in the house, set by the office on the house's Rooms tab (11 Nov 2026) */}
+                  {(job as any).rooms?.location_in_house && <p className="text-sm text-white/85">{(job as any).rooms.location_in_house}</p>}
+                  <p className="text-xs text-white/60">{inRoom ? (occupants?.length ? `${occupants.join(' and ')}’s room. Say hello!` : 'A tenant’s room') : 'Shared area — not anyone’s room'}</p>
                 </div>
               )
             })()}

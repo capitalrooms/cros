@@ -630,16 +630,16 @@ export default function CleanerDashboard() {
         {/* what needs you (9 Nov 2026: one short list instead of three number boxes) */}
         {(() => {
           const todo = [
-            { n: assignedJobs.length, text: assignedJobs.length === 1 ? 'clean to accept and book' : 'cleans to accept and book', hot: true },
-            { n: overdueCleans.length, text: overdueCleans.length === 1 ? 'clean to log or move' : 'cleans to log or move', hot: true },
-            { n: todayCleans.length, text: todayCleans.length === 1 ? 'clean today' : 'cleans today', hot: false },
+            { n: assignedJobs.length, text: assignedJobs.length === 1 ? 'clean to accept and book' : 'cleans to accept and book', hot: true, to: 'cl-assigned' },
+            { n: overdueCleans.length, text: overdueCleans.length === 1 ? 'clean to log or move' : 'cleans to log or move', hot: true, to: 'cl-overdue' },
+            { n: todayCleans.length, text: todayCleans.length === 1 ? 'clean today' : 'cleans today', hot: false, to: 'cl-today' },
           ].filter(t => t.n > 0)
           return (
             <div className="mb-lg overflow-hidden rounded-2xl bg-white/10">
               {todo.length === 0
                 ? <p className="px-lg py-md text-sm font-semibold text-white">You’re all caught up ✓{upcomingCleans.length ? ` · ${upcomingCleans.length} coming up` : ''}</p>
                 : todo.map((t, i) => (
-                  <button key={t.text} type="button" onClick={() => { setActiveTab('today'); setSelectedDay(todayISO()); setTimeout(() => window.scrollTo({ top: 420, behavior: 'smooth' }), 50) }} className={`flex w-full items-center gap-md px-lg py-md text-left text-white ${i ? 'border-t border-white/10' : ''}`}>
+                  <button key={t.text} type="button" onClick={() => { setActiveTab('today'); setSelectedDay(todayISO()); setTimeout(() => document.getElementById(t.to)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80) }} className={`flex w-full items-center gap-md px-lg py-md text-left text-white ${i ? 'border-t border-white/10' : ''}`}>
                     <span className={`grid h-8 min-w-8 place-items-center rounded-full px-sm text-sm font-bold ${t.hot ? 'bg-[color:var(--cr-gold)] text-neutral-900' : 'bg-white text-neutral-900'}`}>{t.n}</span>
                     <span className="flex-1 text-[15px] font-semibold">{t.text}</span>
                     <span aria-hidden="true" className="text-white/60">›</span>
@@ -740,7 +740,7 @@ export default function CleanerDashboard() {
               <>
                 {/* Assigned jobs that need accepting */}
                 {assignedJobs.length > 0 && (
-                  <div>
+                  <div id="cl-assigned" className="scroll-mt-md">
                     <h2 className="text-sm font-bold text-neutral-500 uppercase tracking-wide mb-sm">
                       Assigned — need booking
                     </h2>
@@ -783,7 +783,7 @@ export default function CleanerDashboard() {
 
                 {/* Overdue */}
                 {overdueCleans.length > 0 && (
-                  <div>
+                  <div id="cl-overdue" className="scroll-mt-md">
                     <h2 className="text-sm font-bold text-red-600 uppercase tracking-wide mb-sm">
                       Overdue
                     </h2>
@@ -797,7 +797,7 @@ export default function CleanerDashboard() {
 
                 {/* Today's cleans */}
                 {todayCleans.length > 0 && (
-                  <div>
+                  <div id="cl-today" className="scroll-mt-md">
                     <h2 className="text-sm font-bold text-neutral-900 uppercase tracking-wide mb-sm">
                       Today
                     </h2>

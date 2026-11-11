@@ -24,6 +24,8 @@ interface RoomRow {
   description: string | null
   status: string | null
   current_asking_rent: number | null
+  /** where the room is, for anyone who's never been: "First floor, back, above the kitchen" (11 Nov 2026) */
+  location_in_house?: string | null
   currentTenant: { name: string; email: string } | null
   tenancyInfo: { start_date: string; rent_amount: number | null } | null
   tenancyId: string | null
@@ -246,6 +248,9 @@ export default function UnitsTab({ propertyId, propertyType, bedrooms, initialRo
       .eq('property_id', propertyId)
       .order('unit_code', { ascending: true, nullsLast: true })
 
+    // where each room is in the house (11 Nov 2026) — its own small query, so the typed one above stays as it was
+    const { data: locRows } = await (supabase.from('rooms') as any).select('id, location_in_house').eq('property_id', propertyId)
+    const locations = new Map<string, string | null>(((locRows ?? []) as { id: string; location_in_house: string | null }[]).map(r => [r.id, r.location_in_house]))
     if (roomsErr) {
       setError('Failed to load rooms')
       setLoading(false)
@@ -273,6 +278,7 @@ export default function UnitsTab({ propertyId, propertyType, bedrooms, initialRo
 
         return {
           ...room,
+          location_in_house: locations.get((room as any).id) ?? null,
           currentTenant: tenantName ? { name: tenantName, email: p?.email || '' } : null,
           tenancyInfo: tenancy ? { start_date: tenancy.start_date, rent_amount: tenancy.rent_amount } : null,
           tenancyId: tenancy?.id || null,
@@ -783,6 +789,22 @@ export default function UnitsTab({ propertyId, propertyType, bedrooms, initialRo
                                 delete) moved there from a second view here (4 Nov 2026) */}
                             <p className="font-semibold text-neutral-900">{room.name}</p>
                             {room.unit_code && room.unit_code !== room.name && <p className="text-xs text-neutral-400">{room.unit_code}</p>}
+                            {/* where it is in the house — contractors, cleaners and lettings see this when there are no
+                                numbers on the doors (Harry, 11 Nov 2026). Typed here, saved when you click away. */}
+                            {!wholeLet && (
+                              <input defaultValue={room.location_in_house ?? ''} placeholder="Where in the house? e.g. 1st floor, back, above kitchen"
+                                aria-label={`Where ${room.name} is in the house`} maxLength={120}
+                                onClick={e => e.stopPropagation()} onKeyDown={e => { e.stopPropagation(); if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+                                onBlur={async e => {
+                                  const v = e.target.value.trim()
+                                  if (v === (room.location_in_house ?? '')) return
+                                  const { error: le } = await (supabase.from('rooms') as any).update({ location_in_house: v || null }).eq('id', room.id)
+                                  if (le) { setError(`${room.name}: where in the house wasn’t saved`); return }
+                                  room.location_in_house = v || null
+                                  setSuccess(`${room.name}: saved where it is in the house`)
+                                }}
+                                className="mt-0.5 w-full min-w-[220px] rounded-md border border-transparent bg-transparent px-0 py-0.5 text-xs text-neutral-600 placeholder:text-neutral-400 hover:border-neutral-200 focus:border-neutral-300 focus:bg-white focus:px-xs focus:outline-none" />
+                            )}
                           </div>
                         </div>
                       </td>

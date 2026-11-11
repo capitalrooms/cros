@@ -1,5 +1,6 @@
 'use client'
 
+import { viewingSubject } from '@/lib/lettings/viewingSubject'
 import { useState, useEffect, useCallback } from 'react'
 import PoppingByVisit from '@/app/components/PoppingByVisit'
 import PhoneTabBar, { ICONS } from '@/app/components/PhoneTabBar'
@@ -403,7 +404,7 @@ export default function LettingsPage() {
   async function loadBookingRooms(): Promise<BookingRoom[]> {
     const { data: roomsData } = await createClient()
       .from('rooms')
-      .select('id, name, property_id, status, properties(id, name)')
+      .select('id, name, property_id, status, location_in_house, properties(id, name)')
     // Sort: extract leading house number numerically, then alphabetically by address, then room number
     const sortedRooms = ((roomsData as any) || []).sort((a: any, b: any) => {
         const pa = a.properties?.name || ''
@@ -461,7 +462,7 @@ export default function LettingsPage() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             property_id: room.property_id,
-            subject: 'Viewing arranged',
+            subject: viewingSubject(room.properties?.name, viewingForm.viewing_date, viewingForm.viewing_slot),
             message: msg,
             notification_type: 'viewing',
             channels: viewingForm.textTenants ? 'push_email_sms' : 'push_email',
@@ -804,17 +805,20 @@ export default function LettingsPage() {
         {(() => {
           const todayIso = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
           const todayCount = viewings.filter(v => v.viewing_date === todayIso && v.viewing_status !== 'completed').length
+          // "viewings to confirm" opens the day of the first one (11 Nov 2026: it opened whatever day the diary was on)
+          const pendingDays = viewings.filter(v => v.viewing_status !== 'confirmed' && v.viewing_status !== 'completed' && v.viewing_date).map(v => v.viewing_date as string).sort()
+          const firstPendingDay = pendingDays.find(d => d >= todayIso) ?? pendingDays[0] ?? null
           const todo = [
-            { n: pendingCount, text: pendingCount === 1 ? 'viewing to confirm' : 'viewings to confirm', tab: 'viewings' as Tab, hot: true },
-            { n: todayCount, text: todayCount === 1 ? 'viewing today' : 'viewings today', tab: 'viewings' as Tab, hot: false },
-            { n: availableRooms.length, text: availableRooms.length === 1 ? 'room or home to let' : 'rooms and homes to let', tab: 'available' as Tab, hot: false },
+            { n: pendingCount, text: pendingCount === 1 ? 'viewing to confirm' : 'viewings to confirm', tab: 'viewings' as Tab, hot: true, day: firstPendingDay },
+            { n: todayCount, text: todayCount === 1 ? 'viewing today' : 'viewings today', tab: 'viewings' as Tab, hot: false, day: todayIso },
+            { n: availableRooms.length, text: availableRooms.length === 1 ? 'room or home to let' : 'rooms and homes to let', tab: 'available' as Tab, hot: false, day: null as string | null },
           ].filter(t => t.n > 0)
           return (
             <div className="overflow-hidden rounded-2xl bg-white/10">
               {todo.length === 0
                 ? <p className="px-lg py-md text-sm font-semibold text-white">You’re all caught up ✓{thisWeekCount ? ` · ${thisWeekCount} viewing${thisWeekCount === 1 ? '' : 's'} this week` : ''}</p>
                 : todo.map((t, i) => (
-                  <button key={t.text} type="button" onClick={() => setActiveTab(t.tab)} className={`flex w-full items-center gap-md px-lg py-md text-left text-white ${i ? 'border-t border-white/10' : ''}`}>
+                  <button key={t.text} type="button" onClick={() => { setActiveTab(t.tab); if (t.day) setSelectedDay(t.day); setTimeout(() => document.getElementById('lt-tabs')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80) }} className={`flex w-full items-center gap-md px-lg py-md text-left text-white ${i ? 'border-t border-white/10' : ''}`}>
                     <span className={`grid h-8 min-w-8 place-items-center rounded-full px-sm text-sm font-bold ${t.hot ? 'bg-[color:var(--cr-gold)] text-neutral-900' : 'bg-white text-neutral-900'}`}>{t.n}</span>
                     <span className="flex-1 text-[15px] font-semibold">{t.text}</span>
                     <span aria-hidden="true" className="text-white/60">›</span>
@@ -850,6 +854,8 @@ export default function LettingsPage() {
           )}
         </div>
         <PoppingByVisit hideButton openKey={popOpen} />
+        {/* where a "needs you" line takes you (11 Nov 2026) */}
+        <div id="lt-tabs" className="scroll-mt-md" />
 
         {/* ── VIEWINGS ─────────────────────────────────────────────────────── */}
         {activeTab === 'viewings' && (
@@ -1444,6 +1450,8 @@ function BookViewingModal({ form, setForm, bookingRooms, saving, banner, onClose
                   <option key={r.id} value={r.id}>{r.name}{r.status === 'available' ? ' · available' : ''}</option>
                 ))}
               </select>
+              {/* where the room is, so you can find it on the day (11 Nov 2026) */}
+              {(() => { const loc = (roomOptions.find(r => r.id === form.room_id) as any)?.location_in_house; return loc ? <p className="mt-xs text-xs text-neutral-600">{loc}</p> : null })()}
             </div>
           </div>
 

@@ -56,6 +56,7 @@ export default function CleanDetailPage() {
 
   const [me, setMe] = useState<any>(null)
   const [clean, setClean] = useState<any>(null)
+  const [room, setRoom] = useState<{ name: string; location_in_house: string | null } | null>(null)
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState('')
 
@@ -113,6 +114,8 @@ export default function CleanDetailPage() {
         .single()
       if (c) {
         setClean(c)
+        // a clean of one room (a move-out clean): its name and where it is in the house (11 Nov 2026)
+        if ((c as any).room_id) supabase.from('rooms').select('name, location_in_house').eq('id', (c as any).room_id).maybeSingle().then(({ data: rm }) => setRoom(rm as any ?? null))
         setCleanerNote((c as any).cleaner_note || '')
         setExtraCharge((c as any).extra_charge != null ? String((c as any).extra_charge) : '')
         setExtraChargeNote((c as any).extra_charge_note || '')
@@ -339,6 +342,8 @@ export default function CleanDetailPage() {
   const freq = clean.properties?.clean_frequency_weeks
   const hasArrived = !!clean.arrived_at
   const isDone = clean.status === 'completed'
+  // its day has gone and it isn't logged: only "Did you do it? Yes / No" is offered (11 Nov 2026)
+  const pastDue = !isDone && clean.status !== 'cancelled' && !!clean.clean_date && clean.clean_date < new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
   // another cleaner's clean (opened from the house page): theirs to update, not this cleaner's
   const notMine = me?.role === 'cleaner' && !!clean.cleaner_id && clean.cleaner_id !== me.id
 
@@ -351,6 +356,7 @@ export default function CleanDetailPage() {
         <div className="rounded-3xl bg-gradient-to-br from-neutral-900 to-neutral-800 text-white p-lg">
           <p className="text-xs font-bold uppercase tracking-widest text-white/60 mb-md">Clean</p>
           <h1 className="text-2xl font-bold">{clean.properties?.name}</h1>
+          {room && <p className="mt-xs text-base font-semibold">{room.name}{room.location_in_house ? <span className="block text-sm font-normal text-white/85">{room.location_in_house}</span> : null}</p>}
           {/* the house's own page: usual visit, notes shared with the office, past cleans (17 Oct 2026) */}
           <Link href={`/cleaner/house/${clean.property_id}`} className="mt-xs inline-block text-sm font-semibold underline">House notes &amp; past cleans →</Link>
           <p className="text-sm text-white/70">{clean.properties?.address}</p>
@@ -507,8 +513,8 @@ export default function CleanDetailPage() {
           </>
         ) : (
           <>
-            {/* Arrival + reschedule */}
-            <div className="rounded-2xl border-2 border-neutral-900 bg-white p-lg space-y-md">
+            {/* Arrival + reschedule — not for a clean whose day has gone: "Did you do it?" above covers that (11 Nov 2026) */}
+            {(!pastDue || showReschedule) && <div className="rounded-2xl border-2 border-neutral-900 bg-white p-lg space-y-md">
               {hasArrived ? (
                 <p className="text-xs font-bold uppercase tracking-wide text-green-700">
                   ✓ Arrived {new Date(clean.arrived_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
@@ -548,7 +554,7 @@ export default function CleanDetailPage() {
                   </div>
                 </div>
               )}
-            </div>
+            </div>}
 
             {/* Working notes + charges */}
             <div className="rounded-2xl border-2 border-neutral-200 bg-white p-lg space-y-md">
@@ -581,7 +587,7 @@ export default function CleanDetailPage() {
             </div>
 
             {/* Finish */}
-            {!showFinish ? (
+            {!showFinish && pastDue ? null : !showFinish ? (
               <button onClick={() => {
                 // arrived today in the app: the hours are the time since, to the nearest half hour
                 const todayIso = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
@@ -721,6 +727,7 @@ function VisitFields({ visitDate, setVisitDate, hours, setHours, rate }: { visit
 
 /** Bring a section into view below the top bar (scrollIntoView was ignored on some phones). */
 function scrollToId(id: string) {
+  // scrollIntoView works whichever part of the page scrolls (11 Nov 2026); scroll-mt on the target clears the top bar
   const el = document.getElementById(id)
-  if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 72, behavior: 'smooth' })
+  if (el) { el.style.scrollMarginTop = '72px'; el.scrollIntoView({ behavior: 'smooth', block: 'start' }) }
 }
