@@ -193,9 +193,10 @@ a[x-apple-data-detectors] { color: inherit !important; text-decoration: none !im
 <table cellpadding="0" cellspacing="0" role="presentation" style="max-width:600px;width:100%;background:${T.body};">
   <tr><td bgcolor="${T.bar}" style="padding:${T.logo === 'white' ? '16px 20px 12px' : '12px 20px 6px'};border-bottom:${T.key === 'couture' ? '2px' : T.rule === T.bar ? '0' : '2px'} solid ${T.rule};background:${T.bar};"><img src="${SIGNATURE_ASSET_BASE}/brand/${logo}" width="174" alt="${biz.company_name}" style="display:block;border:0;width:174px;max-width:62%;height:auto;"></td></tr>
   ${band}
+  ${T.photo ? `<tr><td style="padding:0;line-height:0;"><img src="${PORTAL_URL}${T.photo.src}" width="600" alt="${T.photo.alt}" style="display:block;border:0;width:100%;max-width:600px;height:auto;"></td></tr>` : ''}
   ${hero ? `<tr><td style="padding:0;">${hero}</td></tr>` : ''}
   <tr>
-    <td style="padding:${hero ? '0 32px 30px' : '34px 32px 30px'};font-family:${T.font};font-size:14.5px;line-height:1.7;color:${T.text};">
+    <td style="padding:${hero ? '0 32px 30px' : '34px 32px 30px'};font-family:${T.font};font-size:${T.size ?? '14.5px'};line-height:1.7;color:${T.text};">
       ${content}
     </td>
   </tr>

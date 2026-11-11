@@ -45,15 +45,13 @@ export async function landlordUpdateHtml(o: UpdateEmail & { req?: Request | null
 }
 
 function hero(h: Headline): string {
-  const img = `${SIGNATURE_ASSET_BASE}/brand/email-tenant-home.jpg`
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:${CREAM};margin:0 0 0;">
     <tr>
-      <td valign="middle" style="padding:30px 18px 28px 26px;">
+      <td valign="middle" style="padding:30px 26px 28px 26px;">
         <span style="display:inline-block;font-family:${SANS};font-size:10px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:#FFFFFF;background:${FOREST};border-radius:999px;padding:6px 12px;">${esc(h.eyebrow)}</span>
         <div style="font-family:${SERIF};font-size:38px;line-height:1.04;color:${INK};padding:14px 0 10px;">${esc(h.lead ?? '')}${h.lead ? ' ' : ''}<em style="color:${FOREST};">${esc(h.street ?? h.place)}</em></div>
         ${h.sub ? `<div style="font-family:${SANS};font-size:13.5px;line-height:1.55;color:#5A564D;">${esc(h.sub).replace(/\n/g, '<br>')}</div>` : ''}
       </td>
-      <td width="150" valign="bottom" style="width:150px;padding:0;line-height:0;"><img src="${img}" width="150" alt="" style="display:block;border:0;width:150px;height:auto;"></td>
     </tr>
   </table>`
 }
