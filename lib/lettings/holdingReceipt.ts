@@ -105,7 +105,8 @@ export async function recordHoldingDeposit(s: SupabaseClient, ctx: DepositContex
 export function receiptLetter(rec: HoldingDeposit, ctx: DepositContext, recipientAddress: string): FormalLetter {
   const first = (ctx.applicant.full_name || rec.payer_name).trim().split(/\s+/)[0]
   const deadline = addDays(rec.received_on, 15)
-  const where = [ctx.roomName, ctx.propertyName || ctx.propertyAddress].filter(Boolean).join(', ')
+  // a single let is the property itself — no "Whole property, …" (11 Nov 2026)
+  const where = [ctx.whole ? '' : ctx.roomName, ctx.propertyName || ctx.propertyAddress].filter(Boolean).join(', ')
   const rows = [
     `| Receipt number | ${rec.hold_no} |`,
     `| Amount received | **${gbp(Number(rec.amount))}** |`,
@@ -147,7 +148,7 @@ export async function fileHoldingReceipt(s: SupabaseClient, rec: HoldingDeposit,
     id: rec.receipt_document_id,
     pdf,
     fields: {
-      kind: 'receipt', number: rec.hold_no, title: `Holding deposit — ${ctx.roomName}, ${ctx.propertyName}`,
+      kind: 'receipt', number: rec.hold_no, title: `Holding deposit — ${[ctx.whole ? '' : ctx.roomName, ctx.propertyName].filter(Boolean).join(', ')}`,
       recipient_name: letter.recipientName, property_id: rec.property_id, total: Number(rec.amount),
       content: { holdingDepositId: rec.id, letter },
     },

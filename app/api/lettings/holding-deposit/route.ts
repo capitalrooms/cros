@@ -215,8 +215,9 @@ export async function POST(req: NextRequest) {
         // the designed receipt, the sister of "the search is over" (11 Nov 2026 — it was a block of text)
         const html = holdingReceiptInner({
           greetingName: String((ctx.applicant as any).first_name ?? '').trim() || first,
-          place: oneLine([ctx.roomName, ctx.propertyName].filter(Boolean).join(', ')),
-          unitWord: ctx.roomName ? 'the room' : 'the property',
+          // a single let (whole house or flat) is "the property" throughout, and no room name in the address
+          place: oneLine((ctx.whole ? [ctx.propertyName] : [ctx.roomName, ctx.propertyName]).filter(Boolean).join(', ')),
+          unitWord: ctx.whole ? 'the property' : 'the room',
           amount: Number(rec.amount), receivedOn: longDate(rec.received_on), holdNo: rec.hold_no,
           paidBy: rec.payer_name || null, method: METHODS[rec.method] ?? null, reference: rec.payer_reference || null,
         })
