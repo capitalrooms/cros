@@ -1,6 +1,6 @@
 // Server-side pieces of the website (9 Nov 2026). Nothing here reads data; pages do.
 import Link from 'next/link'
-import { NAV, OFFICE, APP_LOGIN, PHOTOS } from '@/lib/website/site'
+import { NAV, OFFICE, APP_LOGIN, PHOTOS, PHOTO_FOCUS } from '@/lib/website/site'
 import reviews from '@/lib/website/content/reviews.json'
 import MobileMenu from './MobileMenu'
 
@@ -12,7 +12,7 @@ export const hasPhoto = (k: string) => !!PHOTOS[k]
 export function Photo({ k, className = '', alt = '', tone, eager }: { k: string; className?: string; alt?: string; tone?: 'sage'; eager?: boolean }) {
   const src = PHOTOS[k]
   // eslint-disable-next-line @next/next/no-img-element
-  return <div className={`ph ${tone ?? ''} ${className}`}>{src ? <img src={src} alt={alt} loading={eager ? 'eager' : 'lazy'} fetchPriority={eager ? 'high' : 'auto'} /> : null}</div>
+  return <div className={`ph ${tone ?? ''} ${className}`}>{src ? <img src={src} alt={alt} loading={eager ? 'eager' : 'lazy'} fetchPriority={eager ? 'high' : 'auto'} style={PHOTO_FOCUS[k] ? { objectPosition: PHOTO_FOCUS[k] } : undefined} /> : null}</div>
 }
 
 export function Header({ here, b = '' }: { here?: string; b?: string }) {

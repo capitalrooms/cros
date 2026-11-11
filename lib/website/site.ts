@@ -3,8 +3,11 @@
 export const PHOTOS: Record<string, string> = {
   // from the old capitalrooms.co.uk (9 Nov 2026). Blank = no photo there (the kitchen came out: not a UK kitchen)
   hero: '/website/photos/thames.jpg', landlords: '/website/photos/terrace.jpg', tenants: '/website/photos/lounge.jpg',
-  valuation: '/website/photos/city.jpg', rooftops: '', about: '/website/photos/terrace.jpg', maintenance: '/website/photos/kitchen-shard.jpg', rent: '/website/photos/kitchen-shard.jpg', keys: '',
+  valuation: '/website/photos/city.jpg', rooftops: '', about: '/website/photos/terrace.jpg', maintenance: '/website/photos/maintenance-bathroom.jpg', rent: '/website/photos/kitchen-shard.jpg', keys: '',
 }
+
+// where each photo should stay in view when it's cropped to a wide band (CSS object-position); centre if not listed
+export const PHOTO_FOCUS: Record<string, string> = { maintenance: '50% 12%' }
 
 // the usual order on London letting agents' sites (9 Nov 2026, Harry): what people come for first, the company last
 export const NAV: [string, string][] = [
