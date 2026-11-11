@@ -12,6 +12,7 @@ import Link from 'next/link'
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
 import { displayName } from '@/lib/people'
 import RegularCleaners from './RegularCleaners'
+import WeeklyEmail from './WeeklyEmail'
 import LineIcon from '@/components/LineIcon'
 
 interface CleanerJob {
@@ -137,6 +138,7 @@ export default function CleanerJobsPage() {
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
         <RegularCleaners onChanged={loadData} />
+        <WeeklyEmail />
 
         {/* Alert banner for unassigned jobs */}
         {unassignedCount > 0 && (

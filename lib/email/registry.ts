@@ -82,6 +82,7 @@ export const EMAIL_KINDS: EmailKind[] = [
   { key: 'office-repairs', name: 'Repair updates', audience: 'Office', from: 'CROS', when: 'When a repair is reported or completed', slugs: ['maintenance-admin-alert'] },
   { key: 'office-viewings', name: 'Viewing booked', audience: 'Office', from: 'CROS', when: 'When a viewing is scheduled', slugs: ['viewing-all-recipients'] },
   { key: 'office-counter-offer', name: 'Counter-offer matched', audience: 'Office', from: 'CROS', when: 'When an applicant matches the asking rent' },
+  { key: 'cleaner-week', name: 'Your cleans this week', audience: 'Cleaners', from: 'CROS', when: 'Sunday or Monday evening, when the weekly cleaner email is switched on (Cleaning screen)' },
   { key: 'account-setup', name: 'Set up your account', audience: 'Everyone', from: 'CROS', when: 'When anyone is given a login' },
   { key: 'password-reset', name: 'Reset your password', audience: 'Everyone', from: 'CROS', when: 'When a password reset is asked for' },
   { key: 'sign-in-link', name: 'Sign-in link', audience: 'Everyone', from: 'CROS', when: 'When someone asks for a link to sign in' },

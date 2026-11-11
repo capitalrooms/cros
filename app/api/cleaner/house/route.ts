@@ -11,6 +11,7 @@ import { createServiceClient } from '@/lib/supabase'
 import { requireSignedIn, isStaff } from '@/lib/portalAuth'
 
 import { deepRecord } from '@/lib/cleans/deepTasks'
+import { mondayOf } from '@/lib/cleans/weekPlan'
 
 export const dynamic = 'force-dynamic'
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
@@ -50,7 +51,14 @@ export async function GET(req: NextRequest) {
     const { data: prof, error } = await s.from('supplier_profiles').select('hourly_rate').eq('person_id', me.personId).maybeSingle()
     if (!error && (prof as any)?.hourly_rate != null) myRate = Number((prof as any).hourly_rate)
   }
-  return NextResponse.json({ house, usual, notes: open ?? [], done: done ?? [], cleans: cleans ?? [], deep: deepRecord((finished ?? []) as any[]), myRate })
+  // ?week=<a day>: the office's extra jobs for that week here ("Room 3 is empty — clean it"; migration 276)
+  let weekTasks: { id: string; task: string; roomName: string | null; extraHours: number | null }[] = []
+  const wk = req.nextUrl.searchParams.get('week')
+  if (wk && /^\d{4}-\d{2}-\d{2}$/.test(wk)) {
+    const { data: wt, error: wtErr } = await s.from('clean_week_tasks').select('id, task, extra_hours, rooms(name)').eq('property_id', propertyId).eq('week_start', mondayOf(wk)).is('cancelled_at', null).order('created_at')
+    if (!wtErr) weekTasks = ((wt ?? []) as any[]).map(t => ({ id: t.id, task: t.task, roomName: t.rooms?.name ?? null, extraHours: t.extra_hours != null ? Number(t.extra_hours) : null }))
+  }
+  return NextResponse.json({ house, usual, notes: open ?? [], done: done ?? [], cleans: cleans ?? [], deep: deepRecord((finished ?? []) as any[]), myRate, weekTasks })
 }
 
 export async function POST(req: NextRequest) {

@@ -9,15 +9,15 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { adminFetch } from '@/lib/adminFetch'
 
-type House = { id: string; name: string; regularCleanerId: string | null; everyWeeks: number | null; day: number | null; time: string | null; openCleans: number; nextClean: { date: string; time: string | null } | null }
+type House = { id: string; name: string; regularCleanerId: string | null; everyWeeks: number | null; day: number | null; time: string | null; hours: number | null; openCleans: number; nextClean: { date: string; time: string | null } | null }
 type Cleaner = { id: string; name: string; test: boolean }
-type Data = { ready: boolean; scheduleReady: boolean; channel: string; channels: { value: string; label: string }[]; houses: House[]; cleaners: Cleaner[] }
-type Draft = { cleanerId: string; everyWeeks: string; day: string; time: string }
+type Data = { ready: boolean; scheduleReady: boolean; hoursReady?: boolean; channel: string; channels: { value: string; label: string }[]; houses: House[]; cleaners: Cleaner[] }
+type Draft = { cleanerId: string; everyWeeks: string; day: string; time: string; hours: string }
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 const fullDate = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })
 const clock = (t: string | null) => { if (!t) return ''; const [h, m] = t.split(':').map(Number); return `${h % 12 || 12}${m ? `:${String(m).padStart(2, '0')}` : ''}${h < 12 ? 'am' : 'pm'}` }
-const draftOf = (h: House): Draft => ({ cleanerId: h.regularCleanerId ?? '', everyWeeks: h.everyWeeks ? String(h.everyWeeks) : '', day: h.day ? String(h.day) : '', time: h.time ?? '' })
+const draftOf = (h: House): Draft => ({ cleanerId: h.regularCleanerId ?? '', everyWeeks: h.everyWeeks ? String(h.everyWeeks) : '', day: h.day ? String(h.day) : '', time: h.time ?? '', hours: h.hours != null ? String(h.hours) : '' })
 const CHANNEL_HELP: Record<string, string> = {
   email: 'Tenants get an email when a clean is booked, moved, running late, finished or cancelled.',
   app: 'Tenants get an app notification instead of an email — use this once they’re on the app.',
@@ -59,6 +59,7 @@ export default function RegularCleaners({ onChanged }: { onChanged: () => void }
     setSaving(h.id); setNote(''); setError('')
     const body: Record<string, unknown> = { propertyId: h.id, cleanerId: dr.cleanerId || null, everyWeeks: dr.everyWeeks || null, handOver }
     if (data?.scheduleReady) { body.day = dr.day || null; body.time = dr.time || null }
+    if (data?.hoursReady) body.hours = dr.hours || null
     const { ok, d } = await post(body)
     setSaving('')
     if (!ok) { setError(`${h.name}: ${d.error ?? 'not saved'}`); return }
@@ -115,7 +116,7 @@ export default function RegularCleaners({ onChanged }: { onChanged: () => void }
                   <span className="text-sm font-semibold text-neutral-900">{h.name}</span>
                   <span className="text-xs text-neutral-500">{h.nextClean ? `Next clean ${fullDate(h.nextClean.date)}${h.nextClean.time ? ` at ${clock(h.nextClean.time.slice(0, 5))}` : ''}` : 'No clean booked'}{h.openCleans > 1 ? ` · ${h.openCleans} open` : ''}</span>
                 </div>
-                <div className="grid grid-cols-2 gap-sm sm:grid-cols-[2fr_1fr_1fr_1fr_auto]">
+                <div className="grid grid-cols-2 gap-sm sm:grid-cols-[2fr_1fr_1fr_1fr_1fr_auto]">
                   <label className="col-span-2 text-xs text-neutral-600 sm:col-span-1">Regular cleaner
                     <select value={dr.cleanerId} disabled={busy} onChange={e => set('cleanerId', e.target.value)} className={`mt-xs ${field}`}>
                       <option value="">No regular cleaner</option>
@@ -133,6 +134,12 @@ export default function RegularCleaners({ onChanged }: { onChanged: () => void }
                     </select></label>
                   <label className="text-xs text-neutral-600">Time
                     <input type="time" step={900} value={dr.time} disabled={busy || !data.scheduleReady} onChange={e => set('time', e.target.value)} className={`mt-xs ${field}`} /></label>
+                  {/* how long the clean takes — shown to the cleaner in the weekly email (11 Nov 2026, migration 276) */}
+                  <label className="text-xs text-neutral-600">How long
+                    <select value={dr.hours} disabled={busy || !data.hoursReady} onChange={e => set('hours', e.target.value)} className={`mt-xs ${field}`}>
+                      <option value="">Not set</option>
+                      {[1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 6, 7, 8].map(h => <option key={h} value={h}>{h} hour{h === 1 ? '' : 's'}</option>)}
+                    </select></label>
                   <div className="flex items-end">
                     <button type="button" onClick={() => save(h)} disabled={busy || !dirty}
                       className="w-full rounded-lg bg-neutral-900 px-md py-xs text-sm font-bold text-white disabled:bg-neutral-200 disabled:text-neutral-500">{saving === h.id ? 'Saving…' : 'Save'}</button>
