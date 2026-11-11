@@ -169,6 +169,8 @@ export function senderFooter(sender: EmailSender): string {
 export function wrapEmail(content: string, biz: BusinessSettings = BUSINESS_DEFAULTS, footerHtml?: string, hero?: string, theme: EmailTheme = THEMES[0]): string {
   // the theme (lib/email/themes) dresses the page, the logo bar, an optional seasonal band and the body type
   const T = theme
+  // the website theme also dresses the email's own content (lib/email/themes restyle)
+  if (T.restyle) { content = T.restyle(content); if (hero) hero = T.restyle(hero); if (footerHtml) footerHtml = T.restyle(footerHtml) }
   const logo = T.logo === 'white' ? 'lockup-white-full.png' : 'lockup-ink-on-white.png'
   const band = T.band ? `<tr><td align="center" bgcolor="${T.band.bg}" style="background:${T.band.bg};padding:9px 20px;font-family:${T.font};font-size:12px;letter-spacing:.06em;color:${T.band.text};">${T.band.line}</td></tr>` : ''
   return `<!DOCTYPE html>
@@ -183,7 +185,7 @@ export function wrapEmail(content: string, biz: BusinessSettings = BUSINESS_DEFA
 <style>:root { color-scheme: light only; supported-color-schemes: light only; }
 /* addresses, dates and phone numbers stay as written — mail apps mustn't turn them into blue links (30 Oct 2026) */
 a[x-apple-data-detectors] { color: inherit !important; text-decoration: none !important; font: inherit !important; }  /* only links the mail app made itself — never our own links or buttons */</style>
-<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=Instrument+Serif:ital@0;1&family=Bricolage+Grotesque:wght@800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=Instrument+Serif:ital@0;1&family=Bricolage+Grotesque:wght@700;800&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
 </head>
 <body id="body" style="margin:0;padding:0;background:${T.page};-webkit-text-size-adjust:100%;">
 <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:${T.page};padding:24px 0;">
