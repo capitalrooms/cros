@@ -12,7 +12,7 @@ import PublicShell from '@/components/public/PublicShell'
 import LandlordDocuments from './LandlordDocuments'
 import ExpenseHistory from './ExpenseHistory'
 import UpkeepByArea from './UpkeepByArea'
-import { hiName } from '@/lib/people'
+import { dearName } from '@/lib/people'
 import { landlordSections, type LandlordSection } from '@/lib/access/landlordSections'
 import LineIcon from '@/components/LineIcon'
 
@@ -94,7 +94,8 @@ export default function LandlordDashboard() {
         setUser(data.user)
         // their name as people know it (the record has no "name" column — it fell back to the email: "Hello, test-onboard")
         { const { data: me } = await createClient().from('people').select('salutation, first_name, last_name, full_name, company').eq('id', (data.assignment as any)?.id).maybeSingle()
-          setName(hiName(me as any) !== 'there' ? hiName(me as any) : '') }
+          // landlords are greeted formally, as in every letter and email to them ("Mx Landlord", 11 Nov 2026)
+          { const n = me ? dearName(me as any) : ''; setName(n && n !== 'Sir or Madam' ? n : '') } }
         pid = (data.assignment as any)?.id ?? null
         setPersonId(pid)
       }
@@ -202,7 +203,7 @@ export default function LandlordDashboard() {
         <p className="pub-intro pub-enter-2 mt-4 max-w-2xl">
           {sections.includes('planner')
             ? 'Everything we’re working on together, by property. Tap a line to open it.'
-            : sections.includes('statements') ? 'Financial summaries for your properties.' : 'Welcome to Capital Rooms.'}
+            : sections.includes('statements') ? 'Financial summaries for your properties.' : 'Your statements, agreements and invoices, all in one place.'}
         </p>
       </section>
 
