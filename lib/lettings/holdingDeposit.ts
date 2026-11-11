@@ -35,7 +35,7 @@ export interface DepositContext {
 
 /**
  * The rent agreed with this applicant — the one figure every offer email, holding deposit and agreement must use:
- * a lower rent they offered and we accepted, else the rent typed on the offer you sent them, else the rent on their
+ * the rent typed on the offer you sent them, else a lower rent they offered and we accepted, else the rent on their
  * tenancy. NEVER the room's advertised rent (rooms are often let below the advert — Raphael Wassermann, 2 Oct 2026, was
  * asked for a £950-based holding deposit on a £925 offer). Null when none is known: callers must stop and ask.
  */
@@ -45,9 +45,13 @@ export async function agreedRent(svc: SupabaseClient, a: { id: string; offered_r
   // rent had nothing saved, so the reserve email refused and the only way on was re-sending the application form)
   // an offer only counts when it is BELOW the asking rent — Renters' Rights Act: no rental bidding, so a figure at or
   // above the advertised rent is never the agreed rent (21 Oct 2026: 2 of 3 "below asking" offers on file weren't)
-  const asking = Number(offer?.advertised_rent) > 0 ? Number(offer!.advertised_rent) : Number(a.advertised_rent) > 0 ? Number(a.advertised_rent) : null
-  if (a.rent_offer_type === 'below_asking' && Number(a.offered_rent) > 0 && (asking == null || Number(a.offered_rent) < asking)) return Number(a.offered_rent)
+  // 11 Nov 2026 (Solomon Sunday): the rent on the offer WE SENT comes first. It's the figure the offer email used for the
+  // holding deposit, so the reserve page, the record and the cap must agree with it. They offered £750, we countered
+  // at £800 and the email asked for £184.62 — but the applicant's own £750 won here, the cap became £173.08 and
+  // recording the £184.62 they paid was refused.
   if (Number(offer?.advertised_rent) > 0) return Number(offer!.advertised_rent)
+  const asking = Number(a.advertised_rent) > 0 ? Number(a.advertised_rent) : null
+  if (a.rent_offer_type === 'below_asking' && Number(a.offered_rent) > 0 && (asking == null || Number(a.offered_rent) < asking)) return Number(a.offered_rent)
   if (Number(a.advertised_rent) > 0) return Number(a.advertised_rent)
   const { data: t } = await svc.from('tenancies').select('rent_amount').eq('applicant_id', a.id).is('let_cancelled_at', null).order('created_at', { ascending: false }).limit(1).maybeSingle()
   if (Number((t as any)?.rent_amount) > 0) return Number((t as any).rent_amount)
