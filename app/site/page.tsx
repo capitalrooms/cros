@@ -3,18 +3,11 @@
 import Link from 'next/link'
 import type { Metadata } from 'next'
 import { siteBase } from '@/lib/website/base'
-import { TIERS, STEPS, GOOGLE_RATING } from '@/lib/website/site'
+import { TIERS, STEPS, GOOGLE_RATING, LANDLORD_FEATURES } from '@/lib/website/site'
 import { Photo, Tick, Reviews, Badges } from './parts'
 import { LandlordPhone, TenantPhone } from './Showcase'
 import HomesStrip from './HomesStrip'
 
-const LANDLORD_FEATURES: [string, string][] = [
-  ['Your own landlord portal', 'Monthly statements, certificates, documents and every repair, live, on your phone.'],
-  ['Compliance on autopilot', 'Gas, electrics, EPC, fire safety and HMO licences tracked, with renewals booked before they lapse.'],
-  ['Repairs, sorted fast', 'Tenants report with photos, we compare quotes from trusted trades and never mark up an invoice.'],
-  ['Tax-ready paperwork', 'Clear statements every month and an annual summary set out the way your accountant wants it.'],
-  ['Ideas that raise the rent', 'Planning a refresh? We show you redesign ideas for a room before you spend a penny.'],
-]
 const TENANT_FEATURES: [string, string][] = [
   ['Move in from your phone', 'Apply, reference, sign and pay online. No printing, no office visits.'],
   ['Report a repair in seconds', 'Snap a photo in the app and see when it’s booked.'],

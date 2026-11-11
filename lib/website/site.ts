@@ -55,3 +55,12 @@ export const TENANT_STEPS = [
   { title: 'Once reserved', body: 'Once you have secured your room you will then receive an email from the referencing company Homeppl who obtain a reference for your income, your previous rental history and credit history. This is a simple process carried out online via their website.' },
   { title: 'Final steps', body: 'Once you have passed the referencing process and are ready to move into your new room, the final steps are to sign your tenancy agreement and pay your final balance. To make things easier for you the tenancy agreement can now be signed online.' },
 ]
+
+// what a landlord gets, on the homepage and in the landlord introduction email (lib/email-templates/acquisition)
+export const LANDLORD_FEATURES: [string, string][] = [
+  ['Your own landlord portal', 'Monthly statements, certificates, documents and every repair, live, on your phone.'],
+  ['Compliance on autopilot', 'Gas, electrics, EPC, fire safety and HMO licences tracked, with renewals booked before they lapse.'],
+  ['Repairs, sorted fast', 'Tenants report with photos, we compare quotes from trusted trades and never mark up an invoice.'],
+  ['Tax-ready paperwork', 'Clear statements every month and an annual summary set out the way your accountant wants it.'],
+  ['Ideas that raise the rent', 'Planning a refresh? We show you redesign ideas for a room before you spend a penny.'],
+]
