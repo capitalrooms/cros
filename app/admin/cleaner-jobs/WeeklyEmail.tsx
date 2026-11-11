@@ -12,6 +12,7 @@ type House = { propertyId: string; name: string; due: boolean; booked: { date: s
 type Cleaner = { cleanerId: string; name: string; email: string | null; test: boolean; houses: House[]; sentAt: string | null; subject: string; html: string }
 type Data = {
   ready: boolean; setting: string; days: { value: string; label: string }[]; weekStart: string; weekEnd?: string
+  channel?: string; channels?: { value: string; label: string }[]
   cleaners?: Cleaner[]; unassigned?: { name: string; tasks: Task[] }[]; houses?: { id: string; name: string; rooms: { id: string; name: string }[] }[]
 }
 
@@ -73,7 +74,16 @@ export default function WeeklyEmail() {
                 className={`rounded-full border px-md py-xs text-sm font-semibold ${data.setting === d.value ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-300 bg-white text-neutral-800 hover:bg-neutral-100'}`}>{d.label}</button>
             ))}
           </div>
-          <p className="mt-xs text-xs text-neutral-600">{HELP[data.setting]} It lists each house due a clean that week (from the schedules above), whether it’s booked yet, how long it takes, and any extra jobs below. Nobody gets the same week twice.</p>
+          {/* how it reaches them: email while the cleaners aren't on the app yet, then the app, or both */}
+          <div className="mt-sm flex flex-wrap items-center gap-xs" role="radiogroup" aria-label="How it reaches the cleaners">
+            <span className="mr-xs text-xs font-semibold text-neutral-600">Sent as</span>
+            {(data.channels ?? []).map(c => (
+              <button key={c.value} type="button" role="radio" aria-checked={data.channel === c.value} disabled={busy === 'channel'}
+                onClick={async () => { if (await post({ channel: c.value }, 'channel')) { setData(x => x && { ...x, channel: c.value }); setNote(`Weekly reminder sent as: ${c.label}.`) } }}
+                className={`rounded-full border px-md py-xs text-xs font-semibold ${data.channel === c.value ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-300 bg-white text-neutral-800 hover:bg-neutral-100'}`}>{c.label}</button>
+            ))}
+          </div>
+          <p className="mt-xs text-xs text-neutral-600">{data.channel === 'app' ? 'A cleaner without the app on their phone still gets the email, so nobody misses it. ' : ''}{HELP[data.setting]} It lists each house due a clean that week (from the schedules above), whether it’s booked yet, how long it takes, and any extra jobs below. Nobody gets the same week twice.</p>
         </div>
 
         {/* which week */}

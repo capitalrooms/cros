@@ -7,6 +7,12 @@ import { PORTAL_URL } from '@/lib/emailWrapper'
 import { dearLine, isTestEmail } from '@/lib/people'
 
 export const WEEK_EMAIL_KEY = 'cleaner_week_email'
+// how it reaches them (11 Nov 2026, Harry: email until the app is properly running, then push, or both)
+export const WEEK_CHANNEL_KEY = 'cleaner_week_channel'
+export type WeekChannel = 'email' | 'app' | 'app_email'
+export const WEEK_CHANNELS: { value: WeekChannel; label: string }[] = [
+  { value: 'email', label: 'Email' }, { value: 'app', label: 'App notification' }, { value: 'app_email', label: 'Both' },
+]
 export type WeekEmailDay = 'off' | 'sunday' | 'monday'
 export const WEEK_EMAIL_DAYS: { value: WeekEmailDay; label: string }[] = [
   { value: 'off', label: 'Off' }, { value: 'sunday', label: 'Sunday evening' }, { value: 'monday', label: 'Monday evening' },
@@ -130,12 +136,30 @@ export async function weekEmailDay(s: SupabaseClient): Promise<WeekEmailDay> {
   return WEEK_EMAIL_DAYS.some(d => d.value === v) ? v : 'off'
 }
 
+export async function weekChannel(s: SupabaseClient): Promise<WeekChannel> {
+  const { data } = await s.from('system_settings').select('value').eq('key', WEEK_CHANNEL_KEY).maybeSingle()
+  const v = String((data as any)?.value ?? 'email') as WeekChannel
+  return WEEK_CHANNELS.some(c => c.value === v) ? v : 'email'
+}
+
+/** The app notification version: short, opens the cleaner app. */
+export function weekPush(c: CleanerWeek): { title: string; body: string } {
+  const toBook = c.houses.filter(h => !h.booked)
+  const tasks = c.houses.reduce((n, h) => n + h.tasks.length, 0)
+  return {
+    title: toBook.length ? `Please book ${toBook.length === 1 ? '1 clean' : `${toBook.length} cleans`} this week` : 'Your cleans this week are all booked',
+    body: [toBook.length ? toBook.map(h => h.name).join(', ') : `${c.houses.length} house${c.houses.length === 1 ? '' : 's'} this week`, tasks ? `${tasks} extra job${tasks === 1 ? '' : 's'} from the office` : ''].filter(Boolean).join(' · '),
+  }
+}
+
 /**
  * Send a week's emails: one per real cleaner with something that week, never twice for the same week
  * (clean_week_emails). Test accounts are left out. Returns who got one, and anyone skipped and why.
  */
 export async function sendWeekEmails(s: SupabaseClient, weekStart: string): Promise<{ sent: string[]; skipped: string[] }> {
   const { sendEmail } = await import('@/lib/sendEmail')
+  const { sendServerPush } = await import('@/lib/serverPush')
+  const channel = await weekChannel(s)
   const plan = await buildWeekPlan(s, weekStart)
   const { data: already } = await s.from('clean_week_emails').select('cleaner_id').eq('week_start', weekStart)
   const done = new Set(((already ?? []) as any[]).map(r => r.cleaner_id))
@@ -143,13 +167,21 @@ export async function sendWeekEmails(s: SupabaseClient, weekStart: string): Prom
   for (const c of plan.cleaners) {
     if (c.test) continue
     if (done.has(c.cleanerId)) { skipped.push(`${c.name}: already sent this week`); continue }
-    if (!c.email || /\.invalid$/i.test(c.email)) { skipped.push(`${c.name}: no email address`); continue }
+    if ((!c.email || /\.invalid$/i.test(c.email)) && channel === 'email') { skipped.push(`${c.name}: no email address`); continue }
     // claim the week first, so two runs at once can't both send
     const { error: claim } = await s.from('clean_week_emails').insert({ week_start: weekStart, cleaner_id: c.cleanerId, sent_to: c.email, houses: c.houses.length })
     if (claim) { skipped.push(`${c.name}: ${/duplicate|unique/i.test(claim.message) ? 'already sent this week' : claim.message}`); continue }
+    // app notification first if chosen; email if chosen — or if the app reached none of their devices
+    let pushed = 0
+    if (channel !== 'email') { const p = weekPush(c); pushed = await sendServerPush({ personId: c.cleanerId, title: p.title, body: p.body, url: '/cleaner', tag: `cleaner-week-${weekStart}` }).catch(() => 0) }
+    if (channel === 'app' && pushed > 0) { sent.push(`${c.name} (app)`); continue }
+    if (!c.email || /\.invalid$/i.test(c.email)) {
+      if (pushed) { sent.push(`${c.name} (app)`); continue }
+      await s.from('clean_week_emails').delete().eq('week_start', weekStart).eq('cleaner_id', c.cleanerId); skipped.push(`${c.name}: no email address and no app`); continue
+    }
     const { subject, html } = weekEmail(c, plan)
     const r = await sendEmail(c.email, subject, html, { kind: 'cleaner-week' })
-    if (r.ok) sent.push(c.name)
+    if (r.ok) sent.push(`${c.name}${pushed ? ' (app and email)' : channel === 'app' ? ' (email: no app on their phone yet)' : ''}`)
     else { await s.from('clean_week_emails').delete().eq('week_start', weekStart).eq('cleaner_id', c.cleanerId); skipped.push(`${c.name}: ${r.error ?? 'email failed'}`) }
   }
   return { sent, skipped }
