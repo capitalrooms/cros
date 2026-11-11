@@ -27,6 +27,10 @@ export interface EmailTheme {
   text: string                 // body text colour
   link: string
   band?: { bg: string; text: string; line: string }   // a seasonal strip under the bar
+  /** a full-width photo under the bar (public path) */
+  photo?: { src: string; alt: string }
+  /** body text size (default 14.5px) */
+  size?: string
   /** recolours / re-fonts the email's own content too (the website theme) — the other themes leave it as designed */
   restyle?: (html: string) => string
 }
@@ -38,8 +42,11 @@ export const THEMES: EmailTheme[] = [
   { key: 'couture', name: 'Couture', from: 'The website and application pages', page: '#ffffff', bar: '#ffffff', logo: 'ink', rule: '#111111', body: '#ffffff', font: "'Instrument Sans','Helvetica Neue',Arial,sans-serif", text: '#111111', link: '#111111' },
   { key: 'christmas', name: 'Christmas', from: 'Seasonal', page: '#F4EFE6', bar: '#14321F', logo: 'white', rule: '#C4922A', body: '#ffffff', font: "Lato,'Helvetica Neue',Arial,sans-serif", text: '#2b2a27', link: '#8E1B1B',
     band: { bg: '#8E1B1B', text: '#FBEFD9', line: 'Season’s greetings from all of us at Capital Rooms' } },
-  { key: 'website', name: 'Website', from: 'capitalrooms.co.uk', page: '#E4EBE3', bar: '#1F3B2E', logo: 'white', rule: '#E8B931', body: '#FBF8F1', font: "Figtree,'Helvetica Neue',Arial,sans-serif", text: '#132219', link: '#1F3B2E',
+  // clean like the site (Harry, 11 Nov 2026: "white background … cleaner than a cream"): white, the dark logo, a gold rule
+  { key: 'website', name: 'Website', from: 'capitalrooms.co.uk', page: '#F2F5F1', bar: '#ffffff', logo: 'ink', rule: '#E8B931', body: '#ffffff', font: "Figtree,'Helvetica Neue',Arial,sans-serif", text: '#22332A', link: '#1F3B2E', size: '16px',
     restyle: websiteRestyle },
+  { key: 'website-photo', name: 'Website with photo', from: 'capitalrooms.co.uk', page: '#F2F5F1', bar: '#ffffff', logo: 'ink', rule: '#E8B931', body: '#ffffff', font: "Figtree,'Helvetica Neue',Arial,sans-serif", text: '#22332A', link: '#1F3B2E', size: '16px',
+    photo: { src: '/website/photos/email-thames.jpg', alt: 'Tower Bridge and the Thames' }, restyle: websiteRestyle },
 ]
 // ── the website theme's restyle: the designed emails' black, cream and serif become the site's forest, ink, cream,
 // sage, Bricolage and Figtree. Order matters: dark panels and buttons (background black) go forest before the
@@ -58,8 +65,11 @@ function websiteRestyle(html: string): string {
     // (the signature stays black: its round logo is a picture on black, which shows as a square on green)
     .replace(/background:#1a1a1a/gi, 'background:#1F3B2E')             // the standard button
     .replace(/#111111/gi, '#132219')
-    .replace(/#F3F0EA/gi, '#FBF8F1')      // cream
-    .replace(/#F4F1EB/gi, '#E4EBE3')      // paper → sage
+    .replace(/#F3F0EA/gi, '#F4F7F3').replace(/#F3EEE3/gi, '#F4F7F3').replace(/#F7F3EA/gi, '#F7F9F6')   // creams → a whisper of sage on the white page
+    .replace(/#F4F1EB/gi, '#EEF3EC')      // paper → pale sage
+    .replace(/#DDD6C8/gi, '#DCE3DA').replace(/#1C1C1B/gi, '#132219').replace(/#2E2C28/gi, '#22332A').replace(/#8A8478/gi, '#6B7A70').replace(/#6F6A60/gi, '#56665C')   // the landlord updates' palette
+    // the plain-text emails: the site's 16px body text in its ink (best practice 2026: 16px, one column)
+    .replace(/font-size:15px;color:#333;line-height:1.6/g, 'font-size:16px;color:#22332A;line-height:1.65').replace(/font-size:15px;color:#333;line-height:1.7/g, 'font-size:16px;color:#22332A;line-height:1.7')
     .replace(/#D9D5CD/gi, '#DCE3DA').replace(/#E4E0D8/gi, '#DCE3DA')      // fine rules
     .replace(/#4A4741/gi, '#3B4A41')      // soft text
     .replace(/#6F6B64/gi, '#56665C')      // muted text

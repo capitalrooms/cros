@@ -95,7 +95,7 @@ function pill(label: string, href: string, onDark = false): string {
     </td></tr></table>`
 }
 
-/** The opening: a big serif greeting with its italic second line, the place, then the arched picture. */
+/** The opening: a big serif greeting with its italic second line, the place, then the lead (no picture — Harry, 11 Nov 2026). */
 function opening(o: { label: string; place: string; line1: string; line2: string; lead: string }): string {
   return `
     ${eyebrow(o.label)}
@@ -104,9 +104,7 @@ function opening(o: { label: string; place: string; line1: string; line2: string
     </h1>
     ${eyebrow(o.place, 'margin-top:18px;')}
     <p style="margin:10px 0 26px;font-family:${SERIF};font-size:23px;line-height:1.3;color:${INK};">${o.lead}</p>
-    <div style="text-align:center;margin:0 0 30px;">
-      <img src="${SIGNATURE_ASSET_BASE}/brand/email-tenant-home.jpg" width="210" alt="" style="display:inline-block;width:210px;max-width:60%;height:auto;border:0;border-radius:999px 999px 0 0;background:#EFEBE3;">
-    </div>`
+`
 }
 
 const h2 = (t: string) => `<h2 style="margin:34px 0 14px;font-family:${SERIF};font-weight:400;font-size:32px;line-height:1.1;color:${INK};">${t}</h2>`
