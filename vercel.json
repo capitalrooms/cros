@@ -50,6 +50,10 @@
     {
       "path": "/api/cron/clear-ai-temp",
       "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/cron/cleaner-week",
+      "schedule": "0 18 * * 0,1"
     }
   ]
 }

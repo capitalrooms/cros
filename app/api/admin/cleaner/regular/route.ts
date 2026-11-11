@@ -39,13 +39,17 @@ export async function GET(req: NextRequest) {
     const mid = await s.from('properties').select('id, name, regular_cleaner_id, clean_frequency_weeks').order('name')
     if (mid.error) { ready = false; houses = (await s.from('properties').select('id, name, clean_frequency_weeks').order('name')).data } else houses = mid.data
   }
+  // how long each clean takes (migration 276) — its own query, so the rest works before it's run
+  const hrs = await s.from('properties').select('id, clean_hours')
+  const hoursReady = !hrs.error
+  const hoursOf = new Map(((hrs.data ?? []) as any[]).map(r => [r.id, r.clean_hours != null ? Number(r.clean_hours) : null]))
   const open = new Map<string, number>(), next = new Map<string, { date: string; time: string | null }>()
   for (const r of [...(moveOuts ?? []), ...(cleans ?? [])] as any[]) if (r.property_id) open.set(r.property_id, (open.get(r.property_id) ?? 0) + 1)
   for (const c of (cleans ?? []) as any[]) if (!next.has(c.property_id)) next.set(c.property_id, { date: c.clean_date, time: c.clean_time })
   return NextResponse.json({
-    ready, scheduleReady, channel, channels: CLEAN_CHANNELS,
+    ready, scheduleReady, hoursReady, channel, channels: CLEAN_CHANNELS,
     houses: (houses ?? []).map((h: any) => ({ id: h.id, name: h.name, regularCleanerId: h.regular_cleaner_id ?? null, everyWeeks: h.clean_frequency_weeks ?? null,
-      day: h.clean_day ?? null, time: h.clean_time ? String(h.clean_time).slice(0, 5) : null, openCleans: open.get(h.id) ?? 0, nextClean: next.get(h.id) ?? null })),
+      day: h.clean_day ?? null, time: h.clean_time ? String(h.clean_time).slice(0, 5) : null, hours: hoursOf.get(h.id) ?? null, openCleans: open.get(h.id) ?? 0, nextClean: next.get(h.id) ?? null })),
     cleaners: (people ?? []).map((p: any) => ({ id: p.id, name: displayName(p), test: isTestEmail(p.email) }))
       .sort((a, b) => Number(a.test) - Number(b.test) || a.name.localeCompare(b.name)),
   })
@@ -75,8 +79,9 @@ export async function POST(req: NextRequest) {
   if (b.everyWeeks !== undefined) { const w = b.everyWeeks === null || b.everyWeeks === '' ? null : Number(b.everyWeeks); if (w !== null && ![1, 2, 3, 4].includes(w)) return NextResponse.json({ error: 'How often: every 1–4 weeks.' }, { status: 400 }); patch.clean_frequency_weeks = w }
   if (b.day !== undefined) { const d = b.day === null || b.day === '' ? null : Number(b.day); if (d !== null && !(d >= 1 && d <= 7)) return NextResponse.json({ error: 'Pick a day.' }, { status: 400 }); patch.clean_day = d }
   if (b.time !== undefined) { const t = b.time ? String(b.time) : null; if (t && !/^\d{2}:\d{2}$/.test(t)) return NextResponse.json({ error: 'Pick a time.' }, { status: 400 }); patch.clean_time = t }
+  if (b.hours !== undefined) { const h = b.hours === null || b.hours === '' ? null : Number(b.hours); if (h !== null && !(h > 0 && h <= 12)) return NextResponse.json({ error: 'How long: up to 12 hours.' }, { status: 400 }); patch.clean_hours = h }
   const { error } = await s.from('properties').update(patch).eq('id', propertyId)
-  if (error) return NextResponse.json({ error: /clean_day|clean_time/.test(error.message) ? 'Run migration 245 first (it adds each house’s cleaning day and time).' : /regular_cleaner_id/.test(error.message) ? 'Run migration 243 first.' : error.message }, { status: 400 })
+  if (error) return NextResponse.json({ error: /clean_hours/.test(error.message) ? 'Run migration 276 first (it adds how long each clean takes).' : /clean_day|clean_time/.test(error.message) ? 'Run migration 245 first (it adds each house’s cleaning day and time).' : /regular_cleaner_id/.test(error.message) ? 'Run migration 243 first.' : error.message }, { status: 400 })
 
   const { data: h } = await s.from('properties').select('regular_cleaner_id, clean_frequency_weeks, clean_day, clean_time').eq('id', propertyId).maybeSingle()
   let moved = 0, booked: string | null = null

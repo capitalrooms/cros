@@ -57,6 +57,8 @@ export default function CleanDetailPage() {
   const [me, setMe] = useState<any>(null)
   const [clean, setClean] = useState<any>(null)
   const [room, setRoom] = useState<{ name: string; location_in_house: string | null } | null>(null)
+  // the office's extra jobs for this clean's week (migration 276)
+  const [weekTasks, setWeekTasks] = useState<{ id: string; task: string; roomName: string | null; extraHours: number | null }[]>([])
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState('')
 
@@ -123,7 +125,7 @@ export default function CleanDetailPage() {
         setReDate((c as any).clean_date || '')
         setReTime((c as any).clean_time ? String((c as any).clean_time).slice(0, 5) : '')
 
-        fetch(`/api/cleaner/house?propertyId=${(c as any).property_id}`).then(r => r.ok ? r.json() : null).then(j => { if (j?.deep) setDeep(j.deep); if (j?.myRate != null) setMyRate(Number(j.myRate)) }).catch(() => null)
+        fetch(`/api/cleaner/house?propertyId=${(c as any).property_id}${(c as any).clean_date ? `&week=${(c as any).clean_date}` : ''}`).then(r => r.ok ? r.json() : null).then(j => { if (j?.deep) setDeep(j.deep); if (j?.myRate != null) setMyRate(Number(j.myRate)); setWeekTasks(j?.weekTasks ?? []) }).catch(() => null)
         const todayIso = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
         const cd = (c as any).clean_date as string | null
         setVisitDate((c as any).status === 'completed' ? ((c as any).completed_at ? new Date((c as any).completed_at).toLocaleDateString('en-CA', { timeZone: 'Europe/London' }) : cd || todayIso) : cd && cd < todayIso ? cd : todayIso)
@@ -391,6 +393,14 @@ export default function CleanDetailPage() {
           )}
         </div>
 
+        {!isDone && weekTasks.length > 0 && (
+          <div className="rounded-2xl border-2 border-amber-300 bg-amber-50 p-lg">
+            <p className="text-xs font-bold uppercase tracking-widest text-amber-900">Also this week, from the office</p>
+            <ul className="mt-sm space-y-xs text-sm text-neutral-900">
+              {weekTasks.map(t => <li key={t.id}>{t.roomName ? <strong>{t.roomName}: </strong> : null}{t.task}{t.extraHours ? <span className="text-neutral-600"> (about {t.extraHours} hour{t.extraHours === 1 ? '' : 's'})</span> : null}</li>)}
+            </ul>
+          </div>
+        )}
         {!isDone && <DeepCleanRecord deep={deep} dueOnly />}
 
         {/* Admin note */}
