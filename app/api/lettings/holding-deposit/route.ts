@@ -23,6 +23,7 @@ import { createClient } from '@supabase/supabase-js'
 import { requireStaff, STAFF_ROLES } from '@/lib/portalAuth'
 import { sendEmail } from '@/lib/sendEmail'
 import { messageHtml } from '@/lib/email/messageHtml'
+import { holdingReceiptInner } from '@/lib/emailTemplates'
 import { loadUpdateContext, draftFor } from '@/lib/landlordUpdates/updates'
 import { landlordUpdateBody } from '@/lib/landlordUpdates/email'
 import { insertNotifications, activeTenantIds, dispatchChannels, tryPush } from '@/lib/serverNotify'
@@ -30,7 +31,6 @@ import { getCommsLive } from '@/lib/comms'
 import { loadDepositContext, writeBios, landlordMessage, housemateMessage, holdingAmount, type DepositContext } from '@/lib/lettings/holdingDeposit'
 import { holdingDepositsFor, recordHoldingDeposit, fileHoldingReceipt, longDate, METHODS, type HoldingDeposit } from '@/lib/lettings/holdingReceipt'
 import { createIncomingTenancy, logTenancyEvent } from '@/lib/lettings/incomingTenancy'
-import { processGuideText, PROCESS_GUIDE_SIGNOFF } from '@/lib/lettings/processGuide'
 import { RETAIN_GROUNDS, retainLetter } from '@/lib/lettings/holdingRetain'
 import { getElectedCommsLive } from '@/lib/comms'
 
@@ -212,8 +212,15 @@ export async function POST(req: NextRequest) {
       if (!pdf) result.errors.push('Receipt not emailed: the PDF couldn’t be read')
       else {
         const first = (ctx.applicant as any).last_name ? dearName(ctx.applicant as any) : dearFromText(ctx.applicant.full_name || rec.payer_name)   // "Miss Diafuku" (lib/people)
-        const text = `Dear ${first},\n\nThank you for reserving ${ctx.roomName}, ${ctx.propertyName} — we’re so excited to welcome you on board! We have received your holding deposit of ${gbp(Number(rec.amount))} on ${longDate(rec.received_on)}, and the room is now off the market for you.\n\nYour receipt (${rec.hold_no}) is attached — please keep it. It also explains what happens to your holding deposit.\n\nSo, what happens now?\n\n${processGuideText(1)}\n\n${PROCESS_GUIDE_SIGNOFF}`
-        const { ok, error } = await sendEmail(to, `Your holding deposit receipt — ${rec.hold_no}`, messageHtml(text), { kind: 'holding-deposit',
+        // the designed receipt, the sister of "the search is over" (11 Nov 2026 — it was a block of text)
+        const html = holdingReceiptInner({
+          greetingName: String((ctx.applicant as any).first_name ?? '').trim() || first,
+          place: oneLine([ctx.roomName, ctx.propertyName].filter(Boolean).join(', ')),
+          unitWord: ctx.roomName ? 'the room' : 'the property',
+          amount: Number(rec.amount), receivedOn: longDate(rec.received_on), holdNo: rec.hold_no,
+          paidBy: rec.payer_name || null, method: METHODS[rec.method] ?? null, reference: rec.payer_reference || null,
+        })
+        const { ok, error } = await sendEmail(to, `Your holding deposit receipt — ${rec.hold_no}`, html, { kind: 'holding-deposit',
           req, attachments: [{ filename: `Holding deposit receipt ${rec.hold_no}.pdf`, content: pdf.toString('base64') }],
         })
         if (ok) {

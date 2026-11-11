@@ -231,3 +231,81 @@ export async function buildSearchIsOverEmail(context: OfferEmailContext, req?: R
 
   return buildEmail(inner, { kind: 'search-is-over', req })
 }
+
+/**
+ * The holding deposit receipt (11 Nov 2026, Harry: "just a block of text … could look more funky"). The sister of
+ * "the search is over": the same opening, the amount large, the receipt details, the PDF attached, and the same
+ * "what happens now" steps with the first one ticked off.
+ */
+export interface HoldingReceiptContext {
+  greetingName: string                 // "Amara" (or "Miss Diafuku" when there's no first name)
+  place: string                        // "Room 3, 12 Saltwell Street, London"
+  unitWord?: string                    // "the room" | "the property"
+  amount: number
+  receivedOn: string                   // "11 November 2026"
+  holdNo: string
+  paidBy?: string | null
+  method?: string | null               // "Bank transfer"
+  reference?: string | null
+}
+/** The inner part (sendEmail adds the letterhead); buildHoldingReceiptEmail is the whole email, for previews. */
+export function holdingReceiptInner(c: HoldingReceiptContext): string {
+  const unit = c.unitWord || 'the room'
+  const steps = PROCESS_GUIDE.map((s, i) => {
+    const done = i === 0, next = i === 1
+    return `
+    <tr><td valign="top" style="width:44px;padding:16px 0;border-top:1px solid ${i < 1 ? INK : '#D9D5CD'};font-family:${SERIF};font-style:italic;font-size:24px;line-height:1;color:${done ? '#2F6B4F' : INK};">${done ? '&#10003;' : `${ROMAN[i]}.`}</td>
+    <td valign="top" style="padding:16px 0;border-top:1px solid ${i < 1 ? INK : '#D9D5CD'};">
+      <p style="margin:0;font-family:${SANS};font-size:15px;font-weight:600;color:${done ? MUTED : INK};">${esc(s.title)}${done ? ' <span style="font-weight:500;color:#2F6B4F;">· done</span>' : next ? ` <span style="font-weight:500;color:${MUTED};">· next</span>` : ''}</p>
+      <p style="margin:4px 0 0;font-family:${SANS};font-size:14px;line-height:1.6;color:${SOFT};">${esc(done ? `You’ve paid your holding deposit and ${unit} is reserved for you.` : s.body.replace(/the room/g, unit))}</p>
+    </td></tr>`
+  }).join('')
+
+  const inner = `
+    ${opening({
+      label: 'Holding deposit received',
+      place: esc(c.place),
+      line1: `Thank you, ${esc(c.greetingName)},`,
+      line2: 'it’s all yours.',
+      lead: `We’ve received your holding deposit and ${unit} is now off the market for you. We’re so excited to welcome you on board.`,
+    })}
+
+    <div style="margin:0 0 6px;">
+      ${eyebrow('Received')}
+      <p style="margin:6px 0 0;font-family:${SERIF};font-size:64px;line-height:1;letter-spacing:-.01em;color:${INK};font-variant-numeric:tabular-nums;white-space:nowrap;">${gbp2(c.amount)}</p>
+      <p style="margin:10px 0 0;font-family:${SANS};font-size:15px;line-height:1.6;color:${SOFT};">It isn’t an extra fee: it comes off the balance you pay before moving in.</p>
+    </div>
+
+    ${h2('Your receipt')}
+    ${rows([
+      ['Receipt number', esc(c.holdNo)],
+      ['Received on', esc(c.receivedOn)],
+      ...(c.paidBy ? [['Paid by', esc(c.paidBy)] as [string, string]] : []),
+      ...(c.method ? [['How', esc(c.method)] as [string, string]] : []),
+      ...(c.reference ? [['Payment reference', esc(c.reference)] as [string, string]] : []),
+      ['Amount', gbp2(c.amount)],
+    ])}
+
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;margin:30px 0 0;">
+      <tr><td bgcolor="${INK}" style="background:${INK};padding:28px 26px;">
+        <p style="margin:0;font-family:${SERIF};font-size:32px;line-height:1.1;color:${CREAM};">Your receipt is attached</p>
+        <p style="margin:10px 0 0;font-family:${SANS};font-size:15px;line-height:1.6;color:#C9C4BA;">Receipt ${esc(c.holdNo)} is attached as a PDF. Please keep it: it also explains what happens to your holding deposit.</p>
+      </td></tr>
+    </table>
+
+    ${h2('So, what happens now?')}
+    ${eyebrow('From securing, to moving in', 'margin:-6px 0 12px;')}
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;">${steps}</table>
+
+    <p style="margin:26px 0 0;padding-left:16px;border-left:1px solid ${INK};font-family:${SANS};font-size:12.5px;line-height:1.6;color:${SOFT};">
+      <strong style="color:${INK};">Important:</strong> your holding deposit is returned within 7 days if we or the landlord decide not to go ahead.
+      We may keep it only if you pull out, fail a Right to Rent check, give us false or misleading information, or don’t take reasonable
+      steps to sign the agreement within 15 days (unless we agree a different date with you).
+    </p>
+    ${contact()}
+  `
+  return inner
+}
+export async function buildHoldingReceiptEmail(c: HoldingReceiptContext, req?: Request | null): Promise<string> {
+  return buildEmail(holdingReceiptInner(c), { kind: 'holding-deposit', req })
+}
