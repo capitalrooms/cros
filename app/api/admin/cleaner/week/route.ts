@@ -11,7 +11,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireStaff } from '@/lib/portalAuth'
 import { createServiceClient } from '@/lib/supabase'
 import { sendEmail } from '@/lib/sendEmail'
-import { buildWeekPlan, mondayOf, sendWeekEmails, weekEmail, weekEmailDay, weekForEmail, londonToday, WEEK_EMAIL_DAYS, WEEK_EMAIL_KEY } from '@/lib/cleans/weekPlan'
+import { buildWeekPlan, mondayOf, sendWeekEmails, weekEmail, weekEmailDay, weekForEmail, londonToday, WEEK_EMAIL_DAYS, WEEK_EMAIL_KEY, weekChannel, WEEK_CHANNELS, WEEK_CHANNEL_KEY } from '@/lib/cleans/weekPlan'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 120
@@ -26,14 +26,14 @@ export async function GET(req: NextRequest) {
   const weekStart = isoOk(asked) ? mondayOf(asked!) : weekForEmail(londonToday())
   const probe = await s.from('clean_week_tasks').select('id').limit(1)
   if (probe.error && missing(probe.error.message)) return NextResponse.json({ ready: false, setting: 'off', days: WEEK_EMAIL_DAYS, weekStart })
-  const [plan, setting, { data: sent }, { data: houses }] = await Promise.all([
-    buildWeekPlan(s, weekStart), weekEmailDay(s),
+  const [plan, setting, channel, { data: sent }, { data: houses }] = await Promise.all([
+    buildWeekPlan(s, weekStart), weekEmailDay(s), weekChannel(s),
     s.from('clean_week_emails').select('cleaner_id, sent_at').eq('week_start', weekStart),
     s.from('properties').select('id, name, rooms(id, name)').order('name'),
   ])
   const sentAt = new Map(((sent ?? []) as any[]).map(r => [r.cleaner_id, r.sent_at]))
   return NextResponse.json({
-    ready: true, setting, days: WEEK_EMAIL_DAYS, weekStart: plan.weekStart, weekEnd: plan.weekEnd, unassigned: plan.unassigned,
+    ready: true, setting, days: WEEK_EMAIL_DAYS, channel, channels: WEEK_CHANNELS, weekStart: plan.weekStart, weekEnd: plan.weekEnd, unassigned: plan.unassigned,
     cleaners: plan.cleaners.map(c => ({ cleanerId: c.cleanerId, name: c.name, email: c.email, test: c.test, houses: c.houses, sentAt: sentAt.get(c.cleanerId) ?? null, ...weekEmail(c, plan) })),
     houses: ((houses ?? []) as any[]).map(h => ({ id: h.id, name: h.name, rooms: ((h.rooms ?? []) as any[]).map(r => ({ id: r.id, name: r.name })).sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true })) })),
   })
@@ -48,6 +48,12 @@ export async function POST(req: NextRequest) {
   if (b.setting !== undefined) {
     if (!WEEK_EMAIL_DAYS.some(d => d.value === b.setting)) return NextResponse.json({ error: 'Pick when it goes.' }, { status: 400 })
     const { error } = await s.from('system_settings').upsert({ key: WEEK_EMAIL_KEY, value: b.setting }, { onConflict: 'key' })
+    return error ? NextResponse.json({ error: error.message }, { status: 500 }) : NextResponse.json({ ok: true })
+  }
+
+  if (b.channel !== undefined) {
+    if (!WEEK_CHANNELS.some(c => c.value === b.channel)) return NextResponse.json({ error: 'Pick how it reaches them.' }, { status: 400 })
+    const { error } = await s.from('system_settings').upsert({ key: WEEK_CHANNEL_KEY, value: b.channel }, { onConflict: 'key' })
     return error ? NextResponse.json({ error: error.message }, { status: 500 }) : NextResponse.json({ ok: true })
   }
 
