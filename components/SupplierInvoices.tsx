@@ -130,6 +130,9 @@ function SendBar({ draft, post, done }: { draft: () => any; post: (b: Record<str
     catch (e) { win?.close(); setMsg(e instanceof Error ? e.message : 'Could not preview') } finally { setBusy('') }
   }
   async function send() {
+    // every line needs a price (11 Nov 2026: a cleaner's invoice listed 9 cleans with no hours logged, at £0)
+    const unpriced = ((draft()?.lines ?? []) as { labour: number; parts: number }[]).filter(l => !(Number(l.labour) > 0) && !(Number(l.parts) > 0))
+    if (unpriced.length) { setMsg(`${unpriced.length === 1 ? 'One line has' : `${unpriced.length} lines have`} no price yet — add the price, or remove the line with ✕.`); return }
     if (!confirm('Send this invoice now? It gets its number and is emailed to the client, with a copy to you.')) return
     setBusy('send'); setMsg('')
     try { const d = await post({ action: 'send', draft: draft() }); alert(`Invoice ${d.number} ${d.emailed ? 'sent' : `saved — but the email to the client didn’t go (${d.emailError}). Fix the address and use “Email it again” in My invoices.`}${d.emailed && d.copyOk === false ? ' (your copy couldn’t be emailed — check your email in My details)' : ''}`); done() }
@@ -155,7 +158,7 @@ function ContractorNew({ data, post, done, jobId }: { data: any; post: (b: Recor
   const [propertyId, setPropertyId] = useState<string>(startJob?.propertyId ?? '')
   const [client, setClient] = useState({ company: '', email: '', address: '' })
   const [contact, setContact] = useState<NameValue>(emptyName())
-  const [lines, setLines] = useState<Line[]>(startJob ? [{ ...blank(), description: startJob.title, where: startJob.where, labour: startJob.price ? String(startJob.price) : '', ticketId: startJob.id, propertyId: startJob.propertyId }] : [])
+  const [lines, setLines] = useState<Line[]>(startJob ? [{ ...blank(), description: startJob.line ?? startJob.title, where: startJob.where, labour: startJob.price ? String(startJob.price) : '', ticketId: startJob.id, propertyId: startJob.propertyId }] : [])
   const [notes, setNotes] = useState('')
   const jobs = (data.jobs as any[]).filter(j => !propertyId || j.propertyId === propertyId)
   const added = new Set(lines.map(l => l.ticketId).filter(Boolean))
@@ -195,7 +198,7 @@ function ContractorNew({ data, post, done, jobId }: { data: any; post: (b: Recor
           {jobs.length ? jobs.map(j => (
             <label key={j.id} className="flex items-start gap-2 text-sm">
               <input type="checkbox" className="mt-1" checked={added.has(j.id)} onChange={e => setLines(e.target.checked
-                ? [...lines, { ...blank(), description: j.title, where: j.where, labour: j.price ? String(j.price) : '', ticketId: j.id, propertyId: j.propertyId }]
+                ? [...lines, { ...blank(), description: j.line ?? j.title, where: j.where, labour: j.price ? String(j.price) : '', ticketId: j.id, propertyId: j.propertyId }]
                 : lines.filter(l => l.ticketId !== j.id))} />
               <span><strong>{j.title}</strong><span className="block text-xs text-neutral-500">{j.where || 'Where?'} · done {day(j.completedAt)}{j.price ? ` · £${j.price}` : ''}</span></span>
             </label>

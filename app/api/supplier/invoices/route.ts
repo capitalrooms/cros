@@ -63,9 +63,10 @@ export async function GET(req: NextRequest) {
   ]) as any[]
   let jobs: any[] = [], cleans: any[] = []
   if (c.role === 'contractor') {
-    const { data } = await s.from('maintenance_tickets').select('id, title, final_price, completed_at, location, property_id, properties(name), rooms(name)')
+    const { data } = await s.from('maintenance_tickets').select('id, title, notes, final_price, completed_at, location, property_id, properties(name), rooms(name)')
       .eq('contractor_id', c.personId).is('supplier_invoice_id', null).not('completed_at', 'is', null).order('completed_at', { ascending: false }).limit(100)
-    jobs = ((data ?? []) as any[]).map(t => ({ id: t.id, title: t.title, price: t.final_price, completedAt: t.completed_at, propertyId: t.property_id, property: firstLine(t.properties?.name), where: [t.rooms?.name, t.location].filter(Boolean).join(' · ') }))
+    // the invoice line says what they did (their job notes), else what was wrong (11 Nov 2026: it was the tenant's title)
+    jobs = ((data ?? []) as any[]).map(t => ({ id: t.id, title: t.title, line: (String(t.notes ?? '').trim().split('\n')[0].slice(0, 120) || String(t.title ?? '').split(' — ').pop()), price: t.final_price, completedAt: t.completed_at, propertyId: t.property_id, property: firstLine(t.properties?.name), where: [t.rooms?.name, t.location].filter(Boolean).join(' · ') }))
   } else {
     // each clean priced from its hours × the cleaner's hourly rate (26 Oct 2026, migration 247); without both, the
     // price they last charged for that house

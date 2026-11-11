@@ -109,6 +109,20 @@ export async function welcomeLink(s: SupabaseClient, email: string, users?: Map<
   return statusOf(u).confirmed ? authLink(s, e, 'magiclink', '/') : authLink(s, e, 'magiclink', '/account?setup=1')
 }
 
+/** The "Set up your account" email body — also used to send the office a preview (10 Nov 2026). */
+export function setupEmailBody(person: AccountPerson, link: string, by: 'office' | 'self' = 'office'): string {
+  const app = APP_NAME[person.role ?? ''] ?? 'your Capital Rooms account'
+  const hi = para(greeting(person))
+  return hi
+      + para(by === 'self'
+        ? `You asked to sign in to ${app}, but your account hasn’t been set up yet. Tap below to sign in and choose your password.`
+        : `You’ve been given access to ${app}. Tap below to sign in and choose your password.`)
+      + button(link, 'Set up my account')
+      + appGuide(person.role)
+      + note(`The link works once. If it has expired, go to ${PORTAL_URL}/login and use “Forgot password?”.`)
+      + note('Your browser or phone can save the password for you, so you never need to remember it.', true)
+}
+
 /**
  * Every sign-in email CROS sends goes through here, so they all look and read the same:
  *   no login yet (or never used)  → "Set up my account" (sign in → choose a password)
@@ -128,14 +142,7 @@ export async function sendAccountEmail(s: SupabaseClient, person: AccountPerson,
   if (!existing || !statusOf(existing).confirmed) {
     const link = await welcomeLink(s, email, users)
     if (!link) return { ok: false, error: 'Supabase would not make an invite link' }
-    const r = await sendEmail(email, 'Set up your Capital Rooms account', hi
-      + para(by === 'self'
-        ? `You asked to sign in to ${app}, but your account hasn’t been set up yet. Tap below to sign in and choose your password.`
-        : `You’ve been given access to ${app}. Tap below to sign in and choose your password.`)
-      + button(link, 'Set up my account')
-      + appGuide(person.role)
-      + note(`The link works once. If it has expired, go to ${PORTAL_URL}/login and use “Forgot password?”.`)
-      + note('Your browser or phone can save the password for you, so you never need to remember it.', true), { kind: 'account-setup', req, signature: false })
+    const r = await sendEmail(email, 'Set up your Capital Rooms account', setupEmailBody(person, link, by), { kind: 'account-setup', req, signature: false })
     return r.ok ? { ok: true, sent: 'invite' } : { ok: false, error: r.error }
   }
 
