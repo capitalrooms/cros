@@ -49,7 +49,7 @@ export const EMAIL_KINDS: EmailKind[] = [
   { key: 'compliance-certs', name: 'All the house’s certificates', audience: 'Landlords', from: 'Office', when: 'When you send a house’s certificates' },
   { key: 'landlord-acquisition', name: 'New business introduction', audience: 'Landlords', from: 'Office', when: 'Prospective landlords', slugs: ['landlord-acquisition-pitch'] },
   { key: 'landlord-aml-refresh', name: 'Identity check refresh', audience: 'Landlords', from: 'Office', when: 'When a landlord’s ID checks need renewing', slugs: ['landlord-aml-reverification'] },
-  { key: 'portal-docs', name: 'Rightmove documents request', audience: 'Landlords', from: 'Lettings', when: 'A property’s Lettings tab › Ask the landlord for Rightmove documents' },
+  { key: 'portal-docs', name: 'Required info for Rightmove advertising', audience: 'Landlords', from: 'Lettings', when: 'A property’s Lettings tab › Required info for Rightmove advertising › Ask the landlord' },
   { key: 'market-report', name: 'Local market report', audience: 'Landlords', from: 'Office', when: 'Lettings › Market › Make a report — emailed with the PDF' },
   { key: 'let-only-who-lives-here', name: 'Asking a let-only landlord who lives there', audience: 'Landlords', from: 'Lettings', when: 'Let-only houses: “Ask the landlord” on the house’s People tab' },
   { key: 'let-only-heads-up', name: 'Viewing heads-up to let-only housemates', audience: 'Tenants', from: 'Lettings', when: 'Let-only houses: a viewing booked or moved' },

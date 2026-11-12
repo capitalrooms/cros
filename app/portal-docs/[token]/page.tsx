@@ -104,82 +104,102 @@ export default function PortalDocsPage({ params }: { params: Promise<{ token: st
     if (!r.ok) setErr(x.error || 'That didn’t send'); else setSent(true)
   }
 
-  const card: React.CSSProperties = { background: '#fff', border: '1px solid #E4E0D8', borderRadius: 16, padding: 20, display: 'flex', flexDirection: 'column', gap: 10 }
-  const btn = (primary = false): React.CSSProperties => ({ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '12px 18px', borderRadius: 999, fontWeight: 600, fontSize: 15, border: primary ? 0 : '1px solid #111', background: primary ? '#111' : '#fff', color: primary ? '#fff' : '#111', cursor: 'pointer', textDecoration: 'none' })
+  // the website's own look (components/public/public.css): roomy cards, one clear button per step (12 Nov 2026, Harry:
+  // "it's all quite bunched up")
+  const card: React.CSSProperties = { background: '#fff', border: '1px solid #E4E0D8', borderRadius: 20, padding: '28px 24px', display: 'flex', flexDirection: 'column', gap: 16 }
+  const btn = (primary = false): React.CSSProperties => primary ? {} : {}
   const Upload = ({ doc, label }: { doc: Doc; label: string }) => (
-    <label style={{ ...btn(!d?.done[doc]), alignSelf: 'flex-start', opacity: busy === doc ? 0.6 : 1 }}>
+    <label className={d?.done[doc] ? 'pub-btn-ghost' : 'pub-btn'} style={{ alignSelf: 'flex-start', opacity: busy === doc ? 0.6 : 1, cursor: 'pointer' }}>
       {busy === doc ? 'Uploading…' : d?.done[doc] ? '✓ Added — replace it' : label}
       <input type="file" accept="image/*,application/pdf" capture={doc === 'ownership' ? undefined : 'environment'} style={{ display: 'none' }} onChange={e => { upload(doc, e.target.files?.[0]); e.target.value = '' }} />
     </label>
   )
-  const step = (n: number, title: string, done: boolean) => <p style={{ margin: 0, fontWeight: 700, fontSize: 17 }}><span style={{ display: 'inline-block', width: 26, height: 26, lineHeight: '26px', textAlign: 'center', borderRadius: 13, background: done ? '#2F6B4F' : '#111', color: '#fff', fontSize: 13, marginRight: 8 }}>{done ? '✓' : n}</span>{title}</p>
+  const Step = ({ n, title, done, children }: { n: number; title: string; done: boolean; children: React.ReactNode }) => (
+    <section style={card}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+        <span style={{ flex: '0 0 auto', width: 36, height: 36, borderRadius: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', background: done ? '#2F6B4F' : '#111', color: '#fff', fontSize: 15, fontWeight: 600 }}>{done ? '✓' : n}</span>
+        <h2 className="pub-h3" style={{ margin: 0, fontSize: 24, lineHeight: 1.15 }}>{title}</h2>
+      </div>
+      {children}
+    </section>
+  )
+  const doneCount = d ? [d.done.letter, d.done.ownership, d.done.id].filter(Boolean).length : 0
+  const p = (t: React.ReactNode) => <p style={{ margin: 0, fontSize: 16, lineHeight: 1.6, color: '#4A4741' }}>{t}</p>
 
   return (
-    <PublicShell centred label="For Rightmove">
-      <main style={{ maxWidth: 560, margin: '0 auto', padding: '24px 16px 64px', display: 'flex', flexDirection: 'column', gap: 16 }}>
-        {err && !d && <p style={{ color: '#9B2C1F' }}>{err}</p>}
+    <PublicShell centred label="Rightmove advertising">
+      <main style={{ maxWidth: 600, margin: '0 auto', padding: '36px 20px 80px', display: 'flex', flexDirection: 'column', gap: 24 }}>
+        {err && !d && <p className="pub-error">{err}</p>}
         {d && (d.completed || sent ? (
-          <div style={card}><p style={{ margin: 0, fontWeight: 700, fontSize: 20 }}>Thank you — all done</p><p style={{ margin: 0, color: '#4A4741' }}>We’ve got everything we need for Rightmove. We’ll let you know when {d.address.split(',')[0]} is live.</p></div>
+          <section style={{ ...card, alignItems: 'flex-start' }}>
+            <span style={{ width: 44, height: 44, borderRadius: 22, background: '#2F6B4F', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>✓</span>
+            <h1 className="pub-h2" style={{ margin: 0 }}>Thank you — all done</h1>
+            {p(<>We’ve got all the required info for Rightmove advertising. We’ll let you know when {d.address.split(',')[0]} is live.</>)}
+          </section>
         ) : (<>
-          <div>
-            <h1 style={{ margin: '0 0 6px', fontSize: 26, lineHeight: 1.15 }}>Three documents for Rightmove</h1>
-            <p style={{ margin: 0, color: '#4A4741' }}>{d.landlord ? `${d.landlord}, ` : ''}to advertise <b>{d.address}</b> on Rightmove, they ask for these three things. A clear photo of each is fine — a scan is great too.</p>
-          </div>
+          <header style={{ display: 'flex', flexDirection: 'column', gap: 14, paddingBottom: 4 }}>
+            <span className="pub-eyebrow">Rightmove advertising</span>
+            <h1 className="pub-h2" style={{ margin: 0 }}>Required info for Rightmove advertising</h1>
+            <p className="pub-intro" style={{ margin: 0 }}>{d.landlord ? <>{d.landlord}, before</> : 'Before'} <b>{d.address}</b> can go on Rightmove, they need three things from you. A clear photo of each is fine — a scan is great too. You can stop and come back to this link any time.</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4 }}>
+              <div style={{ display: 'flex', gap: 6 }}>{[0, 1, 2].map(i => <span key={i} style={{ width: 28, height: 6, borderRadius: 3, background: i < doneCount ? '#2F6B4F' : '#E4E0D8' }} />)}</div>
+              <span className="pub-muted" style={{ fontSize: 14 }}>{doneCount} of 3 done</span>
+            </div>
+          </header>
 
-          <div style={card}>
-            {step(1, 'Sign the letter of authority', d.done.letter)}
+          <Step n={1} title="Sign the letter of authority" done={d.done.letter}>
             {d.done.letter ? (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
-                <span style={{ color: '#2F6B4F', fontWeight: 600 }}>Signed and saved.</span>
-                <a href={`${api}/letter`} target="_blank" rel="noreferrer" style={{ fontSize: 14, color: '#111' }}>See the wording</a>
-                <button type="button" onClick={() => load().then(() => setD(x => x ? { ...x, done: { ...x.done, letter: false } } : x))} style={{ background: 'none', border: 0, textDecoration: 'underline', cursor: 'pointer', fontSize: 14 }}>Sign again</button>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, alignItems: 'center' }}>
+                <span style={{ color: '#2F6B4F', fontWeight: 600, fontSize: 16 }}>Signed and saved</span>
+                <a href={`${api}/letter`} target="_blank" rel="noreferrer" className="pub-link" style={{ fontSize: 15, color: '#111' }}>See the wording</a>
+                <button type="button" onClick={() => setD(x => x ? { ...x, done: { ...x.done, letter: false } } : x)} style={{ background: 'none', border: 0, textDecoration: 'underline', cursor: 'pointer', fontSize: 15, padding: 0 }}>Sign again</button>
               </div>
             ) : (<>
-              <p style={{ margin: 0, color: '#4A4741', fontSize: 15 }}>We’ve written it for you — <a href={`${api}/letter`} target="_blank" rel="noreferrer" style={{ color: '#111' }}>read the letter</a>. Sign it here on screen, or print it and send a photo.</p>
-              <div style={{ display: 'flex', gap: 6, background: '#F1EEE7', borderRadius: 999, padding: 4, alignSelf: 'flex-start' }}>
-                {([['screen', 'Sign on screen'], ['paper', 'Print or write it']] as const).map(([k, l]) => <button key={k} type="button" onClick={() => setHow(k)} style={{ padding: '7px 14px', borderRadius: 999, border: 0, fontWeight: 600, fontSize: 14, cursor: 'pointer', background: how === k ? '#fff' : 'transparent', boxShadow: how === k ? '0 1px 3px rgba(0,0,0,.12)' : 'none' }}>{l}</button>)}
+              {p(<>We’ve written it for you — <a href={`${api}/letter`} target="_blank" rel="noreferrer" style={{ color: '#111' }}>read the letter</a>. Sign it here on screen, or print it and send a photo.</>)}
+              <div style={{ display: 'flex', gap: 4, background: '#F1EEE7', borderRadius: 999, padding: 4, alignSelf: 'flex-start' }}>
+                {([['screen', 'Sign on screen'], ['paper', 'Print or write it']] as const).map(([k, l]) => <button key={k} type="button" onClick={() => setHow(k)} style={{ padding: '9px 16px', borderRadius: 999, border: 0, fontWeight: 600, fontSize: 14, cursor: 'pointer', background: how === k ? '#fff' : 'transparent', boxShadow: how === k ? '0 1px 3px rgba(0,0,0,.12)' : 'none' }}>{l}</button>)}
               </div>
               {how === 'screen' ? (<>
-                <input value={signName} onChange={e => setSignName(e.target.value)} placeholder="Your full name" autoComplete="name" style={{ padding: '11px 12px', borderRadius: 10, border: '1px solid #D9D4CA', fontSize: 16 }} />
+                <label className="pub-label">Your full name<input className="pub-input" value={signName} onChange={e => setSignName(e.target.value)} autoComplete="name" /></label>
                 <SignaturePad onChange={setSig} />
-                <label style={{ display: 'flex', gap: 10, alignItems: 'flex-start', fontSize: 14, cursor: 'pointer' }}><input type="checkbox" checked={agree} onChange={e => setAgree(e.target.checked)} style={{ marginTop: 3 }} />I own {d.address.split(',')[0]} and authorise Capital Rooms to advertise it to let on my behalf, as the letter says.</label>
-                <button type="button" onClick={signLetter} disabled={busy === 'letter' || !sig || !agree || signName.trim().split(/\s+/).length < 2} style={{ ...btn(true), alignSelf: 'flex-start', opacity: sig && agree && signName.trim().split(/\s+/).length >= 2 ? 1 : 0.4 }}>{busy === 'letter' ? 'Signing…' : 'Sign the letter'}</button>
+                <label style={{ display: 'flex', gap: 12, alignItems: 'flex-start', fontSize: 15, lineHeight: 1.5, cursor: 'pointer' }}><input type="checkbox" checked={agree} onChange={e => setAgree(e.target.checked)} style={{ marginTop: 4, width: 18, height: 18 }} />I own {d.address.split(',')[0]} and authorise Capital Rooms to advertise it to let on my behalf, as the letter says.</label>
+                <button type="button" className="pub-btn" onClick={signLetter} disabled={busy === 'letter' || !sig || !agree || signName.trim().split(/\s+/).length < 2} style={{ alignSelf: 'flex-start' }}>{busy === 'letter' ? 'Signing…' : 'Sign the letter'}</button>
               </>) : (<>
-                <p style={{ margin: 0, color: '#4A4741', fontSize: 15 }}>Print it, sign and date it at the bottom, then take a photo. No printer? Copy it out by hand and sign that instead.</p>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                  <a href={`${api}/letter`} target="_blank" rel="noreferrer" style={btn()}>Open the letter</a>
-                  <button type="button" onClick={() => setShowText(!showText)} style={btn()}>{showText ? 'Hide the wording' : 'Copy it out by hand'}</button>
+                {p('Print it, sign and date it at the bottom, then take a photo. No printer? Copy it out by hand and sign that instead.')}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+                  <a href={`${api}/letter`} target="_blank" rel="noreferrer" className="pub-btn-ghost">Open the letter</a>
+                  <button type="button" className="pub-btn-ghost" onClick={() => setShowText(!showText)}>{showText ? 'Hide the wording' : 'Copy it out by hand'}</button>
                 </div>
-                {showText && <div style={{ background: '#F7F4EE', borderRadius: 12, padding: 14, fontSize: 14, lineHeight: 1.6 }}>
-                  <p style={{ margin: '0 0 8px' }}>To: OpenRent Ltd and Rightmove plc — Letter of authority — {d.address}</p>
-                  <p style={{ margin: '0 0 8px' }}>I, {d.landlord || '[your full name]'}, confirm that I am the owner of the property at {d.address}.</p>
-                  <p style={{ margin: '0 0 8px' }}>I authorise Capital Rooms Ltd, of Hoxton Mix, 66 Paul Street, London EC2A 4NA, to advertise this property to let on my behalf on Rightmove, OpenRent and other property portals, and to arrange viewings and the letting as my agent.</p>
-                  <p style={{ margin: 0 }}>Signed · Full name · Date</p>
+                {showText && <div className="pub-note" style={{ borderRadius: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <span>To: OpenRent Ltd and Rightmove plc — Letter of authority — {d.address}</span>
+                  <span>I, {d.landlord || '[your full name]'}, confirm that I am the owner of the property at {d.address}.</span>
+                  <span>I authorise Capital Rooms Ltd, of Hoxton Mix, 66 Paul Street, London EC2A 4NA, to advertise this property to let on my behalf on Rightmove, OpenRent and other property portals, and to arrange viewings and the letting as my agent.</span>
+                  <span>Signed · Full name · Date</span>
                 </div>}
                 <Upload doc="letter" label="Add a photo of the signed letter" />
               </>)}
             </>)}
-          </div>
+          </Step>
 
-          <div style={card}>
-            {step(2, 'Proof you own the property', d.done.ownership)}
-            <p style={{ margin: 0, color: '#4A4741', fontSize: 15 }}>Any one of these:</p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {OWNERSHIP.map(([k, l]) => <label key={k} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', fontSize: 15, cursor: 'pointer' }}><input type="radio" name="own" checked={own === k} onChange={() => setOwn(k)} style={{ marginTop: 4 }} />{l}</label>)}
+          <Step n={2} title="Proof you own the property" done={d.done.ownership}>
+            {p('Any one of these:')}
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              {OWNERSHIP.map(([k, l]) => <button key={k} type="button" className="pub-choice" aria-pressed={own === k} onClick={() => setOwn(k)}><span className={`pub-dot ${own === k ? 'on' : ''}`} /><span>{l}</span></button>)}
             </div>
-            <p style={{ margin: 0, fontSize: 13, color: '#6F6A60' }}>Don’t have one to hand? You can download your title from the Land Registry online: <a href="https://www.gov.uk/get-information-about-property-and-land/search-the-register" target="_blank" rel="noreferrer" style={{ color: '#111' }}>search the register</a>.</p>
+            <p className="pub-muted" style={{ margin: 0, fontSize: 14, lineHeight: 1.5 }}>Don’t have one to hand? You can download your title from the Land Registry online: <a href="https://www.gov.uk/get-information-about-property-and-land/search-the-register" target="_blank" rel="noreferrer" style={{ color: '#111' }}>search the register</a>.</p>
             <Upload doc="ownership" label="Add it" />
-          </div>
+          </Step>
 
-          <div style={card}>
-            {step(3, 'Photo ID', d.done.id)}
-            <p style={{ margin: 0, color: '#4A4741', fontSize: 15 }}>Your passport (the photo page) or driving licence. Make sure all four corners are in the photo and it isn’t blurry.</p>
+          <Step n={3} title="Photo ID" done={d.done.id}>
+            {p('Your passport (the photo page) or driving licence. Make sure all four corners are in the photo and it isn’t blurry.')}
             <Upload doc="id" label="Add a photo of your ID" />
-          </div>
+          </Step>
 
-          {err && <p style={{ margin: 0, color: '#9B2C1F' }}>{err}</p>}
-          <button type="button" onClick={submit} disabled={!d.done.letter || !d.done.ownership || !d.done.id || busy === 'submit'} style={{ ...btn(true), opacity: d.done.letter && d.done.ownership && d.done.id ? 1 : 0.4 }}>{busy === 'submit' ? 'Sending…' : 'Send to Capital Rooms'}</button>
-          <p style={{ margin: 0, fontSize: 13, color: '#6F6A60' }}>Your documents are kept private and encrypted, and only used to list this property.</p>
+          {err && <p className="pub-error" style={{ margin: 0 }}>{err}</p>}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, paddingTop: 4 }}>
+            <button type="button" className="pub-btn" onClick={submit} disabled={doneCount < 3 || busy === 'submit'}>{busy === 'submit' ? 'Sending…' : doneCount < 3 ? `Add all three to send (${doneCount} of 3)` : 'Send to Capital Rooms'}</button>
+            <p className="pub-muted" style={{ margin: 0, fontSize: 13, textAlign: 'center' }}>Your documents are kept private and encrypted, and only used to list this property.</p>
+          </div>
         </>))}
       </main>
     </PublicShell>

@@ -7,15 +7,17 @@ import { adminFetch } from '@/lib/adminFetch'
 
 export default function PortalDocs({ propertyId }: { propertyId: string }) {
   const [d, setD] = useState<any>(null)
-  const [ask, setAsk] = useState<{ to: string; subject: string; text: string } | null>(null)
+  const [ask, setAsk] = useState<{ to: string; subject: string; html: string } | null>(null)
+  // which look the email goes in: the website's, or the landlord emails' (12 Nov 2026)
+  const [look, setLook] = useState<'website' | 'landlord'>('website')
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
   const [err, setErr] = useState('')
   const load = () => adminFetch(`/api/admin/portal-docs?propertyId=${propertyId}`).then(r => r.json()).then(setD).catch(() => null)
   useEffect(() => { load() }, [propertyId])   // eslint-disable-line react-hooks/exhaustive-deps
-  async function post(action: string) {
+  async function post(action: string, lk = look) {
     setBusy(true); setErr('')
-    const r = await adminFetch('/api/admin/portal-docs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ propertyId, action }) })
+    const r = await adminFetch('/api/admin/portal-docs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ propertyId, action, look: lk }) })
     const x = await r.json().catch(() => ({}))
     setBusy(false)
     if (!r.ok) { setErr(x.error || 'That didn’t work'); return null }
@@ -29,7 +31,7 @@ export default function PortalDocs({ propertyId }: { propertyId: string }) {
     <section className="mb-lg rounded-2xl border border-neutral-200 bg-white p-lg">
       <div className="flex flex-wrap items-start justify-between gap-sm">
         <div>
-          <h3 className="text-base font-bold text-neutral-900">Rightmove documents</h3>
+          <h3 className="text-base font-bold text-neutral-900">Required info for Rightmove advertising</h3>
           <p className="text-xs text-neutral-500">Rightmove (through OpenRent) need a signed letter of authority, proof of ownership and photo ID before the advert goes live.
             {r ? (r.status === 'completed' ? ` All three received ${date(r.completedAt)}.` : ` Asked ${date(r.sentAt)}${r.sentTo ? ` (${r.sentTo})` : ''} — waiting for the landlord.`) : ''}</p>
         </div>
@@ -41,7 +43,10 @@ export default function PortalDocs({ propertyId }: { propertyId: string }) {
       {ask && (
         <div className="mt-md rounded-xl border border-neutral-200 bg-neutral-50 p-md text-sm">
           <p className="text-neutral-600">To <b>{ask.to}</b> · <b>{ask.subject}</b></p>
-          <pre className="mt-sm whitespace-pre-wrap font-sans text-[13px] leading-relaxed text-neutral-800">{ask.text}</pre>
+          <div className="mt-sm flex gap-1 rounded-full bg-white p-1 text-xs font-semibold ring-1 ring-neutral-200" style={{ width: 'fit-content' }}>
+            {([['website', 'Website look'], ['landlord', 'Landlord look']] as const).map(([k, l]) => <button key={k} type="button" onClick={async () => { setLook(k); const x = await post('preview', k); if (x) setAsk(x) }} className={`rounded-full px-md py-xs ${look === k ? 'bg-neutral-900 text-white' : 'text-neutral-600'}`}>{l}</button>)}
+          </div>
+          <iframe title="The email" srcDoc={ask.html} className="mt-sm h-[620px] w-full rounded-lg bg-white ring-1 ring-neutral-200" />
           <div className="mt-sm flex gap-xs">
             <button type="button" disabled={busy} onClick={async () => { const x = await post('send'); if (x) { setAsk(null); setMsg(`Sent to ${x.to}.`); load() } }} className="rounded-full bg-neutral-900 px-md py-xs text-sm font-semibold text-white disabled:opacity-50">{busy ? 'Sending…' : 'Send to the landlord'}</button>
             <button type="button" onClick={() => setAsk(null)} className="rounded-full border border-neutral-300 px-md py-xs text-sm font-semibold">Cancel</button>

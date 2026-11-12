@@ -87,10 +87,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
     const { data: now } = await s.from('portal_authority_requests').select('letter_path, ownership_path, id_path').eq('id', r.row.id).single() as { data: any }
     if (!now?.letter_path || !now?.ownership_path || !now?.id_path) return NextResponse.json({ error: 'Please add all three — the signed letter, proof of ownership and photo ID.' }, { status: 400 })
     await s.from('portal_authority_requests').update({ status: 'completed', completed_at: new Date().toISOString() }).eq('id', r.row.id)
-    const subject = `Rightmove documents in: ${r.landlord || 'landlord'} — ${r.address.split(',')[0]}`
+    const subject = `Rightmove advertising info in: ${r.landlord || 'landlord'} — ${r.address.split(',')[0]}`
     await deliverEmail({ to: [OFFICE_ALERT_EMAIL], subject, html: await buildEmail(`<p><b>${esc(r.landlord || 'The landlord')}</b> has sent the signed letter of authority, proof of ownership and photo ID for <b>${esc(r.address)}</b>.</p><p>They’re on the property’s Lettings tab, ready to upload to OpenRent for Rightmove.</p>${officeButton(`/admin/properties/${r.row.property_id}?tab=lettings`, 'Open the property')}`, { kind: 'office-visit-booked', signature: false }) }).catch(() => null)
     const { data: admins } = await s.from('people').select('id').in('role', ['administrator', 'lettings'])
-    if (admins?.length) await insertNotifications(s, (admins as any[]).map(a => a.id), { title: 'Rightmove documents in', body: `${r.landlord || 'The landlord'} — ${r.address}`, type: 'lettings', link: `/admin/properties/${r.row.property_id}?tab=lettings` }, { propertyId: r.row.property_id }).catch(() => null)
+    if (admins?.length) await insertNotifications(s, (admins as any[]).map(a => a.id), { title: 'Rightmove advertising info in', body: `${r.landlord || 'The landlord'} — ${r.address}`, type: 'lettings', link: `/admin/properties/${r.row.property_id}?tab=lettings` }, { propertyId: r.row.property_id }).catch(() => null)
     return NextResponse.json({ ok: true })
   }
   return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
