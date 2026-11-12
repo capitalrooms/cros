@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
     s.from('tenancies').select('id, room_id, property_id, start_date, end_date, notice_received_date, let_cancelled_at, rent_amount, deposit_amount, deposit_protected_at, deposit_protection_assumed, prescribed_info_served_at, last_rent_change_date, is_periodic'),
     s.from('rent_charges').select('id, property_id, charge_month, amount_due, amount_received, status, voided'),
     s.from('applicants').select('pipeline_stage'),
-    s.from('viewings').select('viewing_date, viewing_status').gte('viewing_date', today).lte('viewing_date', in7),
+    s.from('viewings').select('viewing_date, viewing_status').or('viewing_status.is.null,viewing_status.neq.cancelled').gte('viewing_date', today).lte('viewing_date', in7),
     s.from('maintenance_tickets').select('status, approved_at, on_hold, booked_date, created_at, completed_at'),
     s.from('holding_deposits').select('status, amount'),
     ledgerStart(s),

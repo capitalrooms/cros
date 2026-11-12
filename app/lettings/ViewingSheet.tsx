@@ -37,13 +37,14 @@ const niceDate = (iso: string) => new Date(`${iso}T00:00:00`).toLocaleDateString
  *  "Messages you send yourself"; a move stays automatic. */
 export async function notifyLetOnlyContacts(roomId: string | null, event: 'booked' | 'rescheduled' | 'cancelled', date: string, time: string, _roomName: string, _senderName: string): Promise<boolean> {
   if (!roomId) return false
-  const res = await fetch('/api/let-only/heads-up', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId, event, date, time: time || '09:00', elected: event === 'booked' }) }).catch(() => null)
+  const res = await fetch('/api/let-only/heads-up', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId, event, date, time: time || '09:00', elected: event !== 'rescheduled' }) }).catch(() => null)
   const j = res?.ok ? await res.json().catch(() => ({})) : null
   return !!j && Number(j.texted ?? 0) + Number(j.emailed ?? 0) > 0
 }
 
 export default function ViewingSheet({ viewing, senderName, onClose, onChanged, onQuickNotify }: Props) {
   const [moving, setMoving] = useState(false)
+  const [cancelling, setCancelling] = useState(false)
   const [date, setDate] = useState(viewing.viewing_date)
   const [time, setTime] = useState(hhmm(viewing.viewing_slot))
   const [tellTenants, setTellTenants] = useState(true)
@@ -98,6 +99,42 @@ export default function ViewingSheet({ viewing, senderName, onClose, onChanged, 
     }
   }
 
+  // Cancel (12 Nov 2026, Harry: "this viewing has been cancelled sends auto text"): marked cancelled (kept, hidden from
+  // the lists), and the people living there told straight away — a let-only house by text and email to everyone
+  // (lib/letOnly), a managed house through the tenants' usual channels — plus the applicant if ticked.
+  async function cancelViewing() {
+    setSaving(true); setError('')
+    try {
+      const { error: dbError } = await (createClient().from('viewings') as any).update({ viewing_status: 'cancelled' }).eq('id', viewing.id)
+      if (dbError) throw new Error(/check|violates/i.test(dbError.message) ? 'The viewings table doesn’t accept “cancelled” yet — tell Claude.' : dbError.message)
+      const when = `${niceDate(viewing.viewing_date)}${viewing.viewing_slot ? ` at ${hhmm(viewing.viewing_slot)}` : ''}`
+      const told: string[] = [], notTold: string[] = []
+      const letOnly = await notifyLetOnlyContacts(viewing.room_id, 'cancelled', viewing.viewing_date, hhmm(viewing.viewing_slot), viewing.room_name, senderName)
+      if (letOnly) told.push('the household')
+      else if (tellTenants && viewing.property_id) {
+        const res = await fetch('/api/admin/quick-notify-lettings', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ property_id: viewing.property_id, subject: 'A viewing at your home is cancelled',
+            message: `Quick heads-up — the viewing at ${viewing.property_name || 'your home'} on ${when} is cancelled, so nobody will be coming round. Sorry for any bother.` }),
+        }).catch(() => null)
+        const d = await res?.json().catch(() => ({}))
+        if (res?.ok && d?.success !== false && d?.recipientCount) told.push(`${d.recipientCount} tenant${d.recipientCount === 1 ? '' : 's'}`)
+        else if (!res?.ok) notTold.push('tenants')
+      }
+      if (tellApplicant && (viewing.visitor_phone || viewing.visitor_email)) {
+        const res = await fetch('/api/lettings/notify-applicant', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ viewing_id: viewing.id, message: `your viewing at ${viewing.property_name || 'the property'} on ${when} is cancelled. Reply if you’d like another time.` }),
+        }).catch(() => null)
+        const d = await res?.json().catch(() => ({}))
+        if (d?.smsSent || d?.emailSent) told.push(viewing.visitor_name || 'the applicant'); else notTold.push('applicant')
+      }
+      onChanged(`Viewing cancelled${told.length ? ` — told ${told.join(', ')}` : ''}${notTold.length ? ` · not sent: ${notTold.join(', ')}` : ''}`)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not cancel the viewing')
+    } finally { setSaving(false) }
+  }
+
   const btn = 'w-full rounded-xl border border-neutral-300 bg-white py-md text-sm font-semibold text-neutral-800 hover:bg-neutral-50 transition-colors'
   const field = 'w-full rounded-xl border border-neutral-300 px-md py-sm text-sm text-neutral-900 bg-white'
 
@@ -125,7 +162,19 @@ export default function ViewingSheet({ viewing, senderName, onClose, onChanged, 
               Message {viewing.visitor_name?.split(' ')[0] || 'the applicant'}{!viewing.visitor_phone && !viewing.visitor_email ? ' — no contact details' : ''}
             </button>
             <button className={btn} onClick={() => onQuickNotify('tenants')} disabled={!viewing.property_id}>Notify tenants at the property</button>
+            <button className={`${btn} text-red-700`} onClick={() => setCancelling(true)}>Cancel this viewing</button>
             <Link href="/lettings/viewings" className={`${btn} block text-center`}>All viewings →</Link>
+            {cancelling && (
+              <div className="rounded-xl border border-red-200 bg-red-50 p-md text-sm">
+                <p className="font-bold text-red-900">Cancel this viewing?</p>
+                <p className="mt-xs text-red-900">Everyone living there gets a text straight away saying it’s cancelled.</p>
+                <label className="mt-sm flex items-center gap-xs text-neutral-800"><input type="checkbox" checked={tellApplicant} onChange={e => setTellApplicant(e.target.checked)} /> Tell {viewing.visitor_name?.split(' ')[0] || 'the applicant'} too</label>
+                <div className="mt-sm flex gap-xs">
+                  <button onClick={cancelViewing} disabled={saving} className="flex-1 rounded-xl bg-red-700 py-sm text-sm font-semibold text-white disabled:opacity-50">{saving ? 'Cancelling…' : 'Yes, cancel it'}</button>
+                  <button onClick={() => setCancelling(false)} disabled={saving} className="flex-1 rounded-xl border border-neutral-300 bg-white py-sm text-sm font-semibold">Keep it</button>
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           <div className="space-y-md">

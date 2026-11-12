@@ -73,7 +73,7 @@ export default function RoomDetailPage() {
         // Fetch viewings
         const { data: viewingsData } = await supabase
           .from('viewings')
-          .select('*')
+          .select('*').or('viewing_status.is.null,viewing_status.neq.cancelled')
           .eq('room_id', roomId)
           .order('viewing_date', { ascending: false })
 

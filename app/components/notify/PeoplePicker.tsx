@@ -23,7 +23,7 @@ export default function PeoplePicker({ value, onChange, compact = false }: { val
     const s = createClient()
     const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
     Promise.all([
-      s.from('viewings').select('visitor_name, visitor_email, visitor_phone, viewing_date, properties(name)').gte('viewing_date', today).order('viewing_date').limit(100),
+      s.from('viewings').select('visitor_name, visitor_email, visitor_phone, viewing_date, properties(name)').or('viewing_status.is.null,viewing_status.neq.cancelled').gte('viewing_date', today).order('viewing_date').limit(100),
       s.from('applicants').select('full_name, email, phone, pipeline_stage, archived_at, properties(name)').is('archived_at', null).order('created_at', { ascending: false }).limit(200),
       // people living in let-only houses, as their landlord told us (12 Nov 2026)
       s.from('let_only_occupants').select('name, phone, email, properties(name), rooms(name)').is('ended_at', null).limit(500),
