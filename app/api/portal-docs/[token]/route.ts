@@ -2,10 +2,11 @@
 //   GET                                                  → { address, landlord, done: { letter, ownership, id }, ownershipType, completed }
 //   POST { action: 'start', doc, contentType, size }     → { path, uploadToken, bucket } — the file goes straight to storage
 //   POST { action: 'confirm', doc, path, ownershipType? } → recorded (ID and ownership papers encrypted where they sit)
+//   POST { action: 'sign', name, signature (PNG data URL), agree } → the letter, signed on screen, saved as a PDF
 //   POST { action: 'submit' }                            → done: the office is told
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase'
-import { requestByToken, BUCKET, DOC_TYPES, COLUMN, folderFor, OWNERSHIP_TYPES } from '@/lib/portalDocs'
+import { requestByToken, BUCKET, DOC_TYPES, COLUMN, folderFor, OWNERSHIP_TYPES, letterPdf } from '@/lib/portalDocs'
 import { sealStoredFile } from '@/lib/files/fileCrypt'
 import { deliverEmail } from '@/lib/sendEmail'
 import { buildEmail } from '@/lib/emailWrapper'
@@ -58,6 +59,26 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
     const upd: Record<string, unknown> = { [COLUMN[doc]]: path }
     if (doc === 'ownership' && OWNERSHIP_TYPES.some(t => t.key === b.ownershipType)) upd.ownership_type = b.ownershipType
     const { error } = await s.from('portal_authority_requests').update(upd).eq('id', r.row.id)
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ ok: true })
+  }
+
+  if (b.action === 'sign') {
+    const name = String(b.name ?? '').replace(/\s+/g, ' ').trim().slice(0, 120)
+    const m = String(b.signature ?? '').match(/^data:image\/png;base64,([A-Za-z0-9+/=]+)$/)
+    if (name.length < 3 || !/\s/.test(name)) return NextResponse.json({ error: 'Please type your full name' }, { status: 400 })
+    if (!m || m[1].length > 400_000) return NextResponse.json({ error: 'Please sign in the box' }, { status: 400 })
+    if (b.agree !== true) return NextResponse.json({ error: 'Please tick to confirm' }, { status: 400 })
+    const ip = (req.headers.get('x-forwarded-for') ?? '').split(',')[0].trim() || 'unknown'
+    const ua = String(req.headers.get('user-agent') ?? '')
+    const device = /iPhone/.test(ua) ? 'an iPhone' : /iPad/.test(ua) ? 'an iPad' : /Android/.test(ua) ? 'an Android phone' : /Mac OS/.test(ua) ? 'a Mac' : /Windows/.test(ua) ? 'a Windows computer' : ''
+    const pdf = await letterPdf({ landlord: name, address: r.address, signed: { png: Buffer.from(m[1], 'base64'), name, at: new Date(), ip, device } })
+    const path = `${folderFor(token)}/${DOC_TYPES.letter}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.pdf`
+    await s.storage.createBucket(BUCKET, { public: false }).catch(() => {})
+    const { error: upErr } = await s.storage.from(BUCKET).upload(path, pdf, { contentType: 'application/pdf', upsert: false })
+    if (upErr) return NextResponse.json({ error: 'Couldn’t save the signed letter — please try again' }, { status: 500 })
+    await sealStoredFile(BUCKET, path).catch(e => console.error('[portal-docs] could not encrypt', e?.message))
+    const { error } = await s.from('portal_authority_requests').update({ letter_path: path }).eq('id', r.row.id)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ ok: true })
   }
