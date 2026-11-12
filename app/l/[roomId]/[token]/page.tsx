@@ -15,6 +15,7 @@ import { nearbyStations, type Station } from '@/lib/listing/area'
 import BackLink from './BackLink'
 import AdvertText, { plainAdvert } from '@/components/listing/AdvertText'
 import Housemates from '@/components/listing/Housemates'
+import RequestViewing from '@/components/listing/RequestViewing'
 import ListingGallery, { ShareButton } from './ListingGallery'
 
 export const dynamic = 'force-dynamic'
@@ -139,7 +140,7 @@ export default async function SharedListing({ params }: { params: Promise<{ room
       </dl>
       <div className="mt-5 flex flex-col gap-2">
         <a href={applyHref} className="rounded-full bg-[#111] px-5 py-3 text-center text-[15px] font-semibold text-white">Apply for this {unit}</a>
-        <a href="tel:02071129163" className="rounded-full border border-[#111] px-5 py-3 text-center text-[15px] font-semibold text-[#111]">Call to book a viewing</a>
+        <a href="#request-viewing" className="rounded-full border border-[#111] px-5 py-3 text-center text-[15px] font-semibold text-[#111]">Request a viewing</a>
         <ShareButton title={title} />
       </div>
       <p className="mt-3 text-[12px] text-neutral-500">The exact address is given when your viewing is booked.</p>
@@ -225,6 +226,13 @@ export default async function SharedListing({ params }: { params: Promise<{ room
                     </div>
                   </div>
                 )}
+              </section>
+            )}
+
+            {l.status !== 'let_agreed' && (
+              <section id="request-viewing" className="mt-10 scroll-mt-24">
+                <h2 className="text-[22px]" style={{ fontFamily: 'var(--pub-serif), serif' }}>Request a viewing</h2>
+                <div className="mt-3"><RequestViewing roomId={l.roomId} unit={unit} /></div>
               </section>
             )}
 
