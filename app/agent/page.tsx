@@ -65,7 +65,7 @@ export default function AgentDashboard() {
       // Fetch upcoming viewings
       const { data: viewingsData } = await supabase
         .from('viewings')
-        .select('*, rooms(name, property_id)')
+        .select('*, rooms(name, property_id)').or('viewing_status.is.null,viewing_status.neq.cancelled')
         .gte('viewing_date', new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }))
         .order('viewing_date', { ascending: true })
 

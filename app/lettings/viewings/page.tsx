@@ -117,7 +117,7 @@ export default function ViewingsDiary() {
     const supabase = createClient();
     const { data: viewingsData } = await supabase
       .from('viewings')
-      .select('*, rooms(name), let_only_room_id, let_only_rooms(listing_id)')
+      .select('*, rooms(name), let_only_room_id, let_only_rooms(listing_id)').or('viewing_status.is.null,viewing_status.neq.cancelled')
       .order('viewing_date');
     setViewings(viewingsData || []);
 

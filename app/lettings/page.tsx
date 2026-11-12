@@ -275,7 +275,7 @@ export default function LettingsPage() {
     // Fetch all future viewings (we filter by day client-side)
     const { data: viewingsData } = await supabase
       .from('viewings')
-      .select('id, viewing_date, viewing_slot, duration_minutes, visitor_name, visitor_email, visitor_phone, viewing_status, property_id, room_id, properties(name), rooms(name, current_asking_rent)')
+      .select('id, viewing_date, viewing_slot, duration_minutes, visitor_name, visitor_email, visitor_phone, viewing_status, property_id, room_id, properties(name), rooms(name, current_asking_rent)').or('viewing_status.is.null,viewing_status.neq.cancelled')
       .gte('viewing_date', todayISO())
       .order('viewing_date', { ascending: true })
       .order('viewing_slot', { ascending: true })

@@ -35,7 +35,7 @@ async function full(s: any, listing: any) {
   const todayLdn = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
   const [{ count: applicants }, { count: viewings }] = listing.room_id ? await Promise.all([
     s.from('applicants').select('id', { count: 'exact', head: true }).eq('room_id', listing.room_id).is('archived_at', null).neq('pipeline_stage', 'converted'),
-    s.from('viewings').select('id', { count: 'exact', head: true }).eq('room_id', listing.room_id).gte('viewing_date', todayLdn),
+    s.from('viewings').select('id', { count: 'exact', head: true }).or('viewing_status.is.null,viewing_status.neq.cancelled').eq('room_id', listing.room_id).gte('viewing_date', todayLdn),
   ]) : [{ count: 0 }, { count: 0 }]
   const ph = ((photos ?? []) as any[]).map(x => ({ id: x.id, url: photoUrl(s, x), video: String(x.file_type ?? '').startsWith('video'), caption: x.caption, area: x.area ?? (x.room_id ? 'room' : null), ofRoom: !!listing.room_id && x.room_id === listing.room_id, otherRoom: !!x.room_id && x.room_id !== listing.room_id }))
   const inOrder = (listing.media_order ?? []).filter((id: string) => ph.some(p => p.id === id))

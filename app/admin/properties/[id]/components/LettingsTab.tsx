@@ -237,7 +237,7 @@ export default function LettingsTab({ propertyId, rooms, propertyName, propertyA
     setLoading(true)
     const { data, error: err } = await supabase
       .from('viewings')
-      .select('*, room:room_id(name)')
+      .select('*, room:room_id(name)').or('viewing_status.is.null,viewing_status.neq.cancelled')
       .eq('property_id', propertyId)
       .gte('viewing_date', new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }))
       .order('viewing_date', { ascending: true })

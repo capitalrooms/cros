@@ -163,7 +163,7 @@ export default function AgencyDiaryPage() {
         // embed 400s here — fetch plainly and resolve names via a separate query.
         const { data: views } = await supabase
           .from('viewings')
-          .select('id, property_id, viewing_date, viewing_slot, visitor_name, viewing_status')
+          .select('id, property_id, viewing_date, viewing_slot, visitor_name, viewing_status').or('viewing_status.is.null,viewing_status.neq.cancelled')
           .gte('viewing_date', weekStart.toISOString().split('T')[0])
           .lt('viewing_date', weekEnd.toISOString().split('T')[0])
           .neq('viewing_status', 'closed')
