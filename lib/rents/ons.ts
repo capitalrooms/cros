@@ -40,7 +40,7 @@ async function latestRelease(): Promise<{ uri: string; file: string }> {
 }
 
 /** Read the workbook: the latest month for every area. */
-export async function parseWorkbook(buf: ArrayBuffer): Promise<Record<string, any>[]> {
+export async function parseWorkbook(buf: ArrayBuffer, keep?: (row: Record<string, any>) => void): Promise<Record<string, any>[]> {
   const zip = await JSZip.loadAsync(buf)
   const shared = [...((await zip.file('xl/sharedStrings.xml')?.async('string')) ?? '').matchAll(/<si>([\s\S]*?)<\/si>/g)]
     .map(m => unxml([...m[1].matchAll(/<t[^>]*>([\s\S]*?)<\/t>/g)].map(t => t[1]).join('')))
@@ -69,10 +69,10 @@ export async function parseWorkbook(buf: ArrayBuffer): Promise<Record<string, an
     const code = String(cells[1] ?? ''), when = cells[0]
     if (!code || typeof when !== 'number') continue
     const prev = latest.get(code)
-    if (prev && prev._when >= when) continue
     const row: Record<string, any> = { _when: when, area_code: code, area_name: String(cells[2] ?? ''), region: cells[3] && !/^\[/.test(String(cells[3])) ? String(cells[3]) : null, period: excelDate(when) }
     header.forEach((h, i) => { const k = COLS[h]; if (k) { const v = cells[i]; row[k] = typeof v === 'number' ? (k.startsWith('rent') ? Math.round(v) : Math.round(v * 10) / 10) : null } })
-    latest.set(code, row)
+    keep?.(row)
+    if (!prev || prev._when < when) latest.set(code, row)
   }
   return [...latest.values()].map(({ _when, ...r }) => r)
 }
@@ -82,15 +82,23 @@ export async function refreshOnsRents(s: SupabaseClient, force = false): Promise
   const rel = await latestRelease()
   if (!force) {
     const { data } = await s.from('ons_rents').select('release').limit(1).maybeSingle() as { data: any }
-    if (data?.release === rel.uri) return `Already up to date (${rel.uri.split('/').pop()})`
+    // up to date — unless the month-by-month history (migration 281) hasn't been filled yet
+    const { count } = await s.from('ons_rents_history').select('area_code', { count: 'exact', head: true })
+    if (data?.release === rel.uri && (count ?? 0) > 0) return `Already up to date (${rel.uri.split('/').pop()})`
   }
   const res = await fetch(rel.file, { headers: UA })
   if (!res.ok) throw new Error(`ONS workbook: ${res.status}`)
-  const rows = (await parseWorkbook(await res.arrayBuffer())).map(r => ({ ...r, release: rel.uri, updated_at: new Date().toISOString() }))
+  // every month too, for trends (migration 281)
+  const history: Record<string, any>[] = []
+  const rows = (await parseWorkbook(await res.arrayBuffer(), r => history.push({ area_code: r.area_code, period: r.period, rent_all: r.rent_all, rent_1: r.rent_1, rent_2: r.rent_2, rent_3: r.rent_3, rent_4: r.rent_4, rent_flat: r.rent_flat, change_all: r.change_all }))).map(r => ({ ...r, release: rel.uri, updated_at: new Date().toISOString() }))
   if (rows.length < 100) throw new Error(`ONS workbook read only ${rows.length} areas — the layout may have changed`)
   for (let i = 0; i < rows.length; i += 200) {
     const { error } = await s.from('ons_rents').upsert(rows.slice(i, i + 200), { onConflict: 'area_code' })
     if (error) throw new Error(error.message)
+  }
+  for (let i = 0; i < history.length; i += 1000) {
+    const { error } = await s.from('ons_rents_history').upsert(history.slice(i, i + 1000), { onConflict: 'area_code,period' })
+    if (error) { if (/ons_rents_history/.test(error.message)) break; throw new Error(error.message) }   // before migration 281
   }
   return `Loaded ${rows.length} areas for ${(rows[0] as any).period} (${rel.uri.split('/').pop()})`
 }
@@ -106,4 +114,11 @@ export async function localRents(s: SupabaseClient, postcode: string | null | un
   if (!r) return null
   return { areaCode: r.area_code, areaName: r.area_name, region: r.region, period: r.period, all: r.rent_all, one: r.rent_1, two: r.rent_2, three: r.rent_3, fourPlus: r.rent_4,
     flat: r.rent_flat, terraced: r.rent_terraced, changeAll: r.change_all, changeOne: r.change_1, changeTwo: r.change_2, changeThree: r.change_3, changeFour: r.change_4 }
+}
+
+/** An area's rents month by month, oldest first (migration 281). */
+export async function rentHistory(s: SupabaseClient, areaCode: string, months = 36): Promise<{ period: string; all: number | null; one: number | null; two: number | null; three: number | null }[]> {
+  const from = new Date(); from.setUTCMonth(from.getUTCMonth() - months - 2)
+  const { data } = await s.from('ons_rents_history').select('period, rent_all, rent_1, rent_2, rent_3').eq('area_code', areaCode).gte('period', from.toISOString().slice(0, 10)).order('period')
+  return ((data ?? []) as any[]).map(r => ({ period: r.period, all: r.rent_all, one: r.rent_1, two: r.rent_2, three: r.rent_3 }))
 }
