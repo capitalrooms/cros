@@ -55,6 +55,7 @@ const ZONES_AS_WRITTEN: Zone[] = [
       '/admin/bulk-tenancy-generator',
       '/admin/tenancies',
       '/admin/lettings',
+      '/admin/market',
       '/admin/move-in',
       '/admin/tenancy-management',
       '/admin/rent-increase',
@@ -68,6 +69,7 @@ const ZONES_AS_WRITTEN: Zone[] = [
       { emoji: '🔑', label: 'Availability',       href: '/admin/available-and-lettings' },
       { emoji: '📄', label: 'Bulk Agreements',    href: '/admin/bulk-tenancy-generator' },
       { emoji: '📅', label: 'Diary',              href: '/admin/agency-diary' },   // viewings with everything else (12 Nov 2026)
+      { emoji: '📈', label: 'Market',             href: '/admin/market' },         // rents and prices by area (12 Nov 2026)
       { emoji: '🤝', label: 'Tenancies',          href: '/admin/tenancies' },
     ],
   },
