@@ -5,6 +5,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { adminFetch } from '@/lib/adminFetch'
+import ViewingRequests from './ViewingRequests'
 
 interface Applicant { id: string; name: string; stage: string; at: string | null; room: string; property: string }
 
@@ -30,6 +31,7 @@ export default function LeadsTab() {
 
   return (
     <div className="space-y-md">
+      <ViewingRequests compact />
       <div className="flex items-center justify-between gap-md">
         <h2 className="text-base font-bold text-neutral-900">Applicants in progress{apps ? ` · ${apps.length}` : ''}</h2>
         <Link href="/admin/applicants" className="shrink-0 text-xs font-semibold text-blue-700">All applicants →</Link>

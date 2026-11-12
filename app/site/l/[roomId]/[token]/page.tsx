@@ -12,6 +12,7 @@ import ListingGallery, { ShareButton } from '@/app/l/[roomId]/[token]/ListingGal
 import BackLink from '@/app/l/[roomId]/[token]/BackLink'
 import AdvertText, { plainAdvert } from '@/components/listing/AdvertText'
 import Housemates from '@/components/listing/Housemates'
+import RequestViewing from '@/components/listing/RequestViewing'
 
 export const dynamic = 'force-dynamic'
 
@@ -74,7 +75,7 @@ export default async function Listing({ params }: { params: Promise<{ roomId: st
         {(l.councilTax || f.councilTaxBand) && <><dt style={{ color: 'var(--muted)' }}>Council tax</dt><dd style={{ margin: 0, fontWeight: 600, textAlign: 'right' }}>{l.councilTax ?? `Band ${f.councilTaxBand}`}</dd></>}
       </dl>
       <a className="btn" href={applyHref}>Apply for this {unit}</a>
-      <a className="line" href="tel:+442071129163">Call to book a viewing</a>
+      <a className="line" href="#request-viewing">Request a viewing</a>
       <ShareButton title={title} />
       <p style={{ fontSize: 13, color: 'var(--muted)' }}>The exact address is given when your viewing is booked.</p>
     </div>
@@ -138,6 +139,13 @@ export default async function Listing({ params }: { params: Promise<{ roomId: st
                     <p style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '10px 18px', fontSize: 14, color: 'var(--muted)' }}><span>The area only. The exact address is given when your viewing is booked.</span><a href={map.link} target="_blank" rel="noreferrer" style={{ fontWeight: 600 }}>Bigger map</a></p>
                   </div>
                 )}
+              </section>
+            )}
+
+            {l.status !== 'let_agreed' && (
+              <section className="lst-sec" id="request-viewing" style={{ scrollMarginTop: 96 }}>
+                <h2 className="h3">Request a viewing</h2>
+                <RequestViewing roomId={l.roomId} unit={unit} />
               </section>
             )}
 

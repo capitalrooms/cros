@@ -11,6 +11,7 @@ import PageHero, { HeroButton } from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import { adminFetch } from '@/lib/adminFetch'
 import ViewingsWeek from './ViewingsWeek'
+import ViewingRequests from '@/app/lettings/ViewingRequests'
 
 interface Applicant { id: string; name: string; email: string | null; stage: string; at: string | null; room: string; property: string }
 interface LetAgreed { id: string; tenant: string; room: string; property: string; startDate: string; rent: number | null; done: number; total: number; next: string; signBy: string | null; signLate: boolean; soon: boolean }
@@ -87,6 +88,7 @@ export default function LettingsOverviewPage() {
           ))}
         </ol>
 
+        <ViewingRequests compact />
         <ViewingsWeek />
 
         {error && <p className="rounded-xl border border-red-200 bg-red-50 px-lg py-md text-sm text-red-800">{error}</p>}
