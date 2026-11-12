@@ -3,6 +3,7 @@
 //   POST { roomId, facts, instructions?, history? } → saves the facts where they belong, writes the four versions,
 //        keeps them on the room, and the website version becomes the room's marketing description
 import { NextRequest, NextResponse } from 'next/server'
+import { housemateIntros, introLines } from '@/lib/housemates/adverts'
 import { requireStaff } from '@/lib/portalAuth'
 import { createServiceClient } from '@/lib/supabase'
 import { FACTS, FACT_BY_KEY, generateAdverts } from '@/lib/marketing/advert'
@@ -53,6 +54,7 @@ export async function POST(req: NextRequest) {
     const out = await generateAdverts({
       place, postcode: room.properties?.postcode ?? null, roomName: room.name, rent: room.current_asking_rent ? Number(room.current_asking_rent) : null,
       facts: { ...houseFacts, ...roomFacts }, instructions: String(b.instructions ?? '').slice(0, 2000), history: !!b.history,
+      housemates: introLines(await housemateIntros(s as any, room.property_id, room.id).catch(() => [])),
       photos: ((photos ?? []) as any[]).sort((a, c) => Number(!!c.room_id) - Number(!!a.room_id)).map(p => p.file_url),
     })
     const { historyLine, ...adverts } = out

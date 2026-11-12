@@ -10,6 +10,8 @@ import { siteBase } from '@/lib/website/base'
 import { Tick } from '../../../parts'
 import ListingGallery, { ShareButton } from '@/app/l/[roomId]/[token]/ListingGallery'
 import BackLink from '@/app/l/[roomId]/[token]/BackLink'
+import AdvertText, { plainAdvert } from '@/components/listing/AdvertText'
+import Housemates from '@/components/listing/Housemates'
 
 export const dynamic = 'force-dynamic'
 
@@ -19,7 +21,7 @@ export async function generateMetadata({ params }: { params: Promise<{ roomId: s
   if (!l) return { title: 'Not found', robots: { index: false } }
   const where = l.displayAddress?.split(',')[0] || publicTitle(l.displayName)
   const title = `${adTitle(l)}${l.rent ? `, ${gbp(l.rent)} pcm` : ''}`
-  const description = (l.description || `${l.wholeLet ? 'Home' : 'Room'} to rent on ${where}${l.billsIncluded ? ', bills included' : ''}. ${when(l.available)}.`).slice(0, 160)
+  const description = (plainAdvert(l.description) || `${l.wholeLet ? 'Home' : 'Room'} to rent on ${where}${l.billsIncluded ? ', bills included' : ''}. ${when(l.available)}.`).slice(0, 160)
   return { title, description, alternates: { canonical: `/l/${roomId}/${token}` }, openGraph: { title, description, images: l.media.filter(m => m.kind === 'photo').slice(0, 1).map(m => m.url) } }
 }
 
@@ -103,8 +105,10 @@ export default async function Listing({ params }: { params: Promise<{ roomId: st
 
             <section className="lst-sec">
               <h2 className="h3">About this {unit}</h2>
-              <div style={{ whiteSpace: 'pre-line', fontSize: 17, lineHeight: 1.7, maxWidth: '65ch' }}>{description}</div>
+              <AdvertText text={description} bodyStyle={{ fontSize: 17, lineHeight: 1.7 }} headingStyle={{ fontSize: 19 }} />
             </section>
+
+            <Housemates people={l.housemateIntros} heading={<h2 className="h3">Who you’d live with</h2>} />
 
             {videos.length > 0 && <section className="lst-sec"><h2 className="h3">Video tour</h2>{videos.map(v => <video key={v.id} src={v.url} controls playsInline preload="metadata" style={{ width: '100%', borderRadius: 24, background: '#000' }} />)}</section>}
 

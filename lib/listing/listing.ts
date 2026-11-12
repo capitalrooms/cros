@@ -4,6 +4,7 @@
 // The public page never shows the full address — the display name and the postcode district only.
 import crypto from 'crypto'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { housemateIntros, type HousemateIntro } from '@/lib/housemates/adverts'
 
 export interface ListingMedia { id: string; url: string; kind: 'photo' | 'video'; caption: string | null; ofRoom: boolean }
 export interface Listing {
@@ -20,6 +21,8 @@ export interface Listing {
   facts: ListingFacts
   /** the map position rounded to about 100 m — the area, never the door */
   approx: { lat: number; lng: number } | null
+  /** the housemates in the other rooms who said yes to a short, nameless intro on adverts (12 Nov 2026) */
+  housemateIntros: HousemateIntro[]
 }
 export interface ListingFacts {
   bedrooms: number | null; bathrooms: number | null; roomsInHouse: number; housemates: number
@@ -112,5 +115,6 @@ export async function loadListing(s: SupabaseClient, roomId: string): Promise<Li
       // what the advert says about the house wins over CROS's own count (CROS may not hold every room — 9 Nov 2026)
       ...(L?.housemates != null ? { housemates: Number(L.housemates) } : {}), ...(L?.bedrooms != null && !wholeLet ? { bedrooms: Number(L.bedrooms), roomsInHouse: Math.max(facts.roomsInHouse ?? 0, Number(L.bedrooms)) } : {}) },
     approx,
+    housemateIntros: wholeLet ? [] : await housemateIntros(s, r.property_id, roomId).catch(() => []),
   }
 }

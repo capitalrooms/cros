@@ -17,6 +17,8 @@ const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 export async function generateAdverts(o: {
   place: string; postcode: string | null; roomName: string; rent: number | null
   facts: Record<string, string>; instructions: string; history: boolean; photos: string[]
+  /** the housemates who said yes to a nameless intro on adverts (lib/housemates/adverts) */
+  housemates?: string[]
 }): Promise<Adverts & { historyLine: string | null }> {
   const known = FACTS.filter(f => o.facts[f.key]?.trim()).map(f => `${f.label}: ${o.facts[f.key].trim()}`).join('\n')
   const content: any[] = o.photos.slice(0, 6).map(url => ({ type: 'image', source: { type: 'url', url } }))
@@ -25,7 +27,7 @@ export async function generateAdverts(o: {
 The room: ${o.roomName}, ${o.place}${o.postcode ? `, ${o.postcode}` : ''}${o.rent ? ` — £${o.rent.toLocaleString('en-GB')} per month` : ''}.
 Facts (use only these and what you can see in the photos — never invent amenities, distances or rules):
 ${known || '(none yet)'}
-${o.history ? `\nAlso search the web for one short, true line of local history about this street or area (e.g. "built on the old Surrey Commercial Docks"), and use it once in the website version only. Return it as "historyLine". If you can't verify one, use null.` : ''}
+${o.housemates?.length ? `\nWho lives in the house now, in their own words (shared with their permission). Mention them warmly in the SpareRoom and Facebook versions and briefly in the website one — never give names, ages or anything not listed:\n${o.housemates.map(h => `- ${h}`).join('\n')}\n` : ''}${o.history ? `\nAlso search the web for one short, true line of local history about this street or area (e.g. "built on the old Surrey Commercial Docks"), and use it once in the website version only. Return it as "historyLine". If you can't verify one, use null.` : ''}
 ${o.instructions.trim() ? `\nTHE OFFICE'S NOTES — follow these exactly, they override the defaults below:\n${o.instructions.trim()}` : ''}
 
 What the best-performing room adverts do (SpareRoom's and Rightmove's own guidance):
