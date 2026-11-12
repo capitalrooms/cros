@@ -1,4 +1,5 @@
 'use client'
+import LocalRents from '@/components/LocalRents'
 import PdfView from '@/components/PdfView'
 import { displayName } from '@/lib/people'
 import { isOfficeRole } from '@/lib/access/areas'
@@ -353,6 +354,12 @@ export default function ValuationsPage() {
                   <label className={label}>Property address (on letter)</label>
                   <AddressField value={propertyAddress} onChange={setPropertyAddress} className={inp} placeholder="e.g. 4 Willis Road, or the postcode" />
                 </div>
+                {(propertyId || /[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}/i.test(propertyAddress)) && (
+                  <div className="sm:col-span-2">
+                    {/* official borough rents to check the figures against (12 Nov 2026) */}
+                    <LocalRents propertyId={propertyId || undefined} postcode={propertyId ? undefined : propertyAddress.match(/[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}/i)?.[0] ?? null} />
+                  </div>
+                )}
                 <div>
                   <label className={label}>Property reference (optional)</label>
                   <input value={propertyRef} onChange={e => setPropertyRef(e.target.value)} className={inp} placeholder="e.g. CR-001" />
