@@ -28,7 +28,7 @@ const SANS = "'Instrument Sans','Helvetica Neue',Arial,sans-serif"
 const label = (t: string, colour = MUTED) => `<div style="font-family:${SANS};font-size:10.5px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:${colour};">${esc(t)}</div>`
 const heading = (t: string, colour = FOREST) => `<div style="font-family:${SERIF};font-style:italic;font-size:21px;line-height:1.2;color:${colour};padding:0 0 12px;">${esc(t)}</div>`
 
-export type Headline = { eyebrow: string; place: string; lead?: string; street?: string; sub?: string; terms: { label: string; value: string }[] }
+export type Headline = { eyebrow: string; place: string; lead?: string; street?: string; sub?: string; room?: string | null; progress?: number; terms: { label: string; value: string }[] }
 type UpdateEmail = {
   stage: string; message: string; facts: { label: string; value: string }[]; link: string | null; until: string | null
   headline?: Headline | null; statement?: StatementFigures | null; attached?: string[]
@@ -48,7 +48,7 @@ function hero(h: Headline): string {
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:${CREAM};margin:0 0 0;">
     <tr>
       <td valign="middle" style="padding:30px 26px 28px 26px;">
-        <span style="display:inline-block;font-family:${SANS};font-size:10px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:#FFFFFF;background:${FOREST};border-radius:999px;padding:6px 12px;">${esc(h.eyebrow)}</span>
+        <span style="display:inline-block;font-family:${SANS};font-size:10px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:#FFFFFF;background:${FOREST};border-radius:999px;padding:6px 12px;">${esc(h.eyebrow)}</span>${h.room ? ` <span style="display:inline-block;font-family:${SANS};font-size:12px;font-weight:700;color:${FOREST};background:#FFFFFF;border:1px solid ${FOREST};border-radius:999px;padding:4px 12px;margin-left:6px;">${esc(h.room)}</span>` : ''}
         <div style="font-family:${SERIF};font-size:38px;line-height:1.04;color:${INK};padding:14px 0 10px;">${esc(h.lead ?? '')}${h.lead ? ' ' : ''}<em style="color:${FOREST};">${esc(h.street ?? h.place)}</em></div>
         ${h.sub ? `<div style="font-family:${SANS};font-size:13.5px;line-height:1.55;color:#5A564D;">${esc(h.sub).replace(/\n/g, '<br>')}</div>` : ''}
       </td>
@@ -56,11 +56,22 @@ function hero(h: Headline): string {
   </table>`
 }
 
+/** Where the letting has got to: offer → secured → referenced → signed & paid (12 Nov 2026, "a little boring"). */
+function progress(at: number): string {
+  const steps = ['Offer', 'Secured', 'Referenced', 'Signed & paid']
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:0 0 22px;"><tr>${steps.map((st, i) => {
+    const done = i < at, now = i === at
+    return `<td valign="top" width="25%" style="padding:0 2px;">
+      <div style="height:5px;border-radius:3px;background:${done || now ? FOREST : LINE};font-size:0;line-height:0;">&nbsp;</div>
+      <div style="font-family:${SANS};font-size:11.5px;line-height:1.3;padding-top:7px;color:${now ? FOREST : done ? BODY : MUTED};font-weight:${now ? 700 : 500};">${done ? '&#10003; ' : ''}${esc(st)}</div></td>`
+  }).join('')}</tr></table>`
+}
+
 function figures(cells: { label: string; value: string; strong?: boolean }[]): string {
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border-bottom:1px solid ${LINE};margin:0 0 26px;"><tr>${cells.map((c, i) => `
     <td valign="top" style="padding:16px 0 16px ${i ? '16px' : '0'};${i ? `border-left:1px solid ${LINE};` : ''}">
       ${label(c.label)}
-      <div style="font-family:${SERIF};font-size:24px;line-height:1.15;padding-top:3px;color:${c.strong ? FOREST : INK};white-space:nowrap;">${esc(c.value)}</div>
+      <div style="font-family:${SERIF};font-size:${cells.length > 3 ? 21 : 24}px;line-height:1.15;padding-top:3px;color:${c.strong ? FOREST : INK};white-space:nowrap;">${esc(c.value)}</div>
     </td>`).join('')}</tr></table>`
 }
 
@@ -146,9 +157,10 @@ export function landlordUpdateBody(o: UpdateEmail, opts: { heroApart?: boolean }
   const cells = h ? [
     ...h.terms.filter(t => t.label !== 'Start date' || !o.statement).map(t => ({ label: t.label, value: t.value.replace(/ pcm$/, ' pcm') })),
     ...(o.statement ? [{ label: o.statement.paidOn ? 'Paid to you' : 'Due to you', value: gbp(o.statement.due), strong: true }] : []),
-  ].slice(0, 3) : []
+  ].slice(0, 4) : []
   return `
     ${h && !opts.heroApart ? `<div style="margin:0 0 4px;">${hero(h)}</div>` : ''}
+    ${h && h.progress != null && h.progress >= 0 ? `<div style="height:22px;line-height:22px;">&nbsp;</div>${progress(h.progress)}` : ''}
     ${cells.length ? figures(cells) : h ? '<div style="height:26px;line-height:26px;">&nbsp;</div>' : ''}
     ${body.map(p).join('')}
     ${o.card ? housemateCardBlock(o.card) : ''}

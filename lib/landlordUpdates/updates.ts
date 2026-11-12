@@ -75,6 +75,10 @@ export interface UpdateContext {
   letOnly: boolean
   whole: boolean
   place: string
+  /** the room on its own ("Room 6") and the street ("51 Chobham Road") — 12 Nov 2026: parsing them back out of the
+   *  address line broke when that line put the house first */
+  roomName: string
+  street: string
   landlord: { id: string; name: string; greeting: string; emails: string[]; commsOn: boolean; tenantUpdatesOff: boolean } | null
   tenant: { name: string; email: string | null; phone: string | null; job: string | null; company: string | null; study: string | null; salary: string | null; dob: string | null; nationality: string | null; currentAddress: string | null; linkedin: string | null; requirements: string | null; bio: string | null; guarantor: string | null }
   rent: number | null
@@ -148,6 +152,8 @@ export async function loadUpdateContext(s: SupabaseClient, ids: { applicantId?: 
     letOnly: prop.letting_type === 'let_only',
     whole,
     place: placeLabel(whole, roomName, address),
+    roomName: whole ? '' : String(roomName ?? '').trim(),
+    street: String(address ?? '').split(/\s*[,\n]\s*/)[0].trim(),
     landlord: l ? {
       id: l.id,
       name: [l.salutation, l.first_name, l.last_name].filter(Boolean).join(' ') || l.full_name || l.company || '',
@@ -221,11 +227,11 @@ export interface Draft { subject: string; message: string; photo: boolean | null
 
 /** How the place is said in a letter (7 Nov 2026, Harry: "ROOM 1, LONDON just looks crap"): "Room 1 at 95 Rope Street",
  *  the street alone for a whole let — never the town or postcode in a sentence or subject line. */
-function spoken(c: { place: string; whole: boolean }): { say: string; room: string; street: string } {
-  const parts = c.place.split(/,\s*/)
-  const room = !c.whole && parts.length > 1 && /^(room|flat|studio|unit)\b/i.test(parts[0]) ? parts.shift()! : ''
-  const street = parts.shift() ?? c.place
-  return { say: room ? `${room} at ${street}` : street, room, street }
+function spoken(c: { place: string; whole: boolean; roomName: string; street: string }): { say: string; room: string; street: string } {
+  const room = c.whole ? '' : c.roomName
+  const street = c.street || c.place.split(/,\s*/)[0]
+  // a let-only room named after its street ("95 Rope Street") says the street once
+  return { say: room && !street.toLowerCase().includes(room.toLowerCase()) ? `${room} at ${street}` : street, room: room && !street.toLowerCase().includes(room.toLowerCase()) ? room : '', street }
 }
 
 /** The draft for one stage: a letter in our usual voice, the facts underneath, and which documents go with it. */
@@ -271,7 +277,7 @@ export function draftFor(c: UpdateContext, stage: UpdateStage): Draft {
     case 'reserved':
       subject = `Applicant secured — ${sp.say}`
       body = [
-        `We are delighted to let you know that we have secured an applicant for ${at}, subject to satisfactory references${c.letOnly ? ' and your approval' : ''}.`,
+        `We are delighted to let you know that we have secured an applicant for ${at}${c.rent ? `, at ${rentLine}` : ''}${c.startDate ? `, moving in on ${long(c.startDate)}` : ''} — subject to satisfactory references${c.letOnly ? ' and your approval' : ''}.`,
         `${n} has paid a holding deposit${c.hold ? ` of ${gbp(c.hold.amount)} on ${long(c.hold.on)}` : ''}, so the ${unit} is now off the market while references are obtained.`,
         `Their full application details are below${c.letOnly ? ' — please let us know if you have any questions or concerns before referencing begins' : ''}.`,
       ]
@@ -280,7 +286,7 @@ export function draftFor(c: UpdateContext, stage: UpdateStage): Draft {
     case 'referenced':
       subject = `References passed — ${sp.say}`
       body = [
-        `Good news: ${n} has passed referencing for ${at}.`,
+        `Good news: ${n} has passed referencing for ${at}${c.rent ? ` (${rentLine})` : ''}.`,
         c.letOnly
           ? 'Their contact details are below, and their referencing report and identity documents come with this email. As the landlord on a let-only tenancy, please keep a copy of the Right to Rent documents for your records.'
           : 'Their contact details are below, and their referencing report comes with this email. We have carried out the Right to Rent check and keep the identity documents on file.',
@@ -290,7 +296,7 @@ export function draftFor(c: UpdateContext, stage: UpdateStage): Draft {
     case 'signed_paid':
       subject = c.letOnly ? `Lettings statement – ${sp.room ? `${sp.room}, ${sp.street}` : sp.street}` : `Tenancy signed — ${sp.say}`
       body = [
-        `${n} has signed the tenancy agreement for ${at}${c.moniesIn ? ' and paid everything due before moving in' : ''}.`,
+        `${n} has signed the tenancy agreement for ${at}${c.rent ? ` at ${rentLine}` : ''}${c.moniesIn ? ' and paid everything due before moving in' : ''}.`,
         c.startDate ? `The tenancy starts on ${long(c.startDate)}.` : '',
         // who protects it follows who holds it (6 Nov 2026, Harry: "we do not protect Nigel's deposits as he gets his own")
         c.landlordHoldsDeposit
@@ -330,26 +336,30 @@ export function draftFor(c: UpdateContext, stage: UpdateStage): Draft {
 export const newShareToken = () => randomBytes(18).toString('base64url')
 
 /** The dark band at the top of the email: the property and the tenancy's key terms (lib/landlordUpdates/email). */
-export function headlineFor(c: UpdateContext, stage: UpdateStage): { eyebrow: string; place: string; lead: string; street: string; sub: string; terms: { label: string; value: string }[] } {
+export function headlineFor(c: UpdateContext, stage: UpdateStage): { eyebrow: string; place: string; lead: string; street: string; sub: string; room?: string | null; progress?: number; terms: { label: string; value: string }[] } {
   const money = (n: number) => `£${n.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
   const eyebrow = ({ offer: 'An offer for your review', reserved: 'Applicant secured', referenced: 'References passed', signed_paid: c.letOnly ? 'New let · signed & paid' : 'Tenancy signed', summary: 'Your new tenant', housemate: 'Meet your new housemate' } as Record<UpdateStage, string>)[stage]
-  // "Room 1, 95 Rope Street, London, SE16 7TF" → the street for the headline, the rest underneath
-  const parts = c.place.split(/,\s*/)
-  const roomPart = !c.whole && parts.length > 1 && /^(room|flat|studio|unit)\b/i.test(parts[0]) ? parts.shift()! : ''
-  const street = parts.shift() ?? c.place
+  // the street for the headline, the room as its own badge (12 Nov 2026)
+  const sp0 = spoken(c)
+  const roomPart = sp0.room
+  const street = sp0.street
   const lead = ({ offer: 'An offer for', reserved: 'Reserved at', referenced: 'References passed at', signed_paid: 'Your new tenant at', summary: 'Your new tenant at', housemate: 'Say hello to' } as Record<UpdateStage, string>)[stage]
   // the housemate card is for forwarding to the other tenants: their name, never the rent or deposit
   if (stage === 'housemate') {
     const first = c.profile?.firstName || c.tenant.name.split(' ').slice(-2, -1)[0] || c.tenant.name
     return { eyebrow, place: c.place, lead, street: first, sub: [[roomPart, street].filter(Boolean).join(', '), c.startDate ? `Moving in ${long(c.startDate)}` : ''].filter(Boolean).join('\n'), terms: [] }
   }
-  const sub = [roomPart, c.startDate ? `${stage === 'offer' ? 'Hoping to move in' : 'Moving in'} ${long(c.startDate)}` : ''].filter(Boolean).join('\n')
+  // the room is the badge and the first figure, so the line underneath is just the move-in date
+  const sub = c.startDate ? `${stage === 'offer' ? 'Hoping to move in' : 'Moving in'} ${long(c.startDate)}` : ''
   // let only, with the statement (7 Nov 2026, Harry: "title it more like lettings statement - x room, x number")
   const statementTitle = c.letOnly && (stage === 'summary' || stage === 'signed_paid')
   return {
     ...(statementTitle ? { eyebrow: 'Your new tenant', place: c.place, lead: 'Lettings statement', street: [roomPart, street].filter(Boolean).join(', '),
       sub: [c.tenant.name, c.startDate ? `Moving in ${long(c.startDate)}` : ''].filter(Boolean).join('\n') } : { eyebrow, place: c.place, lead, street, sub }),
+    room: roomPart || null,
+    progress: (['offer', 'reserved', 'referenced', 'signed_paid'] as UpdateStage[]).indexOf(stage),
     terms: [
+      ...(roomPart ? [{ label: 'Room', value: roomPart }] : []),
       ...(c.rent ? [{ label: stage === 'offer' ? 'Rent offered' : 'Rent', value: `${money(c.rent)} pcm` }] : []),
       ...(c.deposit && stage !== 'offer' ? [{ label: 'Deposit', value: money(c.deposit) }] : []),
       ...(c.startDate ? [{ label: stage === 'offer' ? 'Move-in' : 'Start date', value: long(c.startDate) }] : []),
