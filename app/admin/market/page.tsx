@@ -89,11 +89,11 @@ export default function MarketPage() {
   if (r?.change_all != null) points.push(`Rents in ${d.area.name} are ${r.change_all >= 0 ? 'up' : 'down'} ${Math.abs(r.change_all).toFixed(1)}% on a year ago${L?.change != null ? ` (London ${pct(L.change)})` : ''} — the average home now lets for ${gbp(r.rent_all)} a month.`)
   if (s?.change12 != null) points.push(`House prices are ${s.change12 >= 0 ? 'up' : 'down'} ${Math.abs(s.change12).toFixed(1)}% in a year, to an average of ${gbpK(s.average)}${s.flat ? ` (flats of any size ${gbpK(s.flat)})` : ''}.`)
   if (r?.change_all != null && s?.change12 != null && r.change_all > s.change12) points.push(`Rents are rising faster than prices, so yields are improving — about ${yieldAll?.toFixed(1)}% gross on an average home${yieldFlat ? `, ${yieldFlat.toFixed(1)}% on a flat` : ''}.`)
-  if (o?.roomMedian) points.push(`Our rooms here typically let for ${gbp(o.roomMedian)} a month${o.ensuiteMedian ? `, en-suites ${gbp(o.ensuiteMedian)}` : ''} — ${o.rooms + o.ensuites} rooms on our books.`)
+  if (o?.roomMedian) points.push(`Our rooms here typically let for ${gbp(o.roomMedian)} a month${o.ensuiteMedian ? `, en-suites ${gbp(o.ensuiteMedian)}` : ''}.`)
 
   const estimate: [string, string, string][] = r ? [
-    ['Room (shared bathroom)', o?.roomMedian ? gbp(o.roomMedian) : '—', o?.roomMedian ? (o.roomLow && o.roomHigh ? `usually ${gbp(o.roomLow)}–${gbp(o.roomHigh)} · our ${o.rooms} rooms` : `our ${o.rooms} room${o.rooms === 1 ? '' : 's'}`) : 'none of ours in this area yet'],
-    ['En-suite room', o?.ensuiteMedian ? gbp(o.ensuiteMedian) : '—', o?.ensuiteMedian ? (o.ensuiteLow && o.ensuiteHigh ? `usually ${gbp(o.ensuiteLow)}–${gbp(o.ensuiteHigh)} · our ${o.ensuites}` : `our ${o.ensuites} en-suite${o.ensuites === 1 ? '' : 's'}`) : 'none of ours in this area yet'],
+    ['Room (shared bathroom)', o?.roomMedian ? gbp(o.roomMedian) : '—', o?.roomMedian ? (o.roomLow && o.roomHigh ? `usually ${gbp(o.roomLow)}–${gbp(o.roomHigh)} · from our lets` : 'from our lets') : 'none of ours in this area yet'],
+    ['En-suite room', o?.ensuiteMedian ? gbp(o.ensuiteMedian) : '—', o?.ensuiteMedian ? (o.ensuiteLow && o.ensuiteHigh ? `usually ${gbp(o.ensuiteLow)}–${gbp(o.ensuiteHigh)} · from our lets` : 'from our lets') : 'none of ours in this area yet'],
     ['1-bedroom home', gbp(r.rent_1), pct(r.change_1) && `${pct(r.change_1)} a year · ONS average`],
     ['2-bedroom home', gbp(r.rent_2), pct(r.change_2) && `${pct(r.change_2)} a year · ONS average`],
     ['3-bedroom home', gbp(r.rent_3), pct(r.change_3) && `${pct(r.change_3)} a year · ONS average`],

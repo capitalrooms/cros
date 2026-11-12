@@ -36,6 +36,6 @@ export function packText(p: AreaPack): string {
     s ? `House prices ${s.month} (Land Registry, by type — no bedroom split): average £${s.average} (${s.change12}% on a year, ${s.change1}% on the month), flats/maisonettes any size £${s.flat} (${s.changeFlat}%), terraced houses £${s.terraced} (${s.changeTerraced}%), semi-detached £${s.semi}, detached £${s.detached}, first-time buyers £${s.firstTime}.` : 'House prices: none published for this area.',
     p.salesTrend.length ? `Average price every 3 months: ${yearly(p.salesTrend, 'average', 3)}` : '',
     p.yieldAll ? `Gross yield (average rent × 12 ÷ average price): ${p.yieldAll}%${p.yieldFlat ? `, flats ${p.yieldFlat}%` : ''}.` : '',
-    p.ours && (p.ours.rooms || p.ours.ensuites) ? `Capital Rooms' own rooms here: ${p.ours.rooms} rooms, typical £${p.ours.roomMedian}; ${p.ours.ensuites} en-suites, typical £${p.ours.ensuiteMedian}.` : '',
+    p.ours && (p.ours.rooms || p.ours.ensuites) ? `Capital Rooms' own rooms here (never say how many we have): typical room £${p.ours.roomMedian ?? '—'}, typical en-suite £${p.ours.ensuiteMedian ?? '—'}.` : '',
   ].filter(Boolean).join('\n')
 }
