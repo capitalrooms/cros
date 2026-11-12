@@ -2,6 +2,7 @@
 
 import LetOnlyOccupants from './components/LetOnlyOccupants'
 import LocalRents from '@/components/LocalRents'
+import PortalDocs from './components/PortalDocs'
 import { adminFetch } from '@/lib/adminFetch'
 import { useState, useEffect, use } from 'react'
 import { isOfficeRole } from '@/lib/access/areas'
@@ -428,6 +429,7 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
 
           {activeTab === 'lettings' && (
             <div className="p-lg">
+              <PortalDocs propertyId={id} />
               <LettingsTab propertyId={id} rooms={property.rooms || []} propertyName={property.name} propertyAddress={property.address} />
             </div>
           )}
