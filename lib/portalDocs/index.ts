@@ -29,7 +29,8 @@ export async function requestByToken(s: SupabaseClient, token: string) {
 }
 
 /** The letter of authority, written for the landlord to sign — plain, as their own letter (not on our letterhead). */
-export async function letterPdf(o: { landlord: string; address: string }): Promise<Buffer> {
+export interface ESign { png: Buffer; name: string; at: Date; ip: string; device: string }
+export async function letterPdf(o: { landlord: string; address: string; signed?: ESign }): Promise<Buffer> {
   // @ts-ignore pdfkit ships without types here
   const PDFKit = (await import('pdfkit')).default
   const doc = new PDFKit({ size: 'A4', margin: 64, info: { Title: 'Letter of authority', Author: o.landlord || 'Landlord' } })
@@ -46,10 +47,25 @@ export async function letterPdf(o: { landlord: string; address: string }): Promi
   doc.text(`I, ${o.landlord || '______________________________'}, confirm that I am the owner of the property at ${o.address}.`, { width: W, lineGap: 4 }).moveDown()
   doc.text('I authorise Capital Rooms Ltd, of Hoxton Mix, 66 Paul Street, London EC2A 4NA, to advertise this property to let on my behalf on Rightmove, OpenRent and other property portals, and to arrange viewings and the letting as my agent.', { width: W, lineGap: 4 }).moveDown()
   doc.text('Copies of my proof of ownership and photo identification are provided with this letter.', { width: W, lineGap: 4 }).moveDown(3)
-  const line = (label: string) => { const y = doc.y; doc.text(label, 64, y); doc.moveTo(160, y + 12).lineTo(64 + W, y + 12).lineWidth(0.8).strokeColor('#111').stroke(); doc.moveDown(2.4) }
-  line('Signed')
-  line('Full name')
-  line('Date')
+  const line = (label: string, value?: string) => { const y = doc.y; doc.text(label, 64, y); if (value) doc.font('Helvetica-Bold').text(value, 164, y).font('Helvetica'); doc.moveTo(160, y + 14).lineTo(64 + W, y + 14).lineWidth(0.8).strokeColor('#111').stroke(); doc.y = y; doc.moveDown(2.4) }
+  if (o.signed) {
+    // signed on screen (12 Nov 2026): the signature drawn by the landlord, their typed name, the time, and a record of
+    // how it was signed — the evidence a signing service would otherwise keep
+    const y = doc.y
+    doc.text('Signed', 64, y + 30)
+    doc.image(o.signed.png, 164, y - 6, { fit: [260, 60] })
+    doc.moveTo(160, y + 44).lineTo(64 + W, y + 44).lineWidth(0.8).strokeColor('#111').stroke()
+    doc.y = y + 62
+    const when = o.signed.at.toLocaleString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London' })
+    line('Full name', o.signed.name)
+    line('Date', o.signed.at.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/London' }))
+    doc.moveDown(1)
+    doc.fontSize(8.5).fillColor('#555').text(`Signed electronically by ${o.signed.name} on ${when} (UK time), who typed their full name, drew this signature and confirmed they own the property and give this authority. Signed from IP address ${o.signed.ip}${o.signed.device ? ` on ${o.signed.device}` : ''}, using a link sent to the landlord’s email address by Capital Rooms.`, 64, doc.y, { width: W, lineGap: 2 })
+  } else {
+    line('Signed')
+    line('Full name')
+    line('Date')
+  }
   doc.end()
   return new Promise<Buffer>(resolve => doc.on('end', () => resolve(Buffer.concat(chunks))))
 }
