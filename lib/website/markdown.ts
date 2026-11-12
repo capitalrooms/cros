@@ -28,6 +28,9 @@ export function markdownToHtml(md: string): string {
     if (/^#\s+/.test(b)) return `<h2>${inline(b.replace(/^#\s+/, ''))}</h2>`
     const lines = b.split('\n')
     if (lines.every(l => /^\s*[-*]\s+/.test(l))) return `<ul>${lines.map(l => `<li>${inline(l.replace(/^\s*[-*]\s+/, ''))}</li>`).join('')}</ul>`
+    // a video (12 Nov 2026, the Simple tips series): @[video](/website/videos/x.mp4 "/website/videos/x.jpg") — our own files only
+    const vid = b.match(/^@\[video\]\((\/[\w./-]+\.mp4)(?:\s+"(\/[\w./-]+\.(?:jpg|png))")?\)$/)
+    if (vid) return `<figure class="video"><video src="${vid[1]}"${vid[2] ? ` poster="${vid[2]}"` : ''} controls playsinline preload="metadata" style="width:100%;max-width:420px;aspect-ratio:9/16;border-radius:24px;background:#000;display:block;margin:0 auto"></video></figure>`
     if (/^!\[[^\]]*\]\([^)]+\)$/.test(b)) return `<figure>${inline(b)}</figure>`
     return `<p>${inline(b)}</p>`
   }).join('\n')
