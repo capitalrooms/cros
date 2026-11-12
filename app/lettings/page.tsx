@@ -477,7 +477,7 @@ export default function LettingsPage() {
         else notTold = ` — tenants NOT notified${d?.error || d?.message ? ` (${d.error || d.message})` : ''}`
       }
       if (viewingForm.notifyTenants && await notifyLetOnlyContacts(viewingForm.room_id, 'booked', viewingForm.viewing_date, viewingForm.viewing_slot, room?.name ?? '', name)) {
-        told.push('let-only contacts emailed')
+        told.push('the household texted')
       }
 
       setAddingViewing(false)

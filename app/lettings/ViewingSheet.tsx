@@ -35,9 +35,9 @@ const niceDate = (iso: string) => new Date(`${iso}T00:00:00`).toLocaleDateString
  *  by first name, the person whose room it is told it's theirs (12 Nov 2026: was email-only, and only to the room being
  *  viewed, so the housemates were never told). Best-effort. A booking the agent chose to tell them about follows
  *  "Messages you send yourself"; a move stays automatic. */
-export async function notifyLetOnlyContacts(roomId: string | null, event: 'booked' | 'rescheduled' | 'cancelled', date: string, time: string, _roomName: string, _senderName: string): Promise<boolean> {
+export async function notifyLetOnlyContacts(roomId: string | null, event: 'booked' | 'rescheduled' | 'cancelled', date: string, time: string, _roomName: string, _senderName: string, elected = true): Promise<boolean> {
   if (!roomId) return false
-  const res = await fetch('/api/let-only/heads-up', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId, event, date, time: time || '09:00', elected: event !== 'rescheduled' }) }).catch(() => null)
+  const res = await fetch('/api/let-only/heads-up', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId, event, date, time: time || '09:00', elected }) }).catch(() => null)
   const j = res?.ok ? await res.json().catch(() => ({})) : null
   return !!j && Number(j.texted ?? 0) + Number(j.emailed ?? 0) > 0
 }
@@ -89,7 +89,8 @@ export default function ViewingSheet({ viewing, senderName, onClose, onChanged, 
         if (d?.smsSent || d?.emailSent) told.push(viewing.visitor_name || 'the applicant')
         else notTold.push(`applicant${d?.error || d?.smsError ? ` (${d.error || d.smsError})` : ''}`)
       }
-      if (await notifyLetOnlyContacts(viewing.room_id, 'rescheduled', date, time, viewing.room_name, senderName)) told.push('let-only contacts')
+      // a move lettings makes with "tell the tenants" ticked is their own message (12 Nov 2026: it was held by the automatic pause)
+      if (tellTenants && await notifyLetOnlyContacts(viewing.room_id, 'rescheduled', date, time, viewing.room_name, senderName)) told.push('the household')
 
       onChanged(`Viewing moved to ${niceDate(date)}${time ? ` at ${time}` : ''}${told.length ? ` — told ${told.join(', ')}` : ''}${notTold.length ? ` · not sent: ${notTold.join(', ')}` : ''}`)
     } catch (e) {

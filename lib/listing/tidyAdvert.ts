@@ -9,7 +9,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { AI_MODEL } from '@/lib/ai-classify'
 
-export async function tidyAdvert(text: string, o: { wholeLet: boolean; place: string; housemates?: string[] }): Promise<string> {
+export async function tidyAdvert(text: string, o: { wholeLet: boolean; place: string; housemates?: string[]; housemateCount?: number | null }): Promise<string> {
   if (!process.env.ANTHROPIC_API_KEY) throw new Error('The AI key isn’t set up')
   const src = String(text ?? '').trim()
   if (!src) return ''
@@ -34,7 +34,7 @@ Rules:
 - Take out: phone numbers, email addresses, website links, "text/call/WhatsApp me", agent or landlord names; any minimum stay, fixed term or contract length (not allowed under the Renters' Rights Act — say nothing about length); "No DSS", benefits, nationality, religion, age, gender or couples rules (say nothing instead); deposit amounts above 5 weeks' rent.
 - Keep it about the same length as the original or shorter. Don't add a sign-off.
 
-${o.housemates?.length ? `- Who lives there now (true, shared with permission — use these for "## Who you’d live with", replacing anything vaguer in the original, and never add names): ${o.housemates.join('; ')}. Write it naturally, e.g. "You’d be sharing with a 27-year-old male software developer and a 30-year-old female nurse."
+${o.housemates?.length ? `- Who lives there now (true, shared with permission — use these for "## Who you’d live with", replacing anything vaguer in the original, and never add names): ${o.housemates.join('; ')}. Say how many first, then what they do, with ages where given — e.g. "You’d be sharing with four professionals, including a 27-year-old software developer and a 30-year-old nurse." If the list covers everyone, describe each; if not, say "including"${o.housemateCount ? ` (there are ${o.housemateCount} housemates)` : ''}.
 ` : ''}
 Reply with ONLY the tidied description.
 
