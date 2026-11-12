@@ -147,7 +147,7 @@ export async function POST(request: NextRequest) {
   if (admin) {
     const adminSubject = tplViewing
       ? render(tplViewing.subject_line, viewingVars)
-      : `Viewing scheduled — ${roomName} at ${propertyName}`
+      : `Viewing scheduled — ${propertyName} (${roomName})`
     const adminBody = tplViewing
       ? render(tplViewing.template_text, viewingVars)
       : `
@@ -171,11 +171,11 @@ export async function POST(request: NextRequest) {
 
   // SMS confirmation to the applicant (if they have a phone number)
   if (tenantsOn && viewing.visitor_phone) {
-    const contextText = `Viewing — ${roomName} at ${propertyNameAddress} on ${when}`
+    const contextText = `Viewing — ${propertyNameAddress} (${roomName}) on ${when}`
     const smsTpl = await getTemplate('viewing-confirmation-sms')
     const smsBody = smsTpl
       ? render(smsTpl.template_text, viewingVars)
-      : `Hi ${visitorFirstName}, your viewing of ${roomName} at ${propertyAddress || propertyName} is confirmed for ${when}. Reply Y to confirm you're coming, or N if you're running late. — Capital Rms`
+      : `Hi ${visitorFirstName}, your viewing at ${propertyAddress || propertyName} (${roomName}) is confirmed for ${when}. Reply Y to confirm you're coming, or N if you're running late. — Capital Rms`
     await sendConfirmationSms(supabase, viewing.visitor_phone, viewingId, contextText, smsBody)
   }
 

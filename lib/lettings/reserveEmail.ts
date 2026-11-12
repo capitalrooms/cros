@@ -52,8 +52,11 @@ export async function draftReserve(s: SupabaseClient, applicantId: string, typed
     advertisedRent: monthly, applicationUrl: reserveUrl, holdingDeposit: oneWeekRent(monthly), holdingRef: payRef, whole,
     moveInDate: ctx?.startDate ?? null, term: ctx?.applicant?.preferred_term ?? null, billsIncluded: ctx?.billsIncluded ?? null, correction,
   }, req) : ''
-  const subject = oneLine(correction ? `Updated: secure ${whole ? 'the property' : roomName} — corrected rent and holding deposit` : `Your offer has been accepted — secure ${whole ? 'the property' : roomName} now`)
-  const sms = monthly ? `Hi ${firstName}, ${whole ? 'the property' : `${roomName}`} is ready to reserve — the holding deposit is ${gbp(oneWeekRent(monthly))} (one week of ${gbp(monthly)} a month): ${reserveUrl} — Capital Rooms` : ''
+  // the house first, the room after (12 Nov 2026)
+  const house = String(oneLine(property?.name || property?.address)).split(',')[0].trim() || 'the property'
+  const yourPlace = whole ? house : `your room at ${house}`
+  const subject = oneLine(correction ? `Updated: secure ${yourPlace} — corrected rent and holding deposit` : `Your offer has been accepted — secure ${yourPlace} now`)
+  const sms = monthly ? `Hi ${firstName}, ${yourPlace}${whole ? '' : ` (${roomName})`} is ready to reserve — the holding deposit is ${gbp(oneWeekRent(monthly))} (one week of ${gbp(monthly)} a month): ${reserveUrl} — Capital Rooms` : ''
   return { to: a.email, subject, html, sms, rent: monthly, deposit: monthly ? oneWeekRent(monthly) : null, pinned, asking, earlier, reserveUrl }
 }
 

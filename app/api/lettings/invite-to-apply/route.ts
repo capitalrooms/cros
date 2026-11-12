@@ -12,7 +12,7 @@ import { draftReserve, pinReserve, cleanRent } from '@/lib/lettings/reserveEmail
 import { holdingDepositRef } from '@/lib/offers/holdingRef'
 import { buildSearchIsOverEmail } from '@/lib/emailTemplates'
 import { oneWeekRent } from '@/lib/tenancy/deposit'
-import { isWholeLet, oneLine, placeLabel } from '@/lib/lettings/letWording'
+import { houseName, isWholeLet, oneLine, placeLabel } from '@/lib/lettings/letWording'
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
 
 export const runtime = 'nodejs'
@@ -28,9 +28,9 @@ function weeklyRent(monthly: number) {
 async function applyEmailHtml(vars: { firstName: string; roomName: string; propAddress: string; applyUrl: string; whole?: boolean }, req: Request): Promise<string> {
   return buildEmail(`
 <p style="margin:0 0 6px;font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#6e6a63">Your application</p>
-<h1 style="margin:0 0 18px;font-size:26px;line-height:1.2;font-weight:600;color:#1b1a18">Thanks for viewing ${vars.whole ? 'the property' : vars.roomName}</h1>
+<h1 style="margin:0 0 18px;font-size:26px;line-height:1.2;font-weight:600;color:#1b1a18">Thanks for visiting ${houseName(vars.propAddress) || 'the property'}</h1>
 <p style="margin:0 0 14px">Hi ${vars.firstName},</p>
-<p style="margin:0 0 22px">Thanks for coming to see ${vars.whole ? `<strong>${vars.propAddress || 'the property'}</strong>` : `<strong>${vars.roomName}</strong>${vars.propAddress ? ` at ${vars.propAddress}` : ''}`}. We’d love you to apply — it takes about five minutes on your phone.</p>
+<p style="margin:0 0 22px">Thanks for coming round to see <strong>${vars.propAddress || 'the property'}</strong>${vars.whole || !vars.roomName ? '' : ` — we hope you liked the house and ${vars.roomName}`}. We’d love you to apply — it takes about five minutes on your phone.</p>
 <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 22px"><tr><td style="border-radius:24px;background:#1b1a18"><a href="${vars.applyUrl}" style="display:inline-block;padding:13px 28px;border-radius:24px;background:#1b1a18;color:#ffffff !important;font-size:15px;font-weight:600;line-height:20px;text-decoration:none">Apply now</a></td></tr></table>
 <p style="margin:0">Any questions, just reply to this email.</p>
 `, { kind: 'invite-to-apply', req })
@@ -277,10 +277,10 @@ export async function POST(request: NextRequest) {
       const b = render(tpl.template_text, tokenVars, visitorName !== 'there' ? personFromText(visitorName) : null)
       html = /<html/i.test(b) ? b : await buildEmail(b.includes('<') ? b : b.split(/\n{2,}/).map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`).join(''), { kind: 'invite-to-apply', req: request })
     } else {
-      subject = whole ? `Your application for ${place}` : `Your application for ${roomLabel}${propAddress ? ` at ${propAddress}` : ''}`
+      subject = `Your application for ${place}`   // the house first, the room after (lib/lettings/letWording)
       html = await applyEmailHtml({ firstName, roomName: roomLabel, propAddress, applyUrl: isFastTrack ? fastUrl : applyUrl, whole }, request)
     }
-    smsBody = `Hi ${firstName}, thanks for viewing ${place || 'the property'}. Apply in under 5 mins: ${isFastTrack ? fastUrl : applyUrl} — Capital Rooms`
+    smsBody = `Hi ${firstName}, thanks for visiting ${houseName(propAddress) || 'the property'}. Apply in under 5 mins: ${isFastTrack ? fastUrl : applyUrl} — Capital Rooms`
   }
   subject = oneLine(subject)
 

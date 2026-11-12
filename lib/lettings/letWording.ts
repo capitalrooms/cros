@@ -17,9 +17,14 @@ export function oneLine(s?: string | null): string {
 export function placeLabel(whole: boolean, roomName?: string | null, address?: string | null): string {
   const a = oneLine(address)
   const r = String(roomName ?? '').trim()
-  // a let-only room named after its street ("95 Rope Street") would print the address twice
-  return whole || !r || a.toLowerCase().includes(r.toLowerCase()) ? a : `${r}, ${a}`
+  // a let-only room named after its street ("95 Rope Street") would print the address twice.
+  // The house first, the room after (12 Nov 2026, Harry: "isn't the main draw the house … focussing on room number is a
+  // bit isolating") — "38 Queen of Denmark Court, SE16 7TB (Room 3)"
+  return whole || !r || a.toLowerCase().includes(r.toLowerCase()) ? a : `${a} (${r})`
 }
+
+/** The house's short name for a heading — the first line of its address: "38 Queen of Denmark Court". */
+export const houseName = (address?: string | null) => oneLine(address).split(',')[0].trim()
 
 export interface LetWords {
   unit: string          // room | property
