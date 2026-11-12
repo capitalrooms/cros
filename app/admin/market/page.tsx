@@ -104,7 +104,7 @@ export default function MarketPage() {
     <div className="office min-h-screen bg-neutral-100 pb-3xl">
       <AppBar left={<BackButton href="/admin/lettings" />} title="Market" />
       <PageHero eyebrow="Lettings" title="What it rents and sells for" subtitle="Search an area or tap a London borough: official rents and house prices, what a room or home typically goes for, and talking points for landlords."
-        actions={<Link href={`/admin/market/report${pick ? `?areas=${pick.code}` : ''}`} className="rounded-full bg-white px-lg py-sm text-sm font-semibold text-neutral-900">Make a report</Link>} />
+        actions={<><Link href="/admin/market/insight" className="rounded-full border border-white/40 px-lg py-sm text-sm font-semibold text-white">Quarterly insight</Link><Link href={`/admin/market/report${pick ? `?areas=${pick.code}` : ''}`} className="rounded-full bg-white px-lg py-sm text-sm font-semibold text-neutral-900">Make a report</Link></>} />
       <div className="mx-auto max-w-6xl space-y-lg px-lg py-xl">
         {setup && <p className="rounded-xl bg-amber-50 px-lg py-md text-sm text-amber-900">Run migration 280 in Supabase first.</p>}
         {areas && !areas.length && !setup && (
