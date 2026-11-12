@@ -148,6 +148,20 @@ export default function ListingEditor({ params }: { params: Promise<{ roomId: st
     if (!r.ok) { if (!quiet) setError(d.error || 'Couldn’t tidy it'); return }
     setData(d); if (!quiet) setNotice('Tidied — check it reads right.')
   }
+  // a chatty Facebook group post from everything the listing knows (12 Nov 2026) — written on request, edited, copied
+  const [groupPost, setGroupPost] = useState('')
+  const [postTone, setPostTone] = useState('')
+  const [posting, setPosting] = useState(false)
+  async function writePost() {
+    if (!data) return
+    await flush()
+    setPosting(true); setError('')
+    const r = await fetch('/api/lettings/listings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: data.listing.id, action: 'group-post', tone: postTone }) })
+    const d = await r.json().catch(() => ({}))
+    setPosting(false)
+    if (!r.ok) { setError(d.error || 'Couldn’t write it'); return }
+    setGroupPost(d.post)
+  }
   const [showImport, setShowImport] = useState(false)
   async function readAd() {
     setSrBusy(true); setError('')
@@ -233,6 +247,7 @@ export default function ListingEditor({ params }: { params: Promise<{ roomId: st
     { id: 'price', title: 'Price & availability', done: !!(l.rent && l.deposit != null && l.available_from && l.council_tax_band) },
     { id: 'property', title: whole ? 'The property' : 'The room & house', done: !!(l.property_type && l.furnished && l.display_address) },
     { id: 'suits', title: 'Who it suits', done: !!l.let_type },
+    { id: 'social', title: 'Facebook post', done: !!groupPost },
   ]
   const btn = 'rounded-xl px-lg py-2.5 text-sm font-bold transition disabled:opacity-40'
 
@@ -465,6 +480,15 @@ export default function ListingEditor({ params }: { params: Promise<{ roomId: st
             <label className={lbl}>Smokers{yn('smokers_allowed')}</label>
             <label className={`${lbl} sm:col-span-2`}>Ideal for<input className={field} value={l.tenant_type ?? ''} onChange={e => set('tenant_type', e.target.value)} placeholder={whole ? 'e.g. a professional or couple who want a calm base near Canary Wharf' : 'e.g. someone who likes a calm, tidy house'} /></label>
           </div>
+        </Section>
+
+        <Section id="social" title="Facebook group post" sub="A friendly post for house-share groups — written as if you’re talking to people, from everything in this listing (the room, the house, who lives there, getting around and the money).">
+          <label className={lbl}>Anything to add or change? (optional)<input className={field} value={postTone} onChange={e => setPostTone(e.target.value)} placeholder="e.g. mention the garden BBQs, keep it short, more relaxed" /></label>
+          <div className="flex flex-wrap gap-sm">
+            <button type="button" onClick={writePost} disabled={posting} className={`${btn} bg-neutral-900 text-white`}>{posting ? 'Writing…' : groupPost ? 'Write another' : 'Write the post'}</button>
+            {groupPost && <button type="button" className={`${btn} border border-neutral-300 bg-white`} onClick={async () => { await navigator.clipboard.writeText(groupPost).catch(() => {}); setNotice('Copied — paste it into the group.') }}>Copy</button>}
+          </div>
+          {groupPost && <textarea rows={14} className={`${field} leading-relaxed`} value={groupPost} onChange={e => setGroupPost(e.target.value)} />}
         </Section>
 
         {/* Part C — required by law only when something applies (flooding, cladding/building safety, restrictions,

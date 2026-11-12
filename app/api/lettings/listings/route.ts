@@ -6,6 +6,7 @@
 //   POST { id, action: 'move', to }          → move on the board, with its checks
 //   POST { id, action: 'channel', channel, enabled } → switch a channel on/off
 //   POST { id, action: 'tidy' }              → the description laid out under the standard headings (lib/listing/tidyAdvert)
+//   POST { id, action: 'group-post', tone? } → { post } — a chatty Facebook group post from everything we know (lib/listing/socialPost)
 import { NextRequest, NextResponse } from 'next/server'
 import { requireStaff } from '@/lib/portalAuth'
 import { createServiceClient } from '@/lib/supabase'
@@ -14,6 +15,8 @@ import { listingPath } from '@/lib/listing/listing'
 import { smartFill } from '@/lib/listing/smartFill'
 import { fromRecord, blanksFrom } from '@/lib/listing/fromRecord'
 import { tidyAdvert } from '@/lib/listing/tidyAdvert'
+import { writeGroupPost } from '@/lib/listing/socialPost'
+import { nearbyStations } from '@/lib/listing/area'
 import { housemateIntros, introLines } from '@/lib/housemates/adverts'
 import { isWholeLet } from '@/lib/lettings/letWording'
 
@@ -158,6 +161,28 @@ export async function POST(req: NextRequest) {
     const { data, error } = await s.from('listings').update({ description: text, updated_at: new Date().toISOString() }).eq('id', l.id).select('*').single()
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json(await full(s, data))
+  }
+
+  // { action: 'group-post' } → a Facebook group post (12 Nov 2026) — written, not saved
+  if (b.action === 'group-post') {
+    const [{ data: house }, { data: room }] = await Promise.all([
+      s.from('properties').select('name, postcode, property_type, lat, lng').eq('id', l.property_id).maybeSingle(),
+      l.room_id ? s.from('rooms').select('name, has_ensuite').eq('id', l.room_id).maybeSingle() : Promise.resolve({ data: null }),
+    ]) as any[]
+    const stations = await nearbyStations(house?.lat, house?.lng, 3).catch(() => [])
+    const mates = l.room_id ? introLines(await housemateIntros(s, l.property_id, l.room_id).catch(() => [])) : []
+    const area = String(l.display_address || '').trim() || [String(house?.postcode ?? '').trim().split(' ')[0], 'London'].filter(Boolean).join(', ')
+    try {
+      const post = await writeGroupPost({
+        wholeLet: isWholeLet(house?.property_type, room?.name), place: area, roomName: room?.name ?? null, headline: l.headline, summary: l.summary, description: l.description,
+        features: l.features ?? [], rent: l.rent != null ? Number(l.rent) : null, rentFrequency: l.rent_frequency === 'pw' ? 'a week' : 'a month', billsIncluded: l.bills_included,
+        deposit: l.deposit != null ? Number(l.deposit) : null, available: l.available_from ? new Date(`${l.available_from}T12:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' }) : null,
+        bedrooms: l.bedrooms ?? null, housemates: l.housemates ?? null, furnished: l.furnished ?? null, ensuite: room?.has_ensuite ?? l.ensuite ?? null,
+        stations: (stations as any[]).map(st => `${st.name} (${st.walkMin} min walk)`), housemateLines: mates,
+        link: l.room_id ? `https://capitalrooms.co.uk${listingPath(l.room_id)}` : null, tone: String(b.tone ?? '').slice(0, 500),
+      })
+      return NextResponse.json({ post })
+    } catch (e: any) { return NextResponse.json({ error: e?.message ?? 'Couldn’t write it' }, { status: 502 }) }
   }
 
   if (b.action === 'move') {
