@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import Link from 'next/link'
 import LineIcon from '@/components/LineIcon'
 
@@ -98,8 +98,8 @@ export default function DocUploadDrawer({
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
-  // the fire / exit plan is for the tenants (their app's Emergency Fire Plan), so it's shared with them unless unticked
-  useEffect(() => { if (docType === 'evacuation_plan') setVisibleToTenants(true) }, [docType])
+  // nothing is shared with tenants unless the office ticks it (12 Nov 2026 — Harry: plans are filed ad hoc and must
+  // not go out unless he says), so the fire / exit plan starts private like everything else
 
   async function handleFile(f: File) {
     setFile(f)
