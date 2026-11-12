@@ -105,6 +105,9 @@ export default function AddLetOnlyModal({ onClose, onSave, createdByPersonId, in
   // Address
   const [address, setAddress] = useState(initialAddress?.trim() ?? '')
   const [postcode, setPostcode] = useState(initialPostcode?.trim() ?? '')
+  // how many bedrooms the whole property has — not just the rooms we let (12 Nov 2026: 38QDC is a 3-bed flat but only
+  // Room 3 was on file, so its other two housemates couldn't be added for viewing texts)
+  const [bedrooms, setBedrooms] = useState('')
 
   // Landlord — existing person lookup
   const [landlordQuery, setLandlordQuery] = useState('')
@@ -140,7 +143,7 @@ export default function AddLetOnlyModal({ onClose, onSave, createdByPersonId, in
   // Room 1 that's already let)
   const [houses, setHouses] = useState<any[]>([])
   useEffect(() => {
-    supabase.from('properties').select('id, name, address, postcode, property_code, landlord_id, letting_type, rooms(id, name, status), people!landlord_id(salutation, first_name, last_name, full_name)')
+    supabase.from('properties').select('id, name, address, postcode, property_code, landlord_id, letting_type, bedrooms, rooms(id, name, status), people!landlord_id(salutation, first_name, last_name, full_name)')
       .then(({ data }) => setHouses((data ?? []) as any[]))
   }, [])   // eslint-disable-line react-hooks/exhaustive-deps
   const onFile = address.trim() ? houses.find(h => sameHouse(h, address, postcode)) ?? null : null
@@ -220,6 +223,8 @@ export default function AddLetOnlyModal({ onClose, onSave, createdByPersonId, in
     if (!address.trim()) { setError('Address is required'); return }
     if (!postcodesIn(postcode)[0]) { setError('Postcode is required — every property must have one (e.g. E15 1LU)'); return }
     if (rooms.some(r => !r.room_name.trim())) { setError('Each room must have a name'); return }
+    const beds = parseInt(bedrooms, 10)
+    if (!onFile?.bedrooms && !(beds >= 1 && beds <= 20)) { setError('How many bedrooms does the whole property have? (Including rooms we don’t let.)'); return }
     setSaving(true)
     setError(null)
     try {
@@ -228,7 +233,7 @@ export default function AddLetOnlyModal({ onClose, onSave, createdByPersonId, in
       // address that's already set up puts it under that same property; nothing is ever deleted — rooms are marked
       // let, and made available again later.
       const norm = (v: string) => (v || '').toLowerCase().replace(/[^a-z0-9]/g, '')
-      const { data: existing } = await supabase.from('properties').select('id, name, address, postcode, property_code, landlord_id')
+      const { data: existing } = await supabase.from('properties').select('id, name, address, postcode, property_code, landlord_id, bedrooms')
       const match = (existing ?? []).find((p: any) => sameHouse(p, address, postcode))
 
       let property: any = match
@@ -246,6 +251,7 @@ export default function AddLetOnlyModal({ onClose, onSave, createdByPersonId, in
           property_code: code || null,
           property_type: 'hmo',
           letting_type: 'let_only',
+          bedrooms: beds || null,
           landlord_id: selectedLandlordId,
           landlord_name: selectedLandlordId ? null : (landlordName.trim() || null),
           landlord_email: selectedLandlordId ? null : (landlordEmail.trim() || null),
@@ -257,6 +263,7 @@ export default function AddLetOnlyModal({ onClose, onSave, createdByPersonId, in
       } else if (selectedLandlordId && !property.landlord_id) {
         await supabase.from('properties').update({ landlord_id: selectedLandlordId }).eq('id', property.id)
       }
+      if (match && beds >= 1 && !(match as any).bedrooms) await (supabase.from('properties') as any).update({ bedrooms: beds }).eq('id', property.id)
 
       const roomIds: string[] = []
       // Rooms: an existing room of the same name is made available again (keeps its photos and marketing);
@@ -329,7 +336,15 @@ export default function AddLetOnlyModal({ onClose, onSave, createdByPersonId, in
                   placeholder="Filled in when you pick an address"
                   className="w-full rounded-xl border border-neutral-300 px-md py-sm text-sm text-neutral-900 font-mono focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
                 />
-              </div>
+                {!onFile?.bedrooms && (
+                <div>
+                  <label className="block text-xs font-medium text-neutral-600 mb-xs">Bedrooms in the whole property</label>
+                  <input type="number" min={1} max={20} inputMode="numeric" value={bedrooms} onChange={e => setBedrooms(e.target.value.replace(/\D/g, '').slice(0, 2))} placeholder="e.g. 3"
+                    className="w-full rounded-xl border border-neutral-300 px-md py-sm text-sm text-neutral-900 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none" />
+                  <p className="mt-0.5 text-[11px] text-neutral-500">Including rooms we don’t let — so everyone who lives there can be told about viewings.</p>
+                </div>
+              )}
+            </div>
             </div>
             {onFile && (
               <div className="mt-sm rounded-xl border border-emerald-200 bg-emerald-50 px-md py-sm text-xs text-emerald-900">
