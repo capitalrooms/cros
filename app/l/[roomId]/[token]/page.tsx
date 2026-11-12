@@ -36,7 +36,7 @@ const when = (d: string | null) => !d ? 'Ask us' : d <= today() ? 'Available now
 function adTitle(l: Listing) {
   const f = l.facts
   const where = l.displayAddress?.trim() || publicTitle(l.displayName)
-  if (l.wholeLet) return `${f.bedrooms ? `${f.bedrooms}-bedroom home` : 'Home'} on ${where}`
+  if (l.wholeLet) return `${f.bedrooms ? `${f.bedrooms}-bedroom property` : 'Property'} on ${where}`
   let kind = f.roomType && !/single let/i.test(f.roomType) ? f.roomType.toLowerCase().replace(/en-?suite/, 'en-suite').replace(/\s+room$/, '') : f.ensuite ? 'en-suite' : ''
   if (f.ensuite && kind && !kind.includes('en-suite')) kind += ' en-suite'
   const it = `${kind} room`.trim()
@@ -55,7 +55,7 @@ function autoDescription(l: Listing, where: string, stations: Station[]): string
   const f = l.facts
   const kind = f.ensuite ? 'room with its own en-suite bathroom' : `${f.roomType ? f.roomType.toLowerCase() + ' ' : ''}room`.replace(/room room/, 'room')
   const first = l.wholeLet
-    ? `A ${f.bedrooms ? `${f.bedrooms}-bedroom ` : ''}home on ${where}${f.furnished ? `, ${f.furnished.toLowerCase()}` : ''}${l.billsIncluded ? ', with bills included' : ''}.`
+    ? `A ${f.bedrooms ? `${f.bedrooms}-bedroom ` : ''}property on ${where}${f.furnished ? `, ${f.furnished.toLowerCase()}` : ''}${l.billsIncluded ? ', with bills included' : ''}.`
     : `A ${kind} in a ${f.roomsInHouse || f.bedrooms || ''}-bedroom house share on ${where}${f.furnished ? `, ${f.furnished.toLowerCase()}` : ''}${l.billsIncluded ? ', with bills included' : ''}.`.replace(/a -bedroom/, 'a')
   const lines = [first.replace(/\s+/g, ' ')]
   if (!l.wholeLet && f.housemates) lines.push(`You’d be sharing with ${f.housemates} ${f.housemates === 1 ? 'housemate' : 'housemates'}${f.livingRoom ? ', with a shared living room' : ''}${f.bathrooms ? ` and ${f.bathrooms} bathroom${f.bathrooms === 1 ? '' : 's'}` : ''}.`)
@@ -70,7 +70,7 @@ export async function generateMetadata({ params }: { params: Promise<{ roomId: s
   if (!l) return { title: 'Capital Rooms' }
   const where = l.displayAddress?.split(',')[0] || publicTitle(l.displayName)
   const title = `${adTitle(l)}${l.rent ? ` — ${gbp(l.rent)} pcm` : ''}`
-  const description = (plainAdvert(l.description) || `${l.wholeLet ? 'Home' : 'Room'} to rent on ${where}${l.billsIncluded ? ', bills included' : ''}. ${when(l.available)}.`).slice(0, 160)
+  const description = (plainAdvert(l.description) || `${l.wholeLet ? 'Property' : 'Room'} to rent on ${where}${l.billsIncluded ? ', bills included' : ''}. ${when(l.available)}.`).slice(0, 160)
   return { title, description, openGraph: { title, description, images: l.media.filter(m => m.kind === 'photo').slice(0, 1).map(m => m.url) }, robots: { index: false } }
 }
 
@@ -85,12 +85,12 @@ export default async function SharedListing({ params }: { params: Promise<{ room
   const stations = l.approx ? await nearbyStations(l.approx.lat, l.approx.lng) : []
   const description = l.description || autoDescription(l, where, stations)
   const pw = l.rent ? Math.round(l.rent * 12 / 52) : null
-  const unit = l.wholeLet ? 'home' : 'room'
+  const unit = l.wholeLet ? 'property' : 'room'   // Harry, 12 Nov 2026: "it's not a home, it's a property"
   const applyHref = `/applicant/apply?roomId=${l.roomId}&propertyId=${l.propertyId}`
 
   // the facts strip — only what we actually know
   const keyFacts: [string, string][] = ([
-    [l.wholeLet ? 'Home' : 'Room', l.wholeLet ? f.propertyType : [f.roomType, f.ensuite ? 'en-suite' : null].filter(Boolean).join(', ') || null],
+    [l.wholeLet ? 'Property' : 'Room', l.wholeLet ? f.propertyType : [f.roomType, f.ensuite ? 'en-suite' : null].filter(Boolean).join(', ') || null],
     ['Size', f.roomSize ? `${f.roomSize} m²` : null],
     [l.wholeLet ? 'Bedrooms' : 'House', l.wholeLet ? (f.bedrooms ? String(f.bedrooms) : null) : (f.roomsInHouse || f.bedrooms ? `${f.roomsInHouse || f.bedrooms} bedrooms` : null)],
     ['Housemates', !l.wholeLet && f.housemates ? String(f.housemates) : null],
@@ -148,12 +148,12 @@ export default async function SharedListing({ params }: { params: Promise<{ room
   )
 
   return (
-    <PublicShell centred label={l.wholeLet ? 'Home to rent' : 'Room to rent'}>
+    <PublicShell centred label={l.wholeLet ? 'Property to rent' : 'Room to rent'}>
       <article className="mx-auto max-w-6xl px-5 pb-28 pt-6 md:px-8 md:pb-16">
         <BackLink whole={!!l.wholeLet} />
         {l.status === 'let_agreed' && <p className="mb-4 rounded-lg bg-neutral-900 px-4 py-2 text-[14px] font-semibold text-white">Let agreed — this {unit} has been taken. Call us for others like it.</p>}
 
-        <ListingGallery photos={photos.map((m, i) => ({ id: m.id, url: m.url, alt: m.caption || (m.ofRoom ? `${l.roomName}, photo ${i + 1}` : `The ${l.wholeLet ? 'home' : 'house'}, photo ${i + 1}`) }))} videoCount={videos.length} />
+        <ListingGallery photos={photos.map((m, i) => ({ id: m.id, url: m.url, alt: m.caption || (m.ofRoom ? `${l.roomName}, photo ${i + 1}` : `The ${l.wholeLet ? 'property' : 'house'}, photo ${i + 1}`) }))} videoCount={videos.length} />
         {!photos.length && <div className="flex aspect-[3/1] items-center justify-center rounded-xl bg-[#F4F1EB] text-[14px] text-neutral-500">Photos coming soon</div>}
 
         <div className="mt-6 grid gap-10 md:grid-cols-[minmax(0,1fr)_340px]">
