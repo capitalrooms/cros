@@ -21,7 +21,7 @@ export const DOC_TYPE_LABELS: Record<string, string> = {
   insurance_policy: 'Insurance Policy',
   hmo_licence: 'HMO Licence',
   management_agreement: 'Management Agreement',
-  evacuation_plan: 'Evacuation Plan',
+  evacuation_plan: 'Fire / Emergency Exit Plan',
   emergency_contacts: 'Emergency Contacts',
   house_rules: 'House Rules',
   safety_info: 'Safety Information',

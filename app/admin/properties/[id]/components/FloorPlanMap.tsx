@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
+import { useStoredUrl } from '@/lib/files/useStoredFile'
 
 interface DetectedRoom {
   label: string
@@ -29,6 +30,8 @@ export default function FloorPlanMap({
   ensuiteLabels,
   layoutNotes,
   existingNotes,
+  planUrl,
+  planIsPdf,
   onClose,
   onApplied,
 }: {
@@ -39,10 +42,15 @@ export default function FloorPlanMap({
   ensuiteLabels?: string[]
   layoutNotes?: string
   existingNotes?: string
+  /** the floor plan itself (a stored file or a local preview), shown beside the sizes so they can be checked (12 Nov 2026) */
+  planUrl?: string
+  planIsPdf?: boolean
   onClose: () => void
   onApplied: (msg: string) => void
 }) {
   const supabase = createClient()
+  const storedLink = useStoredUrl(planUrl && !planUrl.startsWith('blob:') ? planUrl : '')
+  const planLink = planUrl?.startsWith('blob:') ? planUrl : storedLink
   const [rooms, setRooms] = useState<Array<{ id: string; name: string; room_size: number | null }>>([])
   const [rows, setRows] = useState<Row[]>([])
   const [bathrooms, setBathrooms] = useState(bathroomsCount ? String(bathroomsCount) : '')
@@ -58,15 +66,27 @@ export default function FloorPlanMap({
         .select('id, name, room_size')
         .eq('property_id', propertyId)
         .order('name')
-      const rms = data || []
+      const rms = (data || []) as Array<{ id: string; name: string; room_size: number | null }>
       setRooms(rms)
-      // Best-effort default mapping: detected[i] → rms[i] (admin adjusts).
+      // Default mapping (12 Nov 2026): same name ("Room 1" ↔ "Room 1"), then same number on a bedroom-type label
+      // ("Bedroom 2" ↔ "Room 2"); kitchens, lounges and bathrooms aren't let rooms, so they start unmapped.
+      const norm = (x: string) => x.toLowerCase().replace(/[^a-z0-9]/g, '')
+      const numOf = (x: string) => x.match(/\d+/)?.[0] ?? ({ one: '1', two: '2', three: '3', four: '4', five: '5', six: '6', seven: '7', eight: '8', nine: '9', ten: '10' } as Record<string, string>)[x.toLowerCase().match(/\b(one|two|three|four|five|six|seven|eight|nine|ten)\b/)?.[1] ?? ''] ?? ''
+      const taken = new Set<string>()
+      const pick = (label: string) => {
+        const byName = rms.find(r => !taken.has(r.id) && norm(r.name) === norm(label))
+        const bedroomish = /\b(room|bed|bedroom|studio|unit|flat)\b/i.test(label) && !/bath|shower|wc|kitchen|living|lounge|dining|utility|store|hall/i.test(label)
+        const byNum = !byName && bedroomish && numOf(label) ? rms.find(r => !taken.has(r.id) && numOf(r.name) === numOf(label)) : undefined
+        const hit = byName ?? byNum
+        if (hit) taken.add(hit.id)
+        return hit?.id ?? ''
+      }
       setRows(
-        detected.map((d, i) => ({
+        detected.map((d) => ({
           label: d.label,
           dimensions: d.dimensions,
           area: d.area_sqm ? String(d.area_sqm) : '',
-          targetRoomId: rms[i]?.id || '',
+          targetRoomId: pick(d.label),
           ensuite: (ensuiteLabels || []).some((l) => l.toLowerCase() === d.label.toLowerCase()),
         }))
       )
@@ -118,11 +138,20 @@ export default function FloorPlanMap({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 p-lg" onClick={() => !saving && onClose()}>
-      <div className="w-full max-w-xl max-h-[85dvh] overflow-y-auto rounded-2xl bg-neutral-900 border border-neutral-700 p-lg shadow-xl" onClick={(e) => e.stopPropagation()}>
+      <div className={`w-full ${planUrl ? 'max-w-5xl' : 'max-w-xl'} max-h-[90dvh] overflow-y-auto rounded-2xl bg-neutral-900 border border-neutral-700 p-lg shadow-xl`} onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-md">
-          <h3 className="text-lg font-bold text-white">Floor plan scan</h3>
+          <h3 className="text-lg font-bold text-white">Room sizes from the floor plan</h3>
           <button onClick={() => !saving && onClose()} className="text-neutral-500 hover:text-white text-2xl leading-none">×</button>
         </div>
+        <div className={planUrl ? 'grid gap-lg md:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] items-start' : ''}>
+        {planUrl && (
+          <div className="md:sticky md:top-0 rounded-lg overflow-hidden bg-white border border-neutral-700">
+            {!planLink ? <p className="p-lg text-sm text-neutral-500">Opening the floor plan…</p>
+              : planIsPdf ? <iframe src={planLink} title="Floor plan" className="w-full h-[60vh] md:h-[70vh] bg-white" />
+              : <a href={planLink} target="_blank" rel="noreferrer" title="Open full size"><img src={planLink} alt="Floor plan" className="w-full h-auto block" /></a>}
+          </div>
+        )}
+        <div>
 
         {detected.length === 0 ? (
           <p className="text-sm text-neutral-400">
@@ -131,7 +160,7 @@ export default function FloorPlanMap({
         ) : (
           <>
             <p className="text-sm text-neutral-400 mb-lg">
-              Map each room the AI found to one of your units and check the area, then apply. Sizes save to each unit and show on its dashboard.
+              Check each room found on the plan is matched to the right unit and the size is right, then apply. Sizes save to each unit and show on its dashboard.
             </p>
             <div className="space-y-md">
               {rows.map((r, i) => (
@@ -213,6 +242,8 @@ export default function FloorPlanMap({
           <button onClick={handleApply} disabled={saving} className="flex-1 rounded-lg bg-blue-600 px-lg py-sm text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50">
             {saving ? 'Saving…' : 'Apply'}
           </button>
+        </div>
+        </div>
         </div>
       </div>
     </div>

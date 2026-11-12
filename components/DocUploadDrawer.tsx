@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import LineIcon from '@/components/LineIcon'
 
@@ -60,6 +60,8 @@ const DOC_TYPES = [
   { value: 'id_proof',                 label: 'ID Proof (Passport / Licence)' },
   { value: 'employment_letter',        label: 'Employment / Income Letter' },
   { value: 'floor_plan',               label: 'Floor Plan' },
+  // shown to tenants as the house's Emergency Fire Plan (12 Nov 2026 — there was no way to file one)
+  { value: 'evacuation_plan',          label: 'Fire / Emergency Exit Plan' },
   { value: 'insurance',                label: 'Insurance Policy' },
   { value: 'hmo_licence',              label: 'HMO Licence' },
   { value: 'management_agreement',     label: 'Management Agreement' },
@@ -96,6 +98,8 @@ export default function DocUploadDrawer({
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
+  // the fire / exit plan is for the tenants (their app's Emergency Fire Plan), so it's shared with them unless unticked
+  useEffect(() => { if (docType === 'evacuation_plan') setVisibleToTenants(true) }, [docType])
 
   async function handleFile(f: File) {
     setFile(f)

@@ -9,6 +9,6 @@ export const dynamic = 'force-dynamic'
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ token: string }> }) {
   const r = await requestByToken(createServiceClient() as any, (await params).token)
   if (!r) return NextResponse.json({ error: 'This link isn’t valid' }, { status: 404 })
-  const pdf = await letterPdf({ landlord: r.landlord, address: r.address })
+  const pdf = await letterPdf({ landlord: r.landlord, address: r.address, addresses: r.properties.map(p => p.address) })
   return new NextResponse(new Uint8Array(pdf), { headers: { 'Content-Type': 'application/pdf', 'Content-Disposition': 'inline; filename="Letter of authority.pdf"' } })
 }

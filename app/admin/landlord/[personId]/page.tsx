@@ -1,4 +1,5 @@
 'use client'
+import PortalDocs from '@/app/admin/properties/[id]/components/PortalDocs'
 import Link from 'next/link'
 
 import { useState, useEffect, use } from 'react'
@@ -1221,6 +1222,8 @@ export default function LandlordProfilePage({ params, searchParams }: { params: 
         {/* ══ PROPERTIES ══ */}
         {activeTab === 'properties' && (
           <div className="space-y-md">
+            {/* Required info for Rightmove advertising — choose any of their properties (12 Nov 2026) */}
+            <PortalDocs landlordId={personId} />
             {properties.length === 0 ? (
               <div className="rounded-xl border border-neutral-200 bg-white p-xl text-center">
                 <p className="text-neutral-400 text-sm">No properties linked to this landlord.</p>

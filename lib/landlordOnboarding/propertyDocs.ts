@@ -28,6 +28,7 @@ export const PROPERTY_DOC_TYPES: { key: string; label: string; group: Group; exp
   { key: 'pat_test_record', label: 'PAT test record', group: 'Certificates & safety' },
   { key: 'legionella_risk_assessment', label: 'Legionella risk assessment', group: 'Certificates & safety' },
   { key: 'hmo_licence', label: 'HMO / property licence', group: 'Certificates & safety', expected: true },
+  { key: 'evacuation_plan', label: 'Fire / emergency exit plan', group: 'Certificates & safety' },
   { key: 'asbestos_survey', label: 'Asbestos survey', group: 'Certificates & safety' },
   { key: 'floor_plan', label: 'Floor plan', group: 'Property & legal', expected: true },
   { key: 'property_photos', label: 'Property photos', group: 'Property & legal' },

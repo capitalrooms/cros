@@ -6,6 +6,7 @@ import { initials as avatarInitials } from '@/lib/people'
 import { createClient } from '@/lib/supabase'
 import { adminFetch } from '@/lib/adminFetch'
 import FloorPlanMap from './FloorPlanMap'
+import FloorPlanText from './FloorPlanText'
 import PostcodeLookupWidget, { PostcodeLookupResult } from '@/components/admin/PostcodeLookupWidget'
 import { postcodesIn } from '@/lib/councils/london'
 import LineIcon from '@/components/LineIcon'
@@ -53,7 +54,7 @@ export default function PropertyTab({ property, onUpdate }: PropertyTabProps) {
   }, [property.id])
   const [uploadingFloorPlan, setUploadingFloorPlan] = useState(false)
   const [scanningPlan, setScanningPlan] = useState(false)
-  const [floorPlanResult, setFloorPlanResult] = useState<{ detected: any[]; notes: string; bathrooms_count?: number; ensuite_room_labels?: string[]; layout_notes?: string } | null>(null)
+  const [floorPlanResult, setFloorPlanResult] = useState<{ detected: any[]; notes: string; bathrooms_count?: number; ensuite_room_labels?: string[]; layout_notes?: string; planUrl?: string; planIsPdf?: boolean } | null>(null)
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const [savingFeatured, setSavingFeatured] = useState<string | null>(null)
   const [photos, setPhotos] = useState<Photo[]>([])
@@ -316,6 +317,8 @@ export default function PropertyTab({ property, onUpdate }: PropertyTabProps) {
         bathrooms_count: json.result?.bathrooms_count,
         ensuite_room_labels: json.result?.ensuite_room_labels || [],
         layout_notes: json.result?.layout_notes || '',
+        planUrl: URL.createObjectURL(file),
+        planIsPdf: file.type === 'application/pdf',
       })
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not scan the floor plan')
@@ -958,6 +961,7 @@ export default function PropertyTab({ property, onUpdate }: PropertyTabProps) {
           <p className="text-xs text-neutral-500">PDF or image, up to 10 MB. The room sizes are read from it and offered to you to confirm.</p>
           {uploadingFloorPlan && <p className="text-xs text-neutral-600 mt-md">Uploading…</p>}
           {scanningPlan && <p className="text-xs text-neutral-600 mt-md">Reading the room sizes…</p>}
+          <div className="mt-md flex items-center gap-sm text-xs text-neutral-500"><span>Have the sizes as text instead?</span><FloorPlanText propertyId={property.id} onApplied={setSuccess} className="rounded-md border border-neutral-300 px-sm py-xs text-xs font-semibold text-neutral-800 hover:bg-neutral-100" /></div>
         </div>
       </div>
 
@@ -972,6 +976,8 @@ export default function PropertyTab({ property, onUpdate }: PropertyTabProps) {
           ensuiteLabels={floorPlanResult.ensuite_room_labels}
           layoutNotes={floorPlanResult.layout_notes}
           existingNotes={property.property_notes || ''}
+          planUrl={floorPlanResult.planUrl}
+          planIsPdf={floorPlanResult.planIsPdf}
           onClose={() => setFloorPlanResult(null)}
           onApplied={(msg) => { setSuccess(msg); setFloorPlanResult(null) }}
         />
