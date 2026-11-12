@@ -6,7 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireStaff } from '@/lib/portalAuth'
 import { createServiceClient } from '@/lib/supabase'
-import { newToken, BUCKET, OWNERSHIP_TYPES, oneLine, docsOnFile, listWords } from '@/lib/portalDocs'
+import { newToken, BUCKET, OWNERSHIP_TYPES, oneLine, docsOnFile, listWords, streetOf } from '@/lib/portalDocs'
 import { viewLink } from '@/lib/files/fileCrypt'
 import { dearLine, landlordName } from '@/lib/people'
 import { sendEmail } from '@/lib/sendEmail'
@@ -19,7 +19,7 @@ export const dynamic = 'force-dynamic'
 const LOOKS: Record<string, string> = { website: 'website', landlord: 'editorial' }
 const esc = (t: string) => t.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!))
 const missing = (e: any) => e && (e.code === '42P01' || e.code === 'PGRST205' || e.code === '42703' || /portal_authority|property_ids|ownership|on_file/.test(e.message ?? ''))
-const street = (p: any) => oneLine(p?.address || p?.name).split(',')[0]
+const street = (p: any) => streetOf(p)
 const LL = 'people!landlord_id(id, salutation, first_name, last_name, full_name, company, email)'
 
 export async function GET(req: NextRequest) {

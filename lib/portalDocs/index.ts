@@ -19,7 +19,18 @@ export const newToken = () => crypto.randomBytes(18).toString('base64url')
 export const folderFor = (token: string) => `rm-${token}`
 export const oneLine = (a: string | null | undefined) => String(a ?? '').replace(/\s*\n\s*/g, ', ').trim()
 
-const fullAddress = (p: any) => { const a = oneLine(p?.address || p?.name); return p?.postcode && !a.toUpperCase().includes(String(p.postcode).toUpperCase()) ? `${a}, ${p.postcode}` : a }
+/** "12 Saltwell Street" — the first line with the house number. Some properties keep it only in the name, with the
+ *  address starting "Poplar, London…", so take whichever has the number (and drop a " - Workflow Demo" style suffix). */
+export const streetOf = (p: any) => {
+  const a = oneLine(p?.address).split(',')[0].trim(), n = oneLine(p?.name).split(',')[0].replace(/\s+[-–—]\s+.*$/, '').trim()
+  return /^\d/.test(a) ? a : /\d/.test(n) ? n : a || n
+}
+/** The full one-line address, always with the house number and postcode. */
+export const fullAddress = (p: any) => {
+  const st = streetOf(p), raw = oneLine(p?.address)
+  const a = !raw ? st : raw.toLowerCase().includes(st.toLowerCase()) ? raw : `${st}, ${raw}`
+  return p?.postcode && !a.toUpperCase().includes(String(p.postcode).toUpperCase()) ? `${a}, ${p.postcode}` : a
+}
 /** "A", "A and B", "A, B and C" */
 export const listWords = (xs: string[]) => xs.length <= 1 ? (xs[0] ?? '') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`
 
@@ -36,10 +47,19 @@ const shortDate = (d: string | null | undefined) => d ? new Date(d).toLocaleDate
 export async function docsOnFile(s: SupabaseClient, landlordId: string | null | undefined, propertyIds: string[]): Promise<{ id: OnFile | null; ownership: Record<string, OnFile> }> {
   const out: { id: OnFile | null; ownership: Record<string, OnFile> } = { id: null, ownership: {} }
   if (!landlordId) return out
-  const [{ data: onb }, { data: pdocs }] = await Promise.all([
+  const [{ data: onb }, { data: prev }, { data: pdocs }] = await Promise.all([
     s.from('landlord_onboarding').select('form_data, created_at, updated_at').eq('landlord_people_id', landlordId).order('created_at', { ascending: false }).limit(5),
+    s.from('portal_authority_requests').select('*').eq('landlord_id', landlordId).order('created_at', { ascending: false }).limit(20),
     propertyIds.length ? s.from('property_documents').select('property_id, document_type, storage_url, uploaded_at').in('property_id', propertyIds).in('document_type', OWNERSHIP_DOC_TYPES).order('uploaded_at', { ascending: false }) : Promise.resolve({ data: [] as any[] }),
-  ]) as [{ data: any[] | null }, { data: any[] | null }]
+  ]) as [{ data: any[] | null }, { data: any[] | null }, { data: any[] | null }]
+  // sent with an earlier Rightmove request — the newest copy we hold, so it goes first
+  for (const r of prev ?? []) {
+    const when = shortDate(r.completed_at || r.created_at)
+    if (!out.id && r.id_path) out.id = { label: `Photo ID they sent ${when}`, path: r.id_path }
+    const own: Record<string, any> = { ...(r.ownership ?? {}) }
+    if (r.ownership_path && r.property_id && !own[r.property_id]) own[r.property_id] = { type: r.ownership_type, path: r.ownership_path }
+    for (const pid of propertyIds) if (!out.ownership[pid] && own[pid]?.path) out.ownership[pid] = { label: `${OWNERSHIP_TYPES.find(t => t.key === own[pid].type)?.label ?? 'Proof of ownership'} they sent ${when}`, path: own[pid].path }
+  }
   for (const r of onb ?? []) {
     const docs = r.form_data?.documents ?? {}, when = shortDate(r.updated_at || r.created_at)
     const first = (k: string) => (Array.isArray(docs[k]) ? docs[k] : []).find((x: unknown) => typeof x === 'string') as string | undefined
@@ -68,7 +88,7 @@ export async function requestByToken(s: SupabaseClient, token: string) {
   const properties = ids.map(id => (props ?? []).find(p => p.id === id)).filter(Boolean).map((p: any) => {
     const own = data.ownership?.[p.id] ?? (p.id === data.property_id && data.ownership_path ? { type: data.ownership_type, path: data.ownership_path } : null)
     const onFile: OnFile | null = data.on_file?.ownership?.[p.id] ?? null
-    return { id: p.id, address: fullAddress(p), street: oneLine(p.address || p.name).split(',')[0], ownershipType: own?.type ?? null, ownershipPath: own?.path ?? null, onFile, done: !!own?.path || !!onFile }
+    return { id: p.id, address: fullAddress(p), street: streetOf(p), ownershipType: own?.type ?? null, ownershipPath: own?.path ?? null, onFile, done: !!own?.path || !!onFile }
   })
   const idOnFile: OnFile | null = data.on_file?.id ?? null
   return { row: data, properties, idOnFile, idDone: !!data.id_path || !!idOnFile, address: listWords(properties.map(p => p.address)), landlord: data.people ? landlordName(data.people) : '' }
