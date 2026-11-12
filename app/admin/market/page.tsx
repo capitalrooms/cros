@@ -82,7 +82,7 @@ export default function MarketPage() {
   // talking points — plain facts from the figures, nothing guessed
   const points: string[] = []
   if (r?.change_all != null) points.push(`Rents in ${d.area.name} are ${r.change_all >= 0 ? 'up' : 'down'} ${Math.abs(r.change_all).toFixed(1)}% on a year ago${L?.change != null ? ` (London ${pct(L.change)})` : ''} — the average home now lets for ${gbp(r.rent_all)} a month.`)
-  if (s?.change12 != null) points.push(`House prices are ${s.change12 >= 0 ? 'up' : 'down'} ${Math.abs(s.change12).toFixed(1)}% in a year, to an average of ${gbpK(s.average)}${s.flat ? ` (flats ${gbpK(s.flat)})` : ''}.`)
+  if (s?.change12 != null) points.push(`House prices are ${s.change12 >= 0 ? 'up' : 'down'} ${Math.abs(s.change12).toFixed(1)}% in a year, to an average of ${gbpK(s.average)}${s.flat ? ` (flats of any size ${gbpK(s.flat)})` : ''}.`)
   if (r?.change_all != null && s?.change12 != null && r.change_all > s.change12) points.push(`Rents are rising faster than prices, so yields are improving — about ${yieldAll?.toFixed(1)}% gross on an average home${yieldFlat ? `, ${yieldFlat.toFixed(1)}% on a flat` : ''}.`)
   if (o?.roomMedian) points.push(`Our rooms here typically let for ${gbp(o.roomMedian)} a month${o.ensuiteMedian ? `, en-suites ${gbp(o.ensuiteMedian)}` : ''} — ${o.rooms + o.ensuites} rooms on our books.`)
 
@@ -159,19 +159,19 @@ export default function MarketPage() {
                       <Tile label="1 bed" value={gbp(r.rent_1)} change={r.change_1} />
                       <Tile label="2 bed" value={gbp(r.rent_2)} change={r.change_2} />
                       <Tile label="3 bed" value={gbp(r.rent_3)} change={r.change_3} />
-                      <Tile label="Flat" value={gbp(r.rent_flat)} />
+                      <Tile label="Flat or maisonette" value={gbp(r.rent_flat)} note="any size" />
                       <Tile label="Gross yield" value={yieldAll ? `${yieldAll.toFixed(1)}%` : '—'} note={yieldFlat ? `flats ${yieldFlat.toFixed(1)}%` : 'average rent × 12 ÷ average price'} />
                     </div>
                   </div>
                   <div>
-                    <p className="mb-xs text-xs font-bold uppercase tracking-wide text-neutral-500">Buying</p>
+                    <p className="mb-xs text-xs font-bold uppercase tracking-wide text-neutral-500">Buying <span className="font-semibold normal-case tracking-normal text-neutral-400">· average prices by type of home (the Land Registry doesn’t split by bedrooms)</span></p>
                     {s ? (
                       <div className="grid grid-cols-2 gap-sm sm:grid-cols-3">
                         <Tile label="Average price" value={gbpK(s.average)} change={s.change12} />
-                        <Tile label="Flat" value={gbpK(s.flat)} change={s.changeFlat} />
-                        <Tile label="Terraced" value={gbpK(s.terraced)} change={s.changeTerraced} />
+                        <Tile label="Flat or maisonette" value={gbpK(s.flat)} change={s.changeFlat} note="any size, studio to 3-bed" />
+                        <Tile label="Terraced house" value={gbpK(s.terraced)} change={s.changeTerraced} />
                         <Tile label="First-time buyer" value={gbpK(s.firstTime)} />
-                        <Tile label="Semi-detached" value={gbpK(s.semi)} />
+                        <Tile label="Semi-detached house" value={gbpK(s.semi)} />
                         <Tile label="Last month" value={pct(s.change1) || '—'} note="change on the month before" />
                       </div>
                     ) : <p className="text-sm text-neutral-500">No house price figures for this area.</p>}
