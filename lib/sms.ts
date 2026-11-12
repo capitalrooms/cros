@@ -23,6 +23,8 @@ export const SENDER_NAME = (process.env.TWILIO_SENDER_NAME || 'CAPITAL RMS').sli
 export async function sendSms(to: string | null | undefined, body: string, opts: { asName?: boolean } = {}): Promise<{ ok: boolean; error?: string }> {
   const num = toE164(to)
   if (!num) return { ok: false, error: 'no valid mobile number' }
+  // the made-up test range (07700 900xxx — Ofcom's drama numbers, used by every test account): never sent (12 Nov 2026)
+  if (/^\+447700900\d{3}$/.test(num)) { console.log(`[sendSms] test number — not sent: ${body.slice(0, 80)}`); return { ok: true } }
   const sid = process.env.TWILIO_ACCOUNT_SID, token = process.env.TWILIO_AUTH_TOKEN
   const from = process.env.TWILIO_FROM_NUMBER || process.env.TWILIO_PHONE_NUMBER
   if (!sid || !token || !from) return { ok: false, error: 'texting is not set up' }

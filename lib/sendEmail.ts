@@ -125,6 +125,10 @@ export async function deliverEmail(msg: OutgoingEmail, opts: { req?: Request | n
   const realTo = (Array.isArray(msg.to) ? msg.to : [msg.to]).filter(a => !/\.invalid$/i.test(String(a ?? '').trim()))
   if (!realTo.length) return Response.json({ message: 'No email address on file' }, { status: 422 })
   msg = { ...msg, to: Array.isArray(msg.to) ? realTo : realTo[0] }
+  // made-up test accounts (…@example.com, +test@) never get real email — nor does the office's copy of it (12 Nov 2026,
+  // so the practice house and test runs send nothing). test-onboard@capitalrooms.co.uk is a real inbox and still gets it.
+  const fake = (a: string) => /@example\.(com|org|net|co\.uk)$/i.test(a.trim()) || /\+test@/i.test(a)
+  if (realTo.every(a => fake(String(a)))) { console.log(`[deliverEmail] test address only — not sent: ${msg.subject}`); return Response.json({ id: 'test-not-sent', test: true }, { status: 200 }) }
   const apiKey = process.env.RESEND_API_KEY
   if (!apiKey) {
     console.error('[deliverEmail] RESEND_API_KEY not set')
