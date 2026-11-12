@@ -147,7 +147,7 @@ export default function PortalDocsPage({ params }: { params: Promise<{ token: st
           <header style={{ display: 'flex', flexDirection: 'column', gap: 14, paddingBottom: 4 }}>
             <span className="pub-eyebrow">Rightmove advertising</span>
             <h1 className="pub-h2" style={{ margin: 0 }}>Required info for Rightmove advertising</h1>
-            <p className="pub-intro" style={{ margin: 0 }}>{d.landlord ? <>{d.landlord}, before</> : 'Before'} <b>{d.address}</b> can go on Rightmove, they need three things from you. A clear photo of each is fine — a scan is great too. You can stop and come back to this link any time.</p>
+            <p className="pub-intro" style={{ margin: 0 }}>{d.landlord ? <>{d.landlord}, before</> : 'Before'} <b>{d.address}</b> can go on Rightmove, {(() => { const held = (d.idOnFile ? 1 : 0) + (d.properties.length && d.properties.every(x => x.onFile) ? 1 : 0); const need = 3 - held; return need === 3 ? 'they need three things from you' : `there ${need === 1 ? 'is just one thing' : 'are two things'} left for you to do — we already have the rest` })()}. A clear photo of each is fine — a scan is great too. You can stop and come back to this link any time.</p>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4 }}>
               <div style={{ display: 'flex', gap: 6 }}>{[0, 1, 2].map(i => <span key={i} style={{ width: 28, height: 6, borderRadius: 3, background: i < doneCount ? '#2F6B4F' : '#E4E0D8' }} />)}</div>
               <span className="pub-muted" style={{ fontSize: 14 }}>{doneCount} of 3 done</span>
@@ -208,7 +208,7 @@ export default function PortalDocsPage({ params }: { params: Promise<{ token: st
 
           <Step n={3} title="Photo ID" done={d.done.id}>
             {d.idOnFile && !newer.__id ? (
-              <p style={{ margin: 0, fontSize: 15, lineHeight: 1.5 }}>✓ We already have your photo ID from when you joined — nothing to do. <button type="button" onClick={() => setNewer(m => ({ ...m, __id: true }))} style={{ background: 'none', border: 0, padding: 0, color: '#111', textDecoration: 'underline', cursor: 'pointer', font: 'inherit' }}>Send a newer one</button></p>
+              <p style={{ margin: 0, fontSize: 15, lineHeight: 1.5 }}>✓ We already have your photo ID — nothing to do. <button type="button" onClick={() => setNewer(m => ({ ...m, __id: true }))} style={{ background: 'none', border: 0, padding: 0, color: '#111', textDecoration: 'underline', cursor: 'pointer', font: 'inherit' }}>Send a newer one</button></p>
             ) : (<>
               {p('Your passport (the photo page) or driving licence. Make sure all four corners are in the photo and it isn’t blurry.')}
               <Upload doc="id" label="Add a photo of your ID" done={d.done.id && !d.idOnFile} />
@@ -217,7 +217,7 @@ export default function PortalDocsPage({ params }: { params: Promise<{ token: st
 
           {err && <p className="pub-error" style={{ margin: 0 }}>{err}</p>}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12, paddingTop: 4 }}>
-            <button type="button" className="pub-btn" onClick={submit} disabled={doneCount < 3 || busy === 'submit'}>{busy === 'submit' ? 'Sending…' : doneCount < 3 ? `Add all three to send (${doneCount} of 3)` : 'Send to Capital Rooms'}</button>
+            <button type="button" className="pub-btn" onClick={submit} disabled={doneCount < 3 || busy === 'submit'}>{busy === 'submit' ? 'Sending…' : doneCount < 3 ? `Finish the steps above to send (${doneCount} of 3 done)` : 'Send to Capital Rooms'}</button>
             <p className="pub-muted" style={{ margin: 0, fontSize: 13, textAlign: 'center' }}>Your documents are kept private and encrypted, and only used to list {d.properties.length > 1 ? 'these properties' : 'this property'}.</p>
           </div>
         </>))}
