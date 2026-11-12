@@ -1,0 +1,256 @@
+[
+  {
+    "n": 1,
+    "slug": "air-your-room",
+    "title": "Air your room every morning",
+    "excerpt": "Ten minutes of fresh air before you head out keeps your room dry, fresh and free of mould.",
+    "steps": [
+      "Once you’re dressed and ready for the day, open your bedroom window wide.",
+      "Leave it open for 10 to 15 minutes while you finish getting ready.",
+      "Close it before you leave.",
+      "If you can, do the same in the evening."
+    ],
+    "why": "We breathe out a lot of moisture overnight. Letting it out each morning stops condensation and mould, and fresh air every day is good for your health too."
+  },
+  {
+    "n": 2,
+    "slug": "last-to-shower",
+    "title": "Last to shower? Let the steam out",
+    "excerpt": "If you’re the last to shower, a wide-open window or 20 to 30 minutes of fan stops peeling paint and ceiling mould.",
+    "steps": [
+      "Switch the extractor fan on before you shower.",
+      "If you’re the last to shower, open the window wide afterwards, or leave the fan running for 20 to 30 minutes.",
+      "Close the bathroom door behind you so the steam goes outside, not into the rest of the house.",
+      "Wipe the shower screen and tiles with a squeegee or towel."
+    ],
+    "why": "Steam that stays in the bathroom settles on the ceiling and walls. That’s what makes paint peel and black mould grow."
+  },
+  {
+    "n": 3,
+    "slug": "wipe-condensation",
+    "title": "Wipe your windows every morning",
+    "excerpt": "Thirty seconds with a squeegee each morning stops black mould growing round your windows.",
+    "steps": [
+      "Each morning, wipe the water off the glass with a squeegee or cloth.",
+      "Wring the cloth out into the sink, not onto the sill.",
+      "Wipe the window sill and frame dry too.",
+      "Open the window for a few minutes to finish drying it."
+    ],
+    "why": "Water left on windows soaks into the sill and seals, and that’s where black mould starts."
+  },
+  {
+    "n": 4,
+    "slug": "lids-on-pans",
+    "title": "Cooking? Lids on, fan on",
+    "excerpt": "Lids on pans, the cooker fan on and the kitchen door closed: the easiest way to stop kitchen damp.",
+    "steps": [
+      "Put lids on pans while you cook.",
+      "Turn the cooker hood fan on.",
+      "Keep the kitchen door closed while you cook.",
+      "Open a window if you can, and don’t leave the kettle boiling."
+    ],
+    "why": "Cooking is one of the biggest sources of moisture in a home. Keeping the steam in the kitchen, and getting it outside, stops damp spreading."
+  },
+  {
+    "n": 5,
+    "slug": "drying-clothes",
+    "title": "Don’t dry clothes on the radiator",
+    "excerpt": "A load of washing holds litres of water. Here’s where to dry it so it doesn’t end up on your walls.",
+    "steps": [
+      "Dry washing outside whenever you can.",
+      "If it’s raining, put an airer in the bathroom with the door shut and the window open or the fan on.",
+      "Never dry clothes on radiators.",
+      "Ask yourself: where will all the water from the clothes go?"
+    ],
+    "why": "Clothes drying indoors put water straight into the air, and on radiators they also stop the room warming up."
+  },
+  {
+    "n": 6,
+    "slug": "furniture-gap",
+    "title": "Keep furniture off the walls",
+    "excerpt": "Leave a hand’s width between furniture and walls so air can move and mould can’t hide.",
+    "steps": [
+      "Leave a gap of about 23cm (9 inches) between beds, sofas and wardrobes and the walls, especially outside walls.",
+      "Don’t overfill wardrobes and cupboards.",
+      "Keep a little space between bedding and the wall."
+    ],
+    "why": "Outside walls are colder. Where furniture blocks the air, condensation forms behind it and mould grows unseen."
+  },
+  {
+    "n": 7,
+    "slug": "trickle-vents",
+    "title": "Keep your trickle vents open",
+    "excerpt": "That little slot at the top of your window lets your room breathe without a draught. Keep it open.",
+    "steps": [
+      "Find the trickle vent along the top of the window frame.",
+      "Slide it open and leave it open all year.",
+      "Never cover vents, air bricks or chimneys."
+    ],
+    "why": "Trickle vents let moist air out slowly all day and night, without making the room cold."
+  },
+  {
+    "n": 8,
+    "slug": "bath-cold-first",
+    "title": "Running a bath? Cold tap first",
+    "excerpt": "Run the cold tap first when you fill a bath and you’ll make a fraction of the steam.",
+    "steps": [
+      "Put a few centimetres of cold water in the bath first.",
+      "Then top it up with hot.",
+      "Keep the fan on and the door shut while you bathe."
+    ],
+    "why": "Hot water hitting an empty bath throws up clouds of steam. Cold water first keeps most of it in the water."
+  },
+  {
+    "n": 9,
+    "slug": "shower-plughole",
+    "title": "Clear the shower plughole every week",
+    "excerpt": "A weekly 30-second clear-out keeps your shower draining and saves calling a plumber.",
+    "steps": [
+      "Once a week, lift the plughole cover.",
+      "Pull out any hair with a tissue and put it in the bin.",
+      "Fit a hair catcher over the plughole; they cost a few pounds.",
+      "Don’t pour chemical drain cleaners down; report a blockage instead."
+    ],
+    "why": "Hair binds with soap into a plug that slowly blocks the pipe. Catching it early stops the blockage forming."
+  },
+  {
+    "n": 10,
+    "slug": "fat-in-the-bin",
+    "title": "Fat goes in the bin, not the sink",
+    "excerpt": "Cooking fat sets like candle wax in the pipes. Here’s what to do with it instead.",
+    "steps": [
+      "Never pour oil or fat down the sink, even with hot water.",
+      "Let it cool in an old jar or tin, then put it in the general waste bin.",
+      "Wipe greasy pans and plates with kitchen roll before you wash them."
+    ],
+    "why": "Fat cools and hardens in the pipes, catches everything else and causes blocked sinks and smells."
+  },
+  {
+    "n": 11,
+    "slug": "only-flush-3-ps",
+    "title": "Only flush the 3 Ps",
+    "excerpt": "Toilets are built for three things. Everything else causes blockages.",
+    "steps": [
+      "Only flush pee, poo and toilet paper.",
+      "Wipes, pads, tampons, cotton buds and kitchen roll go in the bin, even “flushable” wipes.",
+      "Keep a small bin with a lid in the bathroom."
+    ],
+    "why": "Wipes and pads don’t break down. They tangle in the pipes and cause blockages that affect the whole house."
+  },
+  {
+    "n": 12,
+    "slug": "test-smoke-alarm",
+    "title": "Test your smoke alarm every month",
+    "excerpt": "A ten-second test once a month makes sure your smoke alarm will wake you if it needs to.",
+    "steps": [
+      "Once a month, press and hold the test button until it beeps.",
+      "If it doesn’t beep, or it chirps every so often, report it straight away.",
+      "Never take the battery out, and never cover the alarm, even when cooking."
+    ],
+    "why": "Smoke alarms save lives, but only if they work. A quick test is the only way to know."
+  },
+  {
+    "n": 13,
+    "slug": "fire-doors",
+    "title": "Keep fire doors shut",
+    "excerpt": "A closed fire door gives everyone in the house time to get out. A propped one gives none.",
+    "steps": [
+      "Keep fire doors closed at all times, especially in shared areas.",
+      "Never prop or wedge them open.",
+      "Know your way out of the building.",
+      "If a fire door doesn’t close fully by itself, or a seal is damaged, report it straight away."
+    ],
+    "why": "Fire doors hold back fire and toxic smoke, which is often more dangerous than the flames, giving you time to escape."
+  },
+  {
+    "n": 14,
+    "slug": "tripped-switch",
+    "title": "Power off? Check for a tripped switch",
+    "excerpt": "Most power cuts in one room are a tripped switch you can reset in seconds.",
+    "steps": [
+      "Find the fuse box (consumer unit).",
+      "Look for a switch pointing down.",
+      "Unplug anything that was on when the power went, then push the switch back up.",
+      "If it trips again, leave it off and report it. Never reset it if you smell burning."
+    ],
+    "why": "A trip switch cuts the power when something is faulty, to keep you safe. Resetting once is fine; if it keeps tripping, an electrician needs to look."
+  },
+  {
+    "n": 15,
+    "slug": "washing-machine",
+    "title": "Leave the washing machine open",
+    "excerpt": "Leaving the door ajar after a wash stops that musty washing machine smell.",
+    "steps": [
+      "Take washing out as soon as the cycle finishes.",
+      "Leave the door and detergent drawer open so the machine dries out.",
+      "Wipe the rubber door seal now and then and clear out anything caught in it."
+    ],
+    "why": "A closed, damp drum and seal are perfect for mould, which makes the machine and your clothes smell."
+  },
+  {
+    "n": 16,
+    "slug": "defrost-freezer",
+    "title": "Ice in the freezer? Defrost it",
+    "excerpt": "Thick ice makes a freezer work harder and keep food less cold. Here’s how to defrost it safely.",
+    "steps": [
+      "Move food into a cool bag, or plan it for a day the freezer is nearly empty.",
+      "Switch the freezer off and leave the door open.",
+      "Put towels down to catch the water.",
+      "Let the ice melt by itself. Never chip at it with a knife.",
+      "Dry inside, switch it back on, and wait until it’s cold before refilling."
+    ],
+    "why": "Chipping at ice can puncture the cooling pipes and break the freezer."
+  },
+  {
+    "n": 17,
+    "slug": "bins",
+    "title": "Right bin, right day",
+    "excerpt": "Bins done right keep the house clean, keep pests away and keep the council happy.",
+    "steps": [
+      "Check your bin collection days in the Capital Rooms app.",
+      "Rinse and flatten recycling; food waste goes in its own caddy.",
+      "If a bin is full, take it out and put a new liner in. Don’t wait for someone else.",
+      "Put bins out the night before collection and bring them back in."
+    ],
+    "why": "Overflowing or wrongly sorted bins attract pests and can mean the council won’t collect them."
+  },
+  {
+    "n": 18,
+    "slug": "seal-food",
+    "title": "Keep food sealed, keep pests away",
+    "excerpt": "Mice only move in where there’s food. Sealed tubs and clean sides keep them out.",
+    "steps": [
+      "Keep dry food in sealed tubs, not open packets.",
+      "Wipe the sides and sweep up crumbs after cooking.",
+      "Don’t leave dirty dishes or food out overnight.",
+      "If you see a mouse or droppings, report it straight away."
+    ],
+    "why": "Pests follow food. Taking away easy food is the most effective way to stop them coming in."
+  },
+  {
+    "n": 19,
+    "slug": "report-drips",
+    "title": "Spotted a drip? Report it early",
+    "excerpt": "A small drip is cheap to fix today. Left alone, it can bring a ceiling down.",
+    "steps": [
+      "If you see a drip, a damp patch or water where it shouldn’t be, take a photo.",
+      "Report it in the Capital Rooms app straight away.",
+      "Put a bowl or towel underneath in the meantime.",
+      "If water is pouring, turn off the stopcock and report it as an emergency."
+    ],
+    "why": "Leaks get worse quickly and can damage ceilings, floors and electrics. Reporting early means a small, quick fix."
+  },
+  {
+    "n": 20,
+    "slug": "lock-up",
+    "title": "Heading out? Lock up",
+    "excerpt": "Most break-ins are through an unlocked door or window. Lock up every time you go out.",
+    "steps": [
+      "Close and lock your windows before you go out.",
+      "Lock your bedroom door and make sure the front door is locked behind you.",
+      "Never leave keys under mats or in letterboxes.",
+      "If you lose a key, tell us straight away."
+    ],
+    "why": "An unlocked door or open window is the easiest way in for a burglar, and it affects everyone in the house."
+  }
+]

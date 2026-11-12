@@ -5,6 +5,8 @@
  *   POST { action: 'delete_post', id }
  *   POST { action: 'import_old' }         → the posts copied from the old GNB site (lib/website/oldSitePosts.json),
  *                                           added once each (skipped when a post with that address exists)
+ *   POST { action: 'schedule_tips', start? } → the Simple tips video series (lib/website/simpleTips.json): one post a
+ *                                           day at 8am from `start` (default tomorrow), skipping any already added
  *   POST { action: 'room', roomId, show } → show or hide an available room on the website
  *   POST { action: 'upload', fileName, mimeType } → a signed upload to the public 'website' bucket
  */
@@ -13,6 +15,7 @@ import { requireAdmin } from '@/lib/adminAuth'
 import { createServiceClient } from '@/lib/supabase'
 import { slugify } from '@/lib/website/markdown'
 import oldPosts from '@/lib/website/oldSitePosts.json'
+import simpleTips from '@/lib/website/simpleTips.json'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -100,6 +103,32 @@ export async function POST(req: NextRequest) {
       if (insErr) return NextResponse.json({ error: insErr.message }, { status: 400 })
     }
     return NextResponse.json({ ok: true, added: rows.length, skipped: oldPosts.length - rows.length })
+  }
+
+  // the Simple tips series (12 Nov 2026): 20 short videos, one a day on the Advice page. Each post: the video, the
+  // steps written out, why it matters. Scheduled with publish_at, so the site shows one more each morning.
+  if (b.action === 'schedule_tips') {
+    const { data: have, error } = await s.from('website_posts').select('slug')
+    if (error) return NextResponse.json({ error: missing(error) ? 'Run migration 221 first' : error.message }, { status: 400 })
+    const taken = new Set(((have ?? []) as { slug: string }[]).map(r => r.slug))
+    const tomorrow = new Date(Date.now() + 86_400_000).toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
+    const start = /^\d{4}-\d{2}-\d{2}$/.test(String(b.start ?? '')) ? String(b.start) : tomorrow
+    const day = (i: number) => new Date(new Date(`${start}T12:00:00Z`).getTime() + i * 86_400_000).toISOString().slice(0, 10)
+    // 8am in London on that day (GMT or BST)
+    const eightAm = (d: string) => { const utc = new Date(`${d}T08:00:00Z`); const london = Number(new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: 'numeric', hourCycle: 'h23' }).format(utc)); return new Date(utc.getTime() - (london - 8) * 3_600_000).toISOString() }
+    const fresh = (simpleTips as { n: number; slug: string; title: string; excerpt: string; steps: string[]; why: string }[]).filter(t => !taken.has(`simple-tips-${t.slug}`))
+    const rows = fresh.map((t, i) => ({
+      slug: `simple-tips-${t.slug}`, title: t.title, excerpt: t.excerpt, category: 'tenants', status: 'published',
+      cover_url: `/website/videos/simple-tips-${t.slug}.jpg`, shown_date: day(i), publish_at: eightAm(day(i)),
+      body: [`@[video](/website/videos/simple-tips-${t.slug}.mp4 "/website/videos/simple-tips-${t.slug}.jpg")`, t.excerpt, '## What to do', t.steps.map(x => `- ${x}`).join('\n'), '## Why it matters', t.why,
+        'Something not working? Report it in the Capital Rooms app and we’ll get it sorted.'].join('\n\n'),
+      note: 'Simple tips video series', created_by: by, updated_by: by,
+    }))
+    if (rows.length) {
+      const { error: insErr } = await s.from('website_posts').insert(rows)
+      if (insErr) return NextResponse.json({ error: insErr.message }, { status: 400 })
+    }
+    return NextResponse.json({ ok: true, added: rows.length, skipped: simpleTips.length - rows.length, first: rows[0]?.shown_date ?? null, last: rows[rows.length - 1]?.shown_date ?? null })
   }
 
   if (b.action === 'room') {

@@ -81,6 +81,14 @@ export default function WebsitePage({ searchParams }: { searchParams: PageSearch
                       Bring in the {data.oldCount} posts from the old site
                     </button>
                   )}
+                  {/* the Simple tips video series: one post a day at 8am from tomorrow (12 Nov 2026) */}
+                  {posts.filter(p => String(p.slug).startsWith('simple-tips-')).length < 20 && (
+                    <button type="button" className={btn} onClick={async () => {
+                      if (!confirm('Schedule the 20 Simple tips videos? One goes live on the Advice page each morning at 8am, starting tomorrow.')) return
+                      const d = await act({ action: 'schedule_tips' })
+                      if (d) { alert(d.added ? `Scheduled ${d.added} videos, one a day from ${d.first} to ${d.last}.${d.skipped ? ` (${d.skipped} were already there.)` : ''}` : 'They’re all scheduled already.'); load() }
+                    }}>Schedule the Simple tips videos</button>
+                  )}
                   <button type="button" className={btnDark} onClick={() => setEditing(blank())}>+ New post</button>
                 </div>
               </div>
