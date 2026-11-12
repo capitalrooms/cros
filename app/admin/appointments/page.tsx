@@ -15,6 +15,7 @@ import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
 import { localISO } from '@/lib/dateUtils'
 import LineIcon from '@/components/LineIcon'
+import SidePanel from '@/app/components/SidePanel'
 type AppointmentType = 'landlord' | 'lettings' | 'management_visit' | 'contractor' | 'cleaner' | 'delivery' | 'inspection' | 'gas_safety' | 'electrical' | 'fire_door' | 'smoke_alarm' | 'other'
 
 interface Appointment {
@@ -68,14 +69,16 @@ export default function AppointmentsPage() {
   const [selectedDate, setSelectedDate] = useState(new Date())
   const [weekStart, setWeekStart] = useState(() => {
     const d = new Date()
-    // Start on Sunday (or Monday if day===0 wrap) in local time — midnight local
+    // weeks start on Monday (12 Nov 2026 — they started on Sunday), midnight local
     d.setHours(0, 0, 0, 0)
-    d.setDate(d.getDate() - d.getDay())
+    d.setDate(d.getDate() - ((d.getDay() + 6) % 7))
     return d
   })
 
   // Form state for creating appointment
   const [showCreateForm, setShowCreateForm] = useState(false)
+  // an appointment clicked in the grid — its details (12 Nov 2026: clicking one did nothing)
+  const [viewAppt, setViewAppt] = useState<Appointment | null>(null)
   const [selectedProperty, setSelectedProperty] = useState('')
   const [appointmentType, setAppointmentType] = useState<AppointmentType>('landlord')
   const [appointmentDate, setAppointmentDate] = useState('')
@@ -134,7 +137,7 @@ export default function AppointmentsPage() {
 
   // Calculate visible time range based on appointments
   const getVisibleHours = () => {
-    if (appointments.length === 0) return { start: 5, end: 22 }
+    if (appointments.length === 0) return { start: 8, end: 19 }
 
     let minHour = 24
     let maxHour = 0
@@ -146,11 +149,11 @@ export default function AppointmentsPage() {
       maxHour = Math.max(maxHour, hours + Math.ceil(duration / 60))
     })
 
-    // Default to 5am-10pm if no appointments, but expand if appointments outside that
-    minHour = Math.min(minHour, 5)
-    maxHour = Math.max(maxHour, 22)
+    // 8am–7pm, stretched to fit anything earlier or later
+    minHour = Math.min(minHour, 8)
+    maxHour = Math.max(maxHour, 19)
 
-    return { start: minHour, end: Math.min(maxHour + 1, 24) }
+    return { start: minHour, end: Math.min(maxHour, 24) }
   }
 
   const visibleHours = getVisibleHours()
@@ -456,8 +459,8 @@ export default function AppointmentsPage() {
             const dayAppts = appointments.filter(a => a.appointment_date === dateStr(d))
             return (
               <section key={i} className="rounded-2xl border border-neutral-200 bg-white overflow-hidden">
-                <div className={`flex items-center justify-between px-lg py-sm ${isToday ? 'bg-blue-50' : 'bg-neutral-50'}`}>
-                  <p className={`text-sm font-bold ${isToday ? 'text-blue-700' : 'text-neutral-900'}`}>
+                <div className={`flex items-center justify-between px-lg py-sm ${isToday ? 'bg-[#FFF1E8]' : (d.getDay() === 0 || d.getDay() === 6) ? 'bg-[#F4F2EC]' : 'bg-[#FAF9F6]'}`}>
+                  <p className={`text-sm font-bold ${isToday ? 'text-[#B5361F]' : 'text-neutral-900'}`}>
                     {d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}{isToday && ' · Today'}
                   </p>
                   <button type="button"
@@ -473,7 +476,7 @@ export default function AppointmentsPage() {
                     {dayAppts.map(appt => {
                       const typeInfo = APPOINTMENT_TYPES[appt.appointment_type] ?? APPOINTMENT_TYPES.other
                       return (
-                        <li key={appt.id} className="flex gap-md px-lg py-sm">
+                        <li key={appt.id} className="flex gap-md px-lg py-sm cursor-pointer active:bg-neutral-50" onClick={(e) => { if ((e.target as HTMLElement).closest('a')) return; setViewAppt(appt) }}>
                           <p className="w-12 shrink-0 text-sm font-bold tabular-nums text-neutral-900">{appt.appointment_time.slice(0, 5)}</p>
                           <div className="min-w-0 flex-1">
                             <p className="text-sm font-semibold text-neutral-900">{<LineIcon glyph={typeInfo.icon} />} {appt.visitor_name}</p>
@@ -497,34 +500,35 @@ export default function AppointmentsPage() {
         {/* Calendar grid */}
         <div className="hidden md:block mt-3xl overflow-x-auto rounded-2xl border border-neutral-200 bg-white">
           <div className="inline-block min-w-full">
-            {/* Header: Day names */}
-            <div className="flex">
-              <div className="w-20 border-r border-neutral-200 bg-neutral-50 sticky left-0 z-10"></div>
+            {/* Header: day names — weekends shaded, today's date in a circle */}
+            <div className="flex border-b border-neutral-200">
+              <div className="w-16 shrink-0 bg-white sticky left-0 z-10"></div>
               {days.map((d, i) => {
                 const isToday = dateStr(d) === dateStr(new Date())
+                const weekend = d.getDay() === 0 || d.getDay() === 6
                 return (
-                  <div key={i} className={`flex-1 border-r border-neutral-200 p-md text-center text-sm font-bold select-none ${isToday ? 'bg-blue-50' : 'bg-neutral-50'}`}>
-                    <div className={isToday ? 'text-blue-700' : ''}>{['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d.getDay()]}</div>
-                    <div className={`text-xs ${isToday ? 'text-blue-600 font-black' : 'text-neutral-600'}`}>{d.getDate()}</div>
+                  <div key={i} className={`flex-1 border-l border-neutral-200 py-sm text-center select-none ${weekend ? 'bg-[#F4F2EC]' : 'bg-white'}`}>
+                    <div className={`text-[11px] font-semibold uppercase tracking-wider ${isToday ? 'text-[#B5361F]' : 'text-neutral-500'}`}>{d.toLocaleDateString('en-GB', { weekday: 'short' })}</div>
+                    <div className={`mx-auto mt-0.5 flex h-8 w-8 items-center justify-center rounded-full text-lg font-semibold tabular-nums ${isToday ? 'bg-[#B5361F] text-white' : 'text-neutral-900'}`}>{d.getDate()}</div>
                   </div>
                 )
               })}
             </div>
 
             {/* Time grid */}
-            {hours.map((hour) => (
-              <div key={hour} className="flex border-b border-neutral-200">
+            {hours.map((hour, hi) => (
+              <div key={hour} className="flex border-b border-neutral-200/70">
                 {/* Time label */}
-                <div className="w-20 border-r border-neutral-200 bg-neutral-50 p-sm text-right text-xs font-semibold text-neutral-600 sticky left-0 z-10">
-                  {String(hour).padStart(2, '0')}:00
+                <div className="w-16 shrink-0 bg-white pr-sm pt-xs text-right text-[11px] tabular-nums text-neutral-400 sticky left-0 z-10">
+                  {hour === 12 ? '12pm' : hour > 12 ? `${hour - 12}pm` : `${hour}am`}
                 </div>
 
                 {/* Day columns */}
                 {days.map((d, dayIdx) => (
                   <div
                     key={dayIdx}
-                    className="flex-1 border-r border-neutral-200 relative cursor-pointer hover:bg-blue-50/40 transition-colors"
-                    style={{ minHeight: '4rem' }}
+                    className="flex-1 border-l border-neutral-200 relative cursor-pointer hover:bg-[#EEF2F7] transition-colors"
+                    style={{ minHeight: '4rem', background: dateStr(d) === dateStr(new Date()) ? '#FFF8F3' : (d.getDay() === 0 || d.getDay() === 6) ? '#F7F5F0' : hi % 2 ? '#FAF9F6' : '#FFFFFF' }}
                     title={`Book at ${String(hour).padStart(2,'0')}:00 on ${dateStr(d)}`}
                     onDragOver={handleDragOver}
                     onDrop={(e) => handleDrop(d, `${String(hour).padStart(2,'0')}:00`, e)}
@@ -549,11 +553,13 @@ export default function AppointmentsPage() {
                             key={appt.id}
                             draggable
                             onDragStart={(e) => handleDragStart(e, appt)}
-                            className={`absolute left-0.5 right-0.5 top-0.5 p-1 text-xs rounded cursor-move hover:shadow-md transition ${typeInfo.bgColor} border ${typeInfo.borderColor}`}
-                            style={{ height: `${heightRem}rem`, lineHeight: '1' }}
+                            onClick={(e) => { e.stopPropagation(); setViewAppt(appt) }}
+                            title="Click for the details, or drag to move it"
+                            className={`absolute left-0.5 right-0.5 top-0.5 z-[1] p-1 text-xs rounded-md cursor-pointer hover:shadow-md transition ${typeInfo.bgColor} border-l-[3px] ${typeInfo.borderColor}`}
+                            style={{ height: `${Math.max(heightRem, 2.1)}rem`, lineHeight: '1.15' }}
                           >
                             <div className="font-bold truncate">{<LineIcon glyph={typeInfo.icon} />} {appt.visitor_name}</div>
-                            <div className="truncate text-neutral-600">{appt.appointment_time}</div>
+                            <div className="truncate text-neutral-600">{appt.appointment_time.slice(0, 5)}</div>
                             {appt.property && <div className="truncate text-neutral-600 text-xs">{appt.property.name}</div>}
                           </div>
                         )
@@ -565,6 +571,29 @@ export default function AppointmentsPage() {
           </div>
         </div>
       </main>
+      <SidePanel open={!!viewAppt} onClose={() => setViewAppt(null)} title={viewAppt ? `${(APPOINTMENT_TYPES[viewAppt.appointment_type] ?? APPOINTMENT_TYPES.other).label} — ${viewAppt.visitor_name}` : ''}
+        eyebrow={viewAppt ? new Date(`${viewAppt.appointment_date}T12:00:00Z`).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }) : ''}
+        footer={viewAppt?.property_id ? <Link href={`/admin/properties/${viewAppt.property_id}`} className="rounded-full border border-[#F3F0E6]/40 px-md py-sm text-sm font-semibold">Open the house</Link> : undefined}>
+        {viewAppt && (
+          <div className="space-y-md text-sm">
+            <div className="rounded-xl bg-[#F3F0E6]/10 p-md">
+              <p className="text-lg font-semibold">{viewAppt.appointment_time.slice(0, 5)} · {viewAppt.duration_minutes || 30} minutes</p>
+              {viewAppt.property && <p className="opacity-80">{String(viewAppt.property.name ?? '').split('\n')[0]}</p>}
+            </div>
+            <dl className="grid grid-cols-[110px_1fr] gap-x-md gap-y-xs">
+              <dt className="opacity-60">Who</dt><dd>{[viewAppt.visitor_name, (viewAppt as any).visitor_company].filter(Boolean).join(', ')}</dd>
+              {viewAppt.visitor_phone && <><dt className="opacity-60">Phone</dt><dd><a href={`tel:${viewAppt.visitor_phone.replace(/\s/g, '')}`} className="underline">{viewAppt.visitor_phone}</a></dd></>}
+              <dt className="opacity-60">Tenants told</dt><dd>{(viewAppt as any).notify_tenants ? 'Yes' : 'No'}</dd>
+            </dl>
+            <div>
+              <p className="mb-xs text-[11px] font-bold uppercase tracking-wider opacity-60">Notes</p>
+              <p className="whitespace-pre-wrap leading-relaxed">{viewAppt.notes || <span className="opacity-60">No notes.</span>}</p>
+            </div>
+            <p className="text-xs opacity-60">To move it, drag it to another time on the week.</p>
+          </div>
+        )}
+      </SidePanel>
+
     </div>
   )
 }
