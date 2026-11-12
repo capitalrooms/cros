@@ -1,6 +1,13 @@
 'use client'
+// Diary › Everything — viewings, repairs, cleans and appointments together.
+// Rebuilt 12 Nov 2026 (Harry: "all entries you want to click on don't work… the diary is depressing to look at"):
+//  • every entry opens a panel with the full details (job description, who, when, the house) and what you can do next
+//  • a normal-looking week: Monday first, hours down the side, white and off-white bands, weekends shaded,
+//    today marked, a line for "now", entries sized to how long they take
+//  • Today at the top (the old "Map view" only ever showed the office pin, and its "Scheduled today" listed the week)
+//  • the rest of the week underneath, day by day — also clickable
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo, Fragment } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { getCurrentUser } from '@/lib/auth'
@@ -10,627 +17,407 @@ import { diaryTabs } from '@/lib/diaryTabs'
 import BackButton from '@/app/components/BackButton'
 import Link from 'next/link'
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
-import AgencyDiaryMap from '@/app/components/AgencyDiaryMap'
+import SidePanel from '@/app/components/SidePanel'
 import { withContractors } from '@/lib/contractors'
 import LineIcon from '@/components/LineIcon'
 
-interface MaintenanceJob {
+type Kind = 'repair' | 'clean' | 'viewing' | 'appointment'
+
+/** One diary entry, whatever it came from. */
+interface Entry {
+  key: string
   id: string
-  title: string
-  description?: string
-  property_id: string
-  room_id?: string
-  contractor_id?: string
+  kind: Kind
+  date: string            // yyyy-mm-dd
+  start: number | null    // minutes after midnight; null = time not set
+  end: number | null
+  timeLabel: string
+  title: string           // what it is
+  who: string             // contractor / cleaner / visitor
+  propertyId: string | null
+  place: string           // first line of the house
+  room: string
+  detail: string          // the full description / notes
+  facts: [string, string][]
   status: string
-  priority: string
-  booked_date?: string
-  booked_slot?: string
-  property: { name: string; address: string }
-  room?: { name: string }
-  contractor?: { name: string }
+  raw: any
 }
 
-interface CleanJob {
-  id: string
-  property_id: string
-  clean_date?: string
-  clean_time?: string
-  cleaner_id?: string
-  status: string
-  property: { name: string; address: string }
-  cleaner?: { name: string }
+const KIND: Record<Kind, { label: string; bar: string; tint: string; ink: string; glyph: string }> = {
+  repair:      { label: 'Repair',      bar: '#2F6FB2', tint: '#E9F1FA', ink: '#173A5E', glyph: '🔧' },
+  clean:       { label: 'Clean',       bar: '#2F855A', tint: '#E7F4EC', ink: '#1C4A33', glyph: '🧹' },
+  viewing:     { label: 'Viewing',     bar: '#7A4FB8', tint: '#F1EAFA', ink: '#40266A', glyph: '👀' },
+  appointment: { label: 'Appointment', bar: '#C0661A', tint: '#FCEFE2', ink: '#5E300A', glyph: '📋' },
 }
 
-interface Appointment {
-  id: string
-  property_id: string
-  appointment_type: string
-  appointment_date: string
-  appointment_time: string
-  duration_minutes?: number
-  visitor_name: string
-  property: { name: string; address: string }
-}
-
-type DiaryEvent = (MaintenanceJob | CleanJob | Appointment) & {
-  type: 'maintenance' | 'clean' | 'appointment'
-  date: string
-  time: string
-}
-
-const PRIORITY_COLORS: Record<string, string> = {
-  critical: 'bg-red-100 border-red-300 text-red-900',
-  high: 'bg-orange-100 border-orange-300 text-orange-900',
-  medium: 'bg-blue-100 border-blue-300 text-blue-900',
-  low: 'bg-green-100 border-green-300 text-green-900',
-}
-
-const APPOINTMENT_TYPE_ICONS: Record<string, string> = {
-  landlord: '👤',
-  lettings: '🏘️',
-  contractor: '👷',
-  cleaner: '🧹',
-  delivery: '📦',
-  inspection: '🔍',
-  gas_safety: '🔥',
-  electrical: '⚡',
-  fire_door: '🚪',
-  smoke_alarm: '💨',
-  management_visit: '📋',
-  viewing: '👀',
-  other: '📍',
+const APPT_TYPES: Record<string, string> = {
+  landlord: 'Landlord visit', lettings: 'Lettings', contractor: 'Contractor', cleaner: 'Cleaner', delivery: 'Delivery',
+  inspection: 'Inspection', gas_safety: 'Gas safety check', electrical: 'Electrical check', fire_door: 'Fire door check',
+  smoke_alarm: 'Smoke alarm check', management_visit: 'Management visit', viewing: 'Viewing', other: 'Appointment',
 }
 
 // contractor/cleaner rows carry first/last (and older full_name) — never .name
-const whoName = (p: any) => ([p?.salutation, p?.first_name, p?.last_name].filter(Boolean).join(' ') || p?.full_name || 'Unassigned')
+const whoName = (p: any) => ([p?.salutation, p?.first_name, p?.last_name].filter(Boolean).join(' ') || p?.full_name || '')
+const firstLine = (s: string | null | undefined) => String(s ?? '').split(/\n|,/)[0].replace(/\s+[-–—]\s+.*$/, '').trim()
+const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+const todayYmd = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
+const hhmm = (m: number) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`
+const nice = (m: number) => { const h = Math.floor(m / 60), mm = m % 60, h12 = ((h + 11) % 12) + 1; return `${h12}${mm ? `:${String(mm).padStart(2, '0')}` : ''}${h < 12 ? 'am' : 'pm'}` }
+const longDate = (s: string) => new Date(`${s}T12:00:00Z`).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })
+const words = (s: string | null | undefined) => String(s ?? '').replace(/_/g, ' ').replace(/^./, c => c.toUpperCase())
+
+/** "09:30:00" → 570; "9-12" / "15-18" (repair slots) → 540–720 */
+function parseTime(t: string | null | undefined, minutes: number): { start: number | null; end: number | null } {
+  const s = String(t ?? '').trim()
+  const slot = s.match(/^(\d{1,2})\s*-\s*(\d{1,2})$/)
+  if (slot) return { start: Number(slot[1]) * 60, end: Number(slot[2]) * 60 }
+  const m = s.match(/^(\d{1,2}):(\d{2})/)
+  if (!m) return { start: null, end: null }
+  const start = Number(m[1]) * 60 + Number(m[2])
+  return { start, end: start + minutes }
+}
+
+function mondayOf(d: Date) { const x = new Date(d); x.setHours(12, 0, 0, 0); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x }
 
 export default function AgencyDiaryPage() {
   const router = useRouter()
   const supabase = createClient()
 
-  // Auth & loading
   const [loading, setLoading] = useState(true)
-  const [weekStart, setWeekStart] = useState(() => {
-    const d = new Date()
-    const day = d.getDay()
-    const diff = d.getDate() - day
-    return new Date(d.setDate(diff))
-  })
-
-  // Data
-  const [maintenanceJobs, setMaintenanceJobs] = useState<MaintenanceJob[]>([])
-  const [cleanJobs, setCleanJobs] = useState<CleanJob[]>([])
-  const [appointments, setAppointments] = useState<Appointment[]>([])
-  const [outstandingJobs, setOutstandingJobs] = useState<MaintenanceJob[]>([])
+  const [weekStart, setWeekStart] = useState(() => mondayOf(new Date()))
+  const [entries, setEntries] = useState<Entry[]>([])
+  const [outstandingJobs, setOutstandingJobs] = useState<any[]>([])
   const [showOutstanding, setShowOutstanding] = useState(false)
-
-  // UI state
   const [showBookMenu, setShowBookMenu] = useState(false)
-  const [upcomingPage, setUpcomingPage] = useState(0)
-  const itemsPerPage = 10
-  // Lettings staff can VIEW the diary (to time viewings around cleans/contractors)
-  // but only admins can book into it. #8 cross-visibility, 25 Aug.
-  const [canBook, setCanBook] = useState(false)
-  // a clean clicked in the diary — to cancel it (12 Nov 2026)
-  const [cleanOpen, setCleanOpen] = useState<CleanJob | null>(null)
+  const [open, setOpen] = useState<Entry | null>(null)
+  const [cleanOpen, setCleanOpen] = useState<any | null>(null)
+  const [hidden, setHidden] = useState<Set<Kind>>(new Set())
+  const [now, setNow] = useState(() => new Date())
+  const [isAdmin, setIsAdmin] = useState(false)   // repairs open in Maintenance, which lettings can't see
+
+  useEffect(() => { const t = setInterval(() => setNow(new Date()), 60_000); return () => clearInterval(t) }, [])
 
   useEffect(() => {
-    async function init() {
+    let live = true
+    async function load() {
       const data = await getCurrentUser()
       const role = data?.assignment?.role
-      const canView = role === 'administrator' || role === 'admin' || role === 'lettings'
-      if (!data || !canView) {
-        router.push('/login')
-        return
-      }
-      setCanBook(true)   // anyone who can open the diary may book in it (access levels decide who opens it)
-
-      const weekEnd = new Date(weekStart)
-      weekEnd.setDate(weekEnd.getDate() + 7)
-
+      if (!data || !(role === 'administrator' || role === 'lettings')) { router.push('/login'); return }
+      setIsAdmin(role === 'administrator')
+      const from = ymd(weekStart)
+      const toD = new Date(weekStart); toD.setDate(toD.getDate() + 7)
+      const to = ymd(toD)
       try {
-        // Load maintenance jobs (booked in this week)
-        const { data: maint } = await supabase
-          .from('maintenance_tickets')
-          .select('*, property:properties(name, address), room:rooms(name)')
-          .gte('booked_date', weekStart.toISOString().split('T')[0])
-          .lt('booked_date', weekEnd.toISOString().split('T')[0])
-          .order('booked_date', { ascending: true })
+        const [maint, cleans, appts, views, outstanding] = await Promise.all([
+          supabase.from('maintenance_tickets').select('*, property:properties(name, address), room:rooms(name)').gte('booked_date', from).lt('booked_date', to).order('booked_date'),
+          supabase.from('cleans').select('*, property:properties(name, address), room:rooms(name), cleaner:cleaner_id(full_name, salutation, first_name, last_name, phone)').gte('clean_date', from).lt('clean_date', to).neq('status', 'cancelled').order('clean_date'),
+          supabase.from('property_appointments').select('*, property:properties(name, address)').gte('appointment_date', from).lt('appointment_date', to).order('appointment_date'),
+          // viewings.property_id has no FK, so no embed — names are looked up below
+          supabase.from('viewings').select('*').gte('viewing_date', from).lt('viewing_date', to).or('viewing_status.is.null,viewing_status.not.in.(cancelled,closed)'),
+          supabase.from('maintenance_tickets').select('*, property:properties(name, address), room:rooms(name)').eq('status', 'assigned').is('booked_date', null).order('created_at'),
+        ])
+        const jobs = (await withContractors(supabase as any, (maint.data ?? []) as any)) as any[]
+        const viewRows = (views.data ?? []) as any[]
+        const ids = [...new Set(viewRows.map(v => v.property_id).filter(Boolean))]
+        const roomIds = [...new Set(viewRows.map(v => v.room_id).filter(Boolean))]
+        const [{ data: vp }, { data: vr }] = await Promise.all([
+          ids.length ? supabase.from('properties').select('id, name, address').in('id', ids) : Promise.resolve({ data: [] as any[] }),
+          roomIds.length ? supabase.from('rooms').select('id, name').in('id', roomIds) : Promise.resolve({ data: [] as any[] }),
+        ]) as any
+        const propOf = new Map(((vp ?? []) as any[]).map(p => [p.id, p]))
+        const roomOf = new Map(((vr ?? []) as any[]).map(r => [r.id, r.name]))
 
-        setMaintenanceJobs((await withContractors(supabase as any, maint as any)) as any)
-
-        // Load clean jobs
-        const { data: cleans } = await supabase
-          .from('cleans')
-          .select('*, property:properties(name, address), cleaner:cleaner_id(full_name, salutation, first_name, last_name)')
-          .gte('clean_date', weekStart.toISOString().split('T')[0])
-          .lt('clean_date', weekEnd.toISOString().split('T')[0])
-          .neq('status', 'cancelled')
-          .order('clean_date', { ascending: true })
-
-        setCleanJobs((cleans as any) || [])
-
-        // Load appointments
-        const { data: appts } = await supabase
-          .from('property_appointments')
-          .select('*, property:properties(name, address)')
-          .gte('appointment_date', weekStart.toISOString().split('T')[0])
-          .lt('appointment_date', weekEnd.toISOString().split('T')[0])
-          .order('appointment_date', { ascending: true })
-
-        // Lettings books viewings into their own `viewings` table, so they don't
-        // show here by default. Pull them in and map them onto the appointment
-        // shape (there's already a 👀 "viewing" type) so admin sees the lettings
-        // diary alongside everything else — the cross-visibility from 25 Aug #8.
-        // NB: viewings.property_id has no FK, so a PostgREST `properties(...)`
-        // embed 400s here — fetch plainly and resolve names via a separate query.
-        const { data: views } = await supabase
-          .from('viewings')
-          .select('id, property_id, viewing_date, viewing_slot, visitor_name, viewing_status').or('viewing_status.is.null,viewing_status.neq.cancelled')
-          .gte('viewing_date', weekStart.toISOString().split('T')[0])
-          .lt('viewing_date', weekEnd.toISOString().split('T')[0])
-          .neq('viewing_status', 'closed')
-
-        const viewRows = (views as any[]) || []
-        const viewPropIds = [...new Set(viewRows.map((v) => v.property_id).filter(Boolean))]
-        const propMap = new Map<string, { name: string; address: string }>()
-        if (viewPropIds.length) {
-          const { data: props } = await supabase.from('properties').select('id, name, address').in('id', viewPropIds)
-          for (const p of props || []) propMap.set(p.id, { name: p.name, address: p.address })
+        const out: Entry[] = []
+        for (const j of jobs) {
+          const t = parseTime(j.booked_slot, 180)
+          const who = whoName(j.contractor)
+          out.push({
+            key: `r-${j.id}`, id: j.id, kind: 'repair', date: j.booked_date, ...t,
+            timeLabel: t.start == null ? (j.booked_slot || 'Time not set') : `${nice(t.start)}–${nice(t.end!)}`,
+            title: j.title || 'Repair', who: who || 'No contractor yet', propertyId: j.property_id, place: firstLine(j.property?.name || j.property?.address), room: j.room?.name ?? '',
+            detail: j.description || '',
+            facts: [['Priority', words(j.priority)], ['Status', words(j.status)], ['Contractor', who || 'Not assigned'], ...(j.access_notes ? [['Access', j.access_notes] as [string, string]] : [])],
+            status: j.status, raw: j,
+          })
         }
-
-        const viewingAppts: Appointment[] = viewRows.map((v) => ({
-          id: `viewing-${v.id}`,
-          property_id: v.property_id,
-          appointment_type: 'viewing',
-          appointment_date: v.viewing_date,
-          appointment_time: v.viewing_slot || '09:00',
-          visitor_name: v.visitor_name || 'Viewing',
-          property: propMap.get(v.property_id) || { name: 'Unknown', address: '' },
-        }))
-
-        setAppointments([...((appts as any[]) || []), ...viewingAppts])
-
-        // Load outstanding jobs (approved but not booked)
-        const { data: outstanding } = await supabase
-          .from('maintenance_tickets')
-          .select('*, property:properties(name, address), room:rooms(name)')
-          .eq('status', 'assigned')
-          .is('booked_date', null)
-          .order('created_at', { ascending: true })
-
-        setOutstandingJobs((await withContractors(supabase as any, outstanding as any)) as any)
-
-        setLoading(false)
-      } catch (error) {
-        console.error('Error loading diary data:', error)
-        setLoading(false)
-      }
+        for (const c of (cleans.data ?? []) as any[]) {
+          const t = parseTime(c.clean_time, Math.round((Number(c.duration_hours) || 2) * 60))
+          const who = whoName(c.cleaner)
+          const todos = Array.isArray(c.tenant_todos) ? c.tenant_todos.map((x: any) => typeof x === 'string' ? x : x?.text ?? x?.label).filter(Boolean) : []
+          const special = Array.isArray(c.special_jobs) ? c.special_jobs.map((x: any) => typeof x === 'string' ? x : x?.text ?? x?.label).filter(Boolean) : []
+          out.push({
+            key: `c-${c.id}`, id: c.id, kind: 'clean', date: c.clean_date, ...t,
+            timeLabel: t.start == null ? 'Time not set' : `${nice(t.start)}–${nice(t.end!)}`,
+            title: c.clean_type ? `${words(c.clean_type)} clean` : 'Clean', who: who || 'No cleaner yet', propertyId: c.property_id, place: firstLine(c.property?.name || c.property?.address), room: c.room?.name ?? '',
+            detail: [c.notes, c.admin_note && `Office note: ${c.admin_note}`, c.cleaner_note && `Cleaner’s note: ${c.cleaner_note}`, special.length && `Extra jobs: ${special.join(', ')}`, todos.length && `Tenants asked for: ${todos.join(', ')}`].filter(Boolean).join('\n\n'),
+            facts: [['Cleaner', who || 'Not assigned'], ['Status', words(c.status)], ['Length', `${Number(c.duration_hours) || 2} hours`], ...(c.cleaner?.phone ? [['Phone', c.cleaner.phone] as [string, string]] : [])],
+            status: c.status, raw: c,
+          })
+        }
+        for (const a of (appts.data ?? []) as any[]) {
+          const t = parseTime(a.appointment_time, Number(a.duration_minutes) || 60)
+          const type = APPT_TYPES[a.appointment_type] ?? words(a.appointment_type)
+          out.push({
+            key: `a-${a.id}`, id: a.id, kind: a.appointment_type === 'viewing' ? 'viewing' : 'appointment', date: a.appointment_date, ...t,
+            timeLabel: t.start == null ? 'Time not set' : `${nice(t.start)}–${nice(t.end!)}`,
+            title: type, who: [a.visitor_name, a.visitor_company].filter(Boolean).join(', ') || '—', propertyId: a.property_id, place: firstLine(a.property?.name || a.property?.address), room: '',
+            detail: a.notes || '',
+            facts: [['Type', type], ['Who', [a.visitor_name, a.visitor_company].filter(Boolean).join(', ') || '—'], ...(a.visitor_phone ? [['Phone', a.visitor_phone] as [string, string]] : []), ['Tenants told', a.notify_tenants ? 'Yes' : 'No']],
+            status: '', raw: a,
+          })
+        }
+        for (const v of viewRows) {
+          const t = parseTime(v.viewing_slot, Number(v.duration_minutes) || 15)
+          const p = propOf.get(v.property_id)
+          out.push({
+            key: `v-${v.id}`, id: v.id, kind: 'viewing', date: v.viewing_date, ...t,
+            timeLabel: t.start == null ? (v.viewing_slot || 'Time not set') : nice(t.start),
+            title: 'Viewing', who: v.visitor_name || 'Viewer', propertyId: v.property_id, place: firstLine(p?.name || p?.address), room: v.room_id ? roomOf.get(v.room_id) ?? '' : '',
+            detail: [v.notes, v.feedback && `Feedback: ${v.feedback}`].filter(Boolean).join('\n\n'),
+            facts: [['Viewer', v.visitor_name || '—'], ...(v.visitor_phone ? [['Phone', v.visitor_phone] as [string, string]] : []), ...(v.visitor_email ? [['Email', v.visitor_email] as [string, string]] : []), ['Status', words(v.viewing_status || 'booked')]],
+            status: v.viewing_status ?? '', raw: v,
+          })
+        }
+        out.sort((a, b) => a.date.localeCompare(b.date) || (a.start ?? -1) - (b.start ?? -1))
+        if (!live) return
+        setEntries(out)
+        setOutstandingJobs((await withContractors(supabase as any, (outstanding.data ?? []) as any)) as any)
+      } catch (e) { console.error('Diary', e) }
+      if (live) setLoading(false)
     }
+    load()
+    return () => { live = false }
+  }, [router, weekStart]) // eslint-disable-line react-hooks/exhaustive-deps
 
-    init()
-  }, [router, weekStart, supabase])
+  const days = useMemo(() => Array.from({ length: 7 }, (_, i) => { const d = new Date(weekStart); d.setDate(d.getDate() + i); return d }), [weekStart])
+  const shown = entries.filter(e => !hidden.has(e.kind))
+  const today = todayYmd()
+  const todays = shown.filter(e => e.date === today)
 
-  if (loading) {
-    return <GenericPageSkeleton />
-  }
+  // the hours shown: 8am–7pm, stretched to fit anything earlier or later
+  const timed = shown.filter(e => e.start != null)
+  const firstHour = Math.min(8, ...timed.map(e => Math.floor(e.start! / 60)))
+  const lastHour = Math.max(19, ...timed.map(e => Math.ceil((e.end ?? e.start! + 60) / 60)))
+  const hours = Array.from({ length: lastHour - firstHour }, (_, i) => firstHour + i)
+  const HOUR = 52
+  const nowMin = now.getHours() * 60 + now.getMinutes()
 
-  const days = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(weekStart)
-    d.setDate(d.getDate() + i)
-    return d
-  })
+  if (loading) return <GenericPageSkeleton />
 
-  const formatDate = (d: Date) => {
-    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-    return `${dayNames[d.getDay()]} ${d.getDate()}`
-  }
+  const weekLabel = `${days[0].toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })} – ${days[6].toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}`
+  const move = (n: number) => { const d = new Date(weekStart); d.setDate(d.getDate() + n * 7); setWeekStart(d) }
+  const isThisWeek = ymd(weekStart) === ymd(mondayOf(new Date()))
 
-  const getEventsForDay = (date: Date) => {
-    const dateStr = date.toISOString().split('T')[0]
-    const events: DiaryEvent[] = []
-
-    maintenanceJobs.forEach((job) => {
-      if (job.booked_date === dateStr) {
-        events.push({
-          ...job,
-          type: 'maintenance',
-          date: job.booked_date || '',
-          time: job.booked_slot || '09:00',
-        })
-      }
-    })
-
-    cleanJobs.forEach((job) => {
-      if (job.clean_date === dateStr) {
-        events.push({
-          ...job,
-          type: 'clean',
-          date: job.clean_date || '',
-          time: job.clean_time || '09:00',
-        })
-      }
-    })
-
-    appointments.forEach((appt) => {
-      if (appt.appointment_date === dateStr) {
-        events.push({
-          ...appt,
-          type: 'appointment',
-          date: appt.appointment_date,
-          time: appt.appointment_time,
-        })
-      }
-    })
-
-    return events.sort((a, b) => a.time.localeCompare(b.time))
-  }
+  const Row = ({ e, showDate }: { e: Entry; showDate?: boolean }) => (
+    <button type="button" onClick={() => setOpen(e)} className="group flex w-full items-stretch gap-md px-md py-sm text-left transition hover:bg-[#F7F5F0] focus-visible:bg-[#F7F5F0] focus-visible:outline-none">
+      <span className="w-1 shrink-0 rounded-full" style={{ background: KIND[e.kind].bar }} />
+      <span className="w-24 shrink-0 pt-px text-sm font-semibold tabular-nums text-neutral-900">{showDate ? new Date(`${e.date}T12:00:00Z`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', timeZone: 'UTC' }) + ' · ' : ''}{e.start == null ? '—' : nice(e.start)}</span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-semibold text-neutral-900">{e.title}{e.place ? <span className="font-normal text-neutral-600"> · {e.place}{e.room ? `, ${e.room}` : ''}</span> : null}</span>
+        <span className="block truncate text-xs text-neutral-500">{KIND[e.kind].label} · {e.who}{e.detail ? ` · ${e.detail.replace(/\s+/g, ' ')}` : ''}</span>
+      </span>
+      <span className="self-center text-xs font-semibold text-neutral-400 group-hover:text-neutral-900">Open →</span>
+    </button>
+  )
 
   return (
     <div className="min-h-screen bg-neutral-100">
       <AppBar left={<BackButton href="/admin/appointments" />} />
       <PageHero title="Diary" subtitle="Everything: viewings, repairs, cleans and appointments in one place" tabs={diaryTabs('all')} />
-      {cleanOpen && <CancelClean clean={cleanOpen} onClose={() => setCleanOpen(null)} onDone={() => { setCleanJobs(cs => cs.filter(c => c.id !== cleanOpen.id)); setCleanOpen(null) }} />}
+      {cleanOpen && <CancelClean clean={cleanOpen} onClose={() => setCleanOpen(null)} onDone={() => { setEntries(es => es.filter(x => !(x.kind === 'clean' && x.id === cleanOpen.id))); setCleanOpen(null); setOpen(null) }} />}
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
-
-        {/* Header — Subtitle Perfectly Centered */}
-
-        {/* Top Controls */}
-        <div className="mb-3xl flex flex-wrap items-center gap-lg">
-          {/* Book Button — admins only; lettings sees the diary read-only */}
-          {canBook && (
+        {/* controls */}
+        <div className="mb-lg flex flex-wrap items-center gap-sm">
           <div className="relative">
-            <button
-              onClick={() => setShowBookMenu(!showBookMenu)}
-              className="inline-flex items-center gap-md px-lg py-sm rounded-lg bg-neutral-900 text-white font-semibold shadow-md hover:shadow-lg hover:bg-neutral-800 transition-all"
-            >
-              <span className="text-lg">+ Book</span>
-            </button>
-
+            <button onClick={() => setShowBookMenu(!showBookMenu)} className="rounded-lg bg-neutral-900 px-lg py-sm text-sm font-semibold text-white hover:bg-neutral-800">+ Book</button>
             {showBookMenu && (
-              <div className="absolute top-full left-0 mt-sm bg-white rounded-lg shadow-lg border border-neutral-200 z-10 min-w-56">
-                <Link
-                  href="/admin/agency-diary/book-maintenance"
-                  className="block px-lg py-md hover:bg-neutral-50 border-b border-neutral-200 rounded-t-lg transition-colors"
-                >
-                  <div className="font-semibold text-neutral-900">Book Maintenance Job</div>
-                  <div className="text-xs text-neutral-600 mt-xs">Select from approved jobs</div>
-                </Link>
-                <Link
-                  href="/admin/agency-diary/book-clean"
-                  className="block px-lg py-md hover:bg-neutral-50 border-b border-neutral-200 transition-colors"
-                >
-                  <div className="font-semibold text-neutral-900">Book Cleaner</div>
-                  <div className="text-xs text-neutral-600 mt-xs">Assign cleaning jobs</div>
-                </Link>
-                <Link
-                  href="/admin/agency-diary/book-appointment"
-                  className="block px-lg py-md hover:bg-neutral-50 rounded-b-lg transition-colors"
-                >
-                  <div className="font-semibold text-neutral-900">Other Appointment</div>
-                  <div className="text-xs text-neutral-600 mt-xs">Viewings, inspections, etc.</div>
-                </Link>
+              <div className="absolute left-0 top-full z-20 mt-sm min-w-56 overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-lg">
+                {[['/admin/agency-diary/book-maintenance', 'Repair visit', 'Choose from approved jobs'], ['/admin/agency-diary/book-clean', 'Clean', 'Book a cleaner'], ['/admin/agency-diary/book-appointment', 'Other appointment', 'Inspections, landlord visits and so on']].map(([h, t, s]) => (
+                  <Link key={h} href={h} className="block border-b border-neutral-100 px-lg py-md last:border-0 hover:bg-neutral-50"><div className="font-semibold text-neutral-900">{t}</div><div className="text-xs text-neutral-500">{s}</div></Link>
+                ))}
               </div>
             )}
           </div>
-          )}
-
-          {/* Read-only badge for lettings staff */}
-          {!canBook && (
-            <span className="inline-flex items-center gap-sm px-lg py-sm rounded-lg bg-neutral-100 border border-neutral-300 text-neutral-600 font-semibold text-sm">
-              Read-only — timing view
-            </span>
-          )}
-
-          {/* Outstanding Jobs Summary — admins only */}
-          {canBook && (
-          <button
-            onClick={() => setShowOutstanding(!showOutstanding)}
-            className="inline-flex items-center gap-sm px-lg py-sm rounded-lg bg-white border border-neutral-300 text-neutral-900 font-semibold hover:bg-neutral-50 transition-colors"
-          >
-            <span className="text-lg"><LineIcon glyph="⚠️" /></span>
-            <span>{outstandingJobs.length} Outstanding</span>
-          </button>
-          )}
-
-          {/* Week Navigation */}
-          <div className="ml-auto flex items-center gap-md">
-            <button
-              onClick={() => setWeekStart(new Date(weekStart.setDate(weekStart.getDate() - 7)))}
-              className="px-md py-sm rounded-lg bg-white border border-slate-300 hover:bg-slate-50 transition-colors text-sm font-medium"
-            >
-              ← Prev
+          {outstandingJobs.length > 0 && (
+            <button onClick={() => setShowOutstanding(!showOutstanding)} className="inline-flex items-center gap-xs rounded-lg border border-amber-300 bg-amber-50 px-md py-sm text-sm font-semibold text-amber-900 hover:bg-amber-100">
+              <LineIcon glyph="⚠️" /> {outstandingJobs.length} repair{outstandingJobs.length === 1 ? '' : 's'} to book
             </button>
-            <div className="text-center">
-              <div className="text-xs font-semibold text-slate-600 uppercase tracking-wide">
-                {weekStart.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-              </div>
-              <div className="text-sm font-semibold text-slate-900">
-                Week of {formatDate(weekStart)}
-              </div>
-            </div>
-            <button
-              onClick={() => setWeekStart(new Date(weekStart.setDate(weekStart.getDate() + 7)))}
-              className="px-md py-sm rounded-lg bg-white border border-slate-300 hover:bg-slate-50 transition-colors text-sm font-medium"
-            >
-              Next →
-            </button>
+          )}
+          <div className="ml-auto flex items-center gap-xs">
+            <button onClick={() => move(-1)} aria-label="Previous week" className="rounded-lg border border-neutral-300 bg-white px-md py-sm text-sm font-semibold hover:bg-neutral-50">←</button>
+            {!isThisWeek && <button onClick={() => setWeekStart(mondayOf(new Date()))} className="rounded-lg border border-neutral-300 bg-white px-md py-sm text-sm font-semibold hover:bg-neutral-50">This week</button>}
+            <span className="min-w-[13rem] text-center text-sm font-semibold text-neutral-900">{weekLabel}</span>
+            <button onClick={() => move(1)} aria-label="Next week" className="rounded-lg border border-neutral-300 bg-white px-md py-sm text-sm font-semibold hover:bg-neutral-50">→</button>
           </div>
         </div>
 
-        {/* Outstanding Jobs Drawer */}
+        {/* filters = legend */}
+        <div className="mb-lg flex flex-wrap gap-xs">
+          {(Object.keys(KIND) as Kind[]).map(k => {
+            const n = entries.filter(e => e.kind === k).length, off = hidden.has(k)
+            return (
+              <button key={k} type="button" aria-pressed={!off} onClick={() => { const s = new Set(hidden); off ? s.delete(k) : s.add(k); setHidden(s) }}
+                className={`inline-flex items-center gap-xs rounded-full border px-md py-xs text-xs font-semibold transition ${off ? 'border-neutral-300 bg-white text-neutral-400' : 'border-transparent'}`}
+                style={off ? undefined : { background: KIND[k].tint, color: KIND[k].ink }}>
+                <span className="h-2 w-2 rounded-full" style={{ background: off ? '#C9C6BE' : KIND[k].bar }} />{KIND[k].label}s <span className="tabular-nums opacity-70">{n}</span>
+              </button>
+            )
+          })}
+        </div>
+
         {showOutstanding && outstandingJobs.length > 0 && (
-          <div className="mb-3xl p-lg rounded-lg bg-white border border-neutral-200 shadow-md">
-            <h3 className="font-bold text-neutral-900 mb-md">{outstandingJobs.length} Jobs Waiting to Be Booked</h3>
-            <div className="space-y-sm max-h-48 overflow-y-auto">
-              {outstandingJobs.map((job) => (
-                <div key={job.id} className="p-sm rounded-lg bg-neutral-50 border border-neutral-300 flex items-start justify-between">
-                  <div className="flex-1 min-w-0">
-                    <div className="font-semibold text-neutral-900 truncate">{job.title}</div>
-                    <div className="text-xs text-neutral-600">
-                      {job.property?.name || 'Unknown property'} {job.room ? `- ${job.room.name}` : ''}
-                    </div>
-                    {job.contractor && (
-                      <div className="text-xs text-neutral-600">
-                        Assigned to: {whoName(job.contractor)}
-                      </div>
-                    )}
+          <div className="mb-lg overflow-hidden rounded-xl border border-neutral-200 bg-white">
+            <p className="border-b border-neutral-100 px-md py-sm text-sm font-bold text-neutral-900">Approved repairs waiting for a date</p>
+            <div className="max-h-64 divide-y divide-neutral-100 overflow-y-auto">
+              {outstandingJobs.map((job: any) => (
+                <div key={job.id} className="flex items-center gap-md px-md py-sm">
+                  <div className="min-w-0 flex-1">
+                    <Link href={`/admin/maintenance?ticket=${job.id}`} className="block truncate text-sm font-semibold text-neutral-900 hover:underline">{job.title}</Link>
+                    <p className="truncate text-xs text-neutral-500">{firstLine(job.property?.name)}{job.room ? `, ${job.room.name}` : ''}{whoName(job.contractor) ? ` · ${whoName(job.contractor)}` : ''}</p>
                   </div>
-                  <Link
-                    href={`/admin/agency-diary/book-maintenance?job=${job.id}`}
-                    className="ml-md px-sm py-xs rounded bg-neutral-700 text-white text-xs font-semibold hover:bg-neutral-800 transition-colors whitespace-nowrap"
-                  >
-                    Book Now
-                  </Link>
+                  <Link href={`/admin/agency-diary/book-maintenance?job=${job.id}`} className="shrink-0 rounded-md bg-neutral-900 px-sm py-xs text-xs font-semibold text-white">Book</Link>
                 </div>
               ))}
             </div>
           </div>
         )}
 
-        {/* Map View */}
-        <div className="mb-3xl">
-          <h2 className="text-lg font-bold text-slate-900 mb-md">Map View</h2>
-          <div className="bg-white rounded-lg border border-slate-300 shadow-md p-lg">
-            <AgencyDiaryMap
-              events={[
-                ...maintenanceJobs.map(j => ({
-                  id: j.id,
-                  type: 'maintenance' as const,
-                  property: j.property,
-                  person_name: ([j.contractor?.salutation, j.contractor?.first_name, j.contractor?.last_name].filter(Boolean).join(' ') || j.contractor?.full_name || 'Unassigned'),
-                  time: j.booked_slot || '09:00',
-                  title: j.title,
-                })),
-                ...cleanJobs.map(c => ({
-                  id: c.id,
-                  type: 'clean' as const,
-                  property: c.property,
-                  person_name: ([c.cleaner?.salutation, c.cleaner?.first_name, c.cleaner?.last_name].filter(Boolean).join(' ') || c.cleaner?.full_name || 'Unassigned'),
-                  time: c.clean_time || '09:00',
-                  title: 'Cleaning',
-                })),
-                ...appointments.map(a => ({
-                  id: a.id,
-                  type: 'appointment' as const,
-                  property: a.property,
-                  person_name: a.visitor_name,
-                  time: a.appointment_time,
-                  title: a.appointment_type,
-                })),
-              ]}
-            />
-          </div>
-        </div>
+        {/* today */}
+        {isThisWeek && (
+          <section className="mb-lg overflow-hidden rounded-xl border border-neutral-200 bg-white">
+            <header className="flex items-baseline justify-between border-b border-neutral-100 px-md py-sm">
+              <h2 className="text-base font-bold text-neutral-900">Today <span className="font-normal text-neutral-500">· {longDate(today).replace(/ \d{4}$/, '')}</span></h2>
+              <span className="text-xs text-neutral-500">{todays.length ? `${todays.length} booked` : ''}</span>
+            </header>
+            {todays.length ? <div className="divide-y divide-neutral-100">{todays.map(e => <Row key={e.key} e={e} />)}</div>
+              : <p className="px-md py-md text-sm text-neutral-500">Nothing booked today.</p>}
+          </section>
+        )}
 
-        {/* Week Calendar */}
-        <div className="rounded-lg bg-white shadow-md overflow-hidden border border-neutral-200">
-          {/* Days Header */}
-          <div className="grid grid-cols-7 border-b border-neutral-200 bg-neutral-50">
-            {days.map((day) => (
-              <div
-                key={day.toISOString()}
-                className="px-md py-lg text-center border-r border-slate-200 last:border-r-0"
-              >
-                <div className="text-sm font-bold text-slate-900">{formatDate(day)}</div>
-                <div className="text-xs text-slate-500">{day.getDate()}</div>
-              </div>
-            ))}
-          </div>
-
-          {/* Calendar Grid */}
-          <div className="grid grid-cols-7">
-            {days.map((day) => {
-              const events = getEventsForDay(day)
-              const dateStr = day.toISOString().split('T')[0]
-              const isToday = dateStr === new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
-
+        {/* the week */}
+        <section className="hidden overflow-hidden rounded-xl border border-neutral-200 bg-white md:block">
+          <div className="grid border-b border-neutral-200" style={{ gridTemplateColumns: '56px repeat(7, minmax(0, 1fr))' }}>
+            <div />
+            {days.map(d => {
+              const s = ymd(d), isToday = s === today, weekend = d.getDay() === 0 || d.getDay() === 6
               return (
-                <div
-                  key={day.toISOString()}
-                  className={`min-h-64 p-md border-r border-b border-slate-200 last:border-r-0 ${
-                    isToday ? 'bg-blue-50' : 'bg-white'
-                  }`}
-                >
-                  {/* Events */}
-                  <div className="space-y-xs">
-                    {events.map((event) => (
-                      <div
-                        key={event.id}
-                        onClick={() => { if (event.type === 'clean') setCleanOpen(event as any) }}
-                        className={`text-xs rounded-lg p-xs border-l-4 cursor-pointer hover:shadow-md transition-shadow ${
-                          event.type === 'maintenance'
-                            ? 'bg-blue-100 border-blue-500 text-blue-900'
-                            : event.type === 'clean'
-                            ? 'bg-green-100 border-green-500 text-green-900'
-                            : 'bg-purple-100 border-purple-500 text-purple-900'
-                        }`}
-                      >
-                        <div className="font-semibold truncate">
-                          {event.type === 'maintenance' && `${whoName((event as any).contractor)}`}
-                          {event.type === 'clean' && `${whoName((event as any).cleaner)}`}
-                          {event.type === 'appointment' && `${(event as Appointment).visitor_name}`}
-                        </div>
-                        <div className="text-xs opacity-80 truncate mt-xs">
-                          {event.type === 'maintenance' ? (event as MaintenanceJob).title : event.type === 'clean' ? 'Cleaning' : (event as Appointment).appointment_type}
-                        </div>
-                        <div className="text-xs opacity-70 mt-xs">
-                          {event.time}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* No events placeholder */}
-                  {events.length === 0 && (
-                    <div className="text-xs text-slate-400 text-center py-lg">
-                      No bookings
-                    </div>
-                  )}
+                <div key={s} className={`border-l border-neutral-200 px-sm py-sm text-center ${weekend ? 'bg-[#F4F2EC]' : ''}`}>
+                  <div className={`text-[11px] font-semibold uppercase tracking-wider ${isToday ? 'text-[#B5361F]' : 'text-neutral-500'}`}>{d.toLocaleDateString('en-GB', { weekday: 'short' })}</div>
+                  <div className={`mx-auto mt-0.5 flex h-8 w-8 items-center justify-center rounded-full text-lg font-semibold tabular-nums ${isToday ? 'bg-[#B5361F] text-white' : 'text-neutral-900'}`}>{d.getDate()}</div>
                 </div>
               )
             })}
           </div>
-        </div>
-
-        {/* Stats Footer */}
-        <div className="mt-3xl grid grid-cols-1 md:grid-cols-3 gap-lg">
-          <div className="rounded-lg bg-white border border-neutral-200 p-lg shadow-sm">
-            <div className="text-3xl font-bold text-neutral-900">{maintenanceJobs.length}</div>
-            <div className="text-sm text-neutral-600 font-medium">Contractor Jobs Booked</div>
-          </div>
-          <div className="rounded-lg bg-white border border-neutral-200 p-lg shadow-sm">
-            <div className="text-3xl font-bold text-neutral-900">{cleanJobs.length}</div>
-            <div className="text-sm text-neutral-600 font-medium">Cleaner Jobs Booked</div>
-          </div>
-          <div className="rounded-lg bg-white border border-neutral-200 p-lg shadow-sm">
-            <div className="text-3xl font-bold text-neutral-900">{appointments.length}</div>
-            <div className="text-sm text-neutral-600 font-medium">Other Appointments</div>
-          </div>
-        </div>
-
-        {/* Upcoming Appointments List */}
-        <div className="mt-3xl">
-          <h2 className="text-lg font-bold text-slate-900 mb-md">All Upcoming Appointments</h2>
-          <div className="bg-white rounded-lg border border-slate-300 shadow-md overflow-hidden">
-            <div className="divide-y divide-slate-200 max-h-96 overflow-y-auto">
-              {(() => {
-                // Combine all events and sort by date/time
-                const allEvents = [
-                  ...maintenanceJobs.map((j) => ({
-                    id: j.id,
-                    type: 'maintenance' as const,
-                    date: j.booked_date || '',
-                    time: j.booked_slot || '09:00',
-                    property: j.property,
-                    person: ([j.contractor?.salutation, j.contractor?.first_name, j.contractor?.last_name].filter(Boolean).join(' ') || j.contractor?.full_name || 'Unassigned'),
-                    title: j.title,
-                  })),
-                  ...cleanJobs.map((c) => ({
-                    id: c.id,
-                    type: 'clean' as const,
-                    date: c.clean_date || '',
-                    time: c.clean_time || '09:00',
-                    property: c.property,
-                    person: ([c.cleaner?.salutation, c.cleaner?.first_name, c.cleaner?.last_name].filter(Boolean).join(' ') || c.cleaner?.full_name || 'Unassigned'),
-                    title: 'Cleaning',
-                  })),
-                  ...appointments.map((a) => ({
-                    id: a.id,
-                    type: 'appointment' as const,
-                    date: a.appointment_date,
-                    time: a.appointment_time,
-                    property: a.property,
-                    person: a.visitor_name,
-                    title: a.appointment_type,
-                  })),
-                ]
-                  .sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time))
-
-                const start = upcomingPage * itemsPerPage
-                const end = start + itemsPerPage
-                const pageItems = allEvents.slice(start, end)
-
-                if (allEvents.length === 0) {
-                  return (
-                    <div className="p-lg text-center text-slate-600">
-                      No upcoming appointments scheduled
+          {/* entries with no time */}
+          {shown.some(e => e.start == null) && (
+            <div className="grid border-b border-neutral-200 bg-[#FAF9F6]" style={{ gridTemplateColumns: '56px repeat(7, minmax(0, 1fr))' }}>
+              <div className="px-xs py-xs text-right text-[10px] uppercase tracking-wide text-neutral-400">Any time</div>
+              {days.map(d => (
+                <div key={ymd(d)} className="space-y-0.5 border-l border-neutral-200 p-0.5">
+                  {shown.filter(e => e.date === ymd(d) && e.start == null).map(e => (
+                    <button key={e.key} type="button" onClick={() => setOpen(e)} className="block w-full truncate rounded px-xs py-0.5 text-left text-[11px] font-semibold" style={{ background: KIND[e.kind].tint, color: KIND[e.kind].ink, borderLeft: `3px solid ${KIND[e.kind].bar}` }}>{e.title} · {e.place}</button>
+                  ))}
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="relative grid" style={{ gridTemplateColumns: '56px repeat(7, minmax(0, 1fr))' }}>
+            {/* hour labels + white / off-white bands */}
+            <div>
+              {hours.map(h => <div key={h} style={{ height: HOUR }} className="relative pr-xs text-right"><span className="relative -top-2 text-[11px] tabular-nums text-neutral-400">{h === firstHour ? '' : nice(h * 60)}</span></div>)}
+            </div>
+            {days.map(d => {
+              const s = ymd(d), isToday = s === today, weekend = d.getDay() === 0 || d.getDay() === 6
+              const list = shown.filter(e => e.date === s && e.start != null)
+              // side by side when they overlap
+              const lanes: Entry[][] = []
+              const laneOf = new Map<string, number>()
+              for (const e of list) {
+                let i = lanes.findIndex(l => (l[l.length - 1].end ?? 0) <= e.start!)
+                if (i < 0) { lanes.push([]); i = lanes.length - 1 }
+                lanes[i].push(e); laneOf.set(e.key, i)
+              }
+              const width = 100 / Math.max(1, lanes.length)
+              return (
+                <div key={s} className="relative border-l border-neutral-200" style={{ background: isToday ? '#FFF8F3' : weekend ? '#F7F5F0' : '#FFFFFF' }}>
+                  {hours.map((h, i) => <div key={h} style={{ height: HOUR }} className={`border-t ${i ? 'border-neutral-200/70' : 'border-transparent'} ${i % 2 && !isToday ? 'bg-[#FAF9F6]/80' : ''}`} />)}
+                  {isToday && nowMin >= firstHour * 60 && nowMin <= lastHour * 60 && (
+                    <div className="pointer-events-none absolute inset-x-0 z-10" style={{ top: ((nowMin - firstHour * 60) / 60) * HOUR }}>
+                      <div className="relative h-[2px] bg-[#B5361F]"><span className="absolute -left-1 -top-[3px] h-2 w-2 rounded-full bg-[#B5361F]" /></div>
                     </div>
-                  )
-                }
+                  )}
+                  {list.map(e => {
+                    const top = ((e.start! - firstHour * 60) / 60) * HOUR
+                    const h = Math.max(34, (((e.end ?? e.start! + 30) - e.start!) / 60) * HOUR - 2)
+                    const lane = laneOf.get(e.key)!
+                    const k = KIND[e.kind]
+                    return (
+                      <button key={e.key} type="button" onClick={() => setOpen(e)} title={`${e.title} — ${e.place}`}
+                        className="absolute overflow-hidden rounded-md px-xs py-0.5 text-left text-[11px] leading-tight shadow-[0_1px_0_rgba(0,0,0,0.04)] transition hover:z-20 hover:shadow-md focus-visible:z-20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-neutral-900"
+                        style={{ top: top + 1, height: h, left: `calc(${lane * width}% + 2px)`, width: `calc(${width}% - 4px)`, background: k.tint, color: k.ink, borderLeft: `3px solid ${k.bar}` }}>
+                        <span className="block font-semibold tabular-nums">{nice(e.start!)}</span>
+                        <span className="block truncate font-semibold">{e.title}</span>
+                        {h > 44 && <span className="block truncate opacity-80">{e.place}</span>}
+                        {h > 60 && <span className="block truncate opacity-70">{e.who}</span>}
+                      </button>
+                    )
+                  })}
+                </div>
+              )
+            })}
+          </div>
+        </section>
 
-                return (
-                  <>
-                    {pageItems.map((event) => (
-                      <div key={event.id} className="p-md hover:bg-slate-50 cursor-pointer transition-colors">
-                        <div className="flex items-start justify-between gap-md">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-sm mb-xs">
-                              <span className="text-lg">
-                                <LineIcon glyph={event.type === 'maintenance' ? '🔧' : event.type === 'clean' ? '🧹' : '📋'} />
-                              </span>
-                              <div className="font-semibold text-slate-900">{event.person}</div>
-                              <div className="text-xs text-slate-500">
-                                {new Date(event.date).toLocaleDateString('en-US', {
-                                  weekday: 'short',
-                                  month: 'long',
-                                  day: 'numeric',
-                                })}
-                              </div>
-                            </div>
-                            <div className="text-sm text-slate-600 ml-7">{event.property?.name || 'Unknown property'}</div>
-                            <div className="text-xs text-slate-500 ml-7">
-                              {event.time} • {event.title}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
+        {/* the week, day by day (and the whole diary on a phone) */}
+        <section className="mt-lg overflow-hidden rounded-xl border border-neutral-200 bg-white">
+          <header className="border-b border-neutral-100 px-md py-sm"><h2 className="text-base font-bold text-neutral-900">This week, day by day</h2></header>
+          {days.map((d, i) => {
+            const s = ymd(d), list = shown.filter(e => e.date === s)
+            return (
+              <div key={s} className={i % 2 ? 'bg-[#FBFAF7]' : 'bg-white'}>
+                <p className={`px-md pb-xs pt-sm text-xs font-bold uppercase tracking-wider ${s === today ? 'text-[#B5361F]' : 'text-neutral-500'}`}>{d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}{s === today ? ' · today' : ''}</p>
+                {list.length ? <div className="divide-y divide-neutral-100 pb-xs">{list.map(e => <Row key={e.key} e={e} />)}</div>
+                  : <p className="px-md pb-sm text-sm text-neutral-400">Nothing booked</p>}
+              </div>
+            )
+          })}
+        </section>
+      </main>
 
-                    {/* Pagination */}
-                    {allEvents.length > itemsPerPage && (
-                      <div className="flex items-center justify-between gap-md p-md bg-slate-50 border-t border-slate-200">
-                        <button
-                          onClick={() => setUpcomingPage(Math.max(0, upcomingPage - 1))}
-                          disabled={upcomingPage === 0}
-                          className="px-md py-sm rounded-lg bg-white border border-slate-300 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-100 transition-colors"
-                        >
-                          ← Previous
-                        </button>
-                        <span className="text-sm text-slate-600">
-                          {start + 1}–{Math.min(end, allEvents.length)} of {allEvents.length}
-                        </span>
-                        <button
-                          onClick={() =>
-                            setUpcomingPage(
-                              Math.min(
-                                Math.ceil(allEvents.length / itemsPerPage) - 1,
-                                upcomingPage + 1
-                              )
-                            )
-                          }
-                          disabled={end >= allEvents.length}
-                          className="px-md py-sm rounded-lg bg-white border border-slate-300 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-100 transition-colors"
-                        >
-                          Next →
-                        </button>
-                      </div>
-                    )}
-                  </>
-                )
-              })()}
+      <SidePanel open={!!open} onClose={() => setOpen(null)} eyebrow={open ? `${KIND[open.kind].label} · ${longDate(open.date)}` : ''} title={open?.title ?? ''}
+        footer={open && (
+          <div className="flex flex-wrap gap-sm">
+            {open.kind === 'repair' && isAdmin && <Link href={`/admin/maintenance?ticket=${open.id}`} className="rounded-full bg-[#F3F0E6] px-md py-sm text-sm font-semibold text-[#23261A]">Open the job</Link>}
+            {open.kind === 'clean' && <button type="button" onClick={() => setCleanOpen(open.raw)} className="rounded-full border border-[#F3F0E6]/40 px-md py-sm text-sm font-semibold">Cancel this clean</button>}
+            {open.kind === 'viewing' && <Link href="/admin/lettings" className="rounded-full bg-[#F3F0E6] px-md py-sm text-sm font-semibold text-[#23261A]">Open Lettings</Link>}
+            {open.kind === 'appointment' && <Link href="/admin/appointments" className="rounded-full bg-[#F3F0E6] px-md py-sm text-sm font-semibold text-[#23261A]">Move it in the week view</Link>}
+            {open.propertyId && <Link href={`/admin/properties/${open.propertyId}`} className="rounded-full border border-[#F3F0E6]/40 px-md py-sm text-sm font-semibold">Open the house</Link>}
+          </div>
+        )}>
+        {open && (
+          <div className="space-y-md text-sm">
+            <div className="rounded-xl bg-[#F3F0E6]/10 p-md">
+              <p className="text-lg font-semibold">{open.timeLabel}</p>
+              <p className="opacity-80">{open.place}{open.room ? `, ${open.room}` : ''}</p>
+            </div>
+            <dl className="grid grid-cols-[110px_1fr] gap-x-md gap-y-xs">
+              {open.facts.filter(([, v]) => v).map(([k, v]) => (<Fragment key={k}><dt className="opacity-60">{k}</dt><dd className="break-words">{/^(\+?\d[\d\s]{8,})$/.test(v) ? <a href={`tel:${v.replace(/\s/g, '')}`} className="underline">{v}</a> : /@/.test(v) ? <a href={`mailto:${v}`} className="underline">{v}</a> : v}</dd></Fragment>))}
+            </dl>
+            <div>
+              <p className="mb-xs text-[11px] font-bold uppercase tracking-wider opacity-60">{open.kind === 'repair' ? 'The job' : 'Notes'}</p>
+              <p className="whitespace-pre-wrap leading-relaxed">{open.detail || <span className="opacity-60">{open.kind === 'repair' ? 'No description on the job.' : 'No notes.'}</span>}</p>
             </div>
           </div>
-        </div>
-      </main>
+        )}
+      </SidePanel>
     </div>
   )
 }
 
 /** Cancel a clean from the diary (12 Nov 2026): reason kept; the cleaner is texted, the tenants get the usual
  *  "clean cancelled" message (/api/cleans/<id>/cancel). */
-function CancelClean({ clean, onClose, onDone }: { clean: CleanJob; onClose: () => void; onDone: () => void }) {
+function CancelClean({ clean, onClose, onDone }: { clean: any; onClose: () => void; onDone: () => void }) {
   const [reason, setReason] = useState('')
   const [tellCleaner, setTellCleaner] = useState(true)
   const [tellTenants, setTellTenants] = useState(true)
@@ -646,9 +433,9 @@ function CancelClean({ clean, onClose, onDone }: { clean: CleanJob; onClose: () 
     onDone()
   }
   return (
-    <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/60 p-lg sm:items-center" onClick={() => !busy && onClose()}>
+    <div className="fixed inset-0 z-[170] flex items-end justify-center bg-black/60 p-lg sm:items-center" onClick={() => !busy && onClose()}>
       <div className="w-full max-w-md rounded-2xl bg-white p-lg text-neutral-900 shadow-2xl" onClick={e => e.stopPropagation()}>
-        <h2 className="text-lg font-bold">Cleaning — {String(clean.property?.name ?? '').split('\n')[0]}</h2>
+        <h2 className="text-lg font-bold">Cleaning — {firstLine(clean.property?.name)}</h2>
         <p className="text-sm text-neutral-600">{when}{clean.clean_time ? ` · ${String(clean.clean_time).slice(0, 5)}` : ''}</p>
         <p className="mt-md text-xs font-bold uppercase tracking-wide text-neutral-500">Cancel this clean — why? (kept on the record)</p>
         <div className="mt-xs flex flex-wrap gap-xs">{['Cleaner unavailable', 'House empty', 'Moved to another day', 'Not needed this week'].map(r => <button key={r} type="button" onClick={() => setReason(r)} className={`rounded-full border px-sm py-0.5 text-xs ${reason === r ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-300 text-neutral-700'}`}>{r}</button>)}</div>
