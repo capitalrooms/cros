@@ -1,6 +1,7 @@
 'use client'
 
 import LetOnlyOccupants from './components/LetOnlyOccupants'
+import LocalRents from '@/components/LocalRents'
 import { adminFetch } from '@/lib/adminFetch'
 import { useState, useEffect, use } from 'react'
 import { isOfficeRole } from '@/lib/access/areas'
@@ -354,6 +355,7 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
               <div className="border-t border-neutral-200 pt-2xl">
                 <p className="text-xs font-bold uppercase tracking-widest text-neutral-400 mb-lg">Extended Details</p>
                 <ExtendedDetailsTab propertyId={id} propertyType={property.property_type} />
+                <div className="mt-lg"><LocalRents propertyId={id} /></div>
               </div>
               <Availability propertyId={id} from={property.unavailable_from} reason={property.unavailable_reason} onChange={u => setProperty((p: any) => ({ ...p, ...u }))} />
               <RemoveProperty propertyId={id} code={property.property_code ?? null} name={property.name} />
