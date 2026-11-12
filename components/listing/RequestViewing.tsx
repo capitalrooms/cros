@@ -61,6 +61,7 @@ export default function RequestViewing({ roomId, unit = 'room' }: { roomId: stri
       <input tabIndex={-1} aria-hidden="true" autoComplete="off" value={hp} onChange={e => setHp(e.target.value)} style={{ position: 'absolute', left: -9999, width: 1, height: 1, opacity: 0 }} name="website" />
       {err && <p style={{ margin: 0, color: '#9B2C1F', fontSize: 14 }}>{err}</p>}
       <button type="button" onClick={send} disabled={state === 'sending'} style={{ padding: '13px 20px', borderRadius: 999, background: '#111', color: '#fff', fontWeight: 600, fontSize: 15, border: 0, cursor: 'pointer' }}>{state === 'sending' ? 'Sending…' : 'Request a viewing'}</button>
+      <p style={{ margin: 0, fontSize: 14, color: '#6F6A60', textAlign: 'center' }}>Prefer to talk? <a href="tel:02071129163" style={{ color: '#111', fontWeight: 600 }}>Call 0207 112 9163</a></p>
     </div>
   )
 }

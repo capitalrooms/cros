@@ -22,7 +22,7 @@ export async function generateMetadata({ params }: { params: Promise<{ roomId: s
   if (!l) return { title: 'Not found', robots: { index: false } }
   const where = l.displayAddress?.split(',')[0] || publicTitle(l.displayName)
   const title = `${adTitle(l)}${l.rent ? `, ${gbp(l.rent)} pcm` : ''}`
-  const description = (plainAdvert(l.description) || `${l.wholeLet ? 'Home' : 'Room'} to rent on ${where}${l.billsIncluded ? ', bills included' : ''}. ${when(l.available)}.`).slice(0, 160)
+  const description = (plainAdvert(l.description) || `${l.wholeLet ? 'Property' : 'Room'} to rent on ${where}${l.billsIncluded ? ', bills included' : ''}. ${when(l.available)}.`).slice(0, 160)
   return { title, description, alternates: { canonical: `/l/${roomId}/${token}` }, openGraph: { title, description, images: l.media.filter(m => m.kind === 'photo').slice(0, 1).map(m => m.url) } }
 }
 
@@ -37,10 +37,10 @@ export default async function Listing({ params }: { params: Promise<{ roomId: st
   const stations = l.approx ? await nearbyStations(l.approx.lat, l.approx.lng) : []
   const description = l.description || autoDescription(l, where, stations)
   const pw = l.rent ? Math.round(l.rent * 12 / 52) : null
-  const unit = l.wholeLet ? 'home' : 'room'
+  const unit = l.wholeLet ? 'property' : 'room'   // Harry, 12 Nov 2026: "it's not a home, it's a property"
   const applyHref = `/applicant/apply?roomId=${l.roomId}&propertyId=${l.propertyId}`
   const keyFacts = ([
-    [l.wholeLet ? 'Home' : 'Room', l.wholeLet ? f.propertyType : [f.roomType, f.ensuite ? 'en-suite' : null].filter(Boolean).join(', ') || null],
+    [l.wholeLet ? 'Property' : 'Room', l.wholeLet ? f.propertyType : [f.roomType, f.ensuite ? 'en-suite' : null].filter(Boolean).join(', ') || null],
     ['Size', f.roomSize ? `${f.roomSize} m²` : null],
     [l.wholeLet ? 'Bedrooms' : 'House', l.wholeLet ? (f.bedrooms ? String(f.bedrooms) : null) : (f.roomsInHouse || f.bedrooms ? `${f.roomsInHouse || f.bedrooms} bedrooms` : null)],
     ['Housemates', !l.wholeLet && f.housemates ? String(f.housemates) : null],
@@ -87,7 +87,7 @@ export default async function Listing({ params }: { params: Promise<{ roomId: st
         <BackLink whole={!!l.wholeLet} />
         {l.status === 'let_agreed' && <p className="note" style={{ background: 'var(--ink)', color: 'var(--cream)', marginBottom: 16 }}>Let agreed. This {unit} has been taken. <a href={`${b}/contact`} style={{ color: 'var(--gold)' }}>Ask us</a> about others like it.</p>}
         <div style={{ borderRadius: 28, overflow: 'hidden' }}>
-          <ListingGallery photos={photos.map((m, i) => ({ id: m.id, url: m.url, alt: m.caption || (m.ofRoom ? `${l.roomName}, photo ${i + 1}` : `The ${l.wholeLet ? 'home' : 'house'}, photo ${i + 1}`) }))} videoCount={videos.length} />
+          <ListingGallery photos={photos.map((m, i) => ({ id: m.id, url: m.url, alt: m.caption || (m.ofRoom ? `${l.roomName}, photo ${i + 1}` : `The ${l.wholeLet ? 'property' : 'house'}, photo ${i + 1}`) }))} videoCount={videos.length} />
         </div>
         {!photos.length && <div className="ph sage" style={{ aspectRatio: '3 / 1', borderRadius: 28 }} />}
 

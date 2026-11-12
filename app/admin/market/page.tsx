@@ -11,7 +11,7 @@ import { adminFetch } from '@/lib/adminFetch'
 import Link from 'next/link'
 import AskData from './AskData'
 
-interface Area { code: string; name: string; region: string | null; rent: number | null; change: number | null; period: string }
+interface Area { code: string; name: string; region: string | null; rent: number | null; change: number | null; period: string; changes?: Record<string, number | null> }
 const gbp = (n: number | null | undefined) => n == null ? '—' : `£${Math.round(n).toLocaleString('en-GB')}`
 const gbpK = (n: number | null | undefined) => n == null ? '—' : n >= 1_000_000 ? `£${(n / 1_000_000).toFixed(2)}m` : `£${Math.round(n / 1000)}k`
 const pct = (n: number | null | undefined) => n == null ? '' : `${n > 0 ? '+' : ''}${n.toFixed(1)}%`
@@ -46,6 +46,9 @@ export default function MarketPage() {
   const [q, setQ] = useState('')
   const [pick, setPick] = useState<Area | null>(null)
   const [mapBy, setMapBy] = useState<'rent' | 'change'>('change')
+  // the map's change over 1, 3, 6 or 12 months (12 Nov 2026, Harry)
+  const [span, setSpan] = useState<1 | 3 | 6 | 12>(12)
+  const chg = (a: Area) => a.changes?.[span] ?? (span === 12 ? a.change : null)
   const [d, setD] = useState<any>(null)
   const [busy, setBusy] = useState('')
   const [err, setErr] = useState('')
@@ -63,11 +66,11 @@ export default function MarketPage() {
   const byName = useMemo(() => new Map((areas ?? []).map(a => [a.name, a])), [areas])
   const hits = q.trim().length >= 2 ? (areas ?? []).filter(a => a.name.toLowerCase().includes(q.trim().toLowerCase())).slice(0, 8) : []
   const london = LONDON.map(([n]) => byName.get(n)).filter(Boolean) as Area[]
-  const vals = london.map(a => (mapBy === 'rent' ? a.rent : a.change) ?? 0)
+  const vals = london.map(a => (mapBy === 'rent' ? a.rent : chg(a)) ?? 0)
   const lo = Math.min(...vals), hi = Math.max(...vals)
   const shade = (a?: Area) => {
     if (!a) return '#f1f1ef'
-    const v = (mapBy === 'rent' ? a.rent : a.change) ?? 0, t = hi > lo ? (v - lo) / (hi - lo) : 0.5
+    const v = (mapBy === 'rent' ? a.rent : chg(a)) ?? 0, t = hi > lo ? (v - lo) / (hi - lo) : 0.5
     return `hsl(${mapBy === 'change' ? 150 : 205} ${35 + t * 30}% ${92 - t * 52}%)`
   }
 
@@ -134,15 +137,21 @@ export default function MarketPage() {
                   const a = byName.get(cell[0])
                   const on = pick?.name === cell[0]
                   return (
-                    <button key={i} type="button" disabled={!a} onClick={() => a && setPick(a)} title={a ? `${a.name}: ${gbp(a.rent)} · ${pct(a.change)}` : cell[0]}
+                    <button key={i} type="button" disabled={!a} onClick={() => a && setPick(a)} title={a ? `${a.name}: ${gbp(a.rent)} · ${pct(chg(a))} over ${span} month${span === 1 ? '' : 's'}` : cell[0]}
                       className={`flex aspect-square flex-col items-center justify-center rounded-md p-0.5 text-center leading-tight transition hover:scale-105 ${on ? 'ring-2 ring-neutral-900' : ''}`} style={{ background: shade(a) }}>
                       <span className="text-[9px] font-semibold text-neutral-900 sm:text-[10px]">{short(cell[0])}</span>
-                      {a && <span className="text-[9px] tabular-nums text-neutral-700 sm:text-[10px]">{mapBy === 'rent' ? gbpK(a.rent) : pct(a.change)}</span>}
+                      {a && <span className="text-[9px] tabular-nums text-neutral-700 sm:text-[10px]">{mapBy === 'rent' ? gbpK(a.rent) : pct(chg(a)) || '—'}</span>}
                     </button>
                   )
                 })}
               </div>
-              <p className="text-[11px] text-neutral-500">Darker = {mapBy === 'rent' ? 'higher average rent' : 'rents rising faster'}. Tap a borough.</p>
+              {mapBy === 'change' && (
+                <div className="flex items-center gap-xs text-xs">
+                  <span className="text-neutral-500">Over</span>
+                  {([1, 3, 6, 12] as const).map(n => <button key={n} type="button" onClick={() => setSpan(n)} className={`rounded-full px-sm py-0.5 font-semibold ${span === n ? 'bg-neutral-900 text-white' : 'bg-neutral-100 text-neutral-600'}`}>{n === 12 ? '12 months' : `${n}m`}</button>)}
+                </div>
+              )}
+              <p className="text-[11px] text-neutral-500">Darker = {mapBy === 'rent' ? 'higher average rent' : `rents rising faster over ${span === 1 ? 'the last month' : `${span} months`}`}. Tap a borough.</p>
             </section>
 
             {/* the area at a glance */}
@@ -155,6 +164,20 @@ export default function MarketPage() {
                     <h2 className="text-3xl font-extrabold">{d.area.name}</h2>
                     {points.length > 0 && <ul className="mt-sm space-y-1 text-sm text-neutral-200">{points.map(p => <li key={p}>• {p}</li>)}</ul>}
                   </div>
+                  {d.changes && (
+                    <div className="overflow-x-auto rounded-xl bg-white ring-1 ring-neutral-200">
+                      <table className="w-full text-sm tabular-nums">
+                        <thead><tr className="text-[11px] uppercase tracking-wide text-neutral-500"><th className="px-md py-xs text-left font-bold">Change over</th>{[1, 3, 6, 12].map(n => <th key={n} className="px-sm py-xs text-right font-bold">{n === 12 ? '12 months' : `${n} month${n === 1 ? '' : 's'}`}</th>)}</tr></thead>
+                        <tbody>
+                          {([['Average rent', d.changes.rent], ['Average house price', d.changes.price]] as const).map(([k, c]) => (
+                            <tr key={k} className="border-t border-neutral-100"><td className="px-md py-xs font-semibold text-neutral-800">{k}</td>
+                              {[1, 3, 6, 12].map(n => { const v = (c as any)?.[n]; return <td key={n} className={`px-sm py-xs text-right font-semibold ${v == null ? 'text-neutral-400' : v < 0 ? 'text-red-700' : 'text-emerald-700'}`}>{v == null ? '—' : `${v < 0 ? '▼' : '▲'} ${pct(v)}`}</td> })}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
                   <div>
                     <p className="mb-xs text-xs font-bold uppercase tracking-wide text-neutral-500">Renting</p>
                     <div className="grid grid-cols-2 gap-sm sm:grid-cols-3">
