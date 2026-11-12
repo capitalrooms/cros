@@ -44,7 +44,7 @@ export default function RequestViewing({ roomId, unit = 'room' }: { roomId: stri
   return (
     <div style={{ border: '1px solid #E4E0D8', borderRadius: 16, padding: 20, background: '#fff', display: 'flex', flexDirection: 'column', gap: 14 }}>
       <p style={{ margin: 0, color: '#4A4741', fontSize: 15 }}>Choose up to {MAX_SLOTS} times that suit you in the next week and we’ll confirm one. Viewings are Monday to Friday, at lunchtime (12–1:30pm) or in the evening (5–6:30pm).</p>
-      <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 2 }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
         {days.map(d => <button key={d} type="button" onClick={() => setDay(d)} style={{ ...chip(d === day), whiteSpace: 'nowrap', position: 'relative' }}>{dayShort(d)}{picked.some(p => p.date === d) ? ' •' : ''}</button>)}
       </div>
       {[['Lunchtime', LUNCH], ['Evening', EVENING]].map(([label, times]) => (

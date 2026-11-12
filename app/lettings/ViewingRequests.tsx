@@ -42,7 +42,8 @@ export default function ViewingRequests({ compact = false }: { compact?: boolean
   }
 
   if (!list) return null
-  if (!list.length) return compact ? null : <p className="text-sm text-neutral-500">No viewing requests waiting.</p>
+  // the last thing done stays on screen even when that was the last request
+  if (!list.length) return msg ? <p className="rounded-xl bg-emerald-50 px-lg py-md text-sm text-emerald-800">{msg}</p> : compact ? null : <p className="text-sm text-neutral-500">No viewing requests waiting.</p>
   return (
     <section className="rounded-2xl bg-white ring-1 ring-amber-300">
       <header className="border-b border-neutral-100 px-lg py-md">
