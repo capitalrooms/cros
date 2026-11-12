@@ -13,12 +13,13 @@ export interface ListRow {
   house_code: string; room: string; move_in: string | null; persons_in_house: number | null
   bathroom: string | null; shared_space: string | null; rent: number | null
   tenant_name: string | null; tenant_phone: string | null; note: string | null
+  tenant_email?: string | null; occupation?: string | null; age?: number | null; gender?: string | null; share_on_adverts?: boolean | null
 }
 
 const SCHEMA = {
   type: 'object', additionalProperties: false, required: ['rows'],
   properties: { rows: { type: 'array', items: { type: 'object', additionalProperties: false,
-    required: ['house_code', 'room', 'move_in', 'persons_in_house', 'bathroom', 'shared_space', 'rent', 'tenant_name', 'tenant_phone', 'note'],
+    required: ['house_code', 'room', 'move_in', 'persons_in_house', 'bathroom', 'shared_space', 'rent', 'tenant_name', 'tenant_phone', 'note', 'tenant_email', 'occupation', 'age', 'gender', 'share_on_adverts'],
     properties: {
       house_code: { type: 'string', description: 'the short house code exactly as written, e.g. "9rc", "4qdc", "95rs"' },
       room: { type: 'string', description: 'room number as written, e.g. "4"' },
@@ -30,11 +31,19 @@ const SCHEMA = {
       tenant_name: { type: ['string', 'null'], description: 'the person living there, without the phone number; null if none' },
       tenant_phone: { type: ['string', 'null'], description: 'their phone number as written' },
       note: { type: ['string', 'null'], description: 'anything else written in place of a tenant, e.g. "currently living room but will be made into a bedroom"' },
+      tenant_email: { type: ['string', 'null'], description: 'their email address if given' },
+      occupation: { type: ['string', 'null'], description: 'what they do, as given, e.g. "Software developer", "Nurse", "Student at UCL"' },
+      age: { type: ['integer', 'null'], description: 'their age in years if given' },
+      gender: { type: ['string', 'null'], description: '"male", "female" or as written, only if given' },
+      share_on_adverts: { type: ['boolean', 'null'], description: 'true only if the landlord says this tenant is happy to be mentioned on adverts; false if they say no; null if not said' },
     } } } },
 }
 
-const PROMPT = `This is a landlord's list of the rooms in their shared houses and who lives in each. Read every row into the
-schema. Keep house codes exactly as written (lower case). Ignore empty numbered rows. Don't invent anything that isn't there.`
+const PROMPT = `This is a landlord's list of the rooms in their shared houses and who lives in each — a table, or their
+email reply to our request (which may cover just one house: then use the house's code or number + street initials as the
+house code, e.g. "9 Rope Street" → "9rs"). Read every room into the schema. Keep house codes exactly as written (lower
+case). Ignore empty numbered rows. Don't invent anything that isn't there.`
+
 
 export async function readRoomList(input: { text?: string; image?: { mime: string; base64: string } }): Promise<ListRow[]> {
   const content: any[] = []
@@ -136,12 +145,40 @@ export async function applyRoomList(s: SupabaseClient, propertyId: string, rows:
     if (!r.tenant_name) { if (r.note) said.push(`${roomName}: ${r.note}`); continue }
     const { data: cur } = await s.from('let_only_occupants').select('id, name').eq('room_id', room.id).is('ended_at', null)
     const same = ((cur ?? []) as any[]).find(o => o.name.trim().toLowerCase() === r.tenant_name!.trim().toLowerCase())
-    const occ = { name: r.tenant_name.trim(), phone: r.tenant_phone?.trim() || null, move_in: r.move_in || null, rent: r.rent ?? null, note: r.note || null, source, updated_at: new Date().toISOString() }
-    if (same) { await s.from('let_only_occupants').update(occ).eq('id', same.id); said.push(`${roomName}: ${occ.name} updated`); continue }
+    const base = { name: r.tenant_name.trim(), phone: r.tenant_phone?.trim() || null, move_in: r.move_in || null, rent: r.rent ?? null, note: r.note || null, source, updated_at: new Date().toISOString() }
+    // the extra details from migration 278 — only what the landlord actually gave
+    const extra: Record<string, unknown> = {}
+    if (r.tenant_email?.includes('@')) (base as any).email = r.tenant_email.trim().toLowerCase()
+    if (r.occupation?.trim()) extra.occupation = r.occupation.trim().slice(0, 80)
+    if (r.age && r.age >= 16 && r.age <= 100) { extra.age = r.age; extra.age_noted_on = today }
+    if (r.gender?.trim()) extra.gender = r.gender.trim().toLowerCase().slice(0, 20)
+    if (typeof r.share_on_adverts === 'boolean') extra.share_on_adverts = r.share_on_adverts
+    const occ = { ...base, ...extra }
+    const write = async (q: (row: Record<string, unknown>) => PromiseLike<{ error: any }>) => {
+      const { error } = await q(occ)
+      if (error && /occupation|age|gender|share_on_adverts/.test(error.message)) return (await q(base)).error   // before migration 278
+      return error
+    }
+    if (same) { await write(row => s.from('let_only_occupants').update(row).eq('id', same.id)); said.push(`${roomName}: ${occ.name} updated`); continue }
     if ((cur ?? []).length) await s.from('let_only_occupants').update({ ended_at: r.move_in && r.move_in < today ? r.move_in : today }).in('id', (cur as any[]).map(o => o.id))
-    const { error } = await s.from('let_only_occupants').insert({ ...occ, property_id: propertyId, room_id: room.id, created_by: by })
+    const error = await write(row => s.from('let_only_occupants').insert({ ...row, property_id: propertyId, room_id: room.id, created_by: by }))
     if (error) throw new Error(`${roomName}: ${error.message}`)
     said.push(`${roomName}: ${occ.name}${occ.move_in ? ` from ${occ.move_in.split('-').reverse().join('/')}` : ''}`)
   }
   return said
+}
+
+/** A landlord's reply about ONE house we already know (12 Nov 2026 — "Paste the landlord's reply" on the house):
+ *  every row belongs to that house, whatever code they wrote. */
+export async function resolveForHouse(s: SupabaseClient, propertyId: string, rows: ListRow[]): Promise<ResolvedGroup[]> {
+  const { data: p } = await s.from('properties').select('id, name, property_code').eq('id', propertyId).maybeSingle() as { data: any }
+  if (!p) return []
+  const { data: rooms } = await s.from('rooms').select('id, name').eq('property_id', propertyId)
+  const code = String(p.property_code || 'house').toLowerCase()
+  return [{ code, property: { id: p.id, name: String(p.name).split('\n')[0] }, suggestion: null, rows: rows.map(r => {
+    const n = String(r.room || '').match(/\d+/)?.[0]
+    const roomName = n ? `Room ${parseInt(n)}` : String(r.room || 'Room').trim()
+    const room = ((rooms ?? []) as any[]).find(x => String(x.name).toLowerCase().replace(/\s/g, '') === roomName.toLowerCase().replace(/\s/g, ''))
+    return { ...r, house_code: code, roomId: room?.id ?? null, roomName }
+  }) }]
 }

@@ -14,7 +14,7 @@ import { listingPath } from '@/lib/listing/listing'
 import { smartFill } from '@/lib/listing/smartFill'
 import { fromRecord, blanksFrom } from '@/lib/listing/fromRecord'
 import { tidyAdvert } from '@/lib/listing/tidyAdvert'
-import { housemateIntros } from '@/lib/housemates/adverts'
+import { housemateIntros, introLines } from '@/lib/housemates/adverts'
 import { isWholeLet } from '@/lib/lettings/letWording'
 
 export const dynamic = 'force-dynamic'
@@ -152,7 +152,8 @@ export async function POST(req: NextRequest) {
     ]) as any[]
     const place = String(l.display_address || '').trim() || [String(house?.postcode ?? '').trim().split(' ')[0], 'London'].filter(Boolean).join(', ')
     let text: string
-    try { text = await tidyAdvert(l.description, { wholeLet: isWholeLet(house?.property_type, room?.name), place }) }
+    const mates = l.room_id ? introLines(await housemateIntros(s, l.property_id, l.room_id).catch(() => [])) : []
+    try { text = await tidyAdvert(l.description, { wholeLet: isWholeLet(house?.property_type, room?.name), place, housemates: mates }) }
     catch (e: any) { return NextResponse.json({ error: e?.message ?? 'Couldn’t tidy it' }, { status: 502 }) }
     const { data, error } = await s.from('listings').update({ description: text, updated_at: new Date().toISOString() }).eq('id', l.id).select('*').single()
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })

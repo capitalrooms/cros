@@ -1,5 +1,6 @@
 'use client'
 
+import LetOnlyOccupants from './components/LetOnlyOccupants'
 import { adminFetch } from '@/lib/adminFetch'
 import { useState, useEffect, use } from 'react'
 import { isOfficeRole } from '@/lib/access/areas'
@@ -383,6 +384,7 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
                 ))}
               </div>
               <div className="p-lg">
+                {peopleSubTab === 'tenants' && property.letting_type === 'let_only' && <LetOnlyOccupants propertyId={id} />}
                 {peopleSubTab === 'tenants' && <PeopleTab propertyId={id} />}
                 {peopleSubTab === 'housemates' && <HousematesTab propertyId={id} />}
                 {peopleSubTab === 'messages' && <CommunicationsTab propertyId={id} />}
