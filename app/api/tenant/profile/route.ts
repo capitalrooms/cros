@@ -3,7 +3,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireSignedIn } from '@/lib/portalAuth'
 import { createServiceClient } from '@/lib/supabase'
-import { profileFor, saveAnswers, savePhoto, removePhoto, saveAvatar, MAX_PHOTO } from '@/lib/housemates/profile'
+import { profileFor, saveAnswers, savePhoto, removePhoto, saveAvatar, saveAdverts, MAX_PHOTO } from '@/lib/housemates/profile'
 import { parseAvatar, avatarValue } from '@/lib/housemates/avatar'
 
 export const dynamic = 'force-dynamic'
@@ -23,7 +23,8 @@ export async function POST(req: NextRequest) {
   const b = await req.json().catch(() => ({}))
   const s = createServiceClient() as any
   try {
-    if (b.answers && typeof b.answers === 'object') await saveAnswers(s, c.personId, b.answers, b.visible !== false)
+    if (b.answers && typeof b.answers === 'object') await saveAnswers(s, c.personId, b.answers, b.visible !== false, typeof b.adverts === 'boolean' ? b.adverts : undefined)
+    else if (typeof b.adverts === 'boolean') await saveAdverts(s, c.personId, b.adverts)
     else if (typeof b.visible === 'boolean') await s.from('tenant_icebreakers').upsert({ person_id: c.personId, visible_to_housemates: b.visible, updated_at: new Date().toISOString() }, { onConflict: 'person_id' })
     if ('avatar' in b) { const a = parseAvatar(b.avatar); await saveAvatar(s, c.personId, a ? avatarValue(a) : null) }
     return NextResponse.json({ ok: true })

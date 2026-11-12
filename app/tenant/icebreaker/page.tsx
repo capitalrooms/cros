@@ -30,6 +30,7 @@ export default function MyProfile() {
   const [firstName, setFirstName] = useState('')
   const [answers, setAnswers] = useState<IcebreakerAnswers>({})
   const [visible, setVisible] = useState(true)
+  const [adverts, setAdverts] = useState(false)
   const [photoUrl, setPhotoUrl] = useState<string | null>(null)
   const [avatar, setAvatar] = useState<string | null>(null)
   const [picking, setPicking] = useState(false)
@@ -43,7 +44,7 @@ export default function MyProfile() {
     adminFetch('/api/tenant/profile').then(async r => {
       if (r.status === 401) { router.push('/login'); return }
       const d = await r.json()
-      setFirstName(d.firstName ?? ''); setAnswers(d.answers ?? {}); setVisible(d.visible !== false)
+      setFirstName(d.firstName ?? ''); setAnswers(d.answers ?? {}); setVisible(d.visible !== false); setAdverts(d.adverts === true)
       setPhotoUrl(d.photoUrl ?? null); setAvatar(d.answers?.avatar ?? null)
       setLoading(false)
     }).catch(() => { setError('Couldn’t load your profile. Check your connection and try again.'); setLoading(false) })
@@ -63,7 +64,7 @@ export default function MyProfile() {
 
   async function save() {
     setBusy('save'); setError('')
-    const r = await adminFetch('/api/tenant/profile', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ answers, visible }) }).catch(() => null)
+    const r = await adminFetch('/api/tenant/profile', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ answers, visible, adverts }) }).catch(() => null)
     setBusy('')
     if (r?.ok) { setDirty(false); setNote('Saved. Your housemates will see this.') } else setError((await r?.json().catch(() => ({})))?.error ?? 'Couldn’t save. Check your connection and try again.')
   }
@@ -168,6 +169,10 @@ export default function MyProfile() {
         <label className="mt-md flex cursor-pointer items-start gap-sm rounded-2xl border border-neutral-200 bg-white p-lg">
           <input type="checkbox" checked={visible} onChange={e => { setVisible(e.target.checked); setDirty(true) }} className="mt-0.5 h-5 w-5" />
           <span className="text-sm text-neutral-700"><span className="font-bold text-neutral-900">Show my profile to my housemates.</span> Turn this off to keep it private.</span>
+        </label>
+        <label className="mt-sm flex cursor-pointer items-start gap-sm rounded-2xl border border-neutral-200 bg-white p-lg">
+          <input type="checkbox" checked={adverts} onChange={e => { setAdverts(e.target.checked); setDirty(true) }} className="mt-0.5 h-5 w-5" />
+          <span className="text-sm text-neutral-700"><span className="font-bold text-neutral-900">Help find a great housemate.</span> Show a short intro on adverts for empty rooms in your house: what you do, where you’re from and your weekends. Never your name or photo.</span>
         </label>
         <p className="mt-lg text-center"><Link href="/tenant/housemates" className="text-sm font-semibold text-neutral-600 underline">See your housemates</Link></p>
       </main>

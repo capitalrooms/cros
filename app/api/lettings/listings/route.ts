@@ -5,6 +5,7 @@
 //   PATCH { id, fields }                     → save fields (only the editable ones) → { listing, missing }
 //   POST { id, action: 'move', to }          → move on the board, with its checks
 //   POST { id, action: 'channel', channel, enabled } → switch a channel on/off
+//   POST { id, action: 'tidy' }              → the description laid out under the standard headings (lib/listing/tidyAdvert)
 import { NextRequest, NextResponse } from 'next/server'
 import { requireStaff } from '@/lib/portalAuth'
 import { createServiceClient } from '@/lib/supabase'
@@ -12,6 +13,9 @@ import { draftFromRoom, depositsFor, missingForReady, EDITABLE, CHANNELS, CHANNE
 import { listingPath } from '@/lib/listing/listing'
 import { smartFill } from '@/lib/listing/smartFill'
 import { fromRecord, blanksFrom } from '@/lib/listing/fromRecord'
+import { tidyAdvert } from '@/lib/listing/tidyAdvert'
+import { housemateIntros } from '@/lib/housemates/adverts'
+import { isWholeLet } from '@/lib/lettings/letWording'
 
 export const dynamic = 'force-dynamic'
 const OPEN = ['draft', 'ready', 'live', 'let_agreed']
@@ -36,7 +40,9 @@ async function full(s: any, listing: any) {
   const ph = ((photos ?? []) as any[]).map(x => ({ id: x.id, url: photoUrl(s, x), video: String(x.file_type ?? '').startsWith('video'), caption: x.caption, area: x.area ?? (x.room_id ? 'room' : null), ofRoom: !!listing.room_id && x.room_id === listing.room_id, otherRoom: !!x.room_id && x.room_id !== listing.room_id }))
   const inOrder = (listing.media_order ?? []).filter((id: string) => ph.some(p => p.id === id))
   return {
-    listing, house, room, photos: ph, mediaCount: inOrder.length, counts: { applicants: applicants ?? 0, viewings: viewings ?? 0 },
+    listing, house, room, photos: ph, mediaCount: inOrder.length,
+    // who'd show under "Who you'd live with" on the advert (housemates who said yes — lib/housemates/adverts)
+    housemates: listing.room_id ? await housemateIntros(s, listing.property_id, listing.room_id).catch(() => []) : [], counts: { applicants: applicants ?? 0, viewings: viewings ?? 0 },
     channels: CHANNELS.map(c => ({ channel: c, label: CHANNEL_LABEL[c], available: CHANNEL_READY[c], ...(((channels ?? []) as any[]).find(x => x.channel === c) ?? { enabled: false }) })),
     missing: missingForReady(listing, inOrder.length),
     shareUrl: listing.room_id ? `https://capitalrooms.co.uk${listingPath(listing.room_id)}` : null,   // listings live on the website
@@ -135,6 +141,22 @@ export async function POST(req: NextRequest) {
       row = data
     }
     return NextResponse.json({ ...(await full(s, row)), filled: Object.keys(got.fields), checks: got.checks })
+  }
+
+  // { action: 'tidy' } → the description rewritten into the standard layout, from its own words (12 Nov 2026)
+  if (b.action === 'tidy') {
+    if (!String(l.description ?? '').trim()) return NextResponse.json({ error: 'There’s no description to tidy yet.' }, { status: 400 })
+    const [{ data: house }, { data: room }] = await Promise.all([
+      s.from('properties').select('name, postcode, property_type').eq('id', l.property_id).maybeSingle(),
+      l.room_id ? s.from('rooms').select('name').eq('id', l.room_id).maybeSingle() : Promise.resolve({ data: null }),
+    ]) as any[]
+    const place = String(l.display_address || '').trim() || [String(house?.postcode ?? '').trim().split(' ')[0], 'London'].filter(Boolean).join(', ')
+    let text: string
+    try { text = await tidyAdvert(l.description, { wholeLet: isWholeLet(house?.property_type, room?.name), place }) }
+    catch (e: any) { return NextResponse.json({ error: e?.message ?? 'Couldn’t tidy it' }, { status: 502 }) }
+    const { data, error } = await s.from('listings').update({ description: text, updated_at: new Date().toISOString() }).eq('id', l.id).select('*').single()
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json(await full(s, data))
   }
 
   if (b.action === 'move') {

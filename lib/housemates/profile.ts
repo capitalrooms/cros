@@ -10,7 +10,7 @@ import { ALL_QUESTIONS, type IcebreakerAnswers } from '@/lib/icebreaker'
 const BUCKET = 'property-documents'
 export const MAX_PHOTO = 4 * 1024 * 1024   // the phone shrinks it first (app/pack/[token]/AboutYou) — Vercel takes 4.5 MB at most
 
-export interface HousemateProfile { answers: IcebreakerAnswers; visible: boolean; photoUrl: string | null; hasPhoto: boolean; completedAt: string | null }
+export interface HousemateProfile { answers: IcebreakerAnswers; visible: boolean; adverts: boolean; photoUrl: string | null; hasPhoto: boolean; completedAt: string | null }
 
 /** The profile, with the photo as a signed link good for `linkDays` (an email keeps working for a year). */
 export async function profileFor(s: SupabaseClient, personId: string, linkDays = 365): Promise<HousemateProfile> {
@@ -21,11 +21,13 @@ export async function profileFor(s: SupabaseClient, personId: string, linkDays =
     const { data: signed } = await s.storage.from(BUCKET).createSignedUrl(String(answers.photo), linkDays * 86400)
     photoUrl = signed?.signedUrl ?? null
   }
-  return { answers, visible: data ? data.visible_to_housemates !== false : true, photoUrl, hasPhoto: !!photoUrl, completedAt: data?.completed_at ?? null }
+  // a separate yes to a nameless intro on adverts for empty rooms in their house (migration 277; off until ticked)
+  const { data: ad } = await s.from('tenant_icebreakers').select('show_on_adverts').eq('person_id', personId).maybeSingle() as { data: any }
+  return { answers, visible: data ? data.visible_to_housemates !== false : true, adverts: ad?.show_on_adverts === true, photoUrl, hasPhoto: !!photoUrl, completedAt: data?.completed_at ?? null }
 }
 
 /** Save the answers they gave — only our questions, each trimmed and kept short. The photo path is kept as it was. */
-export async function saveAnswers(s: SupabaseClient, personId: string, given: Record<string, unknown>, visible: boolean): Promise<void> {
+export async function saveAnswers(s: SupabaseClient, personId: string, given: Record<string, unknown>, visible: boolean, adverts?: boolean): Promise<void> {
   const { data: cur } = await s.from('tenant_icebreakers').select('answers').eq('person_id', personId).maybeSingle() as { data: any }
   const answers: IcebreakerAnswers = { ...(cur?.answers ?? {}) }
   for (const q of ALL_QUESTIONS) if (q.id in given) {
@@ -36,6 +38,13 @@ export async function saveAnswers(s: SupabaseClient, personId: string, given: Re
     person_id: personId, answers, visible_to_housemates: visible, completed_at: new Date().toISOString(), updated_at: new Date().toISOString(),
   }, { onConflict: 'person_id' })
   if (error) throw new Error(error.message)
+  if (typeof adverts === 'boolean') await saveAdverts(s, personId, adverts)
+}
+
+/** Their yes / no to a short, nameless intro on adverts for empty rooms in their house (migration 277). */
+export async function saveAdverts(s: SupabaseClient, personId: string, yes: boolean): Promise<void> {
+  const { error } = await s.from('tenant_icebreakers').upsert({ person_id: personId, show_on_adverts: yes, updated_at: new Date().toISOString() }, { onConflict: 'person_id' })
+  if (error && !/show_on_adverts/.test(error.message)) throw new Error(error.message)
 }
 
 /** What a file really is, from its first bytes — a photo must be one, whatever it's called. */

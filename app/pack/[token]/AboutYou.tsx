@@ -25,6 +25,7 @@ async function shrink(file: File): Promise<Blob> {
 export default function AboutYou({ token, firstName, wholeLet }: { token: string; firstName: string; wholeLet: boolean }) {
   const [answers, setAnswers] = useState<Record<string, string>>({})
   const [visible, setVisible] = useState(true)
+  const [adverts, setAdverts] = useState(false)
   const [photo, setPhoto] = useState<string | null>(null)
   const [loaded, setLoaded] = useState(false)
   const [state, setState] = useState<'' | 'saving' | 'saved'>('')
@@ -34,15 +35,15 @@ export default function AboutYou({ token, firstName, wholeLet }: { token: string
   const api = `/api/pack/${encodeURIComponent(token)}/about-you`
 
   useEffect(() => {
-    fetch(api).then(r => r.ok ? r.json() : null).then(d => { if (d) { setAnswers(d.answers ?? {}); setVisible(d.visible !== false); setPhoto(d.photoUrl ?? null) } setLoaded(true) }).catch(() => setLoaded(true))
+    fetch(api).then(r => r.ok ? r.json() : null).then(d => { if (d) { setAnswers(d.answers ?? {}); setVisible(d.visible !== false); setAdverts(d.adverts === true); setPhoto(d.photoUrl ?? null) } setLoaded(true) }).catch(() => setLoaded(true))
   }, [api])
 
   // saved a moment after they stop typing or tapping
-  function change(next: Record<string, string>, vis = visible) {
+  function change(next: Record<string, string>, vis = visible, ads = adverts) {
     setAnswers(next); setState('saving')
     if (timer.current) clearTimeout(timer.current)
     timer.current = setTimeout(async () => {
-      const r = await fetch(api, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ answers: next, visible: vis }) })
+      const r = await fetch(api, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ answers: next, visible: vis, adverts: ads }) })
       if (r.ok) { setState('saved'); setError('') } else { setState(''); setError('That didn’t save — please try again') }
     }, 700)
   }
@@ -111,6 +112,12 @@ export default function AboutYou({ token, firstName, wholeLet }: { token: string
           <span className={`pub-dot sq ${visible ? 'on' : ''}`} />
           <span>Happy for {who} to see this</span>
         </button>
+        {!wholeLet && (
+          <button type="button" className="pub-choice" aria-pressed={adverts} onClick={() => { setAdverts(!adverts); change(answers, visible, !adverts) }}>
+            <span className={`pub-dot sq ${adverts ? 'on' : ''}`} />
+            <span>Help find a great housemate: show a short intro on adverts for empty rooms in your house — what you do, weekends and so on. Never your name or photo.</span>
+          </button>
+        )}
       </div>
       <p className="m-0 text-[13px]" style={{ color: error ? '#9B2C1F' : '#6F6A60' }}>{error || (state === 'saving' ? 'Saving…' : state === 'saved' ? 'Saved — you can change it any time in the Capital Rooms app.' : 'Saved as you go.')}</p>
     </section>

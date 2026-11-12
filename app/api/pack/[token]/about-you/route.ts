@@ -23,14 +23,14 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ tok
   if (!personId) return nope()
   const p = await profileFor(svc() as any, personId, 1)
   const { photo: _p, ...answers } = p.answers
-  return NextResponse.json({ answers, visible: p.visible, photoUrl: p.photoUrl })
+  return NextResponse.json({ answers, visible: p.visible, adverts: p.adverts, photoUrl: p.photoUrl })
 }
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ token: string }> }) {
   const personId = await personFor((await params).token)
   if (!personId) return nope()
   const b = await req.json().catch(() => ({}))
-  try { await saveAnswers(svc() as any, personId, b.answers && typeof b.answers === 'object' ? b.answers : {}, b.visible !== false) }
+  try { await saveAnswers(svc() as any, personId, b.answers && typeof b.answers === 'object' ? b.answers : {}, b.visible !== false, typeof b.adverts === 'boolean' ? b.adverts : undefined) }
   catch (e: any) { return NextResponse.json({ error: e?.message ?? 'Couldn’t save' }, { status: 500 }) }
   return NextResponse.json({ ok: true })
 }

@@ -26,7 +26,7 @@ const sectionFor = (m: string) => /photo|video/i.test(m) ? 'photos' : /rent|depo
 
 export default function ListingEditor({ params }: { params: Promise<{ roomId: string }> }) {
   const { roomId } = use(params)
-  const [data, setData] = useState<null | { listing: L; house: any; room: any; photos: Photo[]; channels: Chan[]; missing: string[]; shareUrl: string | null; counts?: { applicants: number; viewings: number } }>(null)
+  const [data, setData] = useState<null | { listing: L; house: any; room: any; photos: Photo[]; channels: Chan[]; missing: string[]; shareUrl: string | null; counts?: { applicants: number; viewings: number }; housemates?: any[] }>(null)
   const [empty, setEmpty] = useState(false)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
@@ -133,6 +133,18 @@ export default function ListingEditor({ params }: { params: Promise<{ roomId: st
     if (!r.ok) { setSmart(null); if (!quiet) setError(d.error || 'Couldn’t read the advert'); return }
     setData(d); setSmart({ busy: false, checks: d.checks ?? [], filled: d.filled ?? [] })
   }
+  // the description laid out under the standard headings, from its own words (12 Nov 2026)
+  const [tidying, setTidying] = useState(false)
+  async function tidy(quiet = false) {
+    if (!data) return
+    await flush()
+    setTidying(true)
+    const r = await fetch('/api/lettings/listings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: data.listing.id, action: 'tidy' }) })
+    const d = await r.json().catch(() => ({}))
+    setTidying(false)
+    if (!r.ok) { if (!quiet) setError(d.error || 'Couldn’t tidy it'); return }
+    setData(d); if (!quiet) setNotice('Tidied — check it reads right.')
+  }
   const [showImport, setShowImport] = useState(false)
   async function readAd() {
     setSrBusy(true); setError('')
@@ -170,7 +182,7 @@ export default function ListingEditor({ params }: { params: Promise<{ roomId: st
     const order: string[] = d.listing.media_order ?? []
     const added = (d.photos as Photo[]).filter(p => p.ofRoom && !order.includes(p.id)).map(p => p.id)
     if (added.length) await fetch('/api/lettings/listings', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: data.listing.id, fields: { media_order: [...order, ...added] } }) })
-    setSrBusy(false); setAd(null); setChecks([]); setSrUrl(''); setShowImport(false); setNotice('Imported from SpareRoom — now filling the gaps from the description…'); await load(); fillFromAdvert(true).then(() => setNotice('Imported from SpareRoom and the gaps filled — check it over.'))
+    setSrBusy(false); setAd(null); setChecks([]); setSrUrl(''); setShowImport(false); setNotice('Imported from SpareRoom — now tidying the layout and filling the gaps…'); await load(); await tidy(true); fillFromAdvert(true).then(() => setNotice('Imported from SpareRoom, tidied and the gaps filled — check it over.'))
   }
 
   const shell = (body: React.ReactNode) => <div className="office min-h-screen bg-neutral-100 pb-3xl"><AppBar left={<BackButton href={back} />} />{body}</div>
@@ -357,7 +369,19 @@ export default function ListingEditor({ params }: { params: Promise<{ roomId: st
         <Section id="advert" title="The advert" sub="What people read first. Keep the headline short and plain — the photos do the shouting.">
           <label className={lbl}>Headline {filled('headline')}<input className={field} value={l.headline ?? ''} maxLength={120} onChange={e => set('headline', e.target.value)} placeholder={whole ? 'e.g. Studio with city views, gym and pool' : 'e.g. Bright double room near Bow Road'} />{hint(`${String(l.headline ?? '').length}/80 is ideal for portals`)}</label>
           <label className={lbl}>Summary {filled('summary')}<textarea rows={2} className={field} value={l.summary ?? ''} maxLength={300} onChange={e => set('summary', e.target.value)} placeholder="One or two sentences shown in search results" />{hint(`${String(l.summary ?? '').length}/220`)}</label>
-          <label className={lbl}>Description<textarea rows={14} className={`${field} leading-relaxed`} value={l.description ?? ''} onChange={e => set('description', e.target.value)} /></label>
+          <label className={lbl}>Description<textarea rows={16} className={`${field} leading-relaxed`} value={l.description ?? ''} onChange={e => set('description', e.target.value)} />{hint('A line starting “## ” is a heading, “- ” a bullet point.')}</label>
+          <div className="flex flex-wrap items-center gap-sm">
+            <button type="button" onClick={() => tidy()} disabled={tidying || !l.description} className={`${btn} border border-neutral-300 bg-white disabled:opacity-50`}>{tidying ? 'Tidying…' : 'Tidy the layout'}</button>
+            <span className="text-xs text-neutral-500">Puts it under the same headings every time: the room, the house, who you’d live with, the area, bills, good to know. Takes out phone numbers, minimum terms and anything an advert can’t say.</span>
+          </div>
+          {!whole && (
+            <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-md text-sm">
+              <p className="font-bold text-neutral-900">Who you’d live with</p>
+              {(data?.housemates ?? []).length
+                ? <ul className="mt-xs space-y-1 text-neutral-700">{(data?.housemates ?? []).map((h: any, i: number) => <li key={i}><span aria-hidden="true">{h.emoji}</span> {[h.does, h.from && `from ${h.from}`, h.weekends?.length && `weekends: ${h.weekends.join(', ').toLowerCase()}`].filter(Boolean).join(' · ')}</li>)}</ul>
+                : <p className="mt-xs text-neutral-600">No housemates have shared an intro yet. Tenants switch it on in their move-in pack or the app (“Help find a great housemate”). It shows on the advert without their names or photos.</p>}
+            </div>
+          )}
           <Features value={l.features ?? []} onChange={v => set('features', v)} badge={filled('features')} />
         </Section>
 

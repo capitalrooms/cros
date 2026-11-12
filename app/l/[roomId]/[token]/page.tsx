@@ -13,6 +13,8 @@ import { createServiceClient } from '@/lib/supabase'
 import { loadListing, listingToken, type Listing } from '@/lib/listing/listing'
 import { nearbyStations, type Station } from '@/lib/listing/area'
 import BackLink from './BackLink'
+import AdvertText, { plainAdvert } from '@/components/listing/AdvertText'
+import Housemates from '@/components/listing/Housemates'
 import ListingGallery, { ShareButton } from './ListingGallery'
 
 export const dynamic = 'force-dynamic'
@@ -67,7 +69,7 @@ export async function generateMetadata({ params }: { params: Promise<{ roomId: s
   if (!l) return { title: 'Capital Rooms' }
   const where = l.displayAddress?.split(',')[0] || publicTitle(l.displayName)
   const title = `${adTitle(l)}${l.rent ? ` — ${gbp(l.rent)} pcm` : ''}`
-  const description = (l.description || `${l.wholeLet ? 'Home' : 'Room'} to rent on ${where}${l.billsIncluded ? ', bills included' : ''}. ${when(l.available)}.`).slice(0, 160)
+  const description = (plainAdvert(l.description) || `${l.wholeLet ? 'Home' : 'Room'} to rent on ${where}${l.billsIncluded ? ', bills included' : ''}. ${when(l.available)}.`).slice(0, 160)
   return { title, description, openGraph: { title, description, images: l.media.filter(m => m.kind === 'photo').slice(0, 1).map(m => m.url) }, robots: { index: false } }
 }
 
@@ -177,8 +179,10 @@ export default async function SharedListing({ params }: { params: Promise<{ room
 
             <section className="mt-8">
               <h2 className="text-[22px]" style={{ fontFamily: 'var(--pub-serif), serif' }}>About this {unit}</h2>
-              <div className="mt-3 max-w-[65ch] whitespace-pre-line text-[16px] leading-relaxed text-neutral-800">{description}</div>
+              <div className="mt-3 text-[16px] leading-relaxed text-neutral-800"><AdvertText text={description} headingStyle={{ fontSize: 17 }} /></div>
             </section>
+
+            <Housemates people={l.housemateIntros} heading={<h2 className="text-[22px]" style={{ fontFamily: 'var(--pub-serif), serif' }}>Who you’d live with</h2>} />
 
             {videos.length > 0 && (
               <section className="mt-10 space-y-3">
