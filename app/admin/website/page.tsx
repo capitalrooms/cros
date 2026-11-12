@@ -89,6 +89,13 @@ export default function WebsitePage({ searchParams }: { searchParams: PageSearch
                       if (d) { alert(d.added ? `Scheduled ${d.added} videos, one a day from ${d.first} to ${d.last}.${d.skipped ? ` (${d.skipped} were already there.)` : ''}` : 'They’re all scheduled already.'); load() }
                     }}>Schedule the Simple tips videos</button>
                   )}
+                  {posts.filter(p => String(p.slug).startsWith('housemate-tips-')).length < 18 && (
+                    <button type="button" className={btn} onClick={async () => {
+                      if (!confirm('Schedule the 18 “How to be a great housemate” videos? They follow on after the Simple tips, one each morning at 8am.')) return
+                      const d = await act({ action: 'schedule_tips', series: 'housemate' })
+                      if (d) { alert(d.added ? `Scheduled ${d.added} videos, one a day from ${d.first} to ${d.last}.${d.skipped ? ` (${d.skipped} were already there.)` : ''}` : 'They’re all scheduled already.'); load() }
+                    }}>Schedule the housemate videos</button>
+                  )}
                   <button type="button" className={btnDark} onClick={() => setEditing(blank())}>+ New post</button>
                 </div>
               </div>
