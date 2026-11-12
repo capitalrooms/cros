@@ -275,40 +275,18 @@ export default function AppointmentsPage() {
       <PageHero title="Diary" subtitle={<>Week: drag appointments to reschedule. Click a time slot to book a new visit.</>} tabs={diaryTabs('week')} />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
-        {/* Week navigation */}
-        <div className="mb-lg md:mb-3xl flex items-center justify-between">
-          <button
-            onClick={() => {
-              const d = new Date(weekStart)
-              d.setDate(d.getDate() - 7)
-              setWeekStart(d)
-            }}
-            className="px-md py-sm text-sm font-semibold text-neutral-700 hover:bg-neutral-200 rounded"
-          >
-            ← <span className="hidden sm:inline">Previous week</span><span className="sm:hidden">Prev</span>
-          </button>
-          <div className="text-sm font-semibold text-neutral-900">
-            Week of {weekStart.toLocaleDateString('en-GB', { month: 'long', day: 'numeric' })}
+        {/* one toolbar, like Everything: book on the left, the week on the right */}
+        <div className="mb-lg flex flex-wrap items-center gap-sm">
+          <button onClick={() => setShowCreateForm(true)} className="rounded-lg bg-neutral-900 px-lg py-sm text-sm font-semibold text-white hover:bg-neutral-800">+ Book</button>
+          <div className="ml-auto flex items-center gap-xs">
+            <button onClick={() => { const d = new Date(weekStart); d.setDate(d.getDate() - 7); setWeekStart(d) }} aria-label="Previous week" className="rounded-lg border border-neutral-300 bg-white px-md py-sm text-sm font-semibold hover:bg-neutral-50">←</button>
+            {dateStr(weekStart) !== dateStr((() => { const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d })()) && (
+              <button onClick={() => { const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); setWeekStart(d) }} className="rounded-lg border border-neutral-300 bg-white px-md py-sm text-sm font-semibold hover:bg-neutral-50">This week</button>
+            )}
+            <span className="min-w-[13rem] text-center text-sm font-semibold text-neutral-900">{(() => { const e = new Date(weekStart); e.setDate(e.getDate() + 6); return `${weekStart.toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })} – ${e.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}` })()}</span>
+            <button onClick={() => { const d = new Date(weekStart); d.setDate(d.getDate() + 7); setWeekStart(d) }} aria-label="Next week" className="rounded-lg border border-neutral-300 bg-white px-md py-sm text-sm font-semibold hover:bg-neutral-50">→</button>
           </div>
-          <button
-            onClick={() => {
-              const d = new Date(weekStart)
-              d.setDate(d.getDate() + 7)
-              setWeekStart(d)
-            }}
-            className="px-md py-sm text-sm font-semibold text-neutral-700 hover:bg-neutral-200 rounded"
-          >
-            <span className="hidden sm:inline">Next week</span><span className="sm:hidden">Next</span> →
-          </button>
         </div>
-
-        {/* + Book Appointment button */}
-        <button
-          onClick={() => setShowCreateForm(true)}
-          className="mb-lg md:mb-3xl w-full sm:w-auto px-lg py-md bg-neutral-900 text-white font-bold rounded-lg hover:bg-neutral-800"
-        >
-          + Book Appointment
-        </button>
 
         {/* Modal overlay */}
         {showCreateForm && (
@@ -498,7 +476,7 @@ export default function AppointmentsPage() {
         </div>
 
         {/* Calendar grid */}
-        <div className="hidden md:block mt-3xl overflow-x-auto rounded-2xl border border-neutral-200 bg-white">
+        <div className="hidden md:block overflow-x-auto rounded-xl border border-neutral-200 bg-white">
           <div className="inline-block min-w-full">
             {/* Header: day names — weekends shaded, today's date in a circle */}
             <div className="flex border-b border-neutral-200">
@@ -517,19 +495,20 @@ export default function AppointmentsPage() {
 
             {/* Time grid */}
             {hours.map((hour, hi) => (
-              <div key={hour} className="flex border-b border-neutral-200/70">
-                {/* Time label */}
-                <div className="w-16 shrink-0 bg-white pr-sm pt-xs text-right text-[11px] tabular-nums text-neutral-400 sticky left-0 z-10">
-                  {hour === 12 ? '12pm' : hour > 12 ? `${hour - 12}pm` : `${hour}am`}
+              <div key={hour} className={`flex ${hi ? 'border-t border-neutral-200' : ''}`}>
+                {/* Time label — on the line, as in any calendar */}
+                <div className="relative w-16 shrink-0 bg-white sticky left-0 z-10">
+                  {hi > 0 && <span className="absolute -top-2 right-sm bg-white px-0.5 text-[11px] tabular-nums text-neutral-400">{hour === 12 ? '12pm' : hour > 12 ? `${hour - 12}pm` : `${hour}am`}</span>}
                 </div>
 
                 {/* Day columns */}
                 {days.map((d, dayIdx) => (
                   <div
                     key={dayIdx}
-                    className="flex-1 border-l border-neutral-200 relative cursor-pointer hover:bg-[#EEF2F7] transition-colors"
-                    style={{ minHeight: '4rem', background: dateStr(d) === dateStr(new Date()) ? '#FFF8F3' : (d.getDay() === 0 || d.getDay() === 6) ? '#F7F5F0' : hi % 2 ? '#FAF9F6' : '#FFFFFF' }}
-                    title={`Book at ${String(hour).padStart(2,'0')}:00 on ${dateStr(d)}`}
+                    className="flex-1 border-l border-neutral-200 relative cursor-pointer hover:!bg-[#EEF2F7] transition-colors"
+                    // two tones, the usual way: working hours (9–6, Mon–Fri) white, the rest off-white; a dotted half-hour line
+                    style={{ minHeight: '3.25rem', background: `linear-gradient(to bottom, transparent calc(50% - 0.5px), #F2F0EB calc(50% - 0.5px), #F2F0EB calc(50% + 0.5px), transparent calc(50% + 0.5px)) ${(d.getDay() === 0 || d.getDay() === 6 || hour < 9 || hour >= 18) ? '#F6F4EF' : '#FFFFFF'}` }}
+                    title={`Book ${d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })} at ${hour === 12 ? '12pm' : hour > 12 ? `${hour - 12}pm` : `${hour}am`}`}
                     onDragOver={handleDragOver}
                     onDrop={(e) => handleDrop(d, `${String(hour).padStart(2,'0')}:00`, e)}
                     onClick={(e) => {
@@ -546,7 +525,7 @@ export default function AppointmentsPage() {
                       .map((appt) => {
                         const typeInfo = APPOINTMENT_TYPES[appt.appointment_type]
                         const duration = appt.duration_minutes || 30
-                        const heightRem = (duration / 60) * 4
+                        const heightRem = (duration / 60) * 3.25
 
                         return (
                           <div

@@ -325,7 +325,7 @@ export default function AgencyDiaryPage() {
           <div className="relative grid" style={{ gridTemplateColumns: '56px repeat(7, minmax(0, 1fr))' }}>
             {/* hour labels + white / off-white bands */}
             <div>
-              {hours.map(h => <div key={h} style={{ height: HOUR }} className="relative pr-xs text-right"><span className="relative -top-2 text-[11px] tabular-nums text-neutral-400">{h === firstHour ? '' : nice(h * 60)}</span></div>)}
+              {hours.map(h => <div key={h} style={{ height: HOUR }} className="relative pr-xs text-right"><span className="relative -top-2 bg-white px-0.5 text-[11px] tabular-nums text-neutral-400">{h === firstHour ? '' : nice(h * 60)}</span></div>)}
             </div>
             {days.map(d => {
               const s = ymd(d), isToday = s === today, weekend = d.getDay() === 0 || d.getDay() === 6
@@ -340,8 +340,9 @@ export default function AgencyDiaryPage() {
               }
               const width = 100 / Math.max(1, lanes.length)
               return (
-                <div key={s} className="relative border-l border-neutral-200" style={{ background: isToday ? '#FFF8F3' : weekend ? '#F7F5F0' : '#FFFFFF' }}>
-                  {hours.map((h, i) => <div key={h} style={{ height: HOUR }} className={`border-t ${i ? 'border-neutral-200/70' : 'border-transparent'} ${i % 2 && !isToday ? 'bg-[#FAF9F6]/80' : ''}`} />)}
+                <div key={s} className="relative border-l border-neutral-200">
+                  {/* two tones, the usual way: working hours (9–6, Mon–Fri) white, the rest off-white; dotted half hours */}
+                  {hours.map((h, i) => <div key={h} style={{ height: HOUR, background: `linear-gradient(to bottom, transparent calc(50% - 0.5px), #F2F0EB calc(50% - 0.5px), #F2F0EB calc(50% + 0.5px), transparent calc(50% + 0.5px)) ${weekend || h < 9 || h >= 18 ? '#F6F4EF' : '#FFFFFF'}` }} className={i ? 'border-t border-neutral-200' : ''} />)}
                   {isToday && nowMin >= firstHour * 60 && nowMin <= lastHour * 60 && (
                     <div className="pointer-events-none absolute inset-x-0 z-10" style={{ top: ((nowMin - firstHour * 60) / 60) * HOUR }}>
                       <div className="relative h-[2px] bg-[#B5361F]"><span className="absolute -left-1 -top-[3px] h-2 w-2 rounded-full bg-[#B5361F]" /></div>
