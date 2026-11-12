@@ -96,6 +96,24 @@ export async function POST(req: NextRequest) {
     await s.from('audit_logs').insert({ user_id: admin.personId, action: 'email_changed', details: `${old} → ${email}${login ? ' (sign-in moved too)' : ''}`, ip_address: getClientIp(req.headers) })
     return NextResponse.json({ ok: true, email, signInMoved: !!login })
   }
+  // remove from staff (12 Nov 2026, Harry: "get rid of lettings@capitalrooms.co.uk"): sign-in off and the person made
+  // inactive — kept on record, but out of every office list, so nothing is sent to them again
+  if (action === 'remove_staff') {
+    const ids: string[] = (Array.isArray(b.personIds) ? b.personIds : []).filter((x: unknown) => typeof x === 'string').slice(0, 5)
+    if (ids.includes(admin.personId)) return NextResponse.json({ error: 'You can’t remove yourself.' }, { status: 400 })
+    const s = createServiceClient()
+    const { data: people } = await s.from('people').select('id, email, role, salutation, first_name, last_name, company').in('id', ids)
+    const done: any[] = [], failed: any[] = []
+    for (const p of (people ?? []) as any[]) {
+      if (!['lettings', 'admin'].includes(p.role)) { failed.push({ id: p.id, name: name(p), error: 'only office staff can be removed here' }); continue }
+      if (p.email) await setAccess(s, p.email, false).catch(() => null)
+      const { error } = await s.from('people').update({ role: 'inactive' }).eq('id', p.id)
+      if (error) { failed.push({ id: p.id, name: name(p), error: error.message }); continue }
+      done.push({ id: p.id, name: name(p), result: 'removed from staff' })
+      await s.from('audit_logs').insert({ user_id: admin.personId, action: 'staff_removed', details: p.email, ip_address: getClientIp(req.headers) })
+    }
+    return NextResponse.json({ done, failed })
+  }
   if (!['send', 'off', 'on', 'clear_two_step'].includes(action)) return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
   const ids: string[] = (Array.isArray(b.personIds) ? b.personIds : []).filter((x: unknown) => typeof x === 'string').slice(0, 25)
   if (!ids.length) return NextResponse.json({ error: 'Nobody chosen' }, { status: 400 })
