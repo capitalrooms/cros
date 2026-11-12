@@ -71,7 +71,9 @@ function moveInWords(v?: string | null): string {
 function placeLine(c: OfferEmailContext): string {
   const addr = tidyPostcodes(oneLine(c.propertyAddress))
   const city = c.propertyCity && !addr.toLowerCase().includes(c.propertyCity.toLowerCase()) ? c.propertyCity : ''
-  return [c.whole ? '' : c.roomName, addr, city].filter(Boolean).join(', ')
+  // the house first, the room after (12 Nov 2026)
+  const place = [addr, city].filter(Boolean).join(', ')
+  return c.whole || !c.roomName ? place : `${place} (${c.roomName})`
 }
 
 const eyebrow = (t: string, extra = '') =>
@@ -179,7 +181,7 @@ export async function buildSearchIsOverEmail(context: OfferEmailContext, req?: R
       place: esc(placeLine(context)),
       line1: `Hi ${name},`,
       line2: 'the search is over.',
-      lead: `We’re delighted to confirm ${unitName === 'The property' ? 'the property' : unitName} is yours. To hold it for you, all we need is a holding deposit of one week’s rent.`,
+      lead: `We’re delighted to confirm ${unitName === 'The property' ? 'the property' : `your room at ${esc(tidyPostcodes(oneLine(context.propertyAddress)).split(',')[0]) || 'the house'} (${unitName})`} is yours. To hold it for you, all we need is a holding deposit of one week’s rent.`,
     })}
     ${context.correction ? `<p style="margin:22px 0 0;padding:14px 16px;border-radius:10px;background:#FBF1E4;font-family:${SANS};font-size:15px;line-height:1.6;color:${INK};"><strong>Updated:</strong> ${esc(context.correction)}</p>` : ''}
     ${rows(offerRows(context, w))}
