@@ -111,6 +111,8 @@ export default function AgencyDiaryPage() {
   // Lettings staff can VIEW the diary (to time viewings around cleans/contractors)
   // but only admins can book into it. #8 cross-visibility, 25 Aug.
   const [canBook, setCanBook] = useState(false)
+  // a clean clicked in the diary — to cancel it (12 Nov 2026)
+  const [cleanOpen, setCleanOpen] = useState<CleanJob | null>(null)
 
   useEffect(() => {
     async function init() {
@@ -143,6 +145,7 @@ export default function AgencyDiaryPage() {
           .select('*, property:properties(name, address), cleaner:cleaner_id(full_name, salutation, first_name, last_name)')
           .gte('clean_date', weekStart.toISOString().split('T')[0])
           .lt('clean_date', weekEnd.toISOString().split('T')[0])
+          .neq('status', 'cancelled')
           .order('clean_date', { ascending: true })
 
         setCleanJobs((cleans as any) || [])
@@ -267,6 +270,7 @@ export default function AgencyDiaryPage() {
     <div className="min-h-screen bg-neutral-100">
       <AppBar left={<BackButton href="/admin/appointments" />} />
       <PageHero title="Diary" subtitle="Everything: viewings, repairs, cleans and appointments in one place" tabs={diaryTabs('all')} />
+      {cleanOpen && <CancelClean clean={cleanOpen} onClose={() => setCleanOpen(null)} onDone={() => { setCleanJobs(cs => cs.filter(c => c.id !== cleanOpen.id)); setCleanOpen(null) }} />}
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
 
@@ -454,6 +458,7 @@ export default function AgencyDiaryPage() {
                     {events.map((event) => (
                       <div
                         key={event.id}
+                        onClick={() => { if (event.type === 'clean') setCleanOpen(event as any) }}
                         className={`text-xs rounded-lg p-xs border-l-4 cursor-pointer hover:shadow-md transition-shadow ${
                           event.type === 'maintenance'
                             ? 'bg-blue-100 border-blue-500 text-blue-900'
@@ -619,6 +624,43 @@ export default function AgencyDiaryPage() {
           </div>
         </div>
       </main>
+    </div>
+  )
+}
+
+/** Cancel a clean from the diary (12 Nov 2026): reason kept; the cleaner is texted, the tenants get the usual
+ *  "clean cancelled" message (/api/cleans/<id>/cancel). */
+function CancelClean({ clean, onClose, onDone }: { clean: CleanJob; onClose: () => void; onDone: () => void }) {
+  const [reason, setReason] = useState('')
+  const [tellCleaner, setTellCleaner] = useState(true)
+  const [tellTenants, setTellTenants] = useState(true)
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+  const when = clean.clean_date ? new Date(`${clean.clean_date}T12:00:00Z`).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }) : ''
+  async function go() {
+    setBusy(true); setErr('')
+    const r = await fetch(`/api/cleans/${clean.id}/cancel`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reason, tellCleaner, tellTenants }) })
+    const d = await r.json().catch(() => ({}))
+    setBusy(false)
+    if (!r.ok) { setErr(d.error || 'Couldn’t cancel it'); return }
+    onDone()
+  }
+  return (
+    <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/60 p-lg sm:items-center" onClick={() => !busy && onClose()}>
+      <div className="w-full max-w-md rounded-2xl bg-white p-lg text-neutral-900 shadow-2xl" onClick={e => e.stopPropagation()}>
+        <h2 className="text-lg font-bold">Cleaning — {String(clean.property?.name ?? '').split('\n')[0]}</h2>
+        <p className="text-sm text-neutral-600">{when}{clean.clean_time ? ` · ${String(clean.clean_time).slice(0, 5)}` : ''}</p>
+        <p className="mt-md text-xs font-bold uppercase tracking-wide text-neutral-500">Cancel this clean — why? (kept on the record)</p>
+        <div className="mt-xs flex flex-wrap gap-xs">{['Cleaner unavailable', 'House empty', 'Moved to another day', 'Not needed this week'].map(r => <button key={r} type="button" onClick={() => setReason(r)} className={`rounded-full border px-sm py-0.5 text-xs ${reason === r ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-300 text-neutral-700'}`}>{r}</button>)}</div>
+        <input value={reason} onChange={e => setReason(e.target.value)} placeholder="Or write the reason" className="mt-sm w-full rounded-xl border border-neutral-300 px-md py-sm text-sm" />
+        {clean.cleaner_id && <label className="mt-sm flex items-center gap-sm text-sm"><input type="checkbox" checked={tellCleaner} onChange={e => setTellCleaner(e.target.checked)} /> Text the cleaner it’s off</label>}
+        <label className="mt-xs flex items-center gap-sm text-sm"><input type="checkbox" checked={tellTenants} onChange={e => setTellTenants(e.target.checked)} /> Tell the tenants</label>
+        {err && <p className="mt-sm text-sm text-red-700">{err}</p>}
+        <div className="mt-md flex gap-sm">
+          <button type="button" onClick={onClose} disabled={busy} className="flex-1 rounded-xl border border-neutral-300 py-sm text-sm font-semibold">Keep it</button>
+          <button type="button" onClick={go} disabled={busy || reason.trim().length < 3} className="flex-1 rounded-xl bg-red-700 py-sm text-sm font-bold text-white disabled:opacity-40">{busy ? 'Cancelling…' : 'Cancel the clean'}</button>
+        </div>
+      </div>
     </div>
   )
 }

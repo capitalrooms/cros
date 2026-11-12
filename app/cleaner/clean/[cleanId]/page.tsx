@@ -536,11 +536,29 @@ export default function CleanDetailPage() {
                 </button>
               )}
 
-              {!showReschedule ? (
+              {!showReschedule ? (<>
                 <button onClick={() => setShowReschedule(true)}
                   className="w-full rounded-lg border border-neutral-400 py-md text-sm font-bold text-neutral-900 hover:bg-neutral-50">
                   Running late / change day
                 </button>
+                {/* can't do it at all (12 Nov 2026): the office is told straight away and rearranges it */}
+                {!hasArrived && (
+                  <button onClick={async () => {
+                    const reason = window.prompt('Can’t make this clean? Tell the office why (optional) — they’ll rearrange it.')
+                    if (reason === null) return
+                    setBusy('cant')
+                    const r = await fetch(`/api/cleans/${clean.id}/cant-make-it`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reason }) })
+                    const d = await r.json().catch(() => ({}))
+                    setBusy('')
+                    if (!r.ok) { alert(d.error || 'That didn’t send — please call the office'); return }
+                    alert('The office has been told and will rearrange it. Thank you for letting us know.')
+                    router.push('/cleaner')
+                  }} disabled={busy === 'cant'}
+                    className="w-full rounded-lg border border-red-300 py-md text-sm font-bold text-red-700 hover:bg-red-50">
+                    {busy === 'cant' ? 'Telling the office…' : 'Can’t make it'}
+                  </button>
+                )}
+              </>
               ) : (
                 <div id="change-day" className="rounded-xl border border-neutral-200 p-md space-y-md">
                   <p className="text-sm font-bold">Change the time</p>

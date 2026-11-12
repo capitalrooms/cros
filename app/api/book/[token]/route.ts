@@ -14,6 +14,7 @@ import { getCommsLive } from '@/lib/comms'
 import { activeTenantIds, insertNotifications, dispatchChannels } from '@/lib/serverNotify'
 import { deliverEmail, sendEmail } from '@/lib/sendEmail'
 import { sendSms } from '@/lib/sms'
+import { tellHouseVisitOff } from '@/lib/maintenance/visitOff'
 import { buildEmail } from '@/lib/emailWrapper'
 import { OFFICE_ALERT_EMAIL, officeButton } from '@/lib/email/office'
 import { defaultSender } from '@/lib/email/sender'
@@ -82,7 +83,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
     const reason = String(b.reason ?? '').trim().slice(0, 500)
     await s.from('maintenance_tickets').update({ booked_date: null, booked_slot: null }).eq('id', t.id)
     await tellOffice(`Can’t make it: ${who} — ${t.title} at ${house}`, `<p><b>${esc(who)}</b> can’t do ${before ? `the visit booked for <b>${esc(before)}</b>` : 'this job'}.</p>${reason ? `<p>Their reason: ${esc(reason)}</p>` : ''}<p>The job is still with them — they can book a new day with the same link — or send it to someone else.</p>`)
-    if (before) await tellTenants('Repair visit cancelled', `The visit on ${before} for "${t.title}" won’t go ahead. We’ll let you know the new day.`)
+    // everyone who was told about it — incl. a let-only household (lib/maintenance/visitOff); automatic, so it follows the pause
+    if (before && await getCommsLive()) await tellHouseVisitOff(s as any, t as any, { jobCancelled: false })
     return NextResponse.json({ ok: true })
   }
 
