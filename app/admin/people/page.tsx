@@ -429,7 +429,7 @@ export default function PeopleManagement({ searchParams }: { searchParams: PageS
   }
 
   /** Invite / reset / turn sign-in off or on / remove two-step — for one person or a whole group (sent 25 at a time). */
-  async function accountAction(action: 'send' | 'off' | 'on' | 'clear_two_step', ids: string[], ask?: string) {
+  async function accountAction(action: 'send' | 'off' | 'on' | 'clear_two_step' | 'remove_staff', ids: string[], ask?: string) {
     setMenu(null)
     if (!ids.length) return
     if (ask && !window.confirm(ask)) return
@@ -545,6 +545,7 @@ export default function PeopleManagement({ searchParams }: { searchParams: PageS
         {st.hasLogin && p.id !== acct?.me && (st.off
           ? <button type="button" className={cls} onClick={() => accountAction('on', [p.id])}>Turn sign-in back on</button>
           : <button type="button" className={`${cls} text-red-700`} onClick={() => accountAction('off', [p.id], `Turn off ${nm}’s sign-in? Their records stay; they just can’t sign in until you turn it back on.`)}>Turn off sign-in</button>)}
+        {(p as any).role === 'lettings' && p.id !== acct?.me && <button type="button" className={`${cls} text-red-700`} onClick={() => accountAction('remove_staff', [p.id], `Remove ${nm} from staff? Their sign-in is turned off and they’re taken out of every office list and email. Their records stay.`)}>Remove from staff</button>}
       </span>
     )
   }
