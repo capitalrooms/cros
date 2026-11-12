@@ -65,3 +65,15 @@ export async function ourRooms(s: SupabaseClient, areaCode: string): Promise<Our
   }
   return { rooms: room.length, roomMedian: median(room), roomLow: pctl(room, 0.2), roomHigh: pctl(room, 0.8), ensuites: ens.length, ensuiteMedian: median(ens), ensuiteLow: pctl(ens, 0.2), ensuiteHigh: pctl(ens, 0.8), wholeLets: wl.length, wholeMedian: median(wl) }
 }
+
+/** House prices month by month for the last `months` (Land Registry), oldest first. */
+export async function salesHistory(areaName: string, months = 24): Promise<{ month: string; average: number | null; change12: number | null }[]> {
+  const now = new Date()
+  const list = Array.from({ length: months + 2 }, (_, i) => new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1 - i, 1)).toISOString().slice(0, 7))
+  const got = await Promise.all(list.map(async m => {
+    const r = await fetch(`https://landregistry.data.gov.uk/data/ukhpi/region/${slug(areaName)}/month/${m}.json`, { headers: UA, next: { revalidate: 86400 } } as any).catch(() => null)
+    const t = r?.ok ? (await r.json().catch(() => null))?.result?.primaryTopic : null
+    return t && num(t.averagePrice) != null ? { month: m, average: num(t.averagePrice), change12: num(t.percentageAnnualChange) } : null
+  }))
+  return (got.filter(Boolean) as { month: string; average: number | null; change12: number | null }[]).slice(0, months).reverse()
+}

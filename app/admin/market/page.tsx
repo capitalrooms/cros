@@ -8,6 +8,8 @@ import AppBar from '@/components/AppBar'
 import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import { adminFetch } from '@/lib/adminFetch'
+import Link from 'next/link'
+import AskData from './AskData'
 
 interface Area { code: string; name: string; region: string | null; rent: number | null; change: number | null; period: string }
 const gbp = (n: number | null | undefined) => n == null ? '—' : `£${Math.round(n).toLocaleString('en-GB')}`
@@ -98,7 +100,8 @@ export default function MarketPage() {
   return (
     <div className="office min-h-screen bg-neutral-100 pb-3xl">
       <AppBar left={<BackButton href="/admin/lettings" />} title="Market" />
-      <PageHero eyebrow="Lettings" title="What it rents and sells for" subtitle="Search an area or tap a London borough: official rents and house prices, what a room or home typically goes for, and talking points for landlords." />
+      <PageHero eyebrow="Lettings" title="What it rents and sells for" subtitle="Search an area or tap a London borough: official rents and house prices, what a room or home typically goes for, and talking points for landlords."
+        actions={<Link href={`/admin/market/report${pick ? `?areas=${pick.code}` : ''}`} className="rounded-full bg-white px-lg py-sm text-sm font-semibold text-neutral-900">Make a report</Link>} />
       <div className="mx-auto max-w-6xl space-y-lg px-lg py-xl">
         {setup && <p className="rounded-xl bg-amber-50 px-lg py-md text-sm text-amber-900">Run migration 280 in Supabase first.</p>}
         {areas && !areas.length && !setup && (
@@ -181,6 +184,9 @@ export default function MarketPage() {
             </section>
           </div>
         )}
+
+        {!!areas?.length && <AskData areaCode={pick?.code} areaName={pick?.name} />}
+        {!!areas?.length && <p className="text-right text-xs text-neutral-500">Official rents {areas[0]?.period ? month(areas[0].period) : ''} · they update every week by themselves · <button type="button" onClick={refresh} disabled={busy === 'refresh'} className="font-semibold underline">{busy === 'refresh' ? 'Checking…' : 'Check for new figures now'}</button></p>}
 
         {d && (
           <section className="rounded-2xl bg-white ring-1 ring-neutral-200">
