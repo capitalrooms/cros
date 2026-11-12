@@ -16,21 +16,23 @@ export interface OurRooms { rooms: number; roomMedian: number | null; roomLow: n
 const slug = (name: string) => name.toLowerCase().replace(/&/g, 'and').replace(/[,.']/g, '').replace(/\s+/g, '-')
 const num = (v: any) => (typeof v === 'number' && Number.isFinite(v) ? v : null)
 
+/** The Land Registry's months for an area, newest first, in ONE request (12 Nov 2026: a request per month got
+ *  throttled and left gaps in the charts). Cached for a day. */
+// the list only returns the fields it's asked for
+const PROPS = ['refMonth', 'averagePrice', 'percentageAnnualChange', 'percentageChange', 'averagePriceFlatMaisonette', 'averagePriceTerraced', 'averagePriceSemiDetached', 'averagePriceDetached', 'averagePriceFirstTimeBuyer', 'percentageAnnualChangeFlatMaisonette', 'percentageAnnualChangeTerraced', 'salesVolume'].join(',')
+async function hpiMonths(areaName: string, n: number): Promise<any[]> {
+  const r = await fetch(`https://landregistry.data.gov.uk/data/ukhpi/region/${slug(areaName)}.json?_pageSize=${n}&_sort=-refMonth&_properties=${PROPS}`, { headers: UA, next: { revalidate: 86400 } } as any).catch(() => null)
+  if (!r?.ok) return []
+  return ((await r.json().catch(() => null))?.result?.items ?? []).filter((t: any) => num(t.averagePrice) != null)
+}
+
 /** The latest month the Land Registry has published for an area (it runs about two months behind). */
 export async function salesFor(areaName: string): Promise<Sales | null> {
-  const now = new Date()
-  for (let back = 1; back <= 5; back++) {
-    const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - back, 1))
-    const m = d.toISOString().slice(0, 7)
-    const r = await fetch(`https://landregistry.data.gov.uk/data/ukhpi/region/${slug(areaName)}/month/${m}.json`, { headers: UA, next: { revalidate: 86400 } } as any).catch(() => null)
-    if (!r?.ok) continue
-    const t = (await r.json().catch(() => null))?.result?.primaryTopic
-    if (!t || num(t.averagePrice) == null) continue
-    return { month: m, average: num(t.averagePrice), change12: num(t.percentageAnnualChange), change1: num(t.percentageChange), flat: num(t.averagePriceFlatMaisonette), terraced: num(t.averagePriceTerraced),
-      semi: num(t.averagePriceSemiDetached), detached: num(t.averagePriceDetached), firstTime: num(t.averagePriceFirstTimeBuyer), changeFlat: num(t.percentageAnnualChangeFlatMaisonette),
-      changeTerraced: num(t.percentageAnnualChangeTerraced), sales: num(t.salesVolume) }
-  }
-  return null
+  const t = (await hpiMonths(areaName, 1))[0]
+  if (!t) return null
+  return { month: String(t.refMonth).slice(0, 7), average: num(t.averagePrice), change12: num(t.percentageAnnualChange), change1: num(t.percentageChange), flat: num(t.averagePriceFlatMaisonette), terraced: num(t.averagePriceTerraced),
+    semi: num(t.averagePriceSemiDetached), detached: num(t.averagePriceDetached), firstTime: num(t.averagePriceFirstTimeBuyer), changeFlat: num(t.percentageAnnualChangeFlatMaisonette),
+    changeTerraced: num(t.percentageAnnualChangeTerraced), sales: num(t.salesVolume) }
 }
 
 const median = (xs: number[]) => { if (!xs.length) return null; const s = [...xs].sort((a, b) => a - b), m = Math.floor(s.length / 2); return Math.round(s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2) }
@@ -68,12 +70,5 @@ export async function ourRooms(s: SupabaseClient, areaCode: string): Promise<Our
 
 /** House prices month by month for the last `months` (Land Registry), oldest first. */
 export async function salesHistory(areaName: string, months = 24): Promise<{ month: string; average: number | null; change12: number | null }[]> {
-  const now = new Date()
-  const list = Array.from({ length: months + 2 }, (_, i) => new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1 - i, 1)).toISOString().slice(0, 7))
-  const got = await Promise.all(list.map(async m => {
-    const r = await fetch(`https://landregistry.data.gov.uk/data/ukhpi/region/${slug(areaName)}/month/${m}.json`, { headers: UA, next: { revalidate: 86400 } } as any).catch(() => null)
-    const t = r?.ok ? (await r.json().catch(() => null))?.result?.primaryTopic : null
-    return t && num(t.averagePrice) != null ? { month: m, average: num(t.averagePrice), change12: num(t.percentageAnnualChange) } : null
-  }))
-  return (got.filter(Boolean) as { month: string; average: number | null; change12: number | null }[]).slice(0, months).reverse()
+  return (await hpiMonths(areaName, months)).map(t => ({ month: String(t.refMonth).slice(0, 7), average: num(t.averagePrice), change12: num(t.percentageAnnualChange) })).reverse()
 }

@@ -73,6 +73,21 @@ export function comparison(packs: AreaPack[]): [string, string[]][] {
 export const reportTitle = (packs: AreaPack[]) => `Local market report — ${packs.map(p => p.name).join(', ')}`
 const periods = (packs: AreaPack[]) => `Rents ${mon(packs[0].rents.period)}${packs[0].sales ? ` · house prices ${mon(packs[0].sales.month)}` : ''}`
 
+/** A small bar chart made of table cells — shows in every email app (no images). Signed values grow from the middle. */
+function bars(title: string, rows: { name: string; value: number | null; label: string }[], signed = false): string {
+  const esc = (t: string) => t.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!))
+  const vals = rows.map(r => Math.abs(r.value ?? 0)), max = Math.max(...vals, 0.0001)
+  const line = (r: { name: string; value: number | null; label: string }) => {
+    const w = Math.max(2, Math.round(Math.abs(r.value ?? 0) / max * (signed ? 48 : 96)))
+    const bar = `<td style="width:${w}%;background:${(r.value ?? 0) < 0 ? PDF.alert : PDF.forest};height:12px;font-size:0;line-height:0">&nbsp;</td>`
+    const cells = signed
+      ? (r.value ?? 0) < 0 ? `<td style="width:${50 - w}%"></td>${bar}<td style="width:50%;border-left:1px solid ${PDF.line}"></td>` : `<td style="width:50%;border-right:1px solid ${PDF.line}"></td>${bar}<td style="width:${50 - w}%"></td>`
+      : `${bar}<td style="width:${100 - w}%"></td>`
+    return `<tr><td style="padding:4px 10px 4px 0;font-size:13px;color:${PDF.ink};white-space:nowrap;width:38%">${esc(r.name)}</td><td style="padding:4px 0"><table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse"><tr>${cells}</tr></table></td><td style="padding:4px 0 4px 10px;font-size:13px;font-weight:700;color:${PDF.ink};text-align:right;white-space:nowrap">${esc(r.label)}</td></tr>`
+  }
+  return `<div style="margin:22px 0;padding:14px 16px;background:${PDF.tint};border-radius:12px"><p style="margin:0 0 8px;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:${PDF.gold};font-weight:700">${esc(title)}</p><table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse">${rows.map(line).join('')}</table></div>`
+}
+
 /** The email body (also the on-screen preview). */
 export function reportHtml(packs: AreaPack[], commentary: string, dear: string | null): string {
   const esc = (t: string) => t.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!))
@@ -82,7 +97,9 @@ export function reportHtml(packs: AreaPack[], commentary: string, dear: string |
 <p style="margin:18px 0 6px;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:${PDF.gold};font-weight:700">${esc(periods(packs))}</p>
 <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;border-top:2px solid ${PDF.forest}">
 <tr><td></td>${packs.map(p => `<td style="padding:8px 10px;text-align:right;font-weight:700;color:${PDF.forest};font-size:14px">${esc(p.name)}</td>`).join('')}</tr>${rows}</table>
-${commentary.split(/\n\n+/).map(p => `<p>${esc(p)}</p>`).join('')}
+${bars('Average rent a month', packs.map(p => ({ name: p.name, value: p.rents.rent_all, label: gbp(p.rents.rent_all) })))}
+${commentary.split(/\n\n+/).map((p, i, all) => `<p>${esc(p)}</p>${i === Math.floor(all.length / 2) - 1 ? bars('Change on a year', packs.flatMap(x => [{ name: `${x.name} — rents`, value: x.rents.change_all, label: pct(x.rents.change_all) }, { name: `${x.name} — prices`, value: x.sales?.change12 ?? null, label: pct(x.sales?.change12) }]), true) : ''}`).join('')}
+${bars('Gross yield', packs.map(p => ({ name: p.name, value: p.yieldAll, label: p.yieldAll ? `${p.yieldAll}%` : '—' })))}
 <p style="font-size:12px;color:${PDF.muted}">Sources: ${esc(SOURCES.rents)} and ${esc(SOURCES.sales)} (Crown copyright, Open Government Licence); room rents from Capital Rooms’ own lets. Rents are whole homes unless marked as rooms; house prices are by type of home. A guide, not a valuation.</p>`
 }
 
@@ -91,7 +108,7 @@ function chart(doc: any, x: number, y: number, w: number, h: number, title: stri
   const colours = [PDF.forest, PDF.gold, PDF.muted]
   const vals = series.flatMap(s => s.points.filter((v): v is number => v != null))
   doc.font(fontBold).fontSize(10).fillColor(PDF.forest).text(title, x, y)
-  const top = y + 18, bottom = y + h - 16
+  const top = y + 34, bottom = y + h - 16
   if (!vals.length) { doc.font(fontReg).fontSize(9).fillColor(PDF.muted).text('No figures', x, top); return }
   let lo = Math.min(...vals), hi = Math.max(...vals); const pad = (hi - lo) * 0.1 || hi * 0.05; lo -= pad; hi += pad
   const n = Math.max(...series.map(s => s.points.length))
@@ -109,8 +126,8 @@ function chart(doc: any, x: number, y: number, w: number, h: number, title: stri
     s.points.forEach((v, i) => { if (v == null) return; if (!started) { doc.moveTo(px(i), py(v)); started = true } else doc.lineTo(px(i), py(v)) })
     doc.stroke().restore()
   })
-  let lx = x + 40
-  series.forEach((s, si) => { doc.save().rect(lx, y + 3, 8, 3).fill(colours[si % 3]).restore(); doc.font(fontReg).fontSize(8).fillColor(PDF.ink).text(s.name, lx + 11, y + 1); lx += 16 + doc.widthOfString(s.name) + 12 })
+  let lx = x
+  series.forEach((s, si) => { doc.save().rect(lx, y + 19, 10, 3).fill(colours[si % 3]).restore(); doc.font(fontReg).fontSize(8).fillColor(PDF.ink).text(s.name, lx + 13, y + 16, { lineBreak: false }); lx += 13 + doc.widthOfString(s.name) + 14 })
 }
 
 export async function reportPdf(packs: AreaPack[], commentary: string, forName: string | null): Promise<Buffer> {
@@ -148,10 +165,10 @@ export async function reportPdf(packs: AreaPack[], commentary: string, forName: 
   if (y + 170 > bottom) { doc.addPage(); drawPDFLogo(doc, logoImg); y = MARGIN + LOGO_H + 20 }
   y = head('Trends', y)
   const rentLabels = packs[0].rentTrend.map(t => new Date(`${t.period}T12:00:00Z`).toLocaleDateString('en-GB', { month: 'short', year: '2-digit', timeZone: 'UTC' }))
-  chart(doc, MARGIN, y, COL_W / 2 - 8, 150, 'Average rent, last 3 years', packs.map(p => ({ name: p.name, points: p.rentTrend.map(t => t.all) })), rentLabels, v => `£${Math.round(v).toLocaleString('en-GB')}`, fontReg, fontBold)
+  chart(doc, MARGIN, y, COL_W / 2 - 8, 165, 'Average rent, last 3 years', packs.map(p => ({ name: p.name, points: p.rentTrend.map(t => t.all) })), rentLabels, v => `£${Math.round(v).toLocaleString('en-GB')}`, fontReg, fontBold)
   const saleLabels = packs[0].salesTrend.map(t => new Date(`${t.month}-01T12:00:00Z`).toLocaleDateString('en-GB', { month: 'short', year: '2-digit', timeZone: 'UTC' }))
-  chart(doc, MARGIN + COL_W / 2 + 8, y, COL_W / 2 - 8, 150, 'Average house price, last 2 years', packs.map(p => ({ name: p.name, points: p.salesTrend.map(t => t.average) })), saleLabels, v => `£${Math.round(v / 1000)}k`, fontReg, fontBold)
-  y += 165
+  chart(doc, MARGIN + COL_W / 2 + 8, y, COL_W / 2 - 8, 165, 'Average house price, last 2 years', packs.map(p => ({ name: p.name, points: p.salesTrend.map(t => t.average) })), saleLabels, v => `£${Math.round(v / 1000)}k`, fontReg, fontBold)
+  y += 180
 
   // commentary
   if (commentary) {

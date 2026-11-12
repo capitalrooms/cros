@@ -31,7 +31,8 @@ export async function POST(req: NextRequest) {
   }
   const commentary = String(b.commentary ?? '').slice(0, 5000)
   const pdf = await reportPdf(packs, commentary, forName)
-  const file = `${reportTitle(packs).replace(/[^\w ,—-]/g, '').replace(/\s+/g, ' ')}.pdf`
+  // plain letters only — a long dash in a download header breaks it
+  const file = `Local market report - ${packs.map(p => p.name).join(', ')}.pdf`.replace(/[^\w ,.-]/g, '').replace(/\s+/g, ' ')
   if (b.action === 'pdf') return new NextResponse(new Uint8Array(pdf), { headers: { 'Content-Type': 'application/pdf', 'Content-Disposition': `inline; filename="${file.replace(/"/g, '')}"` } })
   if (b.action === 'email') {
     const to = String(b.to ?? ll?.email ?? '').trim()
