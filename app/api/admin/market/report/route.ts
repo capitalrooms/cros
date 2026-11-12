@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
   if (b.action === 'email') {
     const to = String(b.to ?? ll?.email ?? '').trim()
     if (!to.includes('@')) return NextResponse.json({ error: 'No email address for the landlord' }, { status: 400 })
-    const r = await sendEmail(to, reportTitle(packs), reportHtml(packs, commentary, ll ? dearLine(ll) : null), { req, kind: 'landlord-update', attachments: [{ filename: file, content: pdf.toString('base64') }] })
+    const r = await sendEmail(to, reportTitle(packs), reportHtml(packs, commentary, ll ? dearLine(ll) : null), { req, kind: 'market-report', attachments: [{ filename: file, content: pdf.toString('base64') }] })
     if (!r.ok) return NextResponse.json({ error: r.error || 'The email didn’t send' }, { status: 502 })
     return NextResponse.json({ ok: true, to })
   }
