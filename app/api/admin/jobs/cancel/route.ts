@@ -1,6 +1,8 @@
 /**
  * /api/admin/jobs/cancel — close off a maintenance job that won't go ahead (migration 207).
- *   POST { ticketId, reason, tellContractor?, tellTenant? }
+ *   POST { ticketId, reason, tellContractor?, tellTenant?, tellHouse?, visitOnly? }
+ *   visitOnly: just the booked visit is taken off (the job stays open to rebook) — 12 Nov 2026
+ *   tellHouse: everyone who'd been told about the visit hears it's off (lib/maintenance/visitOff) — text, app, email
  * A reason is required. The job is kept, marked cancelled with who / when / why, and drops out of every live list.
  * An open emergency on it is cancelled too (contractors stood down). Nothing is sent unless ticked.
  */
@@ -10,6 +12,7 @@ import { createServiceClient } from '@/lib/supabase'
 import { insertNotifications } from '@/lib/serverNotify'
 import { sendServerPush } from '@/lib/serverPush'
 import { officeAction } from '@/lib/emergencies/engine'
+import { tellContractorVisitOff, tellHouseVisitOff } from '@/lib/maintenance/visitOff'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -23,13 +26,24 @@ export async function POST(req: NextRequest) {
   const reason = String(b.reason ?? '').trim().slice(0, 1000)
   if (reason.length < 4) return NextResponse.json({ error: 'Say why it’s being cancelled — it’s kept on the record' }, { status: 400 })
   const s = createServiceClient()
-  const { data: t } = await s.from('maintenance_tickets').select('id, title, status, contractor_id, reporter_id, property_id, room_id, admin_note').eq('id', String(b.ticketId ?? '')).maybeSingle() as { data: any }
+  const { data: t } = await s.from('maintenance_tickets').select('id, title, status, contractor_id, reporter_id, property_id, room_id, admin_note, location, booked_date, booked_slot').eq('id', String(b.ticketId ?? '')).maybeSingle() as { data: any }
   if (!t) return NextResponse.json({ error: 'Job not found' }, { status: 404 })
   if (t.status === 'completed' || t.status === 'cancelled') return NextResponse.json({ error: `It’s already ${t.status}` }, { status: 409 })
   const { data: me } = await s.from('people').select('salutation, first_name, last_name, full_name, email').eq('id', caller.personId).maybeSingle()
   const by = pname(me) || caller.email
   const now = new Date().toISOString()
   const day = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/London' })
+  // just the visit: the date comes off, the job stays with the contractor to rebook
+  if (b.visitOnly) {
+    if (!t.booked_date) return NextResponse.json({ error: 'There’s no visit booked on this job' }, { status: 409 })
+    const { error: e1 } = await s.from('maintenance_tickets').update({ booked_date: null, booked_slot: null,
+      admin_note: [t.admin_note, `[${day}] Visit cancelled by ${by}: ${reason}`].filter(Boolean).join('\n'), updated_at: now }).eq('id', t.id)
+    if (e1) return NextResponse.json({ error: e1.message }, { status: 400 })
+    const told: string[] = []
+    if (b.tellContractor && await tellContractorVisitOff(s as any, t, { jobCancelled: false, reason })) told.push('the contractor')
+    if (b.tellHouse) { const n = await tellHouseVisitOff(s as any, t, { jobCancelled: false, req }); if (n) told.push(`${n} at the house`) }
+    return NextResponse.json({ ok: true, told })
+  }
   const { error } = await s.from('maintenance_tickets').update({
     status: 'cancelled', cancelled_at: now, cancelled_by: caller.personId, cancel_reason: reason,
     admin_note: [t.admin_note, `[${day}] Cancelled by ${by}: ${reason}`].filter(Boolean).join('\n'), updated_at: now,
@@ -41,12 +55,8 @@ export async function POST(req: NextRequest) {
   if (em && !['resolved', 'cancelled'].includes(em.status)) await officeAction(s, em.id, by, { action: 'cancel', note: reason })
 
   const told: string[] = []
-  if (b.tellContractor && t.contractor_id) {
-    const title = 'Job cancelled', body = `“${t.title}” has been cancelled — no need to attend. Reason: ${reason}`
-    await insertNotifications(s, [t.contractor_id], { title, body, type: 'maintenance', link: '/contractor' })
-    await sendServerPush({ personId: t.contractor_id, title, body, url: '/contractor', tag: `job-${t.id}` })
-    told.push('the contractor')
-  }
+  if (b.tellContractor && await tellContractorVisitOff(s as any, t, { jobCancelled: true, reason })) told.push('the contractor')
+  if (b.tellHouse) { const n = await tellHouseVisitOff(s as any, t, { jobCancelled: true, req }); if (n) told.push(`${n} at the house`) }
   if (b.tellTenant) {
     // reporter_id is an auth id on older jobs; find the person either way
     let pid: string | null = null

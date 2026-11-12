@@ -146,11 +146,15 @@ function CancelJobModal({ ticket, onClose, onDone }: { ticket: Ticket; onClose: 
   const [reason, setReason] = useState('')
   const [tellContractor, setTellContractor] = useState(!!ticket.contractor_id)
   const [tellTenant, setTellTenant] = useState(false)
+  const booked = !!(ticket as any).booked_date
+  const [tellHouse, setTellHouse] = useState(booked)
+  // just the visit (keep the job to rebook) or the whole job (12 Nov 2026)
+  const [visitOnly, setVisitOnly] = useState(false)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
   async function go() {
     setBusy(true); setErr('')
-    const r = await adminFetch('/api/admin/jobs/cancel', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ticketId: ticket.id, reason, tellContractor, tellTenant }) })
+    const r = await adminFetch('/api/admin/jobs/cancel', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ticketId: ticket.id, reason, tellContractor, tellTenant: !visitOnly && tellTenant, tellHouse: booked && tellHouse, visitOnly }) })
     const d = await r.json().catch(() => ({}))
     setBusy(false)
     if (!r.ok) { setErr(d.error ?? 'Could not cancel it'); return }
@@ -159,19 +163,26 @@ function CancelJobModal({ ticket, onClose, onDone }: { ticket: Ticket; onClose: 
   return (
     <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/60 p-lg sm:items-center" onClick={() => !busy && onClose()}>
       <div className="w-full max-w-lg rounded-2xl bg-white p-lg text-neutral-900 shadow-2xl" onClick={e => e.stopPropagation()}>
-        <h2 className="text-lg font-bold">Cancel this job</h2>
+        <h2 className="text-lg font-bold">{visitOnly ? 'Cancel the visit' : 'Cancel this job'}</h2>
         <p className="text-sm text-neutral-600">{ticket.properties?.name?.split('\n')[0]}{ticket.rooms?.name ? ` · ${ticket.rooms.name}` : ''} — {ticket.title}</p>
+        {booked && (
+          <div className="mt-md flex gap-xs rounded-xl bg-neutral-100 p-1 text-sm">
+            <button type="button" onClick={() => setVisitOnly(false)} className={`flex-1 rounded-lg py-xs font-semibold ${!visitOnly ? 'bg-white shadow' : 'text-neutral-600'}`}>The whole job</button>
+            <button type="button" onClick={() => setVisitOnly(true)} className={`flex-1 rounded-lg py-xs font-semibold ${visitOnly ? 'bg-white shadow' : 'text-neutral-600'}`}>Just the visit — rebook later</button>
+          </div>
+        )}
         <p className="mt-md text-xs font-bold uppercase tracking-wide text-neutral-500">Why? (kept on the record)</p>
         <div className="mt-xs flex flex-wrap gap-xs">
           {CANCEL_REASONS.map(r => <button key={r} type="button" onClick={() => setReason(r)} className={`rounded-full border px-sm py-0.5 text-xs ${reason === r ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-300 text-neutral-700'}`}>{r}</button>)}
         </div>
         <textarea rows={3} value={reason} onChange={e => setReason(e.target.value)} placeholder="Or write the reason" className="mt-sm w-full rounded-xl border border-neutral-300 px-md py-sm text-sm" />
-        {ticket.contractor_id && <label className="mt-sm flex items-center gap-sm text-sm"><input type="checkbox" checked={tellContractor} onChange={e => setTellContractor(e.target.checked)} /> Tell the contractor it’s cancelled</label>}
-        <label className="mt-xs flex items-center gap-sm text-sm"><input type="checkbox" checked={tellTenant} onChange={e => setTellTenant(e.target.checked)} /> Tell the tenant who reported it (with the reason)</label>
+        {ticket.contractor_id && <label className="mt-sm flex items-center gap-sm text-sm"><input type="checkbox" checked={tellContractor} onChange={e => setTellContractor(e.target.checked)} /> Text the contractor it’s off</label>}
+        {booked && <label className="mt-xs flex items-center gap-sm text-sm"><input type="checkbox" checked={tellHouse} onChange={e => setTellHouse(e.target.checked)} /> Tell everyone who was told about the visit (text, app and email)</label>}
+        {!visitOnly && <label className="mt-xs flex items-center gap-sm text-sm"><input type="checkbox" checked={tellTenant} onChange={e => setTellTenant(e.target.checked)} /> Tell the tenant who reported it (with the reason)</label>}
         {err && <p className="mt-sm text-sm text-red-700">{err}</p>}
         <div className="mt-md flex gap-sm">
           <button type="button" onClick={onClose} disabled={busy} className="flex-1 rounded-xl border border-neutral-300 py-sm text-sm font-semibold">Keep the job</button>
-          <button type="button" onClick={go} disabled={busy || reason.trim().length < 4} className="flex-1 rounded-xl bg-red-700 py-sm text-sm font-bold text-white disabled:opacity-40">{busy ? 'Cancelling…' : 'Cancel job'}</button>
+          <button type="button" onClick={go} disabled={busy || reason.trim().length < 4} className="flex-1 rounded-xl bg-red-700 py-sm text-sm font-bold text-white disabled:opacity-40">{busy ? 'Cancelling…' : visitOnly ? 'Cancel the visit' : 'Cancel job'}</button>
         </div>
       </div>
     </div>
