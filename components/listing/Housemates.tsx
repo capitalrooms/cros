@@ -13,6 +13,7 @@ export default function Housemates({ people, heading }: { people: HousemateIntro
             <span aria-hidden="true" style={{ width: 52, height: 52, borderRadius: 26, background: h.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28, flex: '0 0 auto' }}>{h.emoji}</span>
             <span style={{ minWidth: 0, fontSize: 15, lineHeight: 1.45 }}>
               <span style={{ display: 'block', fontWeight: 600 }}>{h.does ?? 'Housemate'}</span>
+              {h.who && <span style={{ display: 'block', color: '#5F5A52' }}>{h.who}</span>}
               {h.from && <span style={{ display: 'block', color: '#5F5A52' }}>From {h.from}</span>}
               {h.weekends.length > 0 && <span style={{ display: 'block', color: '#5F5A52' }}>Weekends: {h.weekends.join(', ').toLowerCase()}</span>}
               {(h.rhythm || h.vibe) && <span style={{ display: 'block', color: '#5F5A52' }}>{[h.rhythm, h.vibe].filter(Boolean).join(' · ')}</span>}
@@ -20,7 +21,7 @@ export default function Housemates({ people, heading }: { people: HousemateIntro
           </li>
         ))}
       </ul>
-      <p style={{ margin: '10px 0 0', fontSize: 13, color: '#6F6A60' }}>In their own words, shared with their permission.</p>
+      <p style={{ margin: '10px 0 0', fontSize: 13, color: '#6F6A60' }}>{people.some(h => h.who) ? 'Shared with their permission.' : 'In their own words, shared with their permission.'}</p>
     </section>
   )
 }

@@ -1,11 +1,12 @@
 // A let-only landlord's room list (lib/letOnly/roomList). Office staff (administrators and lettings).
-// POST { action: 'read', text?, image?: { mime, base64 } } → { groups } — read and matched to houses, nothing saved
+// POST { action: 'read', text?, image?: { mime, base64 }, propertyId? } → { groups } — read and matched to houses, nothing saved
+//                                         (propertyId: a landlord's reply about that one house — every row is that house)
 // POST { action: 'resolve', rows }                        → { groups } — match again (after a house was added)
 // POST { action: 'apply', groups: [{ propertyId, rows }] } → { saved: [{ property, changes }] }
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase'
 import { requireStaff } from '@/lib/portalAuth'
-import { readRoomList, resolveRows, applyRoomList } from '@/lib/letOnly/roomList'
+import { readRoomList, resolveRows, resolveForHouse, applyRoomList } from '@/lib/letOnly/roomList'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -23,7 +24,7 @@ export async function POST(req: NextRequest) {
       if (!image && !String(b.text ?? '').trim()) return NextResponse.json({ error: 'Paste the list or add a screenshot of it.' }, { status: 400 })
       const rows = await readRoomList({ text: b.text, image })
       if (!rows.length) return NextResponse.json({ error: 'No rooms could be read from that. Try a clearer screenshot, or paste the text.' }, { status: 422 })
-      return NextResponse.json({ groups: await resolveRows(s, rows) })
+      return NextResponse.json({ groups: typeof b.propertyId === 'string' && b.propertyId ? await resolveForHouse(s, b.propertyId, rows) : await resolveRows(s, rows) })
     }
     if (b.action === 'resolve') return NextResponse.json({ groups: await resolveRows(s, Array.isArray(b.rows) ? b.rows : []) })
     if (b.action === 'apply') {

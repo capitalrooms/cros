@@ -31,23 +31,15 @@ interface Props {
 const hhmm = (slot: string | null) => (slot ? slot.slice(0, 5) : '')
 const niceDate = (iso: string) => new Date(`${iso}T00:00:00`).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })
 
-/** Emails whoever lives in this let-only room (the landlord's room list, let_only_occupants) about the viewing.
- *  Best-effort. 21 Oct 2026: it looked the room up on the old let-only listings, which have no room link, so it never
- *  sent. A booking the agent chose to tell them about follows "Messages you send yourself"; a reschedule stays automatic. */
-export async function notifyLetOnlyContacts(roomId: string | null, event: 'booked' | 'rescheduled', date: string, time: string, roomName: string, senderName: string): Promise<boolean> {
+/** Texts and emails everyone living in a let-only house (the landlord's reply, let_only_occupants) about a viewing —
+ *  by first name, the person whose room it is told it's theirs (12 Nov 2026: was email-only, and only to the room being
+ *  viewed, so the housemates were never told). Best-effort. A booking the agent chose to tell them about follows
+ *  "Messages you send yourself"; a move stays automatic. */
+export async function notifyLetOnlyContacts(roomId: string | null, event: 'booked' | 'rescheduled' | 'cancelled', date: string, time: string, _roomName: string, _senderName: string): Promise<boolean> {
   if (!roomId) return false
-  const sb = createClient()
-  const { data: room } = await sb.from('rooms').select('property_id, properties(letting_type)').eq('id', roomId).maybeSingle()
-  if ((room as any)?.properties?.letting_type !== 'let_only') return false
-  const { data: occ } = await sb.from('let_only_occupants').select('name, email').eq('room_id', roomId).is('ended_at', null).not('email', 'is', null)
-  const contacts = ((occ ?? []) as any[]).filter(o => String(o.email ?? '').includes('@')).map(o => ({ full_name: o.name || '', email: String(o.email).trim() }))
-  if (!contacts.length) return false
-  const res = await fetch('/api/let-only/notify-contacts', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ property_id: (room as any).property_id, contacts, elected: event === 'booked', event, viewing_date: date, viewing_time: time || '09:00', room_name: roomName, sender_name: senderName }),
-  }).catch(() => null)
+  const res = await fetch('/api/let-only/heads-up', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId, event, date, time: time || '09:00', elected: event === 'booked' }) }).catch(() => null)
   const j = res?.ok ? await res.json().catch(() => ({})) : null
-  return !!j && Number(j.sent ?? 0) > 0
+  return !!j && Number(j.texted ?? 0) + Number(j.emailed ?? 0) > 0
 }
 
 export default function ViewingSheet({ viewing, senderName, onClose, onChanged, onQuickNotify }: Props) {

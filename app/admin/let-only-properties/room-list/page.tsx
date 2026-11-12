@@ -3,7 +3,7 @@
 // each row (house code, room, move-in, rent, bathroom, shared space, who lives there) → check → save. Houses not in
 // CROS yet are added first with the let-only window (address suggested from the code where it can be).
 // Who lives there is kept for reference only (let_only_occupants) — never a tenancy, never charged rent.
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import AppBar from '@/components/AppBar'
 import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
@@ -11,7 +11,8 @@ import AddLetOnlyModal from '@/app/components/AddLetOnlyModal'
 import { adminFetch } from '@/lib/adminFetch'
 
 type Row = { house_code: string; room: string; move_in: string | null; persons_in_house: number | null; bathroom: string | null; shared_space: string | null
-  rent: number | null; tenant_name: string | null; tenant_phone: string | null; note: string | null; roomId: string | null; roomName: string }
+  rent: number | null; tenant_name: string | null; tenant_phone: string | null; note: string | null; roomId: string | null; roomName: string
+  tenant_email?: string | null; occupation?: string | null; age?: number | null; gender?: string | null; share_on_adverts?: boolean | null }
 type Group = { code: string; property: { id: string; name: string } | null; suggestion: { address: string; postcode: string | null } | null; rows: Row[] }
 
 const ukDate = (d: string | null) => d ? d.split('-').reverse().join('/') : '—'
@@ -26,6 +27,10 @@ export default function RoomListPage() {
   const [skip, setSkip] = useState<Set<string>>(new Set())
   const [adding, setAdding] = useState<Group | null>(null)
   const [saved, setSaved] = useState<{ property: string; changes: string[] }[] | null>(null)
+  // opened from a house ("Paste the landlord's reply"): every row read belongs to that house (12 Nov 2026).
+  // Read from the address bar after load — useSearchParams here needs a Suspense boundary that never resolves.
+  const [house, setHouse] = useState<string | null>(null)
+  useEffect(() => { setHouse(new URLSearchParams(window.location.search).get('property')) }, [])
 
   async function post(body: unknown) {
     const r = await adminFetch('/api/admin/let-only/room-list', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
@@ -46,7 +51,7 @@ export default function RoomListPage() {
 
   async function read() {
     setBusy('read'); setError(''); setSaved(null)
-    try { const d = await post({ action: 'read', text, image: image ? { mime: image.mime, base64: image.base64 } : undefined }); setGroups(d.groups); setSkip(new Set()) }
+    try { const d = await post({ action: 'read', text, image: image ? { mime: image.mime, base64: image.base64 } : undefined, propertyId: house ?? undefined }); setGroups(d.groups); setSkip(new Set()) }
     catch (e) { setError(e instanceof Error ? e.message : 'Failed') }
     setBusy('')
   }
@@ -75,7 +80,7 @@ export default function RoomListPage() {
 
   return (
     <div className="min-h-screen bg-neutral-100">
-      <AppBar left={<BackButton href="/admin/let-only-properties" />} title="Landlord’s room list" />
+      <AppBar left={<BackButton href={house ? `/admin/properties/${house}?tab=people` : "/admin/let-only-properties"} />} title="Landlord’s room list" />
       <PageHero title="Update from the landlord’s list" subtitle="Paste their email or add a screenshot — CROS fills in each house’s rooms, rents and who lives there" />
       <div className="mx-auto max-w-6xl px-lg py-xl space-y-lg">
         {error && <div className="rounded-xl border border-red-200 bg-red-50 p-md text-sm text-red-800">{error}</div>}
@@ -154,7 +159,7 @@ export default function RoomListPage() {
                           <td className="px-sm py-xs text-right tabular-nums">{gbp(r.rent)}</td>
                           <td className="px-sm py-xs text-neutral-600">{r.bathroom ?? '—'}</td>
                           <td className="px-sm py-xs text-neutral-600">{r.shared_space ?? '—'}</td>
-                          <td className="px-lg py-xs">{r.tenant_name ? <><span className="font-semibold text-neutral-900">{r.tenant_name}</span>{r.tenant_phone && <span className="ml-sm tabular-nums text-neutral-500">{r.tenant_phone}</span>}</> : <span className="italic text-neutral-500">{r.note || 'Nobody listed'}</span>}</td>
+                          <td className="px-lg py-xs">{r.tenant_name ? <><span className="font-semibold text-neutral-900">{r.tenant_name}</span>{r.tenant_phone && <span className="ml-sm tabular-nums text-neutral-500">{r.tenant_phone}</span>}{r.tenant_email && <span className="ml-sm text-neutral-500">{r.tenant_email}</span>}{(r.occupation || r.age || r.gender) && <span className="block text-xs text-neutral-600">{[r.gender, r.age ? `${r.age}` : null, r.occupation].filter(Boolean).join(' · ')}</span>}{r.share_on_adverts != null && <span className={`block text-[11px] font-semibold ${r.share_on_adverts ? 'text-emerald-700' : 'text-neutral-500'}`}>{r.share_on_adverts ? 'Happy to be mentioned on adverts' : 'Not on adverts'}</span>}</> : <span className="italic text-neutral-500">{r.note || 'Nobody listed'}</span>}</td>
                         </tr>
                       ))}
                     </tbody>

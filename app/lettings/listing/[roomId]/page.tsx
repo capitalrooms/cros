@@ -14,6 +14,9 @@ import { isWholeLet } from '@/lib/lettings/letWording'
 import PageHero, { HeroButton } from '@/components/PageHero'
 import { createClient } from '@/lib/supabase'
 
+// SpareRoom takes plain text: headings become their own line, bullets "•" (12 Nov 2026, Harry: "copy that into SpareRoom")
+const forSpareRoom = (t: string) => t.replace(/^#{1,3}\s+(.*)$/gm, '$1').replace(/^[-*]\s+/gm, '• ').replace(/\n{3,}/g, '\n\n').trim()
+
 type L = Record<string, any>
 interface Photo { id: string; url: string; video: boolean; caption: string | null; ofRoom: boolean; otherRoom: boolean; area?: string | null }
 interface Chan { channel: string; label: string; available: boolean; enabled: boolean; status?: string | null }
@@ -372,6 +375,8 @@ export default function ListingEditor({ params }: { params: Promise<{ roomId: st
           <label className={lbl}>Description<textarea rows={16} className={`${field} leading-relaxed`} value={l.description ?? ''} onChange={e => set('description', e.target.value)} />{hint('A line starting “## ” is a heading, “- ” a bullet point.')}</label>
           <div className="flex flex-wrap items-center gap-sm">
             <button type="button" onClick={() => tidy()} disabled={tidying || !l.description} className={`${btn} border border-neutral-300 bg-white disabled:opacity-50`}>{tidying ? 'Tidying…' : 'Tidy the layout'}</button>
+            <button type="button" disabled={!l.description} className={`${btn} border border-neutral-300 bg-white disabled:opacity-50`}
+              onClick={async () => { await navigator.clipboard.writeText(forSpareRoom(String(l.description ?? ''))).catch(() => {}); setNotice('Copied — paste it into the SpareRoom advert’s description.') }}>Copy for SpareRoom</button>
             <span className="text-xs text-neutral-500">Puts it under the same headings every time: the room, the house, who you’d live with, the area, bills, good to know. Takes out phone numbers, minimum terms and anything an advert can’t say.</span>
           </div>
           {!whole && (

@@ -25,10 +25,13 @@ export default function PeoplePicker({ value, onChange, compact = false }: { val
     Promise.all([
       s.from('viewings').select('visitor_name, visitor_email, visitor_phone, viewing_date, properties(name)').gte('viewing_date', today).order('viewing_date').limit(100),
       s.from('applicants').select('full_name, email, phone, pipeline_stage, archived_at, properties(name)').is('archived_at', null).order('created_at', { ascending: false }).limit(200),
-    ]).then(([v, a]) => {
+      // people living in let-only houses, as their landlord told us (12 Nov 2026)
+      s.from('let_only_occupants').select('name, phone, email, properties(name), rooms(name)').is('ended_at', null).limit(500),
+    ]).then(([v, a, lo]) => {
       const list: Recipient[] = [
         ...((v.data ?? []) as any[]).filter(x => x.visitor_email || x.visitor_phone).map(x => ({ name: x.visitor_name, email: x.visitor_email?.toLowerCase() ?? null, phone: x.visitor_phone ?? null, from: `Viewing ${new Date(`${x.viewing_date}T00:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })}`, propertyName: x.properties?.name ?? null })),
         ...((a.data ?? []) as any[]).filter(x => x.email || x.phone).map(x => ({ name: x.full_name, email: x.email?.toLowerCase() ?? null, phone: x.phone ?? null, from: 'Applicant', propertyName: x.properties?.name ?? null })),
+        ...((lo.data ?? []) as any[]).filter(x => x.email || x.phone).map(x => ({ name: x.name, email: x.email?.toLowerCase() ?? null, phone: x.phone ?? null, from: `Lives there (let only)${x.rooms?.name ? ` · ${x.rooms.name}` : ''}`, propertyName: x.properties?.name ?? null })),
       ]
       setKnown([...new Map(list.map(r => [key(r), r])).values()])
     })
