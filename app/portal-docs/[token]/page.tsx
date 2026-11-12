@@ -57,10 +57,14 @@ function SignaturePad({ onChange }: { onChange: (png: string | null) => void }) 
 export default function PortalDocsPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = use(params)
   const api = `/api/portal-docs/${token}`
-  const [d, setD] = useState<{ address: string; landlord: string; done: Record<Doc, boolean>; ownershipType: string | null; completed: boolean } | null>(null)
+  const [d, setD] = useState<{ address: string; landlord: string; done: Record<Doc, boolean>; completed: boolean; properties: { id: string; address: string; street: string; ownershipType: string | null; done: boolean; onFile?: boolean }[]; idOnFile?: boolean } | null>(null)
+  // documents we already hold (from when they joined) — shown as done, with a way to send a newer one
+  const [newer, setNewer] = useState<Record<string, boolean>>({})
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState<Doc | 'submit' | ''>('')
-  const [own, setOwn] = useState('')
+  // which kind of proof, per property (a request can cover several — migration 283)
+  const [own, setOwnMap] = useState<Record<string, string>>({})
+  const [busyProp, setBusyProp] = useState('')
   const [sent, setSent] = useState(false)
   const [showText, setShowText] = useState(false)
   // sign on screen (default) or print / write it out and send a photo
@@ -76,13 +80,13 @@ export default function PortalDocsPage({ params }: { params: Promise<{ token: st
     if (!r.ok) { setErr(x.error || 'That didn’t sign — please try again'); return }
     await load()
   }
-  const load = () => fetch(api).then(async r => { const x = await r.json(); if (!r.ok) setErr(x.error || 'This link isn’t valid'); else { setD(x); if (x.ownershipType) setOwn(x.ownershipType); setSignName(n => n || x.landlord?.replace(/^(Mr|Mrs|Ms|Miss|Dr|Mx|Prof|Rev)\.?\s+/i, '') || '') } })
+  const load = () => fetch(api).then(async r => { const x = await r.json(); if (!r.ok) setErr(x.error || 'This link isn’t valid'); else { setD(x); setOwnMap(m => { const n = { ...m }; for (const p of x.properties ?? []) if (p.ownershipType && !n[p.id]) n[p.id] = p.ownershipType; return n }); setSignName(n => n || x.landlord?.replace(/^(Mr|Mrs|Ms|Miss|Dr|Mx|Prof|Rev)\.?\s+/i, '') || '') } })
   useEffect(() => { load() }, [])   // eslint-disable-line react-hooks/exhaustive-deps
 
-  async function upload(doc: Doc, f: File | undefined) {
+  async function upload(doc: Doc, f: File | undefined, propertyId = '') {
     if (!f) return
-    if (doc === 'ownership' && !own) { setErr('First choose which proof of ownership you’re sending.'); return }
-    setBusy(doc); setErr('')
+    if (doc === 'ownership' && !own[propertyId]) { setErr('First choose which proof of ownership you’re sending.'); return }
+    setBusy(doc); setBusyProp(propertyId); setErr('')
     try {
       const file = await prepare(f)
       const ct = MIME[(file.name.split('.').pop() ?? '').toLowerCase()] ?? file.type
@@ -91,10 +95,10 @@ export default function PortalDocsPage({ params }: { params: Promise<{ token: st
       const st = await call({ action: 'start', contentType: ct, size: file.size })
       const { error } = await storage().from(st.bucket).uploadToSignedUrl(st.path, st.uploadToken, file, { contentType: ct })
       if (error) throw new Error('Upload failed — please check your connection and try again')
-      await call({ action: 'confirm', path: st.path, ownershipType: own })
+      await call({ action: 'confirm', path: st.path, propertyId, ownershipType: own[propertyId] })
       await load()
     } catch (e: any) { setErr(e?.message || 'Upload failed') }
-    setBusy('')
+    setBusy(''); setBusyProp('')
   }
   async function submit() {
     setBusy('submit'); setErr('')
@@ -108,12 +112,15 @@ export default function PortalDocsPage({ params }: { params: Promise<{ token: st
   // "it's all quite bunched up")
   const card: React.CSSProperties = { background: '#fff', border: '1px solid #E4E0D8', borderRadius: 20, padding: '28px 24px', display: 'flex', flexDirection: 'column', gap: 16 }
   const btn = (primary = false): React.CSSProperties => primary ? {} : {}
-  const Upload = ({ doc, label }: { doc: Doc; label: string }) => (
-    <label className={d?.done[doc] ? 'pub-btn-ghost' : 'pub-btn'} style={{ alignSelf: 'flex-start', opacity: busy === doc ? 0.6 : 1, cursor: 'pointer' }}>
-      {busy === doc ? 'Uploading…' : d?.done[doc] ? '✓ Added — replace it' : label}
-      <input type="file" accept="image/*,application/pdf" capture={doc === 'ownership' ? undefined : 'environment'} style={{ display: 'none' }} onChange={e => { upload(doc, e.target.files?.[0]); e.target.value = '' }} />
-    </label>
-  )
+  const Upload = ({ doc, label, propertyId = '', done }: { doc: Doc; label: string; propertyId?: string; done?: boolean }) => {
+    const isDone = done ?? d?.done[doc], working = busy === doc && busyProp === propertyId
+    return (
+      <label className={isDone ? 'pub-btn-ghost' : 'pub-btn'} style={{ alignSelf: 'flex-start', opacity: working ? 0.6 : 1, cursor: 'pointer' }}>
+        {working ? 'Uploading…' : isDone ? '✓ Added — replace it' : label}
+        <input type="file" accept="image/*,application/pdf" capture={doc === 'ownership' ? undefined : 'environment'} style={{ display: 'none' }} onChange={e => { upload(doc, e.target.files?.[0], propertyId); e.target.value = '' }} />
+      </label>
+    )
+  }
   const Step = ({ n, title, done, children }: { n: number; title: string; done: boolean; children: React.ReactNode }) => (
     <section style={card}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
@@ -134,7 +141,7 @@ export default function PortalDocsPage({ params }: { params: Promise<{ token: st
           <section style={{ ...card, alignItems: 'flex-start' }}>
             <span style={{ width: 44, height: 44, borderRadius: 22, background: '#2F6B4F', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>✓</span>
             <h1 className="pub-h2" style={{ margin: 0 }}>Thank you — all done</h1>
-            {p(<>We’ve got all the required info for Rightmove advertising. We’ll let you know when {d.address.split(',')[0]} is live.</>)}
+            {p(<>We’ve got all the required info for Rightmove advertising. We’ll let you know when {d.properties.length > 1 ? 'they’re' : `${d.address.split(',')[0]} is`} live.</>)}
           </section>
         ) : (<>
           <header style={{ display: 'flex', flexDirection: 'column', gap: 14, paddingBottom: 4 }}>
@@ -162,7 +169,7 @@ export default function PortalDocsPage({ params }: { params: Promise<{ token: st
               {how === 'screen' ? (<>
                 <label className="pub-label">Your full name<input className="pub-input" value={signName} onChange={e => setSignName(e.target.value)} autoComplete="name" /></label>
                 <SignaturePad onChange={setSig} />
-                <label style={{ display: 'flex', gap: 12, alignItems: 'flex-start', fontSize: 15, lineHeight: 1.5, cursor: 'pointer' }}><input type="checkbox" checked={agree} onChange={e => setAgree(e.target.checked)} style={{ marginTop: 4, width: 18, height: 18 }} />I own {d.address.split(',')[0]} and authorise Capital Rooms to advertise it to let on my behalf, as the letter says.</label>
+                <label style={{ display: 'flex', gap: 12, alignItems: 'flex-start', fontSize: 15, lineHeight: 1.5, cursor: 'pointer' }}><input type="checkbox" checked={agree} onChange={e => setAgree(e.target.checked)} style={{ marginTop: 4, width: 18, height: 18 }} />{d.properties.length > 1 ? `I own these ${d.properties.length} properties and authorise Capital Rooms to advertise them to let on my behalf, as the letter says.` : `I own ${d.address.split(',')[0]} and authorise Capital Rooms to advertise it to let on my behalf, as the letter says.`}</label>
                 <button type="button" className="pub-btn" onClick={signLetter} disabled={busy === 'letter' || !sig || !agree || signName.trim().split(/\s+/).length < 2} style={{ alignSelf: 'flex-start' }}>{busy === 'letter' ? 'Signing…' : 'Sign the letter'}</button>
               </>) : (<>
                 {p('Print it, sign and date it at the bottom, then take a photo. No printer? Copy it out by hand and sign that instead.')}
@@ -181,24 +188,37 @@ export default function PortalDocsPage({ params }: { params: Promise<{ token: st
             </>)}
           </Step>
 
-          <Step n={2} title="Proof you own the property" done={d.done.ownership}>
-            {p('Any one of these:')}
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
-              {OWNERSHIP.map(([k, l]) => <button key={k} type="button" className="pub-choice" aria-pressed={own === k} onClick={() => setOwn(k)}><span className={`pub-dot ${own === k ? 'on' : ''}`} /><span>{l}</span></button>)}
-            </div>
+          <Step n={2} title={d.properties.length > 1 ? 'Proof you own each property' : 'Proof you own the property'} done={d.done.ownership}>
+            {p(d.properties.length > 1 ? 'For each property, any one of: a Land Registry title, insurance certificate, solicitor’s letter or mortgage letter.' : 'Any one of these:')}
+            {d.properties.map((pr, i) => (
+              <div key={pr.id} style={{ display: 'flex', flexDirection: 'column', gap: 10, ...(d.properties.length > 1 ? { borderTop: i ? '1px solid #E4E0D8' : 0, paddingTop: i ? 18 : 4 } : {}) }}>
+                {d.properties.length > 1 && <p style={{ margin: 0, fontWeight: 700, fontSize: 16 }}>{pr.done ? '✓ ' : ''}{pr.street}</p>}
+{pr.onFile && !newer[pr.id] ? (
+                  <p style={{ margin: 0, fontSize: 15, lineHeight: 1.5 }}>✓ We already have this from you — nothing to do. <button type="button" onClick={() => setNewer(m => ({ ...m, [pr.id]: true }))} style={{ background: 'none', border: 0, padding: 0, color: '#111', textDecoration: 'underline', cursor: 'pointer', font: 'inherit' }}>Send a newer one</button></p>
+                ) : (<>
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  {OWNERSHIP.map(([k, l]) => <button key={k} type="button" className="pub-choice" aria-pressed={own[pr.id] === k} onClick={() => setOwnMap(m => ({ ...m, [pr.id]: k }))}><span className={`pub-dot ${own[pr.id] === k ? 'on' : ''}`} /><span>{l}</span></button>)}
+                </div>
+                <Upload doc="ownership" propertyId={pr.id} done={pr.done && !pr.onFile} label={d.properties.length > 1 ? `Add it for ${pr.street}` : 'Add it'} />
+                </>)}
+              </div>
+            ))}
             <p className="pub-muted" style={{ margin: 0, fontSize: 14, lineHeight: 1.5 }}>Don’t have one to hand? You can download your title from the Land Registry online: <a href="https://www.gov.uk/get-information-about-property-and-land/search-the-register" target="_blank" rel="noreferrer" style={{ color: '#111' }}>search the register</a>.</p>
-            <Upload doc="ownership" label="Add it" />
           </Step>
 
           <Step n={3} title="Photo ID" done={d.done.id}>
-            {p('Your passport (the photo page) or driving licence. Make sure all four corners are in the photo and it isn’t blurry.')}
-            <Upload doc="id" label="Add a photo of your ID" />
+            {d.idOnFile && !newer.__id ? (
+              <p style={{ margin: 0, fontSize: 15, lineHeight: 1.5 }}>✓ We already have your photo ID from when you joined — nothing to do. <button type="button" onClick={() => setNewer(m => ({ ...m, __id: true }))} style={{ background: 'none', border: 0, padding: 0, color: '#111', textDecoration: 'underline', cursor: 'pointer', font: 'inherit' }}>Send a newer one</button></p>
+            ) : (<>
+              {p('Your passport (the photo page) or driving licence. Make sure all four corners are in the photo and it isn’t blurry.')}
+              <Upload doc="id" label="Add a photo of your ID" done={d.done.id && !d.idOnFile} />
+            </>)}
           </Step>
 
           {err && <p className="pub-error" style={{ margin: 0 }}>{err}</p>}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12, paddingTop: 4 }}>
             <button type="button" className="pub-btn" onClick={submit} disabled={doneCount < 3 || busy === 'submit'}>{busy === 'submit' ? 'Sending…' : doneCount < 3 ? `Add all three to send (${doneCount} of 3)` : 'Send to Capital Rooms'}</button>
-            <p className="pub-muted" style={{ margin: 0, fontSize: 13, textAlign: 'center' }}>Your documents are kept private and encrypted, and only used to list this property.</p>
+            <p className="pub-muted" style={{ margin: 0, fontSize: 13, textAlign: 'center' }}>Your documents are kept private and encrypted, and only used to list {d.properties.length > 1 ? 'these properties' : 'this property'}.</p>
           </div>
         </>))}
       </main>

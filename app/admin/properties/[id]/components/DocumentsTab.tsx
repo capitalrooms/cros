@@ -6,6 +6,8 @@ import DocUploadDrawer from '@/components/DocUploadDrawer'
 import DocViewDrawer from '@/components/DocViewDrawer'
 import { docTypeLabel, fullDatesIn } from '@/lib/documents/types'
 import LineIcon from '@/components/LineIcon'
+import FloorPlanMap from './FloorPlanMap'
+import FloorPlanText from './FloorPlanText'
 
 interface Doc {
   id: string
@@ -28,6 +30,28 @@ export default function DocumentsTab({ propertyId, propertyName }: DocumentsTabP
   const supabase = createClient()
   const [docs, setDocs] = useState<Doc[]>([])
   const [loading, setLoading] = useState(true)
+  // a floor plan filed here is read for room sizes straight away, then shown beside them to confirm (12 Nov 2026)
+  const [plan, setPlan] = useState<{ url: string; pdf: boolean; detected: any[]; notes: string; bathrooms?: number; ensuites: string[]; layout: string; existing: string } | null>(null)
+  const [planMsg, setPlanMsg] = useState('')
+
+  async function readPlan(doc: { storage_url: string; file_name: string }) {
+    setPlanMsg('Reading the room sizes from the floor plan…')
+    try {
+      const body = new FormData()
+      body.append('storage_url', doc.storage_url)
+      const pdf = /\.pdf$/i.test(doc.file_name) || /\.pdf(\?|$)/i.test(doc.storage_url)
+      if (pdf) body.append('mime_type', 'application/pdf')
+      const [res, prop] = await Promise.all([
+        fetch('/api/ai/scan-floorplan', { method: 'POST', body }),
+        supabase.from('properties').select('property_notes').eq('id', propertyId).maybeSingle(),
+      ])
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) { setPlanMsg(json.error || 'Couldn’t read the floor plan for room sizes.'); return }
+      const r = json.result ?? {}
+      setPlan({ url: doc.storage_url, pdf, detected: r.detected_rooms || [], notes: r.notes || '', bathrooms: r.bathrooms_count, ensuites: r.ensuite_room_labels || [], layout: r.layout_notes || '', existing: (prop.data as any)?.property_notes || '' })
+      setPlanMsg('')
+    } catch (e: any) { setPlanMsg(e?.message || 'Couldn’t read the floor plan for room sizes.') }
+  }
   const [search, setSearch] = useState('')
   const [showDrawer, setShowDrawer] = useState(false)
   const [viewingDoc, setViewingDoc] = useState<Doc | null>(null)
@@ -58,13 +82,18 @@ export default function DocumentsTab({ propertyId, propertyName }: DocumentsTabP
           <h2 className="text-xl font-semibold text-neutral-900">Documents</h2>
           <p className="text-sm text-neutral-400 mt-xs">Certificates, tenancy docs, floor plans and property files</p>
         </div>
-        <button
-          onClick={() => setShowDrawer(true)}
-          className="rounded-lg bg-neutral-900 px-lg py-sm text-sm font-semibold text-white hover:bg-neutral-800 transition whitespace-nowrap"
-        >
-          + Upload document
-        </button>
+        <div className="flex items-center gap-sm">
+          <FloorPlanText propertyId={propertyId} onApplied={setPlanMsg} className="rounded-lg border border-neutral-300 px-md py-sm text-sm font-semibold text-neutral-800 hover:bg-neutral-100 whitespace-nowrap" />
+          <button
+            onClick={() => setShowDrawer(true)}
+            className="rounded-lg bg-neutral-900 px-lg py-sm text-sm font-semibold text-white hover:bg-neutral-800 transition whitespace-nowrap"
+          >
+            + Upload document
+          </button>
+        </div>
       </div>
+
+      {planMsg && <p className="rounded-lg border border-neutral-200 bg-neutral-50 px-md py-sm text-sm text-neutral-700 flex justify-between gap-md">{planMsg}<button onClick={() => setPlanMsg('')} className="text-neutral-400">×</button></p>}
 
       {docs.length > 0 && (
         <input
@@ -105,6 +134,10 @@ export default function DocumentsTab({ propertyId, propertyName }: DocumentsTabP
                   <span className="text-xs text-neutral-300">uploaded {new Date(doc.uploaded_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/London' })}</span>
                 </div>
               </div>
+              {doc.document_type === 'floor_plan' && (
+                <span role="button" tabIndex={0} onClick={e => { e.stopPropagation(); readPlan(doc) }} onKeyDown={e => { if (e.key === 'Enter') { e.stopPropagation(); readPlan(doc) } }}
+                  className="shrink-0 rounded-md border border-neutral-300 px-sm py-xs text-xs font-semibold text-neutral-800 hover:bg-neutral-100">Room sizes</span>
+              )}
               <span className="shrink-0 text-xs font-semibold text-neutral-500">View →</span>
             </button>
           ))}
@@ -117,7 +150,23 @@ export default function DocumentsTab({ propertyId, propertyName }: DocumentsTabP
           subtitle="Upload document"
           propertyId={propertyId}
           onClose={() => setShowDrawer(false)}
-          onUploaded={() => loadDocs()}
+          onUploaded={(d) => { loadDocs(); if (d?.document_type === 'floor_plan') readPlan(d) }}
+        />
+      )}
+
+      {plan && (
+        <FloorPlanMap
+          propertyId={propertyId}
+          detected={plan.detected}
+          notes={plan.notes}
+          bathroomsCount={plan.bathrooms}
+          ensuiteLabels={plan.ensuites}
+          layoutNotes={plan.layout}
+          existingNotes={plan.existing}
+          planUrl={plan.url}
+          planIsPdf={plan.pdf}
+          onClose={() => setPlan(null)}
+          onApplied={(msg) => { setPlan(null); setPlanMsg(msg) }}
         />
       )}
 

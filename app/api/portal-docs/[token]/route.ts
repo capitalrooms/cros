@@ -23,8 +23,11 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ tok
   const s = createServiceClient()
   const r = await requestByToken(s as any, (await params).token)
   if (!r) return nope()
-  return NextResponse.json({ address: r.address, landlord: r.landlord, ownershipType: r.row.ownership_type, completed: r.row.status === 'completed',
-    done: { letter: !!r.row.letter_path, ownership: !!r.row.ownership_path, id: !!r.row.id_path } })
+  return NextResponse.json({ address: r.address, landlord: r.landlord, completed: r.row.status === 'completed',
+    // proof of ownership is per property (migration 283); the letter and ID once
+    properties: r.properties.map(p => ({ id: p.id, address: p.address, street: p.street, ownershipType: p.ownershipType, done: p.done, onFile: !p.ownershipPath && !!p.onFile, uploaded: !!p.ownershipPath })),
+    idOnFile: !r.row.id_path && !!r.idOnFile,
+    done: { letter: !!r.row.letter_path, id: r.idDone, ownership: r.properties.every(p => p.done) } })
 }
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ token: string }> }) {
@@ -56,8 +59,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
     const { data: found } = await s.storage.from(BUCKET).list(folderFor(token), { search: name, limit: 1 })
     if (!found?.some(f => f.name === name)) return NextResponse.json({ error: 'The file didn’t finish uploading — please try again' }, { status: 400 })
     await sealStoredFile(BUCKET, path).catch(e => console.error('[portal-docs] could not encrypt', e?.message))
-    const upd: Record<string, unknown> = { [COLUMN[doc]]: path }
-    if (doc === 'ownership' && OWNERSHIP_TYPES.some(t => t.key === b.ownershipType)) upd.ownership_type = b.ownershipType
+    const upd: Record<string, unknown> = {}
+    if (doc === 'ownership') {
+      // which property this proof is for (a request can cover several)
+      const pid = String(b.propertyId ?? r.properties[0]?.id ?? '')
+      if (!r.properties.some(p => p.id === pid)) return NextResponse.json({ error: 'Which property is this for?' }, { status: 400 })
+      const type = OWNERSHIP_TYPES.some(t => t.key === b.ownershipType) ? b.ownershipType : null
+      upd.ownership = { ...(r.row.ownership ?? {}), [pid]: { type, path } }
+      if (pid === r.row.property_id) { upd.ownership_path = path; upd.ownership_type = type }   // older readers
+    } else upd[COLUMN[doc]] = path
     const { error } = await s.from('portal_authority_requests').update(upd).eq('id', r.row.id)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ ok: true })
@@ -72,7 +82,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
     const ip = (req.headers.get('x-forwarded-for') ?? '').split(',')[0].trim() || 'unknown'
     const ua = String(req.headers.get('user-agent') ?? '')
     const device = /iPhone/.test(ua) ? 'an iPhone' : /iPad/.test(ua) ? 'an iPad' : /Android/.test(ua) ? 'an Android phone' : /Mac OS/.test(ua) ? 'a Mac' : /Windows/.test(ua) ? 'a Windows computer' : ''
-    const pdf = await letterPdf({ landlord: name, address: r.address, signed: { png: Buffer.from(m[1], 'base64'), name, at: new Date(), ip, device } })
+    const pdf = await letterPdf({ landlord: name, address: r.address, addresses: r.properties.map(p => p.address), signed: { png: Buffer.from(m[1], 'base64'), name, at: new Date(), ip, device } })
     const path = `${folderFor(token)}/${DOC_TYPES.letter}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.pdf`
     await s.storage.createBucket(BUCKET, { public: false }).catch(() => {})
     const { error: upErr } = await s.storage.from(BUCKET).upload(path, pdf, { contentType: 'application/pdf', upsert: false })
@@ -84,11 +94,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
   }
 
   if (b.action === 'submit') {
-    const { data: now } = await s.from('portal_authority_requests').select('letter_path, ownership_path, id_path').eq('id', r.row.id).single() as { data: any }
-    if (!now?.letter_path || !now?.ownership_path || !now?.id_path) return NextResponse.json({ error: 'Please add all three — the signed letter, proof of ownership and photo ID.' }, { status: 400 })
+    const fresh = await requestByToken(s as any, token)
+    if (!fresh?.row.letter_path || !fresh.idDone || !fresh.properties.every(p => p.done)) return NextResponse.json({ error: `Please add everything — the signed letter, proof of ownership${fresh && fresh.properties.length > 1 ? ' for each property' : ''} and photo ID.` }, { status: 400 })
     await s.from('portal_authority_requests').update({ status: 'completed', completed_at: new Date().toISOString() }).eq('id', r.row.id)
-    const subject = `Rightmove advertising info in: ${r.landlord || 'landlord'} — ${r.address.split(',')[0]}`
-    await deliverEmail({ to: [OFFICE_ALERT_EMAIL], subject, html: await buildEmail(`<p><b>${esc(r.landlord || 'The landlord')}</b> has sent the signed letter of authority, proof of ownership and photo ID for <b>${esc(r.address)}</b>.</p><p>They’re on the property’s Lettings tab, ready to upload to OpenRent for Rightmove.</p>${officeButton(`/admin/properties/${r.row.property_id}?tab=lettings`, 'Open the property')}`, { kind: 'office-visit-booked', signature: false }) }).catch(() => null)
+    const subject = `Rightmove advertising info in: ${r.landlord || 'landlord'} — ${r.properties.map(p => p.street).join(', ')}`
+    await deliverEmail({ to: [OFFICE_ALERT_EMAIL], subject, html: await buildEmail(`<p><b>${esc(r.landlord || 'The landlord')}</b> has sent the signed letter of authority, proof of ownership and photo ID for <b>${esc(r.address)}</b>.</p><p>They’re on the landlord’s page (and each property’s Lettings tab), ready to upload to OpenRent for Rightmove.</p>${officeButton(r.row.landlord_id ? `/admin/landlord/${r.row.landlord_id}` : `/admin/properties/${r.row.property_id}?tab=lettings`, 'Open the landlord')}`, { kind: 'office-visit-booked', signature: false }) }).catch(() => null)
     const { data: admins } = await s.from('people').select('id').in('role', ['administrator', 'lettings'])
     if (admins?.length) await insertNotifications(s, (admins as any[]).map(a => a.id), { title: 'Rightmove advertising info in', body: `${r.landlord || 'The landlord'} — ${r.address}`, type: 'lettings', link: `/admin/properties/${r.row.property_id}?tab=lettings` }, { propertyId: r.row.property_id }).catch(() => null)
     return NextResponse.json({ ok: true })
