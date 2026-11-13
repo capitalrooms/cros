@@ -39,9 +39,9 @@ THE FIGURES (official — use exactly, never invent):
 ${packs.map(packText).join('\n\n')}
 
 Write 150–220 words in British English, warm and professional, to a landlord:
-- One short paragraph per theme: rents (where they're rising fastest, by bedrooms), house prices (direction, by type of home), yields, and what it means for letting in these areas.
+- One short paragraph per theme: rents (where they're rising fastest, by bedrooms), house prices (direction, by type of property), yields, and what it means for letting in these areas.
 - You may search recent UK news for a likely reason behind a big move; if you use one, say "possibly" and keep it to a clause.
-- Rents are whole homes unless it says Capital Rooms' own; house prices are by type of home, not bedrooms.
+- Rents are for whole properties unless it says Capital Rooms' own; house prices are by type of property, not bedrooms. Never call a property a "home".
 - Plain paragraphs separated by blank lines. No headings, no bullets, no greeting or sign-off.`
   const run = (tools: boolean) => client.messages.create({ model: AI_MODEL_SMART, max_tokens: 1200,
     ...(tools ? { tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 2, user_location: { type: 'approximate', country: 'GB', city: 'London' } } as any] } : {}),
@@ -53,13 +53,14 @@ Write 150–220 words in British English, warm and professional, to a landlord:
 /** The comparison as rows: [label, value per area]. */
 export function comparison(packs: AreaPack[]): [string, string[]][] {
   const row = (label: string, f: (p: AreaPack) => string): [string, string[]] => [label, packs.map(f)]
-  return [
+  // a row with no figure for any area is left out (13 Nov 2026, Harry: "don't bother including metrics if there are no numbers")
+  return ([
     row('Average rent (a month)', p => gbp(p.rents.rent_all)),
     row('Change on a year', p => pct(p.rents.change_all)),
-    row('1-bed home', p => gbp(p.rents.rent_1)),
-    row('2-bed home', p => gbp(p.rents.rent_2)),
-    row('3-bed home', p => gbp(p.rents.rent_3)),
-    row('4+ bed home', p => gbp(p.rents.rent_4)),
+    row('1-bed property', p => gbp(p.rents.rent_1)),
+    row('2-bed property', p => gbp(p.rents.rent_2)),
+    row('3-bed property', p => gbp(p.rents.rent_3)),
+    row('4+ bed property', p => gbp(p.rents.rent_4)),
     row('Room — our lets', p => p.ours?.roomMedian ? gbp(p.ours.roomMedian) : '—'),
     row('En-suite — our lets', p => p.ours?.ensuiteMedian ? gbp(p.ours.ensuiteMedian) : '—'),
     row('Average house price', p => gbpK(p.sales?.average)),
@@ -67,7 +68,7 @@ export function comparison(packs: AreaPack[]): [string, string[]][] {
     row('Flat or maisonette (any size)', p => gbpK(p.sales?.flat)),
     row('Terraced house', p => gbpK(p.sales?.terraced)),
     row('Gross yield', p => p.yieldAll ? `${p.yieldAll}%` : '—'),
-  ]
+  ] as [string, string[]][]).filter(([, vs]) => vs.some(v => v !== '—'))
 }
 
 export const reportTitle = (packs: AreaPack[]) => `Local market report — ${packs.map(p => p.name).join(', ')}`
@@ -76,6 +77,8 @@ const periods = (packs: AreaPack[]) => `Rents ${mon(packs[0].rents.period)}${pac
 /** A small bar chart made of table cells — shows in every email app (no images). Signed values grow from the middle. */
 function bars(title: string, rows: { name: string; value: number | null; label: string }[], signed = false): string {
   const esc = (t: string) => t.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!))
+  rows = rows.filter(r => r.value != null)
+  if (rows.length < 2) return ''      // nothing to compare — leave the chart out
   const vals = rows.map(r => Math.abs(r.value ?? 0)), max = Math.max(...vals, 0.0001)
   const line = (r: { name: string; value: number | null; label: string }) => {
     const w = Math.max(2, Math.round(Math.abs(r.value ?? 0) / max * (signed ? 48 : 96)))
@@ -93,14 +96,14 @@ export function reportHtml(packs: AreaPack[], commentary: string, dear: string |
   const esc = (t: string) => t.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!))
   const rows = comparison(packs).map(([l, vs], i) => `<tr style="background:${i % 2 ? '#ffffff' : PDF.tint}"><td style="padding:7px 10px;color:${PDF.muted};font-size:13px">${esc(l)}</td>${vs.map(v => `<td style="padding:7px 10px;text-align:right;font-weight:600;color:${PDF.ink};font-size:14px">${esc(v)}</td>`).join('')}</tr>`).join('')
   return `${dear ? `<p>${esc(dear)}</p>` : ''}
-<p>Here’s how the market is moving in ${esc(packs.map(p => p.name).join(', ').replace(/, ([^,]*)$/, ' and $1'))} — the latest official figures, with what we’re seeing in our own rooms. The full report is attached as a PDF.</p>
+<p>Here’s how the market is moving in ${esc(packs.map(p => p.name).join(', ').replace(/, ([^,]*)$/, ' and $1'))} — the latest official figures${packs.some(p => p.ours?.roomMedian || p.ours?.ensuiteMedian) ? ', with what we’re seeing in our own rooms' : ''}. The full report is attached as a PDF.</p>
 <p style="margin:18px 0 6px;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:${PDF.gold};font-weight:700">${esc(periods(packs))}</p>
 <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;border-top:2px solid ${PDF.forest}">
 <tr><td></td>${packs.map(p => `<td style="padding:8px 10px;text-align:right;font-weight:700;color:${PDF.forest};font-size:14px">${esc(p.name)}</td>`).join('')}</tr>${rows}</table>
 ${bars('Average rent a month', packs.map(p => ({ name: p.name, value: p.rents.rent_all, label: gbp(p.rents.rent_all) })))}
 ${commentary.split(/\n\n+/).map((p, i, all) => `<p>${esc(p)}</p>${i === Math.floor(all.length / 2) - 1 ? bars('Change on a year', packs.flatMap(x => [{ name: `${x.name} — rents`, value: x.rents.change_all, label: pct(x.rents.change_all) }, { name: `${x.name} — prices`, value: x.sales?.change12 ?? null, label: pct(x.sales?.change12) }]), true) : ''}`).join('')}
 ${bars('Gross yield', packs.map(p => ({ name: p.name, value: p.yieldAll, label: p.yieldAll ? `${p.yieldAll}%` : '—' })))}
-<p style="font-size:12px;color:${PDF.muted}">Sources: ${esc(SOURCES.rents)} and ${esc(SOURCES.sales)} (Crown copyright, Open Government Licence); room rents from Capital Rooms’ own lets. Rents are whole homes unless marked as rooms; house prices are by type of home. A guide, not a valuation.</p>`
+<p style="font-size:12px;color:${PDF.muted}">Sources: ${esc(SOURCES.rents)} and ${esc(SOURCES.sales)} (Crown copyright, Open Government Licence); ${packs.some(p => p.ours?.roomMedian || p.ours?.ensuiteMedian) ? 'room rents from Capital Rooms’ own lets. ' : ''}Rents are for whole properties unless marked as rooms; prices are by type of property. A guide, not a valuation.</p>`
 }
 
 /** A simple line chart on the page: one line per area. */
@@ -181,7 +184,7 @@ export async function reportPdf(packs: AreaPack[], commentary: string, forName: 
     }
   }
   if (y + 40 > bottom) { doc.addPage(); drawPDFLogo(doc, logoImg); y = MARGIN + LOGO_H + 20 }
-  doc.font(fontReg).fontSize(7.5).fillColor(PDF.muted).text(`Sources: ${SOURCES.rents} (ONS) and ${SOURCES.sales} (HM Land Registry) — Crown copyright, Open Government Licence; room rents from Capital Rooms’ own lets. Rents are whole homes unless marked as rooms; house prices are by type of home, not bedrooms, and recent months are early estimates. A guide to the market, not a valuation of any property.`, MARGIN, y + 6, { width: COL_W })
+  doc.font(fontReg).fontSize(7.5).fillColor(PDF.muted).text(`Sources: ${SOURCES.rents} (ONS) and ${SOURCES.sales} (HM Land Registry) — Crown copyright, Open Government Licence;${packs.some(p => p.ours?.roomMedian || p.ours?.ensuiteMedian) ? ' room rents from Capital Rooms’ own lets.' : ''} Rents are for whole properties unless marked as rooms; prices are by type of property, not bedrooms, and recent months are early estimates. A guide to the market, not a valuation of any property.`, MARGIN, y + 6, { width: COL_W })
 
   const range = (doc as any).bufferedPageRange?.() || { start: 0, count: 1 }
   for (let i = range.start; i < range.start + range.count; i++) { doc.switchToPage(i); drawPDFFooter(doc, footerImg, biz, fontReg) }

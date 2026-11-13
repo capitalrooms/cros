@@ -88,7 +88,7 @@ export function insightHtml(i: Insight, style: InsightStyle, season: Season = i.
   const img = `<img src="${sceneUrl(style, season)}" width="600" alt="London in ${season} — the Shard, the Gherkin, St Paul's, Big Ben, the London Eye and Tower Bridge" style="display:block;width:100%;max-width:600px;height:auto;border:0">`
   const paras = story(i)
   const fast = i.fastest.map(b => ({ name: b.name, value: b.change, label: pct(b.change) }))
-  const sources = `Sources: ONS Price Index of Private Rents (${mon(i.rentMonth)}) and HM Land Registry UK House Price Index${i.priceMonth ? ` (${mon(i.priceMonth)})` : ''} — Crown copyright, Open Government Licence. Rents are whole homes; our room figure is Capital Rooms’ own lets.`
+  const sources = `Sources: ONS Price Index of Private Rents (${mon(i.rentMonth)}) and HM Land Registry UK House Price Index${i.priceMonth ? ` (${mon(i.priceMonth)})` : ''} — Crown copyright, Open Government Licence. Rents are for whole properties; our room figure is Capital Rooms’ own lets.`
   const sans = `'Figtree','Helvetica Neue',Arial,sans-serif`, serif = `Georgia,'Times New Roman',serif`
 
   if (style === 'editorial') {

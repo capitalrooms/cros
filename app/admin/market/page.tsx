@@ -190,7 +190,7 @@ export default function MarketPage() {
                     </div>
                   </div>
                   <div>
-                    <p className="mb-xs text-xs font-bold uppercase tracking-wide text-neutral-500">Buying <span className="font-semibold normal-case tracking-normal text-neutral-400">· average prices by type of home (the Land Registry doesn’t split by bedrooms)</span></p>
+                    <p className="mb-xs text-xs font-bold uppercase tracking-wide text-neutral-500">Buying <span className="font-semibold normal-case tracking-normal text-neutral-400">· average prices by type of property (the Land Registry doesn’t split by bedrooms)</span></p>
                     {s ? (
                       <div className="grid grid-cols-2 gap-sm sm:grid-cols-3">
                         <Tile label="Average price" value={gbpK(s.average)} change={s.change12} />
