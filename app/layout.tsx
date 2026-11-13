@@ -8,6 +8,7 @@ import './globals-fonts.css'
 import ServiceWorkerRegister from './components/ServiceWorkerRegister'
 import AuthFetchBridge from './components/AuthFetchBridge'
 import ReinstallNotice from './components/ReinstallNotice'
+import FileViewer from './components/FileViewer'
 import Footer from './components/Footer'
 
 export const dynamic = 'force-dynamic'
@@ -70,6 +71,7 @@ export default async function RootLayout({
           {children}
         </div>
         <Footer />
+        <FileViewer />
         <ServiceWorkerRegister />
       </body>
     </html>

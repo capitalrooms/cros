@@ -10,12 +10,11 @@ import { adminFetch } from '@/lib/adminFetch'
 import { ZONES, type Zone } from '@/lib/adminNav'
 import { areasFor, canOpenPage, homeFor, isAdministrator, type AreaKey } from '@/lib/access/areas'
 import MobileTabBar from './components/MobileTabBar'
-import AdminFinder from './components/AdminFinder'
-import TaskBar, { TaskBarButton } from '@/components/admin/TaskBar'
+import AdminFinder, { TopSearch } from './components/AdminFinder'
+import TaskBar from '@/components/admin/TaskBar'
 import TopBar from '@/app/components/TopBar'
 import Footer from '@/app/components/Footer'
 import BackButton from '@/app/components/BackButton'
-import LineIcon from '@/components/LineIcon'
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -144,7 +143,6 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       {/* ── Desktop rail: every zone, with the current one opened up (the agreed look, 2 Oct 2026) ── */}
       <aside className="hidden md:flex w-56 flex-shrink-0 flex-col overflow-y-auto bg-[var(--ink,#23261A)] px-3 py-5 text-[var(--ground,#F3F0E6)]" style={{ scrollbarWidth: 'thin' }}>
         <p className="px-3 pb-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#F6F3EC]/45">Admin</p>
-        <AdminFinder allowed={allowed} />
         <nav className="flex flex-col gap-0.5">
           {zones.map(zone => {
             const open = railZone?.id === zone.id
@@ -178,11 +176,8 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         {/* ── Top bar — the one top bar every user has (app/components/TopBar) ── */}
         <TopBar homeHref="/admin"
           left={!isPhoneTabRoot(pathname) && <BackButton optional={!backFallback} href={backFallback?.href} label={backFallback?.label} />}
-          right={<span className="flex items-center gap-2">{access && isAdministrator(access.role) && <TaskBarButton />}{allowed('/admin/notify') && (
-            <Link href="/admin/notify" className="flex items-center gap-1 rounded-md bg-amber-600 px-2 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-amber-500">
-              <span><LineIcon glyph="⚡" /></span><span className="hidden sm:inline">Quick Notify</span>
-            </Link>
-          )}</span>} />
+          right={<TopSearch canAsk={!!access && isAdministrator(access.role)} />} />
+        <AdminFinder allowed={allowed} canAsk={!!access && isAdministrator(access.role)} />
         {access && isAdministrator(access.role) && <TaskBar />}
 
         {/* Main content — the footer closes every page on desktop */}

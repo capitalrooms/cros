@@ -6,6 +6,7 @@
 // The signing route checks who is asking (app/api/files/sign).
 import { useEffect, useMemo, useState } from 'react'
 import { parseStorageUrl, PRIVATE_BUCKETS } from '@/lib/files/paths'
+import { openSafely, viewFile, isInstalledApp } from '@/lib/files/openSafely'
 
 const isPrivate = (u: string) => { const r = parseStorageUrl(u); return !!r && PRIVATE_BUCKETS.has(r.bucket) }
 
@@ -38,10 +39,8 @@ export function useStoredUrl(url: string | null | undefined): string | null {
   return url ? links[url] ?? null : null
 }
 
-export async function openMyFile(url: string) {
-  if (!isPrivate(url)) { window.open(url, '_blank', 'noopener'); return }
-  const win = window.open('', '_blank')
-  const l = (await sign([url]))[url]
-  if (l && win) win.location.href = l
-  else { win?.close(); alert('That file can’t be opened — please sign in again, or ask the office.') }
+export async function openMyFile(url: string, name?: string) {
+  // on the installed app, in CROS's own viewer with a Close button — a new window there can leave you stuck (13 Nov 2026)
+  if (!isPrivate(url)) { if (isInstalledApp()) viewFile(url, name); else window.open(url, '_blank', 'noopener'); return }
+  await openSafely(async () => (await sign([url]))[url] ?? null, name)
 }
