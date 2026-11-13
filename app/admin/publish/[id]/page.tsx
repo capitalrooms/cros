@@ -11,12 +11,13 @@ import { adminFetch } from '@/lib/adminFetch'
 import PeoplePicker, { type Recipient } from '@/app/components/notify/PeoplePicker'
 import { pictureStyle, withStyle, type SizeKey, type FontKey } from '@/lib/publish/pictures'
 
-type Pub = { id: string; kind: string; title: string; period: string | null; areas: string[]; intro: string | null; body: string | null; sms_text: string | null; push_title: string | null; push_body: string | null; social_caption: string | null; audience: { lists?: string[]; people?: Recipient[]; ownAreas?: boolean }; channels: Record<string, boolean>; status: string; scheduled_for: string | null; website_published_at: string | null; approved_by: string | null; image?: string | null }
+type Pub = { id: string; kind: string; title: string; period: string | null; areas: string[]; intro: string | null; body: string | null; sms_text: string | null; push_title: string | null; push_body: string | null; social_caption: string | null; audience: { lists?: string[]; people?: Recipient[]; ownAreas?: boolean }; channels: Record<string, boolean>; status: string; scheduled_for: string | null; website_published_at: string | null; approved_by: string | null; image?: string | null; preheader?: string | null }
 type Data = {
   pub: Pub; channels: { key: string; label: string; note: string }[]; lists: { key: string; label: string }[]; areaNames: string[]
   reach: { total: number; email: number; sms: number; push: number; optedOut: number; sample: { name: string | null; email: string | null; phone: string | null; landlord: boolean }[] }
   previews: { email: { subject: string; html: string }; sms: string; push: { title: string; body: string; link: string }; caption: string; images: { square: string; wide: string }; website: string | null }
-  log: { channel: string; name: string | null; address: string | null; status: string; note: string | null; at: string }[]
+  log: { channel: string; name: string | null; address: string | null; status: string; note: string | null; at: string; opened_at?: string | null; clicked_at?: string | null; opens?: number; clicks?: number; bounced?: string | null; variant?: string | null }[]
+  report: { trackingReady: boolean; sent: number; delivered: number; bounced: number; opened: number; clicked: number; links: { url: string; clicks: number }[]; byVariant: { v: string; sent: number; opened: number; clicked: number }[] }
   pictures: Record<'figures' | 'scenes' | 'illustrations' | 'photos', { key: string; label: string; thumb: string }[]>
 }
 const STATUS: Record<string, string> = { draft: 'Draft', approved: 'Approved — ready to send', scheduled: 'Scheduled', sending: 'Sending', sent: 'Sent' }
@@ -42,6 +43,7 @@ export default function PublishEditor({ params }: { params: Promise<{ id: string
   const [length, setLength] = useState<'short' | 'standard'>('standard')
   const [withMarket, setWithMarket] = useState(false)
   const [missing, setMissing] = useState<string[]>([])
+  const [device, setDevice] = useState<'desktop' | 'mobile'>('desktop')
   const [picTab, setPicTab] = useState<'figures' | 'scenes' | 'illustrations' | 'photos'>('figures')
 
   const load = useCallback(async () => {
@@ -56,7 +58,7 @@ export default function PublishEditor({ params }: { params: Promise<{ id: string
   const locked = !!d && ['sending', 'sent'].includes(d.pub.status)
   async function save() {
     setBusy('save'); setMsg(null)
-    const r = await adminFetch(`/api/admin/publish/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: f.title, intro: f.intro, body: f.body, sms_text: f.sms_text, push_title: f.push_title, push_body: f.push_body, social_caption: f.social_caption, areas: f.areas, audience: f.audience, channels: f.channels, image: f.image ?? null }) })
+    const r = await adminFetch(`/api/admin/publish/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: f.title, intro: f.intro, body: f.body, sms_text: f.sms_text, push_title: f.push_title, push_body: f.push_body, social_caption: f.social_caption, areas: f.areas, audience: f.audience, channels: f.channels, image: f.image ?? null, preheader: f.preheader ?? null }) })
     const j = await r.json().catch(() => ({}))
     setBusy('')
     if (!r.ok) { setMsg({ ok: false, text: j.error || 'Couldn’t save' }); return false }
@@ -127,6 +129,13 @@ export default function PublishEditor({ params }: { params: Promise<{ id: string
           <section className={card}>
             <div className="space-y-md">
               <label className={label}>Title (the email subject and the post’s headline)<input disabled={locked} value={f.title ?? ''} onChange={e => set('title', e.target.value)} className={field} /></label>
+              <label className={label}>Preview text — the grey line after the subject in the inbox<input disabled={locked} value={f.preheader ?? ''} onChange={e => set('preheader', e.target.value)} placeholder={f.intro ?? 'Adds to the subject — e.g. what it means for your rent this year'} className={field} /></label>
+              {/* how it looks in an inbox */}
+              <div className="rounded-xl border border-neutral-200 bg-neutral-50 px-md py-sm text-sm">
+                <div className="flex items-baseline justify-between gap-sm"><span className="font-semibold text-neutral-900">Capital Rooms</span><span className="text-xs text-neutral-500">now</span></div>
+                <p className="truncate font-semibold text-neutral-900">{f.title || 'Subject'}</p>
+                <p className="truncate text-neutral-500">{f.preheader || f.intro || 'The preview text shows here'}</p>
+              </div>
               {p.kind === 'market_update' && (
                 <div>
                   <p className={label}>Areas for the shared version {(!f.areas || !f.areas.length) && <span className="normal-case tracking-normal text-neutral-400">— London as a whole</span>}</p>
@@ -193,7 +202,14 @@ export default function PublishEditor({ params }: { params: Promise<{ id: string
               {[['email', 'Email'], ['pdf', 'PDF'], ['sms', 'Text'], ['push', 'App'], ['website', 'Website'], ['social', 'Social']].map(([k, l]) => <button key={k} type="button" onClick={() => setTab(k)} className={`rounded-full px-md py-xs ${tab === k ? 'bg-neutral-900 text-white' : 'text-neutral-600'}`}>{l}</button>)}
             </div>
             <div className="mt-sm">
-              {tab === 'email' && (<><p className="text-sm text-neutral-600">Subject: <b>{d.previews.email.subject}</b>{aud.ownAreas ? ' · each landlord sees their own areas' : ''}</p><iframe title="The email" srcDoc={d.previews.email.html} className="mt-xs h-[640px] w-full rounded-xl ring-1 ring-neutral-200" /></>)}
+              {tab === 'email' && (<>
+                <div className="flex flex-wrap items-center justify-between gap-sm"><p className="text-sm text-neutral-600">Subject: <b>{d.previews.email.subject}</b>{aud.ownAreas ? ' · each landlord sees their own areas' : ''}</p>
+                  <span className="flex gap-1 rounded-full bg-neutral-100 p-1 text-xs font-semibold">{([['desktop', 'Desktop'], ['mobile', 'Phone']] as const).map(([k, l]) => <button key={k} type="button" onClick={() => setDevice(k)} className={`rounded-full px-md py-0.5 ${device === k ? 'bg-neutral-900 text-white' : 'text-neutral-600'}`}>{l}</button>)}</span></div>
+                <div className={`mt-xs ${device === 'mobile' ? 'mx-auto w-[390px] rounded-[36px] border-[10px] border-neutral-900 bg-neutral-900 p-0 shadow-xl' : ''}`}>
+                  <iframe title="The email" srcDoc={d.previews.email.html} className={`w-full bg-white ${device === 'mobile' ? 'h-[720px] rounded-[26px]' : 'h-[640px] rounded-xl ring-1 ring-neutral-200'}`} />
+                </div>
+                {dirty && <p className="mt-xs text-xs text-amber-800">Save to see your changes in the preview.</p>}
+              </>)}
               {tab === 'pdf' && (p.kind === 'market_update' ? <div className="space-y-xs text-sm"><p className="text-neutral-600">The report on our letterhead. Tick “PDF letter” to attach it to every email{aud.ownAreas ? ' (each landlord’s for their own areas)' : ''}, or open it to print and post.</p><button type="button" disabled={!!busy} onClick={() => act('pdf')} className="rounded-full border border-neutral-300 px-md py-xs font-semibold">{busy === 'pdf' ? 'Making it…' : 'Open the PDF'}</button></div> : <p className="text-sm text-neutral-600">PDF letters are for market updates for now.</p>)}
               {tab === 'sms' && (<div className="space-y-sm"><label className={label}>The text (the link and opt-out are added)<textarea disabled={locked} rows={3} value={f.sms_text ?? ''} onChange={e => set('sms_text', e.target.value)} className={field} /></label>
                 <div className="max-w-sm rounded-2xl rounded-bl-sm bg-neutral-100 px-md py-sm text-sm">{d.previews.sms}</div>
@@ -254,10 +270,26 @@ export default function PublishEditor({ params }: { params: Promise<{ id: string
             <p className="mt-sm text-xs text-neutral-500">Every email and text has an unsubscribe; anyone who uses it is left off from then on. Things about their own properties still reach them.</p>
           </section>
 
+          {d.report && d.report.sent > 0 && (
+            <section className={card}>
+              <p className={label}>How it did</p>
+              {!d.report.trackingReady && <p className="mt-xs rounded-lg bg-amber-50 px-md py-xs text-xs text-amber-900">Opens and clicks aren’t switched on yet — see the note on the Publish page.</p>}
+              <div className="mt-sm grid grid-cols-2 gap-sm text-center">
+                {([['Sent', d.report.sent, ''], ['Delivered', d.report.delivered, d.report.sent ? `${Math.round(d.report.delivered / d.report.sent * 100)}%` : ''], ['Opened', d.report.opened, d.report.sent ? `${Math.round(d.report.opened / d.report.sent * 100)}%` : ''], ['Clicked', d.report.clicked, d.report.sent ? `${Math.round(d.report.clicked / d.report.sent * 100)}%` : '']] as const).map(([k, n, pctTxt]) => (
+                  <div key={k} className="rounded-xl bg-neutral-50 p-sm"><p className="text-[11px] uppercase tracking-wider text-neutral-500">{k}</p><p className="text-xl font-bold tabular-nums">{pctTxt || n}</p>{pctTxt && <p className="text-xs text-neutral-500">{n} people</p>}</div>
+                ))}
+              </div>
+              {d.report.bounced > 0 && <p className="mt-xs text-xs text-red-700">{d.report.bounced} bounced — the address may be wrong; check them in the list below.</p>}
+              {d.report.byVariant.length > 1 && <div className="mt-sm text-xs">{d.report.byVariant.map(v => <p key={v.v}><b>Subject {v.v}</b>: {v.sent} sent · {v.sent ? Math.round(v.opened / v.sent * 100) : 0}% opened · {v.sent ? Math.round(v.clicked / v.sent * 100) : 0}% clicked</p>)}</div>}
+              {d.report.links.length > 0 && <div className="mt-sm"><p className="text-xs font-semibold text-neutral-600">Links clicked</p><ul className="mt-xs space-y-0.5 text-xs">{d.report.links.map(l => <li key={l.url} className="flex justify-between gap-sm"><span className="truncate">{l.url.replace(/^https?:\/\//, '')}</span><span className="shrink-0 font-semibold tabular-nums">{l.clicks}</span></li>)}</ul></div>}
+              <p className="mt-sm text-[11px] text-neutral-500">Some mail apps (Apple Mail) open emails on their own to protect privacy, so opens read high — clicks are the surer sign someone read it.</p>
+            </section>
+          )}
+
           {d.log.length > 0 && (
             <section className={card}>
               <p className={label}>Sent ({d.log.filter(x => x.status === 'sent').length}{d.log.some(x => x.status === 'failed') ? `, ${d.log.filter(x => x.status === 'failed').length} failed` : ''})</p>
-              <ul className="mt-xs max-h-80 divide-y divide-neutral-100 overflow-y-auto text-xs">{d.log.map((x, i) => <li key={i} className="flex justify-between gap-sm py-xs"><span className="min-w-0 truncate">{x.status === 'sent' ? '✓' : '✕'} {x.name ?? x.address} · {x.channel === 'sms' ? 'text' : x.channel === 'push' ? 'app' : 'email'}{x.note ? ` — ${x.note}` : ''}</span><span className="shrink-0 text-neutral-500">{new Date(x.at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span></li>)}</ul>
+              <ul className="mt-xs max-h-80 divide-y divide-neutral-100 overflow-y-auto text-xs">{d.log.map((x, i) => <li key={i} className="flex justify-between gap-sm py-xs"><span className="min-w-0 truncate">{x.status === 'sent' ? '✓' : '✕'} {x.name ?? x.address} · {x.channel === 'sms' ? 'text' : x.channel === 'push' ? 'app' : 'email'}{x.note ? ` — ${x.note}` : ''}{x.bounced ? ' · bounced' : x.clicked_at ? ' · clicked' : x.opened_at ? ' · opened' : ''}</span><span className="shrink-0 text-neutral-500">{new Date(x.at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span></li>)}</ul>
             </section>
           )}
           <p className="text-xs text-neutral-500"><Link href="/admin/publish" className="underline">All of Publish</Link></p>

@@ -37,6 +37,10 @@ export interface Pub {
   channels: Partial<Record<ChannelKey, boolean>>
   status: string; scheduled_for: string | null; website_slug: string | null; website_published_at: string | null; cache: Record<string, string>
   image?: string | null
+  preheader?: string | null
+  blocks?: any[]
+  template?: string | null
+  ab?: { subjectB?: string; testShare?: number; decideAfterHours?: number; winner?: 'A' | 'B'; decidedAt?: string }
 }
 export interface Person { personId: string | null; name: string | null; email: string | null; phone: string | null; landlord: boolean; dear: string }
 
@@ -85,8 +89,11 @@ const footer = (addr: string | null, why: string) => `<p style="margin:28px 0 0;
 const why = (x: Person) => x.landlord ? 'You’re receiving this as a Capital Rooms landlord.' : 'You’re receiving this because you’re in touch with Capital Rooms.'
 
 /** Email (and the PDF letter) for one person. Market updates for a landlord can use their own properties' areas. */
+// the inbox preview text (the grey line after the subject) — hidden in the email itself, padded so the mail app doesn't
+// pull the next words in after it
+const preheader = (p: Pub) => { const t = (p.preheader || p.intro || '').trim(); return t ? `<div style="display:none;font-size:1px;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;mso-hide:all">${esc(t)}${'&nbsp;&zwnj;'.repeat(60)}</div>` : '' }
 const header = (p: Pub) => p.image ? `<p style="margin:0 0 20px"><img src="${SITE_URL}/api/publish/image/${p.id}?size=wide&k=${encodeURIComponent(p.image)}" width="560" alt="" style="display:block;width:100%;max-width:560px;height:auto;border-radius:14px"></p>` : ''
-export async function emailFor(s: SupabaseClient, p: Pub, x: Person, cache: Record<string, string>): Promise<{ subject: string; html: string; pdf?: { filename: string; content: string } }> {
+export async function emailFor(s: SupabaseClient, p: Pub, x: Person, cache: Record<string, string>): Promise<{ subject: string; html: string; pdf?: { filename: string; content: string }; variant?: 'A' | 'B' }> {
   if (p.kind === 'market_update') {
     let codes = p.areas.length ? p.areas : [LONDON]
     let words = p.body ?? ''
@@ -101,7 +108,7 @@ export async function emailFor(s: SupabaseClient, p: Pub, x: Person, cache: Reco
     }
     const packs = await reportPacks(s, codes)
     // the report opens with the greeting and its own first line (the piece's opening line is for the website and app)
-    const html = header(p) + reportHtml(packs, words, x.dear) + (webLink(p) ? `<p><a href="${webLink(p)}">Read it on our website</a></p>` : '') + footer(x.email, why(x))
+    const html = preheader(p) + header(p) + reportHtml(packs, words, x.dear) + (webLink(p) ? `<p><a href="${webLink(p)}">Read it on our website</a></p>` : '') + footer(x.email, why(x))
     // a landlord's own areas → the subject names them ("Newham market update — September 2026")
     const own = codes.join() !== (p.areas.length ? p.areas : [LONDON]).join()
     const month = p.period ? new Date(`${p.period}-15T12:00:00Z`).toLocaleDateString('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' }) : ''
@@ -109,7 +116,7 @@ export async function emailFor(s: SupabaseClient, p: Pub, x: Person, cache: Reco
     const pdf = p.channels?.pdf ? { filename: `Market update - ${packs.map(k => k.name).join(', ')}.pdf`.replace(/[^\w ,.-]/g, ''), content: (await reportPdf(packs, words, x.landlord ? x.name : null)).toString('base64') } : undefined
     return { subject, html, pdf }
   }
-  const html = `${header(p)}<p>${esc(x.dear)}</p>${p.intro ? `<p><strong>${esc(p.intro)}</strong></p>` : ''}${paras(p.body).map(t => `<p>${esc(t)}</p>`).join('')}${webLink(p) ? `<p><a href="${webLink(p)}">Read it on our website</a></p>` : ''}${footer(x.email, why(x))}`
+  const html = `${preheader(p)}${header(p)}<p>${esc(x.dear)}</p>${p.intro ? `<p><strong>${esc(p.intro)}</strong></p>` : ''}${paras(p.body).map(t => `<p>${esc(t)}</p>`).join('')}${webLink(p) ? `<p><a href="${webLink(p)}">Read it on our website</a></p>` : ''}${footer(x.email, why(x))}`
   return { subject: p.title, html }
 }
 
@@ -142,8 +149,11 @@ export async function runSend(s: SupabaseClient, p: Pub, budgetMs = 200_000): Pr
   const { data: done } = await s.from('publication_sends').select('channel, address, person_id, status').eq('publication_id', p.id)
   const has = new Set(((done ?? []) as any[]).filter(d => d.status !== 'failed').map(d => `${d.channel}|${d.address || d.person_id}`))
   const cache = { ...(p.cache ?? {}) }
-  const log = (channel: string, x: Person, address: string | null, status: string, note = '') =>
-    s.from('publication_sends').insert({ publication_id: p.id, channel, person_id: x.personId, name: x.name, address, status, note: note.slice(0, 300) })
+  const log = (channel: string, x: Person, address: string | null, status: string, note = '', extra: Record<string, unknown> = {}) =>
+    s.from('publication_sends').insert({ publication_id: p.id, channel, person_id: x.personId, name: x.name, address, status, note: note.slice(0, 300), ...extra }).then(async r => {
+      // before migration 287 the extra columns don't exist — log without them
+      if (r.error && Object.keys(extra).length) await s.from('publication_sends').insert({ publication_id: p.id, channel, person_id: x.personId, name: x.name, address, status, note: note.slice(0, 300) })
+    })
   let sent = 0, failed = 0, remaining = 0
   const ch = p.channels ?? {}
   if (p.status !== 'sending') await s.from('publications').update({ status: 'sending', updated_at: new Date().toISOString() }).eq('id', p.id)
@@ -153,7 +163,7 @@ export async function runSend(s: SupabaseClient, p: Pub, budgetMs = 200_000): Pr
       try {
         const e = await emailFor(s, p, x, cache)
         const r = await sendEmail(x.email!, e.subject, e.html, { kind: 'publication', ...(e.pdf ? { attachments: [e.pdf] } : {}) })
-        await log('email', x, x.email, r.ok ? 'sent' : 'failed', r.ok ? (e.pdf ? 'with the PDF' : '') : r.error ?? 'not sent'); r.ok ? sent++ : failed++
+        await log('email', x, x.email, r.ok ? 'sent' : 'failed', r.ok ? (e.pdf ? 'with the PDF' : '') : r.error ?? 'not sent', { provider_id: r.id ?? null, variant: e.variant ?? null }); r.ok ? sent++ : failed++
       } catch (err) { await log('email', x, x.email, 'failed', err instanceof Error ? err.message : 'error'); failed++ }
     })
     const phone = toE164(x.phone)

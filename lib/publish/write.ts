@@ -16,6 +16,7 @@ const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 export const WriteSchema = z.object({
   title: z.string().describe('The headline — also the email subject. Under 60 characters, specific, no clickbait, no emoji.'),
   intro: z.string().describe('One opening sentence (under 25 words) that says what this is about.'),
+  preheader: z.string().describe('The inbox preview text shown after the subject line: under 90 characters, adds to the subject rather than repeating it.'),
   body: z.string().describe('The message in plain paragraphs separated by a blank line. No greeting (it is added), no sign-off, no headings, no bullet symbols.'),
   sms_text: z.string().describe('A text message version under 140 characters, starting "Capital Rooms:". A link and opt-out are added after it.'),
   push_title: z.string().describe('App notification title, under 40 characters.'),

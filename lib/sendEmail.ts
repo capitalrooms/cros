@@ -54,6 +54,8 @@ interface SendOptions {
 interface SendResult {
   ok: boolean
   error?: string
+  /** the email service's id for this message (to match opens and clicks) */
+  id?: string | null
 }
 
 /**
@@ -96,7 +98,8 @@ export async function sendEmail(
   }
 
   const res = await deliverEmail({ to, subject, html, cc: opts.cc, attachments: opts.attachments, from: opts.from, replyTo: opts.replyTo }, { sender })
-  if (res.ok) return { ok: true }
+  // the email service's id comes back too, so opens and clicks can be matched to this send (Publish, 13 Nov 2026)
+  if (res.ok) return { ok: true, id: await res.clone().json().then((j: any) => j?.id ?? null).catch(() => null) as string | null }
   const detail = await res.json().catch(() => ({}))
   return { ok: false, error: (detail as any)?.message ?? res.statusText }
 }

@@ -40,7 +40,19 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const sample = people[0] ?? { personId: null, name: 'Sample Landlord', email: null, phone: null, landlord: true, dear: 'Dear Mr Sample,' }
   // the preview is the shared version (a landlord's own areas are filled in when it's sent)
   const e = await emailFor(s, { ...p, audience: { ...p.audience, ownAreas: false }, channels: { ...p.channels, pdf: false } }, sample, {})
-  const { data: sends } = await s.from('publication_sends').select('channel, name, address, status, note, at').eq('publication_id', p.id).order('at', { ascending: false }).limit(500)
+  let { data: sends, error: sErr } = await s.from('publication_sends').select('channel, name, address, status, note, at, variant, delivered_at, opened_at, clicked_at, opens, clicks, links, bounced').eq('publication_id', p.id).order('at', { ascending: false }).limit(1000) as { data: any[] | null; error: any }
+  if (sErr) ({ data: sends } = await s.from('publication_sends').select('channel, name, address, status, note, at').eq('publication_id', p.id).order('at', { ascending: false }).limit(1000) as any)   // before migration 287
+  // the report, as Mailchimp shows it: delivered, opened, clicked (each person once), the links clicked, who engaged
+  const em = (sends ?? []).filter((x: any) => x.channel === 'email' && x.status === 'sent')
+  const linkTotals: Record<string, number> = {}
+  for (const x of em) for (const [u, n] of Object.entries(x.links ?? {})) linkTotals[u] = (linkTotals[u] ?? 0) + Number(n)
+  const report = {
+    trackingReady: !!process.env.RESEND_EVENTS_SECRET,
+    sent: em.length, delivered: em.filter((x: any) => x.delivered_at).length, bounced: em.filter((x: any) => x.bounced).length,
+    opened: em.filter((x: any) => x.opened_at).length, clicked: em.filter((x: any) => x.clicked_at).length,
+    links: Object.entries(linkTotals).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([url, clicks]) => ({ url, clicks })),
+    byVariant: ['A', 'B'].map(v => { const r = em.filter((x: any) => (x.variant ?? 'A') === v); return { v, sent: r.length, opened: r.filter((x: any) => x.opened_at).length, clicked: r.filter((x: any) => x.clicked_at).length } }).filter(x => x.sent),
+  }
   const areas = p.areas.length ? p.areas : [LONDON]
   const { data: names } = await s.from('ons_rents').select('area_code, area_name').in('area_code', areas)
   // the pictures to choose from: the figures in three looks, this season's scenes first, the illustrations, our photos
@@ -65,11 +77,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       images: { square: `${SITE_URL}/api/publish/image/${p.id}?size=square&v=${encodeURIComponent(String((p as any).updated_at ?? ''))}`, wide: `${SITE_URL}/api/publish/image/${p.id}?size=wide&v=${encodeURIComponent(String((p as any).updated_at ?? ''))}` },
       website: webLink(p),
     },
-    log: sends ?? [],
+    log: sends ?? [], report,
   })
 }
 
-const EDITABLE = ['title', 'intro', 'body', 'sms_text', 'push_title', 'push_body', 'social_caption', 'areas', 'audience', 'channels', 'image']
+const EDITABLE = ['title', 'intro', 'body', 'sms_text', 'push_title', 'push_body', 'social_caption', 'areas', 'audience', 'channels', 'image', 'preheader', 'blocks', 'template', 'ab']
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   if (!(await requireAdmin(req))) return NextResponse.json({ error: 'Please sign in again.' }, { status: 401 })
@@ -156,9 +168,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         brief, tone: (b.tone in TONES ? b.tone : 'friendly'), length: b.length === 'short' ? 'short' : 'standard',
         audience: (p.audience?.lists ?? []).includes('all_landlords') ? 'its landlords' : 'landlords and contacts',
         withMarket: !!b.withMarket, areas: p.areas,
-        ...(b.rewrite && b.rewrite in REWRITES ? { rewrite: b.rewrite, current: { title: p.title, intro: p.intro ?? '', body: p.body ?? '', sms_text: p.sms_text ?? '', push_title: p.push_title ?? '', push_body: p.push_body ?? '', social_caption: p.social_caption ?? '' } } : {}),
+        ...(b.rewrite && b.rewrite in REWRITES ? { rewrite: b.rewrite, current: { title: p.title, intro: p.intro ?? '', preheader: p.preheader ?? '', body: p.body ?? '', sms_text: p.sms_text ?? '', push_title: p.push_title ?? '', push_body: p.push_body ?? '', social_caption: p.social_caption ?? '' } } : {}),
       })
-      await s.from('publications').update({ title: w.title, intro: w.intro, body: w.body, sms_text: w.sms_text, push_title: w.push_title, push_body: w.push_body, social_caption: w.social_caption, status: 'draft', approved_at: null, approved_by: null, updated_at: new Date().toISOString() }).eq('id', p.id)
+      const row: Record<string, unknown> = { title: w.title, intro: w.intro, preheader: w.preheader, body: w.body, sms_text: w.sms_text, push_title: w.push_title, push_body: w.push_body, social_caption: w.social_caption, status: 'draft', approved_at: null, approved_by: null, updated_at: new Date().toISOString() }
+      const up = await s.from('publications').update(row).eq('id', p.id)
+      if (up.error && /preheader/.test(up.error.message)) { delete row.preheader; await s.from('publications').update(row).eq('id', p.id) }   // before migration 287
       return NextResponse.json({ ok: true, missing: w.missing })
     } catch (e) { return NextResponse.json({ error: e instanceof Error ? e.message : 'The writing didn’t work — try again' }, { status: 502 }) }
   }
