@@ -112,7 +112,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const { data: who } = await s.from('people').select('id, salutation, first_name, last_name, phone').eq('id', me.personId).maybeSingle() as { data: any }
     const x = { personId: null, name: [who?.first_name, who?.last_name].filter(Boolean).join(' ') || 'you', email: me.email, phone: who?.phone ?? null, landlord: true, dear: `Dear ${who?.first_name ?? 'you'},` }
     const e = await emailFor(s, { ...p, audience: { ...p.audience, ownAreas: false } }, x, {})
-    const r = await sendEmail(me.email, `[Test] ${e.subject}`, e.html, { req, kind: 'publication', theme: lookFor(p), ...(e.pdf ? { attachments: [e.pdf] } : {}) })
+    const r = await sendEmail(me.email, `[Test${p.ab?.subjectB?.trim() ? ' A' : ''}] ${e.subject}`, e.html, { req, kind: 'publication', theme: lookFor(p), ...(e.pdf ? { attachments: [e.pdf] } : {}) })
+    if (r.ok && p.channels?.email && p.ab?.subjectB?.trim()) await sendEmail(me.email, `[Test B] ${p.ab.subjectB.trim()}`, e.html, { req, kind: 'publication', theme: lookFor(p), ...(e.pdf ? { attachments: [e.pdf] } : {}) }).catch(() => null)
     let text = ''
     if (p.channels?.sms && x.phone) { const t = await sendSms(x.phone, smsFor(p, x)).catch(() => ({ ok: false })); text = t.ok ? ' and the text to your mobile' : ' (the test text didn’t send)' }
     return r.ok ? NextResponse.json({ ok: true, message: `Test sent to ${me.email}${text}.` }) : NextResponse.json({ error: r.error || 'The test didn’t send' }, { status: 502 })
@@ -133,9 +134,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     await s.from('publications').update({ status: 'scheduled', scheduled_for: at.toISOString() }).eq('id', p.id)
     return NextResponse.json({ ok: true })
   }
+  if (b.action === 'abwinner') {
+    if (p.status !== 'sending' || !p.ab?.subjectB || p.ab.winner) return NextResponse.json({ error: 'There’s no test running.' }, { status: 409 })
+    const w = b.winner === 'B' ? 'B' : 'A'
+    await s.from('publications').update({ ab: { ...p.ab, winner: w, why: `picked by ${me.email}`, decidedAt: new Date().toISOString() } }).eq('id', p.id)
+    return NextResponse.json({ ok: true })
+  }
   if (b.action === 'send') {
     if (!['approved', 'scheduled', 'sending'].includes(p.status)) return NextResponse.json({ error: 'Approve it first.' }, { status: 409 })
     if (!['email', 'sms', 'push'].some(k => (p.channels as any)?.[k])) return NextResponse.json({ error: 'Choose at least one of email, text or app notification.' }, { status: 400 })
+    if (p.channels?.email && p.ab && typeof p.ab.subjectB === 'string' && !p.ab.subjectB.trim()) return NextResponse.json({ error: 'Write subject B, or untick the subject line test.' }, { status: 400 })
     const r = await runSend(s, p, 240_000)
     return NextResponse.json({ ok: true, ...r })
   }
