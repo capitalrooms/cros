@@ -15,6 +15,7 @@ export const EMAIL_KINDS: EmailKind[] = [
   { key: 'holding-deposit', name: 'Holding deposit received', audience: 'Applicants', from: 'Lettings', when: 'When the holding deposit is recorded' },
   { key: 'application-declined', name: 'Application not taken forward', audience: 'Applicants', from: 'Lettings', when: 'When you decline an application' },
   { key: 'viewing-booked', name: 'Viewing booked', audience: 'Applicants', from: 'Lettings', when: 'When a viewing is booked' },
+  { key: 'referencing-complete', name: 'References complete — preparing your paperwork', audience: 'Applicants', from: 'Lettings', when: 'Letting file › Referencing › Tell them referencing is done' },
   { key: 'move-in-pack', name: 'Move-in pack', audience: 'Applicants', from: 'Lettings', when: 'When you send the documents before signing' },
   { key: 'tenant-welcome', name: 'Welcome — tenant app set-up', audience: 'Tenants', from: 'Office', when: 'When a tenant is invited to the app', slugs: ['tenant-portal-invite'] },
   { key: 'rent-due', name: 'Rent reminders', audience: 'Tenants', from: 'Accounts', when: 'Before rent is due, and when it’s late' },
