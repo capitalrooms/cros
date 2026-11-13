@@ -25,6 +25,7 @@ import { onboardingFiles } from '@/lib/landlordOnboarding/propertyDocs'
 import { openStoredFile } from '@/lib/files/openFile'
 import LandlordAppAccess from '@/components/admin/LandlordAppAccess'
 import AddressField from '@/app/components/AddressField'
+import TakeDetails from '@/app/admin/new-business/onboarding/[id]/TakeDetails'
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -726,6 +727,8 @@ export default function LandlordProfilePage({ params, searchParams }: { params: 
         {/* ══ CONTACT & IDENTITY ══ */}
         {activeTab === 'contact' && (
           <div className="space-y-lg">
+            {/* what they gave on their onboarding form, next to the record — take any of it on (13 Nov 2026) */}
+            {amlRecords[0]?.id && <TakeDetails id={amlRecords[0].id} card="rounded-xl border border-neutral-200 bg-white p-lg" h2="mb-sm text-base font-bold text-neutral-900" hasAgreement={false} />}
             <div className="rounded-xl border border-neutral-200 bg-white overflow-hidden">
               <div className="px-xl py-lg border-b border-neutral-100 flex items-center justify-between">
                 <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Contact details{contactMsg?.ok && !editingContact && <span className="ml-sm normal-case tracking-normal text-green-700">{contactMsg.text}</span>}</p>

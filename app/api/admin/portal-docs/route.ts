@@ -20,7 +20,7 @@ const LOOKS: Record<string, string> = { website: 'website', landlord: 'editorial
 const esc = (t: string) => t.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!))
 const missing = (e: any) => e && (e.code === '42P01' || e.code === 'PGRST205' || e.code === '42703' || /portal_authority|property_ids|ownership|on_file/.test(e.message ?? ''))
 const street = (p: any) => streetOf(p)
-const LL = 'people!landlord_id(id, salutation, first_name, last_name, full_name, company, email)'
+const LL = 'people!landlord_id(id, salutation, first_name, last_name, full_name, company, email, joint_salutation, joint_first_name, joint_last_name, joint_email)'
 
 export async function GET(req: NextRequest) {
   if (!(await requireStaff(req))) return NextResponse.json({ error: 'Please sign in again.' }, { status: 401 })
@@ -107,7 +107,8 @@ ${steps.map((x, i) => item(i + 1, x[0], x[1])).join('\n')}
   if (missing(error)) return NextResponse.json({ error: 'Run migration 283 in Supabase first.' }, { status: 503 })
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   const link = `${PORTAL_URL}/portal-docs/${token}`
-  const r = await sendEmail(ll.email, subject, body(link), { req, kind: 'portal-docs', theme })
+  // the joint landlord gets it too, as with every other landlord email (13 Nov 2026)
+  const r = await sendEmail([ll.email, ll.joint_email].filter((e: any) => typeof e === 'string' && e.includes('@')), subject, body(link), { req, kind: 'portal-docs', theme })
   if (!r.ok) return NextResponse.json({ error: r.error || 'The email didn’t send', link }, { status: 502 })
   return NextResponse.json({ ok: true, to: ll.email, link })
 }

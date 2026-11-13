@@ -66,7 +66,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pro
   }
   if (toLandlord) {
     const l = house.landlord!
-    const r = await sendEmail(l.email, subject, houseEmailHtml(l.dear, house.property.address, docs, landlordHouseMessage(message)), { kind: 'house-docs', req })
+    // the joint landlord gets it too, as with every other landlord email (13 Nov 2026)
+    const r = await sendEmail([l.email, (l as any).jointEmail].filter(Boolean) as string[], subject, houseEmailHtml(l.dear, house.property.address, docs, landlordHouseMessage(message)), { kind: 'house-docs', req })
     recipients.push({ person_id: l.personId, name: `${l.name} (landlord)`, email: l.email, ok: r.ok, ...(r.ok ? {} : { error: r.error }) })
   }
   const { error } = await s.from('house_document_sends').insert({
