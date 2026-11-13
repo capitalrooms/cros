@@ -10,7 +10,8 @@ import { financeTabs } from '@/lib/financeTabs'
 import { adminFetch, downloadPdf } from '@/lib/adminFetch'
 
 type Settings = { from: string; rate: number; quarterEnds: 1 | 2 | 3; vatNumber: string | null; set: boolean }
-type Period = { from: string; to: string; label: string }
+type Period = { from: string; to: string; label: string; due: string; filed: { filedOn: string; amount: number; by: string } | null }
+type Month = { month: string; label: string; fees: number; vatOnFees: number; costs: number; vatOnCosts: number; net: number; quarter: string; quarterSoFar: number }
 type Detail = {
   boxes: { box1: number; box4: number; box5: number; box6: number; box7: number }
   statements: { reference: string; landlord: string; property: string; month: string | null; net: number; vat: number }[]
@@ -23,6 +24,8 @@ const QUARTERS: [1 | 2 | 3, string][] = [[1, 'January, April, July and October']
 export default function VatPage() {
   const [st, setSt] = useState<Settings | null>(null)
   const [periods, setPeriods] = useState<Period[]>([])
+  const [months, setMonths] = useState<Month[]>([])
+  const [filing, setFiling] = useState<{ filedOn: string; amount: string } | null>(null)
   const [pick, setPick] = useState<Period | null>(null)
   const [d, setD] = useState<Detail | null>(null)
   const [err, setErr] = useState('')
@@ -34,7 +37,7 @@ export default function VatPage() {
     const r = await adminFetch('/api/admin/books/vat')
     const j = await r.json().catch(() => ({}))
     if (!r.ok) { setErr(j.error || 'Couldn’t load'); return }
-    setSt(j.settings); setPeriods(j.periods ?? [])
+    setSt(j.settings); setPeriods(j.periods ?? []); setMonths(j.months ?? [])
     setForm({ from: j.settings.from, quarterEnds: j.settings.quarterEnds, vatNumber: j.settings.vatNumber ?? '' })
     setPick(p => p ?? j.periods?.[0] ?? null)
   }, [])
@@ -89,9 +92,36 @@ export default function VatPage() {
           </section>
         )}
 
+        {/* the live position, as accounting software shows it: VAT owed so far this quarter and when the return is due */}
+        {periods[0] && (() => {
+          const cur = periods[0], soFar = months.find(m => m.quarter === cur.label)?.quarterSoFar ?? 0
+          const late = periods.filter(p => !p.filed && p.due < new Date().toISOString().slice(0, 10))
+          const fmt = (d: string) => new Date(`${d}T12:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+          return (
+            <div className="grid gap-sm sm:grid-cols-3">
+              <div className="rounded-xl bg-neutral-900 p-md text-white"><p className="text-[11px] font-bold uppercase tracking-wider text-neutral-300">VAT owed so far this quarter</p><p className="text-2xl font-bold tabular-nums">{gbp(soFar)}</p><p className="text-xs text-neutral-300">{cur.label}</p></div>
+              <div className="rounded-xl bg-white p-md ring-1 ring-neutral-200"><p className="text-[11px] font-bold uppercase tracking-wider text-neutral-500">Return and payment due</p><p className="text-xl font-bold">{fmt(cur.due)}</p><p className="text-xs text-neutral-600">One month and seven days after the quarter ends</p></div>
+              <div className={`rounded-xl p-md ${late.length ? 'bg-red-50 ring-1 ring-red-200' : 'bg-white ring-1 ring-neutral-200'}`}><p className="text-[11px] font-bold uppercase tracking-wider text-neutral-500">Returns</p><p className="text-xl font-bold">{late.length ? `${late.length} overdue` : `${periods.filter(p => p.filed).length} filed`}</p><p className="text-xs text-neutral-600">{late.length ? late.map(p => p.label).join(', ') : 'Mark each one filed once it’s gone to HMRC'}</p></div>
+            </div>
+          )
+        })()}
+
+        {months.length > 0 && (
+          <section className="overflow-hidden rounded-xl bg-white ring-1 ring-neutral-200">
+            <p className="border-b border-neutral-100 px-md py-sm text-sm font-bold">Month by month</p>
+            <div className="overflow-x-auto"><table className="w-full text-sm">
+              <thead><tr className="text-left text-[11px] uppercase tracking-wider text-neutral-500"><th className="px-md py-xs">Month</th><th className="px-sm py-xs text-right">Fees (before VAT)</th><th className="px-sm py-xs text-right">VAT charged</th><th className="px-sm py-xs text-right">VAT on costs</th><th className="px-sm py-xs text-right">Net VAT</th><th className="px-md py-xs text-right">Quarter so far</th></tr></thead>
+              <tbody>{months.map(m => (
+                <tr key={m.month} className="border-t border-neutral-100"><td className="px-md py-xs font-semibold">{m.label}<span className="block text-[11px] font-normal text-neutral-500">{m.quarter}</span></td><td className="px-sm py-xs text-right tabular-nums">{gbp(m.fees)}</td><td className="px-sm py-xs text-right tabular-nums">{gbp(m.vatOnFees)}</td><td className="px-sm py-xs text-right tabular-nums">{gbp(m.vatOnCosts)}</td><td className="px-sm py-xs text-right font-semibold tabular-nums">{gbp(m.net)}</td><td className="px-md py-xs text-right tabular-nums">{gbp(m.quarterSoFar)}</td></tr>
+              ))}</tbody>
+            </table></div>
+            <p className="px-md py-xs text-xs text-neutral-500">A month counts once its statements are in — later months fill in as they arrive.</p>
+          </section>
+        )}
+
         {periods.length > 0 && (
           <div className="flex flex-wrap items-center gap-xs">
-            {periods.map(p => <button key={p.from} type="button" onClick={() => setPick(p)} className={`rounded-full px-md py-xs text-sm font-semibold ${pick?.from === p.from ? 'bg-neutral-900 text-white' : 'border border-neutral-300 bg-white text-neutral-700'}`}>{p.label}</button>)}
+            {periods.map(p => <button key={p.from} type="button" onClick={() => { setPick(p); setFiling(null) }} className={`rounded-full px-md py-xs text-sm font-semibold ${pick?.from === p.from ? 'bg-neutral-900 text-white' : 'border border-neutral-300 bg-white text-neutral-700'}`}>{p.label}{p.filed ? ' ✓' : ''}</button>)}
             {pick && <button type="button" onClick={() => downloadPdf(`/api/admin/books/vat?from=${pick.from}&to=${pick.to}&csv=1`, `VAT ${pick.from} to ${pick.to}.csv`)} className="ml-auto rounded-lg bg-neutral-900 px-md py-sm text-sm font-semibold text-white">Download for the accountant (CSV)</button>}
           </div>
         )}
@@ -105,6 +135,26 @@ export default function VatPage() {
             <Box n={6} label="Fees, before VAT" v={d.boxes.box6} />
             <Box n={7} label="Company costs, before VAT" v={d.boxes.box7} />
           </div>
+          {pick && (() => {
+            const p = periods.find(x => x.from === pick.from) ?? pick
+            const fmt = (d: string) => new Date(`${d}T12:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+            return (
+              <div className="flex flex-wrap items-center gap-sm rounded-xl bg-white p-md text-sm ring-1 ring-neutral-200">
+                {p.filed ? (<>
+                  <span className="text-emerald-800">✓ Filed {fmt(p.filed.filedOn)} · {gbp(p.filed.amount)} paid · by {p.filed.by}</span>
+                  <button type="button" onClick={async () => { await adminFetch('/api/admin/books/vat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'filed', periodFrom: p.from, undo: true }) }); load() }} className="ml-auto text-xs font-semibold underline">Undo</button>
+                </>) : !filing ? (<>
+                  <span>Return due <b>{fmt(p.due)}</b></span>
+                  <button type="button" onClick={() => setFiling({ filedOn: new Date().toISOString().slice(0, 10), amount: String(d.boxes.box5) })} className="ml-auto rounded-lg border border-neutral-300 px-md py-xs text-xs font-semibold">Mark as filed and paid</button>
+                </>) : (<>
+                  <label className="text-xs font-bold text-neutral-600">Filed on<input type="date" value={filing.filedOn} onChange={e => setFiling({ ...filing, filedOn: e.target.value })} className="ml-xs rounded-lg border border-neutral-300 px-sm py-xs text-sm" /></label>
+                  <label className="text-xs font-bold text-neutral-600">Amount paid £<input inputMode="decimal" value={filing.amount} onChange={e => setFiling({ ...filing, amount: e.target.value })} className="ml-xs w-28 rounded-lg border border-neutral-300 px-sm py-xs text-sm" /></label>
+                  <button type="button" onClick={async () => { const r = await adminFetch('/api/admin/books/vat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'filed', periodFrom: p.from, filedOn: filing.filedOn, amount: Number(filing.amount) }) }); if (r.ok) { setFiling(null); load() } }} className="rounded-lg bg-neutral-900 px-md py-xs text-xs font-semibold text-white">Save</button>
+                  <button type="button" onClick={() => setFiling(null)} className="text-xs font-semibold underline">Cancel</button>
+                </>)}
+              </div>
+            )
+          })()}
           <p className="text-xs text-neutral-500">The fees are those on each landlord statement for rent in this period, with the VAT the statement shows. Company costs are those filed with a VAT amount from the receipt (Office account). Your accountant files the return — this is what goes in it.</p>
 
           {noVat.length > 0 && (
