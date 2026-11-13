@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { tenantSelf } from '@/lib/viewAs'
 import { useRouter } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase'
@@ -32,13 +33,10 @@ export default function AcknowledgmentNotesPage() {
 
   useEffect(() => {
     async function init() {
-      const data = await getCurrentUser()
-      if (!data || data.assignment?.role !== 'tenant') {
-        router.push('/login')
-        return
-      }
-      // Store the people row (not the auth user): tenancies.person_id and the
-      // acknowledged_by FK both reference people(id), which is NOT the auth id.
+      const self = await tenantSelf()
+      if (!self) { router.push('/login'); return }
+      // the people row (not the auth user): tenancies.person_id and acknowledged_by reference people(id)
+      const data = { assignment: { id: self.personId } as any }
       setUser(data.assignment)
 
       const supabase = createClient()

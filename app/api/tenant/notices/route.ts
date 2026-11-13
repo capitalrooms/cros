@@ -1,3 +1,4 @@
+import { requireSignedIn } from '@/lib/portalAuth'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
@@ -15,13 +16,10 @@ function serviceClient() {
 // Returns person + their current tenancy's property_id in 2 network calls total
 // (1 auth.getUser + 1 combined people+tenancy query) instead of the old 3.
 async function getPersonAndPropertyFromToken(req: NextRequest) {
-  const authHeader = req.headers.get('Authorization')
-  const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null
-  if (!token) return null
-
+  // lib/portalAuth: the signed-in person — or, for an administrator viewing a tenant's app, that tenant (read-only)
+  const caller = await requireSignedIn(req)
+  if (!caller) return null
   const sb = serviceClient()
-  const { data: { user }, error } = await sb.auth.getUser(token)
-  if (error || !user?.email) return null
 
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
 
@@ -32,7 +30,7 @@ async function getPersonAndPropertyFromToken(req: NextRequest) {
       id, email, role,
       tenancies!person_id(property_id, start_date, end_date, rooms!inner(property_id))
     `)
-    .eq('email', user.email)
+    .eq('id', caller.personId)
     .maybeSingle()
 
   if (!person) return null

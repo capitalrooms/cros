@@ -32,7 +32,7 @@ export default function ViewAsBanner({ name, role, personId }: Props) {
         <span className="shrink-0 text-xs font-bold bg-amber-200 text-amber-900 px-sm py-xs rounded-full">
           {<LineIcon glyph={ROLE_EMOJI[role] || '👤'} />} {role}
         </span>
-        <span className="shrink-0 text-xs text-amber-800 hidden sm:inline">— admin preview only</span>
+        <span className="shrink-0 text-xs text-amber-800 hidden sm:inline">— read-only: nothing can be sent or changed</span>
       </div>
       <div className="flex shrink-0 items-center gap-sm">
         <Link

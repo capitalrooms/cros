@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { tenantSelf } from '@/lib/viewAs'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import AppBar from '@/components/AppBar'
@@ -66,16 +67,10 @@ export default function InboxPage() {
       setLoading(true)
       try {
         // Auth + person id
-        const { data: authData } = await supabase.auth.getUser()
-        if (!authData?.user) { router.push('/login'); return }
-
-        const { data: person } = await supabase
-          .from('people')
-          .select('id')
-          .eq('email', authData.user.email)
-          .single()
-
-        if (!person) { router.push('/login'); return }
+        // the signed-in tenant, or the tenant an administrator is viewing as (lib/viewAs)
+        const self = await tenantSelf()
+        if (!self) { router.push('/login'); return }
+        const person = { id: self.personId }
 
         // Fetch notifications (system messages, quick notify)
         const { data: notifs } = await supabase

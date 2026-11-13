@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { tenantSelf } from '@/lib/viewAs'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { getActiveTenancy } from '@/lib/tenancy'
@@ -54,9 +55,9 @@ export default function ContributionsPage() {
 
   useEffect(() => {
     async function load() {
-      const data = await getCurrentUser()
-      if (!data || data.assignment?.role !== 'tenant') { router.push('/login'); return }
-      const pid = (data.assignment as any)?.id
+      const self = await tenantSelf()
+      if (!self) { router.push('/login'); return }
+      const pid = self.personId
       setPersonId(pid)
 
       const tenancy = await getActiveTenancy(pid)

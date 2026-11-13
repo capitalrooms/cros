@@ -1,6 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { tenantSelf } from '@/lib/viewAs'
+import { currentTenancy } from '@/lib/tenancy'
 import { createClient } from '@/lib/supabase'
 import { getCurrentUser } from '@/lib/auth'
 import { useRouter } from 'next/navigation'
@@ -57,16 +59,15 @@ export default function TenantSafetyChecksPage() {
 
   useEffect(() => {
     async function init() {
-      const data = await getCurrentUser()
-      if (!data) {
-        router.push('/login')
-        return
-      }
+      const self = await tenantSelf()
+      if (!self) { router.push('/login'); return }
+      const tid = (await currentTenancy<{ id: string }>(self.personId, 'id'))?.id ?? '00000000-0000-0000-0000-000000000000'
 
       // Load active safety checks for this tenant
       const { data: checksData } = await supabase
         .from('tenant_self_checks')
         .select('*, rooms(name), properties(name, address)')
+        .eq('tenancy_id', tid)   // this tenant's own (an administrator viewing as them would otherwise see every house's)
         .is('response_received_at', null)   // .eq(…, null) is refused by the database — the list was always empty
         .order('request_sent_at', { ascending: false })
 
