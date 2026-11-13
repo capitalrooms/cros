@@ -176,6 +176,65 @@ function agentStatement(subject: string, files: string[], body = ''): { date: st
 }
 
 type ReadResult = { outcome: 'stamped' | 'already' | 'created' | 'failed'; detail: string }
+
+// ── Same month twice (13 Nov 2026, Harry: "assume one statement is wrong if there are two statements for one month
+// exceeding … the full rental value … the date or number tends to show which is the most recent") ─────────────────
+const VAT_START = '2026-11-01'
+const hasMgmtVat = (descs: string[]) => descs.some(d => /management fee/i.test(d) && /\bVAT\b/i.test(d))
+const agentNo = (ref: unknown) => Number(String(ref ?? '').match(/^[A-Z]{1,4}(\d{3,})/i)?.[1] ?? 0)
+
+/** Take a statement out of CROS, keeping a full copy (rooms and lines too) in the finance audit log — so it can be put
+ *  back from Statements in › Removed. */
+async function setAside(sb: ReturnType<typeof serviceClient>, id: string, reason: string) {
+  const { data: st } = await sb.from('landlord_statements').select('*').eq('id', id).maybeSingle() as { data: any }
+  if (!st || st.payment_run_id || st.sent_at) return false
+  const [{ data: rooms }, { data: lines }] = await Promise.all([
+    sb.from('landlord_statement_rooms').select('*').eq('statement_id', id),
+    sb.from('statement_line_items').select('*').eq('statement_id', id),
+  ])
+  const { error } = await sb.from('finance_audit_log').insert({ table_name: 'landlord_statements', row_id: id, action: 'delete', actor: 'CROS (same month twice)', old_row: { ...st, removed_reason: reason, rooms: rooms ?? [], line_items: lines ?? [] } })
+  if (error) return false
+  await sb.from('landlord_statements').update({ possible_duplicate_of: null }).eq('possible_duplicate_of', id).then(() => null, () => null)
+  await sb.from('statement_line_items').delete().eq('statement_id', id)
+  await sb.from('landlord_statement_rooms').delete().eq('statement_id', id)
+  await sb.from('landlord_statements').delete().eq('id', id)
+  return true
+}
+
+/** A full month for a property already has a statement: keep the better one, set the other aside (put-backable). */
+async function settleTwins(sb: ReturnType<typeof serviceClient>, newId: string): Promise<string | null> {
+  try {
+    const { data: me } = await sb.from('landlord_statements').select('id, property_id, statement_reference, statement_date, gross_rent, created_at').eq('id', newId).maybeSingle() as { data: any }
+    if (!me?.statement_date) return null
+    const month = String(me.statement_date).slice(0, 7)
+    const { data: same } = await sb.from('landlord_statements').select('id, statement_reference, statement_date, gross_rent, created_at, payment_run_id, sent_at').eq('property_id', me.property_id).neq('id', newId).gte('statement_date', `${month}-01`).lte('statement_date', `${month}-31`) as { data: any[] | null }
+    if (!same?.length) return null
+    // the property's usual monthly rent: its last three statements before this month
+    const { data: before } = await sb.from('landlord_statements').select('gross_rent').eq('property_id', me.property_id).lt('statement_date', `${month}-01`).order('statement_date', { ascending: false }).limit(3)
+    const usual = (before ?? []).length ? (before ?? []).reduce((t: number, x: any) => t + Number(x.gross_rent || 0), 0) / (before ?? []).length : 0
+    const full = (x: any) => !usual || Number(x.gross_rent) >= usual * 0.5
+    const pool = [me, ...same].filter(full)
+    if (pool.length < 2 || !pool.some(x => x.id === me.id)) return null   // a part-month extra statement is normal
+    const { data: lines } = await sb.from('statement_line_items').select('statement_id, description').in('statement_id', pool.map(x => x.id))
+    const descs = (id: string) => ((lines ?? []) as any[]).filter(l => l.statement_id === id).map(l => String(l.description))
+    const top = Math.max(...pool.map(x => agentNo(x.statement_reference)))
+    const scored = pool.map(x => {
+      const vat = month >= VAT_START.slice(0, 7) && hasMgmtVat(descs(x.id))
+      return { x, vat, n: descs(x.id).length, score: (vat ? 4 : 0) + (agentNo(x.statement_reference) === top && top ? 1 : 0) }
+    })
+    const most = Math.max(...scored.map(y => y.n))
+    for (const y of scored) if (y.n === most) y.score += 2
+    scored.sort((a, b) => b.score - a.score || String(b.x.statement_date).localeCompare(String(a.x.statement_date)) || String(b.x.created_at).localeCompare(String(a.x.created_at)))
+    const keep = scored[0], drop = scored.slice(1).filter(y => !y.x.payment_run_id && !y.x.sent_at)
+    if (!drop.length) return null
+    const keepRef = String(keep.x.statement_reference).split(' ·')[0]
+    const why = keep.vat && drop.every(y => !y.vat) ? 'it shows the VAT on management fees' : keep.n === most && drop.some(y => y.n < most) ? 'it has the fuller set of lines' : 'it has the later statement number'
+    for (const y of drop) await setAside(sb, y.x.id, `Same month as ${keepRef} — kept ${keepRef} because ${why}`)
+    const dropRefs = drop.map(y => String(y.x.statement_reference).split(' ·')[0]).join(', ')
+    await sb.from('landlord_statements').update({ possible_duplicate_of: null, review_status: 'to_review', review_note: `Kept over ${dropRefs} (same month twice) because ${why}. If that was the right one, put it back under Removed.` }).eq('id', keep.x.id)
+    return `Same month twice: kept ${keepRef} over ${dropRefs} because ${why}`
+  } catch (e) { console.warn('AutoLedger: same-month check failed', e); return null }
+}
 /** Keep the statement PDF as received, on its statement (migration 284) — so it can be checked against what CROS read.
  *  Never overwrites a PDF already kept; tolerant before the migration has run. */
 async function keepPdf(supabase: ReturnType<typeof serviceClient>, statementId: string, att: Record<string, any> | undefined) {
@@ -550,6 +609,18 @@ Respond with JSON only in this exact shape:
       const cands = (onProp ?? []).filter(x => !/^LS\d+/i.test(String(x.statement_reference ?? '')) && Math.abs(Number(x.gross_rent) - g) < 0.011 && Math.abs(Number(x.net_to_landlord) - n) < 0.011 && near(x))
       const overlap = (id: string) => byStmt.get(id)?.size ?? 0
       dupOf = cands.sort((a, b) => overlap(b.id) - overlap(a.id) || (agent.date ? Math.abs(months(a.statement_date) - months(agent.date)) - Math.abs(months(b.statement_date) - months(agent.date)) : 0))[0]?.id
+    }
+    // the same statement sent again, and this reading shows the VAT on management fees that the earlier one missed
+    // (13 Nov 2026 — Flat 4, 44 Claverton Street: LS1083's VAT column was missed, the re-send was rejected) → this
+    // reading replaces the old one (kept in the audit log, put-backable)
+    let replaced: string | null = null
+    if (dupOf && agent.number && String(agent.date ?? today) >= VAT_START) {
+      const { data: old } = await supabase.from('landlord_statements').select('statement_reference').eq('id', dupOf).maybeSingle() as { data: any }
+      const sameNo = String(old?.statement_reference ?? '').toUpperCase().startsWith(agent.number)
+      const { data: oldLines } = await supabase.from('statement_line_items').select('description').eq('statement_id', dupOf)
+      if (sameNo && hasMgmtVat(rawItems.map(r => r.description)) && !hasMgmtVat(((oldLines ?? []) as any[]).map(l => String(l.description)))) {
+        if (await setAside(supabase, dupOf, `Read again: this copy of ${agent.number} shows the VAT on management fees; the earlier reading missed it`)) { replaced = agent.number; dupOf = undefined }
+      }
     }
     if (dupOf) {
       // sent again: the copy already in CROS gets its PDF if it doesn't have one yet (forward old ones to attach them)
@@ -1120,7 +1191,8 @@ ${inserted > 0 ? `<a href="https://capitalrooms.co.uk/admin/expense-review" styl
     console.warn('AutoLedger: email notify failed', e)
   }
   }
-  return { outcome: 'created', detail: `New statement for ${property!.name || property!.address}${agent.number ? ` — ${agent.number}` : ''}: ${inserted} line${inserted === 1 ? '' : 's'}` }
+  const settled = await settleTwins(supabase, stmtRow.id)
+  return { outcome: 'created', detail: `New statement for ${property!.name || property!.address}${agent.number ? ` — ${agent.number}` : ''}: ${inserted} line${inserted === 1 ? '' : 's'}${settled ? `. ${settled}` : ''}` }
 }
 
 // ── Webhook entry point ────────────────────────────────────────────────────────
