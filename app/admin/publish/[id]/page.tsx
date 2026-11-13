@@ -11,7 +11,7 @@ import { adminFetch } from '@/lib/adminFetch'
 import PeoplePicker, { type Recipient } from '@/app/components/notify/PeoplePicker'
 import { pictureStyle, withStyle, type SizeKey, type FontKey } from '@/lib/publish/pictures'
 
-type Pub = { id: string; kind: string; title: string; period: string | null; areas: string[]; intro: string | null; body: string | null; sms_text: string | null; push_title: string | null; push_body: string | null; social_caption: string | null; audience: { lists?: string[]; people?: Recipient[]; ownAreas?: boolean }; channels: Record<string, boolean>; status: string; scheduled_for: string | null; website_published_at: string | null; approved_by: string | null; image?: string | null; preheader?: string | null; blocks?: any[]; template?: string | null }
+type Pub = { id: string; kind: string; title: string; period: string | null; areas: string[]; intro: string | null; body: string | null; sms_text: string | null; push_title: string | null; push_body: string | null; social_caption: string | null; audience: { lists?: string[]; people?: Recipient[]; ownAreas?: boolean }; channels: Record<string, boolean>; status: string; scheduled_for: string | null; website_published_at: string | null; approved_by: string | null; image?: string | null; preheader?: string | null; blocks?: any[]; template?: string | null; ab?: { subjectB?: string; testShare?: number; decideAfterHours?: number; winner?: 'A' | 'B'; decidedAt?: string; startedAt?: string; why?: string } }
 type Data = {
   pub: Pub; channels: { key: string; label: string; note: string }[]; lists: { key: string; label: string }[]; areaNames: string[]
   reach: { total: number; email: number; sms: number; push: number; optedOut: number; sample: { name: string | null; email: string | null; phone: string | null; landlord: boolean }[] }
@@ -60,7 +60,7 @@ export default function PublishEditor({ params }: { params: Promise<{ id: string
   const locked = !!d && ['sending', 'sent'].includes(d.pub.status)
   async function save() {
     setBusy('save'); setMsg(null)
-    const r = await adminFetch(`/api/admin/publish/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: f.title, intro: f.intro, body: f.body, sms_text: f.sms_text, push_title: f.push_title, push_body: f.push_body, social_caption: f.social_caption, areas: f.areas, audience: f.audience, channels: f.channels, image: f.image ?? null, preheader: f.preheader ?? null, blocks: f.blocks ?? [] }) })
+    const r = await adminFetch(`/api/admin/publish/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: f.title, intro: f.intro, body: f.body, sms_text: f.sms_text, push_title: f.push_title, push_body: f.push_body, social_caption: f.social_caption, areas: f.areas, audience: f.audience, channels: f.channels, image: f.image ?? null, preheader: f.preheader ?? null, blocks: f.blocks ?? [], ab: f.ab ?? {} }) })
     const j = await r.json().catch(() => ({}))
     setBusy('')
     if (!r.ok) { setMsg({ ok: false, text: j.error || 'Couldn’t save' }); return false }
@@ -86,6 +86,7 @@ export default function PublishEditor({ params }: { params: Promise<{ id: string
       const j = await r.json().catch(() => ({}))
       if (!r.ok) { setBusy(''); setMsg({ ok: false, text: j.error || 'Sending stopped — press Send again to carry on (nobody gets it twice).' }); break }
       total += j.sent; failed += j.failed
+      if (j.held && j.remaining === j.held) { setBusy(''); setMsg({ ok: !failed, text: `Test group sent — ${total} delivered${failed ? `, ${failed} failed` : ''}. The other ${j.held} get the winning subject in about ${p.ab?.decideAfterHours ?? 4} hours, on their own.` }); break }
       if (!j.remaining) { setBusy(''); setMsg({ ok: !failed, text: `Sent — ${total} delivered${failed ? `, ${failed} failed (see the log)` : ''}.` }); break }
     }
     setBusy(''); load()
@@ -132,6 +133,28 @@ export default function PublishEditor({ params }: { params: Promise<{ id: string
             <div className="space-y-md">
               <label className={label}>Title (the email subject and the post’s headline)<input disabled={locked} value={f.title ?? ''} onChange={e => set('title', e.target.value)} className={field} /></label>
               <label className={label}>Preview text — the grey line after the subject in the inbox<input disabled={locked} value={f.preheader ?? ''} onChange={e => set('preheader', e.target.value)} placeholder={f.intro ?? 'Adds to the subject — e.g. what it means for your rent this year'} className={field} /></label>
+
+              {/* A/B subject lines (13 Nov 2026) */}
+              {f.channels?.email && (() => {
+                const ab = f.ab ?? {}
+                const setAb = (patch: Record<string, unknown>) => set('ab', { ...ab, ...patch })
+                const on = typeof ab.subjectB === 'string'
+                return (
+                  <div className="rounded-xl border border-dashed border-neutral-300 p-sm">
+                    <label className="flex items-center gap-xs text-sm font-semibold text-neutral-800"><input type="checkbox" disabled={locked} checked={on} onChange={e => set('ab', e.target.checked ? { subjectB: '', testShare: 20, decideAfterHours: 4 } : {})} /> Test a second subject line</label>
+                    {on && (<div className="mt-xs space-y-xs">
+                      <input disabled={locked} value={ab.subjectB ?? ''} onChange={e => setAb({ subjectB: e.target.value })} placeholder="Subject B — try a different angle, e.g. a question or the key number" className={field} />
+                      <div className="flex flex-wrap items-center gap-sm text-xs text-neutral-700">
+                        <label className="flex items-center gap-xs">Test on <select disabled={locked} value={ab.testShare ?? 20} onChange={e => setAb({ testShare: Number(e.target.value) })} className="rounded-lg border border-neutral-300 bg-white px-xs py-0.5">{[10, 20, 30, 50].map(n => <option key={n} value={n}>{n}%</option>)}</select> of the list</label>
+                        <label className="flex items-center gap-xs">then choose after <select disabled={locked} value={ab.decideAfterHours ?? 4} onChange={e => setAb({ decideAfterHours: Number(e.target.value) })} className="rounded-lg border border-neutral-300 bg-white px-xs py-0.5">{[2, 4, 12, 24].map(n => <option key={n} value={n}>{n} hours</option>)}</select></label>
+                      </div>
+                      <p className="text-xs text-neutral-500">Half the test group get each subject. Whichever more people open goes to everyone else, on its own. {d.reach.total < 40 && <b className="text-amber-800">With {d.reach.total} people the test group is small, so the result is a rough guide.</b>}</p>
+                      {p.status === 'sending' && !ab.winner && ab.startedAt && <div className="flex flex-wrap items-center gap-xs text-xs"><span className="font-semibold">Testing now — winner chosen {new Date(new Date(ab.startedAt).getTime() + (ab.decideAfterHours ?? 4) * 3600_000).toLocaleString('en-GB', { weekday: 'short', hour: '2-digit', minute: '2-digit' })}.</span>{(['A', 'B'] as const).map(w => <button key={w} type="button" disabled={!!busy} onClick={async () => { if (await act('abwinner', { winner: w })) { await sendNow() } }} className="rounded-full border border-neutral-300 px-sm py-0.5 font-semibold">Pick {w} now</button>)}</div>}
+                      {ab.winner && <p className="text-xs font-semibold text-emerald-800">Subject {ab.winner} won{ab.why ? ` — ${ab.why}` : ''}.</p>}
+                    </div>)}
+                  </div>
+                )
+              })()}
               {/* how it looks in an inbox */}
               <div className="rounded-xl border border-neutral-200 bg-neutral-50 px-md py-sm text-sm">
                 <div className="flex items-baseline justify-between gap-sm"><span className="font-semibold text-neutral-900">Capital Rooms</span><span className="text-xs text-neutral-500">now</span></div>

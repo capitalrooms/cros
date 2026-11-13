@@ -42,7 +42,7 @@ export interface Pub {
   preheader?: string | null
   blocks?: Block[]
   template?: string | null
-  ab?: { subjectB?: string; testShare?: number; decideAfterHours?: number; winner?: 'A' | 'B'; decidedAt?: string }
+  ab?: { subjectB?: string; testShare?: number; decideAfterHours?: number; winner?: 'A' | 'B'; decidedAt?: string; startedAt?: string; why?: string }
 }
 export interface Person { personId: string | null; name: string | null; email: string | null; phone: string | null; landlord: boolean; dear: string }
 
@@ -97,7 +97,28 @@ const why = (x: Person) => x.landlord ? 'You’re receiving this as a Capital Ro
 // pull the next words in after it
 const preheader = (p: Pub) => { const t = (p.preheader || p.intro || '').trim(); return t ? `<div style="display:none;font-size:1px;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;mso-hide:all">${esc(t)}${'&nbsp;&zwnj;'.repeat(60)}</div>` : '' }
 const header = (p: Pub) => p.image ? `<p style="margin:0 0 20px"><img src="${SITE_URL}/api/publish/image/${p.id}?size=wide&k=${encodeURIComponent(p.image)}" width="560" alt="" style="display:block;width:100%;max-width:560px;height:auto;border-radius:14px"></p>` : ''
-export async function emailFor(s: SupabaseClient, p: Pub, x: Person, cache: Record<string, string>): Promise<{ subject: string; html: string; pdf?: { filename: string; content: string }; variant?: 'A' | 'B' }> {
+// ── A/B subject lines (13 Nov 2026, the Mailchimp way): a test group — split half and half between the two subjects —
+// goes first; after the wait, the subject more people opened (clicks break a tie, then A) goes to everyone else.
+export const abOn = (p: Pub) => !!(p.channels?.email && p.ab?.subjectB?.trim())
+const bucket = (email: string) => { let h = 2166136261; for (const c of email.toLowerCase()) h = Math.imul(h ^ c.charCodeAt(0), 16777619); return (h >>> 0) % 1000 }
+/** Which subject this person gets — or 'hold' while the test runs and they're not in it. */
+export function abGroup(p: Pub, email: string): 'A' | 'B' | 'hold' | null {
+  if (!abOn(p)) return null
+  if (p.ab!.winner) return p.ab!.winner
+  const b = bucket(email), share = Math.min(50, Math.max(10, p.ab!.testShare ?? 20))
+  return b < share * 10 ? (b % 2 ? 'B' : 'A') : 'hold'
+}
+export function abPickWinner(rows: { variant: string | null; opened_at: string | null; clicked_at: string | null }[]): { winner: 'A' | 'B'; why: string } {
+  const stat = (v: 'A' | 'B') => { const r = rows.filter(x => (x.variant ?? 'A') === v); return { n: r.length, o: r.filter(x => x.opened_at).length, c: r.filter(x => x.clicked_at).length } }
+  const a = stat('A'), b = stat('B')
+  const pct = (x: number, n: number) => n ? x / n : 0
+  const line = `A ${Math.round(pct(a.o, a.n) * 100)}% opened, B ${Math.round(pct(b.o, b.n) * 100)}% opened`
+  if (!a.o && !b.o && !a.c && !b.c) return { winner: 'A', why: `No opens recorded yet (is open tracking switched on?) — kept the main subject. ${line}` }
+  if (pct(b.o, b.n) !== pct(a.o, a.n)) return pct(b.o, b.n) > pct(a.o, a.n) ? { winner: 'B', why: line } : { winner: 'A', why: line }
+  return pct(b.c, b.n) > pct(a.c, a.n) ? { winner: 'B', why: `${line}; more clicks on B` } : { winner: 'A', why: `${line}; a tie — kept the main subject` }
+}
+
+export async function emailFor(s: SupabaseClient, p: Pub, x: Person, cache: Record<string, string>, variant?: 'A' | 'B'): Promise<{ subject: string; html: string; pdf?: { filename: string; content: string }; variant?: 'A' | 'B' }> {
   if (p.kind === 'market_update') {
     let codes = p.areas.length ? p.areas : [LONDON]
     let words = p.body ?? ''
@@ -118,10 +139,10 @@ export async function emailFor(s: SupabaseClient, p: Pub, x: Person, cache: Reco
     const month = p.period ? new Date(`${p.period}-15T12:00:00Z`).toLocaleDateString('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' }) : ''
     const subject = own ? `${packs.map(k => k.name).join(', ').replace(/, ([^,]*)$/, ' and $1')} market update${month ? ` — ${month}` : ''}` : (p.title || reportTitle(packs))
     const pdf = p.channels?.pdf ? { filename: `Market update - ${packs.map(k => k.name).join(', ')}.pdf`.replace(/[^\w ,.-]/g, ''), content: (await reportPdf(packs, words, x.landlord ? x.name : null)).toString('base64') } : undefined
-    return { subject, html, pdf }
+    return { subject: variant === 'B' && !own ? p.ab!.subjectB!.trim() : subject, html, pdf, variant }
   }
   const html = `${preheader(p)}${header(p)}<p>${esc(x.dear)}</p>${p.intro ? `<p><strong>${esc(p.intro)}</strong></p>` : ''}${paras(p.body).map(t => `<p>${esc(t)}</p>`).join('')}${await blocksHtml(s, p.blocks)}${webLink(p) ? `<p><a href="${webLink(p)}">Read it on our website</a></p>` : ''}${footer(x.email, why(x))}`
-  return { subject: p.title, html }
+  return { subject: variant === 'B' ? p.ab!.subjectB!.trim() : p.title, html, variant }
 }
 
 export const smsFor = (p: Pub, x: Person) => {
@@ -148,7 +169,7 @@ export async function websiteMarkdown(s: SupabaseClient, p: Pub) {
 }
 
 // ── sending, in batches ──────────────────────────────────────────────────────────────────────────────────────────
-export async function runSend(s: SupabaseClient, p: Pub, budgetMs = 200_000): Promise<{ sent: number; failed: number; remaining: number }> {
+export async function runSend(s: SupabaseClient, p: Pub, budgetMs = 200_000): Promise<{ sent: number; failed: number; remaining: number; held?: number }> {
   const start = Date.now()
   const { people } = await resolveAudience(s, p)
   const { data: done } = await s.from('publication_sends').select('channel, address, person_id, status').eq('publication_id', p.id)
@@ -159,14 +180,27 @@ export async function runSend(s: SupabaseClient, p: Pub, budgetMs = 200_000): Pr
       // before migration 287 the extra columns don't exist — log without them
       if (r.error && Object.keys(extra).length) await s.from('publication_sends').insert({ publication_id: p.id, channel, person_id: x.personId, name: x.name, address, status, note: note.slice(0, 300) })
     })
-  let sent = 0, failed = 0, remaining = 0
+  let sent = 0, failed = 0, remaining = 0, held = 0
   const ch = p.channels ?? {}
+  // A/B: start the clock on the first send; once the wait is over, choose the winner from opens
+  if (abOn(p) && !p.ab!.winner) {
+    const ab = { ...p.ab! }
+    if (!ab.startedAt) { ab.startedAt = new Date().toISOString(); await s.from('publications').update({ ab }).eq('id', p.id) }
+    else if (Date.now() - new Date(ab.startedAt).getTime() >= (ab.decideAfterHours ?? 4) * 3600_000) {
+      const { data: rows } = await s.from('publication_sends').select('variant, opened_at, clicked_at').eq('publication_id', p.id).eq('channel', 'email').eq('status', 'sent')
+      Object.assign(ab, abPickWinner((rows ?? []) as any[]), { decidedAt: new Date().toISOString() })
+      await s.from('publications').update({ ab }).eq('id', p.id)
+    }
+    p = { ...p, ab }
+  }
   if (p.status !== 'sending') await s.from('publications').update({ status: 'sending', updated_at: new Date().toISOString() }).eq('id', p.id)
   for (const x of people) {
     const jobs: (() => Promise<void>)[] = []
-    if (ch.email && x.email && !has.has(`email|${x.email}`)) jobs.push(async () => {
+    const group = x.email ? abGroup(p, x.email) : null
+    if (group === 'hold' && ch.email && x.email && !has.has(`email|${x.email}`)) held++
+    else if (ch.email && x.email && !has.has(`email|${x.email}`)) jobs.push(async () => {
       try {
-        const e = await emailFor(s, p, x, cache)
+        const e = await emailFor(s, p, x, cache, group === 'A' || group === 'B' ? group : undefined)
         const r = await sendEmail(x.email!, e.subject, e.html, { kind: 'publication', theme: lookFor(p), ...(e.pdf ? { attachments: [e.pdf] } : {}) })
         await log('email', x, x.email, r.ok ? 'sent' : 'failed', r.ok ? (e.pdf ? 'with the PDF' : '') : r.error ?? 'not sent', { provider_id: r.id ?? null, variant: e.variant ?? null }); r.ok ? sent++ : failed++
       } catch (err) { await log('email', x, x.email, 'failed', err instanceof Error ? err.message : 'error'); failed++ }
@@ -187,8 +221,8 @@ export async function runSend(s: SupabaseClient, p: Pub, budgetMs = 200_000): Pr
       await j()
     }
   }
-  await s.from('publications').update({ cache, updated_at: new Date().toISOString(), ...(remaining ? {} : { status: 'sent', sent_at: new Date().toISOString() }) }).eq('id', p.id)
-  return { sent, failed, remaining }
+  await s.from('publications').update({ cache, updated_at: new Date().toISOString(), ...(remaining || held ? {} : { status: 'sent', sent_at: new Date().toISOString() }) }).eq('id', p.id)
+  return { sent, failed, remaining: remaining + held, ...(held ? { held } : {}) }
 }
 
 
