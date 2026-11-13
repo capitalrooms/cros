@@ -9,8 +9,20 @@ export const ILLUSTRATIONS: { key: string; label: string }[] = [
   { key: 'signing', label: 'Signing an agreement' }, { key: 'map', label: 'Where — a map' },
 ]
 export const seasonNow = (d = new Date()) => (['winter', 'winter', 'spring', 'spring', 'spring', 'summer', 'summer', 'summer', 'autumn', 'autumn', 'autumn', 'winter'] as const)[d.getMonth()]
+// text size and font for the picture (13 Nov 2026, Harry: "options for font or text size providing all sizes are pre
+// measured so will always look good"): stored on the end of the picture key — 'illus:keys|large|bold'. Every size is a
+// ceiling: a long headline steps down until it fits its space (the picture maker measures it).
+export const SIZES = { standard: 1, large: 1.2, larger: 1.4 } as const
+export const FONTS = { clean: 'Geist', bold: 'Space Grotesk' } as const
+export type SizeKey = keyof typeof SIZES
+export type FontKey = keyof typeof FONTS
+export function pictureStyle(v: string | null | undefined): { size: SizeKey; font: FontKey } {
+  const parts = String(v ?? '').split('|').slice(1)
+  return { size: (parts.find(x => x in SIZES) as SizeKey) ?? 'standard', font: (parts.find(x => x in FONTS) as FontKey) ?? 'clean' }
+}
+export const withStyle = (pic: string, size: SizeKey, font: FontKey) => `${pic.split('|')[0]}${size !== 'standard' ? `|${size}` : ''}${font !== 'clean' ? `|${font}` : ''}`
 export function parsePicture(v: string | null | undefined): { kind: 'figures' | 'scene' | 'illus' | 'photo'; key: string } {
-  const [kind, ...rest] = String(v ?? '').split(':'), key = rest.join(':')
+  const [kind, ...rest] = String(v ?? '').split('|')[0].split(':'), key = rest.join(':')
   if (kind === 'scene' && SCENES.includes(key)) return { kind, key }
   if (kind === 'illus' && ILLUSTRATIONS.some(i => i.key === key)) return { kind, key }
   if (kind === 'photo' && /^[0-9a-f-]{36}$/i.test(key)) return { kind, key }

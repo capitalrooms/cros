@@ -9,12 +9,12 @@ import { ImageResponse } from 'next/og'
 import { createServiceClient } from '@/lib/supabase'
 import { reportPacks } from '@/lib/rents/report'
 import { LONDON } from '@/lib/publish'
-import { LOOKS, parsePicture } from '@/lib/publish/pictures'
+import { LOOKS, parsePicture, pictureStyle, SIZES, FONTS } from '@/lib/publish/pictures'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-let font: Buffer | null = null
+let font: Buffer | null = null, boldFont: Buffer | null = null
 const logos: Record<string, string> = {}
 // the logo as drawn (never typed out — the house rule), coloured for a dark or light background
 const logo = (tone: 'paper' | 'ink') => (logos[tone] ??= dataUri(`publish/logo-${tone}.png`))
@@ -31,6 +31,15 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   if (!p) return new Response('Not found', { status: 404 })
   const url = new URL(req.url)
   const pic = parsePicture(url.searchParams.get('k') ?? p.image)
+  const st = pictureStyle(url.searchParams.get('k') ?? p.image)
+  const scale = SIZES[st.size]
+  if (!boldFont) boldFont = fs.readFileSync(path.join(process.cwd(), 'lib/brand/fonts/SpaceGrotesk-Bold.ttf'))
+  const family = FONTS[st.font]
+  // measured, not guessed: the chosen size is a ceiling, and the text steps down until its lines fit (average glyph
+  // width for each face, wrapped on words), so every size always looks right
+  const perEm = st.font === 'bold' ? 0.58 : 0.53
+  const lines = (text: string, size: number, width: number) => { let n = 1, line = 0; for (const w of text.split(/\s+/)) { const len = (w.length + 1) * size * perEm; if (line + len > width && line > 0) { n++; line = len } else line += len } return n }
+  const fit = (text: string, preferred: number, width: number, maxLines: number) => { let size = preferred * scale; while (size > preferred * 0.6 && lines(text, size, width) > maxLines) size *= 0.93; return Math.round(size) }
   if (!font) font = fs.readFileSync(path.join(process.cwd(), 'lib/brand/fonts/Geist-Regular.ttf'))
   const square = url.searchParams.get('size') !== 'wide'
   const W = square ? 1080 : 1200, H = square ? 1080 : 630
@@ -76,8 +85,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       <div style={{ width: W, height: H, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', background: look.bg, color: look.ink, padding: square ? 80 : 60 }}>
         {brand(look.ink, look.accent, square ? 1.15 : 1)}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <span style={{ fontSize: square ? 76 : 58, lineHeight: 1.05 }}>{title}</span>
-          {!pk && p.intro && <span style={{ fontSize: square ? 34 : 26, lineHeight: 1.3, opacity: 0.85 }}>{String(p.intro).slice(0, 160)}</span>}
+          <span style={{ fontSize: fit(title, square ? 76 : 58, W - (square ? 160 : 120), 3), lineHeight: 1.05 }}>{title}</span>
+          {!pk && p.intro && <span style={{ fontSize: fit(String(p.intro).slice(0, 180), square ? 34 : 26, W - (square ? 160 : 120), square ? 4 : 3), lineHeight: 1.3, opacity: 0.85 }}>{String(p.intro).slice(0, 180)}</span>}
         </div>
         {tiles(look.ink, look.accent, look.tile, square ? 50 : 38) || <span style={{ fontSize: 22, opacity: 0.7 }}>capitalrooms.co.uk</span>}
       </div>
@@ -92,7 +101,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
         <div style={{ position: 'absolute', left: 0, top: 0, width: W, height: H, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: square ? 70 : 52, color: paper }}>
           {brand(paper, gold, square ? 1.1 : 0.95)}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-            <span style={{ fontSize: square ? 70 : 50, lineHeight: 1.05 }}>{title}</span>
+            <span style={{ fontSize: fit(title, square ? 70 : 50, W - (square ? 140 : 104), pk ? 2 : 3), lineHeight: 1.05 }}>{title}</span>
+            {!pk && p.intro && <span style={{ fontSize: fit(String(p.intro).slice(0, 160), square ? 32 : 24, W - (square ? 140 : 104), 3), lineHeight: 1.3, opacity: 0.9 }}>{String(p.intro).slice(0, 160)}</span>}
             {tiles(paper, gold, 'rgba(243,240,230,0.14)', square ? 44 : 32)}
           </div>
         </div>
@@ -107,8 +117,10 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
         <img src={art} width={W} height={artH} alt="" style={{ width: W, height: artH, objectFit: pic.kind === 'illus' ? 'contain' : 'cover', background: '#F3F0E6' }} />
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '44px 64px 56px' }}>
           {brand(paper, gold, 1)}
-          <span style={{ fontSize: pic.kind === 'scene' ? 66 : 58, lineHeight: 1.05 }}>{title}</span>
-          {tiles(paper, gold, 'rgba(243,240,230,0.08)', 40) || (p.intro ? <span style={{ fontSize: 28, opacity: 0.85 }}>{String(p.intro).slice(0, 120)}</span> : <span />)}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+            <span style={{ fontSize: fit(title, pic.kind === 'scene' ? 66 : 58, W - 128, pk ? 2 : 3), lineHeight: 1.05 }}>{title}</span>
+            {tiles(paper, gold, 'rgba(243,240,230,0.08)', 40) || (p.intro ? <span style={{ fontSize: fit(String(p.intro).slice(0, 160), 32, W - 128, pic.kind === 'scene' ? 4 : 3), lineHeight: 1.3, opacity: 0.88 }}>{String(p.intro).slice(0, 160)}</span> : null)}
+          </div>
         </div>
       </div>
     )
@@ -121,7 +133,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 56px', gap: 30 }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <span style={{ fontSize: 16, letterSpacing: 4, color: gold }}>{kicker}</span>
-            <span style={{ fontSize: 46, lineHeight: 1.05 }}>{title}</span>
+            <span style={{ fontSize: fit(title, 46, 860, 2), lineHeight: 1.05 }}>{title}</span>
           </div>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={logo('paper')} height={120} width={129} alt="Capital Rooms" />
@@ -134,7 +146,10 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       <div style={{ width: W, height: H, display: 'flex', background: forest, color: paper }}>
         <div style={{ width: 600, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '48px 40px 48px 56px' }}>
           {brand(paper, gold, 0.85)}
-          <span style={{ fontSize: 50, lineHeight: 1.06 }}>{title}</span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <span style={{ fontSize: fit(title, 50, 500, 3), lineHeight: 1.06 }}>{title}</span>
+            {!pk && p.intro && <span style={{ fontSize: fit(String(p.intro).slice(0, 140), 22, 500, 4), lineHeight: 1.3, opacity: 0.88 }}>{String(p.intro).slice(0, 140)}</span>}
+          </div>
           {stats.length ? <div style={{ display: 'flex', gap: 26 }}>{stats.slice(0, 2).map(([k, v]) => <div key={k} style={{ display: 'flex', flexDirection: 'column' }}><span style={{ fontSize: 18, opacity: 0.75 }}>{k}</span><span style={{ fontSize: 38, whiteSpace: 'nowrap', color: v.startsWith('-') ? '#F0A58F' : gold }}>{v}</span></div>)}</div> : <span style={{ fontSize: 20, opacity: 0.7 }}>capitalrooms.co.uk</span>}
         </div>
         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -142,5 +157,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       </div>
     )
   }
-  return new ImageResponse(body, { width: W, height: H, fonts: [{ name: 'Geist', data: font, weight: 400 }] })
+  // the chosen face for every word (the logo is the drawing, never typed)
+  body = <div style={{ width: W, height: H, display: 'flex', fontFamily: family, fontWeight: st.font === 'bold' ? 700 : 400 }}>{body}</div>
+  return new ImageResponse(body, { width: W, height: H, fonts: [{ name: 'Geist', data: font!, weight: 400 }, { name: 'Space Grotesk', data: boldFont!, weight: 700 }] })
 }

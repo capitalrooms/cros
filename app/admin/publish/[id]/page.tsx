@@ -9,6 +9,7 @@ import BackButton from '@/app/components/BackButton'
 import PageHero from '@/components/PageHero'
 import { adminFetch } from '@/lib/adminFetch'
 import PeoplePicker, { type Recipient } from '@/app/components/notify/PeoplePicker'
+import { pictureStyle, withStyle, type SizeKey, type FontKey } from '@/lib/publish/pictures'
 
 type Pub = { id: string; kind: string; title: string; period: string | null; areas: string[]; intro: string | null; body: string | null; sms_text: string | null; push_title: string | null; push_body: string | null; social_caption: string | null; audience: { lists?: string[]; people?: Recipient[]; ownAreas?: boolean }; channels: Record<string, boolean>; status: string; scheduled_for: string | null; website_published_at: string | null; approved_by: string | null; image?: string | null }
 type Data = {
@@ -116,11 +117,18 @@ export default function PublishEditor({ params }: { params: Promise<{ id: string
                 {([['figures', 'Figures'], ['scenes', 'London scenes'], ['illustrations', 'Illustrations'], ['photos', 'Our photos']] as const).map(([k, l]) => <button key={k} type="button" onClick={() => setPicTab(k)} className={`rounded-full px-md py-xs ${picTab === k ? 'bg-neutral-900 text-white' : 'text-neutral-600'}`}>{l}</button>)}
               </div>
             </div>
+            <div className="mt-sm flex flex-wrap items-center gap-md text-xs">
+              <span className="flex items-center gap-xs"><span className="font-semibold text-neutral-600">Text</span>
+                <span className="flex gap-1 rounded-full bg-neutral-100 p-1 font-semibold">{(['standard', 'large', 'larger'] as SizeKey[]).map(k => { const st = pictureStyle(f.image); return <button key={k} type="button" disabled={locked} onClick={() => set('image', withStyle(f.image ?? 'figures:dark', k, st.font))} className={`rounded-full px-sm py-0.5 capitalize ${st.size === k ? 'bg-neutral-900 text-white' : 'text-neutral-600'}`}>{k}</button> })}</span></span>
+              <span className="flex items-center gap-xs"><span className="font-semibold text-neutral-600">Font</span>
+                <span className="flex gap-1 rounded-full bg-neutral-100 p-1 font-semibold">{([['clean', 'Clean'], ['bold', 'Bold']] as [FontKey, string][]).map(([k, l]) => { const st = pictureStyle(f.image); return <button key={k} type="button" disabled={locked} onClick={() => set('image', withStyle(f.image ?? 'figures:dark', st.size, k))} className={`rounded-full px-sm py-0.5 ${st.font === k ? 'bg-neutral-900 text-white' : 'text-neutral-600'}`}>{l}</button> })}</span></span>
+              <span className="text-neutral-500">Every size is measured to fit — a long headline steps down so it never runs off.</span>
+            </div>
             <div className={`mt-sm grid gap-sm ${picTab === 'scenes' ? 'grid-cols-2 sm:grid-cols-3' : 'grid-cols-3 sm:grid-cols-5'}`}>
               {(d.pictures?.[picTab] ?? []).map(x => {
-                const on = (f.image ?? 'figures:dark') === x.key
+                const on = (f.image ?? 'figures:dark').split('|')[0] === x.key
                 return (
-                  <button key={x.key} type="button" disabled={locked} onClick={() => set('image', x.key)} className={`overflow-hidden rounded-xl text-left ring-2 transition ${on ? 'ring-neutral-900' : 'ring-transparent hover:ring-neutral-300'}`}>
+                  <button key={x.key} type="button" disabled={locked} onClick={() => { const st = pictureStyle(f.image); set('image', withStyle(x.key, st.size, st.font)) }} className={`overflow-hidden rounded-xl text-left ring-2 transition ${on ? 'ring-neutral-900' : 'ring-transparent hover:ring-neutral-300'}`}>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={x.thumb} alt={x.label} loading="lazy" className={`w-full ${picTab === 'scenes' ? 'aspect-[5/2]' : 'aspect-square'} object-cover bg-neutral-100`} />
                     <span className="block truncate px-xs py-0.5 text-[11px] text-neutral-600">{on ? '✓ ' : ''}{x.label || 'Photo'}</span>
