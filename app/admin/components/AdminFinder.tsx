@@ -90,8 +90,22 @@ function Results({ rows, active, onPick, onHover }: { rows: Row[]; active: numbe
   )
 }
 
-/** Desktop: a search field in the rail that opens a finder over the page. */
-export default function AdminFinder({ allowed }: { allowed: (href: string) => boolean }) {
+/** The top bar's search-and-ask bar (13 Nov 2026, Harry: "just a nice search bar in the top would be better") — opens
+ *  the finder over the page; a sentence there goes to the task bar. Replaces the Quick Notify button (Messages › Send to
+ *  a house does that now) and the search box that was in the rail. */
+export function TopSearch({ canAsk }: { canAsk: boolean }) {
+  return (
+    <button type="button" onClick={() => window.dispatchEvent(new Event('cros:find'))} aria-label={canAsk ? 'Search or ask CROS' : 'Search'}
+      className="flex h-9 min-w-0 items-center gap-2 rounded-full bg-white/10 px-2.5 text-left text-[13px] text-white/60 ring-1 ring-white/10 transition hover:bg-white/15 hover:text-white md:w-[min(340px,100%)] md:px-3">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0" aria-hidden><circle cx="11" cy="11" r="6.5" /><path d="M20 20l-4-4" /></svg>
+      <span className="hidden min-w-0 flex-1 truncate md:inline">{canAsk ? 'Search, or say what you need to do' : 'Search screens, people, houses'}</span>
+      <kbd className="hidden rounded border border-white/20 px-1 text-[10px] font-sans lg:inline">⌘K</kbd>
+    </button>
+  )
+}
+
+/** The finder over the page: opened from the top bar, / or ⌘K anywhere. */
+export default function AdminFinder({ allowed, canAsk = false }: { allowed: (href: string) => boolean; canAsk?: boolean }) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [active, setActive] = useState(0)
@@ -103,50 +117,51 @@ export default function AdminFinder({ allowed }: { allowed: (href: string) => bo
       const typing = /^(input|textarea|select)$/i.test((e.target as HTMLElement)?.tagName ?? '') || (e.target as HTMLElement)?.isContentEditable
       if ((e.key === 'k' && (e.metaKey || e.ctrlKey)) || (e.key === '/' && !typing)) { e.preventDefault(); setOpen(true) }
     }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+    const onFind = () => setOpen(true)
+    window.addEventListener('keydown', onKey); window.addEventListener('cros:find', onFind)
+    return () => { window.removeEventListener('keydown', onKey); window.removeEventListener('cros:find', onFind) }
   }, [])
   useEffect(() => { if (open) setTimeout(() => input.current?.focus(), 0); else { setQ(''); setActive(0) } }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => setActive(0), [q])
 
   const pick = (r: Row) => { setOpen(false); router.push(r.href) }
+  // a sentence ("email the tenant of…") goes to the task bar — Enter does it unless you've arrowed into the results
+  const sentence = canAsk && q.trim().split(/\s+/).length >= 3
+  const askIt = () => { const t = q; setOpen(false); window.dispatchEvent(new CustomEvent('cros:task', { detail: t })) }
+  const [moved, setMoved] = useState(false)
+  useEffect(() => setMoved(false), [q])
   const onKey = (e: React.KeyboardEvent) => {
     if (e.key === 'Escape') setOpen(false)
-    else if (e.key === 'ArrowDown') { e.preventDefault(); setActive(a => Math.min(a + 1, rows.length - 1)) }
+    else if (e.key === 'ArrowDown') { e.preventDefault(); if (sentence && !moved) { setMoved(true); setActive(0) } else setActive(a => Math.min(a + 1, rows.length - 1)) }
+    else if (e.key === 'Enter' && sentence && !moved) { e.preventDefault(); askIt() }
     else if (e.key === 'ArrowUp') { e.preventDefault(); setActive(a => Math.max(a - 1, 0)) }
     else if (e.key === 'Enter' && rows[active]) { e.preventDefault(); pick(rows[active]) }
   }
 
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)}
-        className="mb-4 flex w-full items-center gap-2 rounded-[10px] bg-[#F6F3EC]/10 px-3 py-2 text-left text-[13px] text-[#F6F3EC]/60 hover:bg-[#F6F3EC]/15 hover:text-[#F6F3EC]">
-        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden><circle cx="11" cy="11" r="6.5" /><path d="M20 20l-4-4" /></svg>
-        <span className="flex-1">Search</span>
-        <kbd className="rounded border border-[#F6F3EC]/20 px-1 text-[10px] font-sans">⌘K</kbd>
-      </button>
       {open && (
         <div className="fixed inset-0 z-[80] flex items-start justify-center bg-black/30 px-md pt-[12vh]" onMouseDown={e => { if (e.target === e.currentTarget) setOpen(false) }}>
           <div className="w-full max-w-xl overflow-hidden rounded-2xl bg-white shadow-2xl" role="dialog" aria-label="Search the office console">
             <label className="flex items-center gap-2 border-b border-neutral-200 px-md py-sm">
               <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0 text-neutral-400" aria-hidden><circle cx="11" cy="11" r="6.5" /><path d="M20 20l-4-4" /></svg>
-              <input ref={input} value={q} onChange={e => setQ(e.target.value)} onKeyDown={onKey} type="search" placeholder="A screen, a person, a house, a room or a job"
+              <input ref={input} value={q} onChange={e => setQ(e.target.value)} onKeyDown={onKey} type="search" placeholder={canAsk ? 'Find a screen, person, house or job — or say what you need to do' : 'A screen, a person, a house, a room or a job'}
                 className="flex-1 bg-transparent py-1 text-[15px] text-neutral-950 outline-none placeholder:text-neutral-400" />
               {loading && <span className="text-xs text-neutral-400">Searching…</span>}
               <kbd className="rounded border border-neutral-200 px-1 text-[10px] text-neutral-400">Esc</kbd>
             </label>
             <div className="max-h-[60vh] overflow-y-auto">
               {/* a sentence rather than a name → hand it to the task bar (13 Nov 2026) */}
-              {q.trim().split(/\s+/).length >= 3 && (
-                <button type="button" onClick={() => { const t = q; setOpen(false); window.dispatchEvent(new CustomEvent('cros:task', { detail: t })) }}
-                  className="flex w-full items-center gap-2 border-b border-neutral-100 px-md py-sm text-left text-[14px] hover:bg-neutral-50">
+              {sentence && (
+                <button type="button" onClick={askIt}
+                  className={`flex w-full items-center gap-2 border-b border-neutral-100 px-md py-sm text-left text-[14px] hover:bg-neutral-50 ${!moved ? 'bg-amber-50' : ''}`}>
                   <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-[var(--accent,#E8B931)] text-[var(--ink,#23261A)]"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden><path d="M12 3l1.8 4.6L18 9.4l-4.2 1.8L12 16l-1.8-4.8L6 9.4l4.2-1.8z" /></svg></span>
                   <span className="min-w-0 flex-1 truncate"><b className="font-semibold">Ask CROS to do this:</b> <span className="text-neutral-600">{q.trim()}</span></span>
-                  <kbd className="rounded border border-neutral-200 px-1 text-[10px] text-neutral-400">⌘J</kbd>
+                  <kbd className="rounded border border-neutral-200 px-1 text-[10px] text-neutral-400">Enter</kbd>
                 </button>
               )}
-              {!q.trim() && <p className="px-md py-md text-sm text-neutral-500">Try “deposits”, “Claverton”, a tenant’s name, a phone number or “boiler”.</p>}
-              {rows.length > 0 && <Results rows={rows} active={active} onPick={pick} onHover={setActive} />}
+              {!q.trim() && <p className="px-md py-md text-sm text-neutral-500">Try “deposits”, “Claverton”, a tenant’s name, a phone number or “boiler”.{canAsk && <> Or say what you need: “text everyone at Willis Road that the engineer comes tomorrow”.</>}</p>}
+              {rows.length > 0 && <Results rows={rows} active={sentence && !moved ? -1 : active} onPick={pick} onHover={i => { setMoved(true); setActive(i) }} />}
               {q.trim().length >= 2 && searched && !loading && !rows.length && <p className="px-md py-md text-sm text-neutral-500">Nothing matches “{q.trim()}”.</p>}
               {error && <p className="px-md pb-sm text-xs text-red-700">{error}</p>}
             </div>
