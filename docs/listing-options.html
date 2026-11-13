@@ -1,0 +1,177 @@
+<title>Room Listing Options</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=Public+Sans:wght@400;600;700&family=IBM+Plex+Mono&display=swap">
+<style>
+/* Layout: a decision paper — shared foundation first, then three options side by side as wireframe sketches + trade-offs */
+:root {
+  --bg: #F3F4F1; --paper: #FFFFFF; --ink: #1D2321; --muted: #5E6862; --line: #D9DDD6;
+  --accent: #2F5D50; --accent-soft: #E3ECE8; --warn: #9A5B12; --warn-soft: #F6EBDD; --wire: #EEF0EC; --wire-ink: #8A938D;
+  --display: "Fraunces", Georgia, "Times New Roman", serif;
+  --body: "Public Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #141816; --paper: #1C211F; --ink: #E6EAE7; --muted: #A2ACA6; --line: #313935;
+  --accent: #8CC3B2; --accent-soft: #23332E; --warn: #E2B275; --warn-soft: #362A1B; --wire: #262C29; --wire-ink: #7F8A84; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #141816; --paper: #1C211F; --ink: #E6EAE7; --muted: #A2ACA6; --line: #313935;
+  --accent: #8CC3B2; --accent-soft: #23332E; --warn: #E2B275; --warn-soft: #362A1B; --wire: #262C29; --wire-ink: #7F8A84; color-scheme: dark }
+body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 15px; line-height: 1.55; padding-inline: 16px; padding-block: 32px 64px; }
+.wrap { max-width: 1120px; margin: 0 auto; display: grid; gap: 28px; }
+h1, h2, h3 { font-family: var(--display); font-weight: 600; text-wrap: balance; margin: 0; letter-spacing: -.01em; }
+h1 { font-size: clamp(28px, 4vw, 40px); line-height: 1.1; }
+h2 { font-size: 24px; } h3 { font-size: 18px; }
+p { margin: 0; max-width: 68ch; }
+.eyebrow { font: 600 11px/1 var(--body); text-transform: uppercase; letter-spacing: .12em; color: var(--accent); }
+.lede { color: var(--muted); font-size: 16px; }
+.panel { background: var(--paper); border: 1px solid var(--line); border-radius: 12px; padding: 22px; display: grid; gap: 14px; min-width: 0; }
+.grid2 { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+.options { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); align-items: start; }
+ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; } li { max-width: 64ch; }
+.mono { font-family: var(--mono); font-size: 12.5px; }
+.tag { display: inline-block; font: 600 11px/1.6 var(--body); padding: 0 8px; border-radius: 99px; background: var(--accent-soft); color: var(--accent); }
+.tag.warn { background: var(--warn-soft); color: var(--warn); }
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 700; }
+.scroll { overflow-x: auto; }
+/* wireframes */
+.wire { background: var(--wire); border: 1px dashed var(--line); border-radius: 10px; padding: 10px; display: grid; gap: 6px; font-size: 11.5px; color: var(--wire-ink); }
+.wrow { display: flex; gap: 6px; flex-wrap: wrap; }
+.wb { background: var(--paper); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; min-width: 0; flex: 1 1 auto; }
+.wb.dark { background: var(--ink); color: var(--paper); }
+.wb.acc { border-color: var(--accent); color: var(--accent); }
+.wtabs { display: flex; gap: 4px; flex-wrap: wrap; } .wtabs span { padding: 2px 7px; border-radius: 5px; background: var(--paper); border: 1px solid var(--line); }
+.wtabs span.on { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.split { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; } @media (max-width: 420px) { .split { grid-template-columns: 1fr; } }
+.cols4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; }
+.col { background: var(--paper); border: 1px solid var(--line); border-radius: 6px; padding: 5px; display: grid; gap: 4px; align-content: start; min-height: 90px; }
+.col b { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.card { border: 1px solid var(--line); border-radius: 5px; padding: 4px; background: var(--wire); }
+.pros { display: grid; gap: 10px; grid-template-columns: 1fr 1fr; } @media (max-width: 420px) { .pros { grid-template-columns: 1fr; } }
+.pros h4 { margin: 0 0 4px; font: 700 11px/1 var(--body); text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+.rec { border-left: 3px solid var(--accent); padding-left: 14px; }
+a { color: var(--accent); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+</style>
+
+<div class="wrap">
+  <header style="display:grid;gap:10px">
+    <span class="eyebrow">CROS · lettings · 17 Oct 2026</span>
+    <h1>Room listings: three ways to build them</h1>
+    <p class="lede">One listing per room or single let, written once in CROS and sent everywhere: the share link, the Capital Rooms website, and later Rightmove, Zoopla, OnTheMarket and SpareRoom. Looks come later, once the website design is set. This page is about structure and workflow.</p>
+  </header>
+
+  <section class="panel">
+    <span class="eyebrow">The same in every option</span>
+    <h2>The foundation: one listing record, shaped like a portal feed</h2>
+    <p>Portals accept listings through data feeds with fixed fields. If CROS stores a listing in that shape from day one, sending it to Rightmove later is a connection job, not a rebuild. Rightmove's Real Time Datafeed (v1.4.1) now carries the Trading Standards "material information" fields too, so the same record covers the law.</p>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>Group</th><th>Fields</th><th>Where it comes from today</th></tr></thead>
+        <tbody>
+          <tr><td>Identity</td><td>Agent reference, room or whole unit, status (draft / live / let agreed / let / withdrawn), dates published and changed</td><td>New listing record per marketing period</td></tr>
+          <tr><td>Address</td><td>Full address (private), <b>display address</b> (street + district, public), postcode, map point</td><td>Property record; display address from the display name</td></tr>
+          <tr><td>Price <span class="tag warn">Part A</span></td><td>Rent and frequency, deposit, holding deposit, bills included, council tax band and whether included</td><td>Room asking rent; property bills; council tax already looked up</td></tr>
+          <tr><td>Description</td><td>Headline, short summary, full description, up to 10 key features</td><td>Room marketing text; SpareRoom import</td></tr>
+          <tr><td>Details <span class="tag">Part B</span></td><td>Type (house share, flat, house), bedrooms, bathrooms, room size, en-suite, furnished, living room, parking, outside space, utilities, broadband, heating</td><td>Room and property fields; EPC and broadband from Property Insights</td></tr>
+          <tr><td>Terms</td><td>Available from, minimum and maximum term, let type, sharers, pets, smokers, student / professional</td><td>Room dates; SpareRoom terms</td></tr>
+          <tr><td>Media</td><td>Ordered photos with captions, floor plan, video tour, virtual tour link, EPC graph</td><td>Property photos (room first, then house)</td></tr>
+          <tr><td>Issues <span class="tag">Part C</span></td><td>Flood risk, restrictions, accessibility, building safety, only where they apply</td><td>Property Insights flood and planning data</td></tr>
+          <tr><td>Channels</td><td>Per channel: on or off, its reference there, last sent, result, withdraw on let agreed</td><td>New</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="color:var(--muted);font-size:13.5px">Part A (rent, deposit, council tax) must be on every lettings listing; Parts B and C must be no more than one click away. Every option below checks Part A before a listing can go live.</p>
+  </section>
+
+  <section style="display:grid;gap:14px">
+    <h2>Three options</h2>
+    <div class="options">
+
+      <article class="panel">
+        <span class="eyebrow">Option A</span>
+        <h3>Listing tabs on the room</h3>
+        <p>The way Reapit and Alto do it. The listing lives on the room or unit, as a set of tabs: write the details, order the media, fill the material information, switch channels on, then preview each place it appears.</p>
+        <div class="wire" aria-label="Sketch of option A">
+          <div class="wrow"><div class="wb dark">Room 1 · Claverton Street · £1,600 pcm · Draft</div></div>
+          <div class="wtabs"><span class="on">Details</span><span>Media</span><span>Material info</span><span>Channels</span><span>Preview</span></div>
+          <div class="wrow"><div class="wb">Headline</div><div class="wb">Rent · deposit · bills</div></div>
+          <div class="wrow"><div class="wb" style="min-height:44px">Description</div></div>
+          <div class="wrow"><div class="wb">10 key features</div><div class="wb acc">Part A complete ✓</div></div>
+        </div>
+        <div class="pros">
+          <div><h4>Good</h4><ul><li>Familiar to anyone from agency software</li><li>Each tab short, easy on a phone</li><li>Clear home for portal settings</li></ul></div>
+          <div><h4>Watch</h4><ul><li>You don't see the result while typing</li><li>Many clicks for a quick edit</li></ul></div>
+        </div>
+        <p style="font-size:13.5px"><b>Best when</b> listings are long-lived and several people maintain them.</p>
+      </article>
+
+      <article class="panel">
+        <span class="eyebrow">Option B</span>
+        <h3>Editor and live preview side by side</h3>
+        <p>Details on the left, the finished listing on the right, switchable between the website page, a Rightmove-style card and the phone share page. Every change shows straight away; channels sit in a strip along the top.</p>
+        <div class="wire" aria-label="Sketch of option B">
+          <div class="wrow"><div class="wb">Website ✓</div><div class="wb">Share link ✓</div><div class="wb">Rightmove —</div><div class="wb">Zoopla —</div><div class="wb acc">Publish</div></div>
+          <div class="split">
+            <div style="display:grid;gap:5px"><div class="wb">Headline</div><div class="wb">Rent · deposit</div><div class="wb" style="min-height:44px">Description</div><div class="wb">Photos ▢▢▢▢</div><div class="wb">Material info ▸</div></div>
+            <div style="display:grid;gap:5px"><div class="wtabs"><span class="on">Website</span><span>Rightmove</span><span>Phone</span></div><div class="wb" style="min-height:52px">▢ photo</div><div class="wb">Room 1 — Claverton Street</div><div class="wb">£1,600 pcm · Available now</div></div>
+          </div>
+        </div>
+        <div class="pros">
+          <div><h4>Good</h4><ul><li>See exactly what tenants will see</li><li>Fastest to write a good advert</li><li>Website design drops straight into the preview</li></ul></div>
+          <div><h4>Watch</h4><ul><li>Needs a wide screen; on a phone it becomes a toggle</li><li>Preview must match the real site to be trusted</li></ul></div>
+        </div>
+        <p style="font-size:13.5px"><b>Best when</b> one or two people write adverts and appearance matters.</p>
+      </article>
+
+      <article class="panel">
+        <span class="eyebrow">Option C</span>
+        <h3>A marketing board</h3>
+        <p>Every room coming free is a card moving across a board: Draft, Ready, Live, Let agreed. A card can only move to Ready when Part A is complete, and to Live when at least one channel is on. Let agreed withdraws it from every channel automatically. The editor (A or B) opens from the card.</p>
+        <div class="wire" aria-label="Sketch of option C">
+          <div class="cols4">
+            <div class="col"><b>Draft</b><div class="card">Rm 4 · Chobham<br>needs rent</div></div>
+            <div class="col"><b>Ready</b><div class="card">Rm 1 · Claverton<br>Part A ✓</div></div>
+            <div class="col"><b>Live</b><div class="card">Rm 7 · Willis<br>Web · Share</div><div class="card">Rm 3 · Bridgeland</div></div>
+            <div class="col"><b>Let agreed</b><div class="card">Rm 2 · Bridgeland<br>withdrawn ✓</div></div>
+          </div>
+        </div>
+        <div class="pros">
+          <div><h4>Good</h4><ul><li>Whole pipeline at a glance for Jacob</li><li>Nothing goes live half-written</li><li>Ties to applicants and offers already in CROS</li></ul></div>
+          <div><h4>Watch</h4><ul><li>An extra screen on top of the editor</li><li>Most value once there are many listings</li></ul></div>
+        </div>
+        <p style="font-size:13.5px"><b>Best when</b> lettings run on volume and handovers.</p>
+      </article>
+
+    </div>
+  </section>
+
+  <section class="grid2">
+    <div class="panel">
+      <span class="eyebrow">Getting to the portals</span>
+      <h3>What sending to Rightmove takes</h3>
+      <ul>
+        <li>A Rightmove lettings branch account (paid membership) and their Real Time Datafeed set up for that branch.</li>
+        <li>Each listing sent as one record; photos and floor plans by link; updates and withdrawals sent the same way.</li>
+        <li>Zoopla and OnTheMarket take similar feeds. SpareRoom and OpenRent suit room-by-room lets and can be added as channels.</li>
+        <li>Whether Rightmove takes individual rooms in a house share as separate listings should be confirmed with them when the feed is set up.</li>
+      </ul>
+    </div>
+    <div class="panel">
+      <span class="eyebrow">The website</span>
+      <h3>Website preview and publishing</h3>
+      <ul>
+        <li>The website reads live listings from CROS, so a room switched on appears on the site without copying.</li>
+        <li>The share link already built becomes the phone version of the same page.</li>
+        <li>The look is decided with the website design. The listing record does not change when the look does.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="panel rec">
+    <span class="eyebrow">Suggested</span>
+    <h3>Build the foundation now, then B for editing and C for the pipeline</h3>
+    <p>The listing record is the same whichever option you pick, so it can start straight away. B (side-by-side) gives the quickest route to good adverts and shows the website design the moment it exists. C (the board) can follow when there are more rooms to manage. A is the safest if you'd rather match what other agency software looks like.</p>
+    <p style="color:var(--muted);font-size:13.5px">Sources: <a href="https://media.rightmove.co.uk/ps/pdf/guides/adf/Rightmove_Real_Time_Datafeed_Specification.pdf">Rightmove Real Time Datafeed specification</a>; <a href="https://propertymark.co.uk/resource/full-material-information-guidance-published.html">Propertymark on the full material information guidance</a>; <a href="https://thenegotiator.co.uk/news/trading-standards-releases-full-details-of-material-information-rules/">The Negotiator on Trading Standards' material information rules</a>.</p>
+  </section>
+</div>

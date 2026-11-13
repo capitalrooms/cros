@@ -14,7 +14,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/adminAuth'
 import { createServiceClient } from '@/lib/supabase'
-import { resolveAudience, emailFor, smsFor, pushFor, captionFor, runSend, websiteMarkdown, webLink, CHANNELS, LISTS, LONDON, SITE_URL, type Pub } from '@/lib/publish'
+import { lookFor, resolveAudience, emailFor, smsFor, pushFor, captionFor, runSend, websiteMarkdown, webLink, CHANNELS, LISTS, LONDON, SITE_URL, type Pub } from '@/lib/publish'
 import { reportPacks, reportPdf, reportCommentary } from '@/lib/rents/report'
 import { buildEmail } from '@/lib/emailWrapper'
 import { sendEmail } from '@/lib/sendEmail'
@@ -65,12 +65,15 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     illustrations: ILLUSTRATIONS.map(i => ({ key: `illus:${i.key}`, label: i.label, thumb: `${SITE_URL}/publish/illustrations/${i.key}.png` })),
     photos: (photos ?? []).map(x => ({ key: `photo:${x.id}`, label: String(x.properties?.name ?? '').split(/\n|,/)[0], thumb: photoUrl(x) })),
   }
+  const { THEMES } = await import('@/lib/email/themes')
+  const { BLOCK_TYPES } = await import('@/lib/publish/blocks')
   return NextResponse.json({
+    looks: THEMES.map(t => ({ key: t.key, name: t.name })), blockTypes: BLOCK_TYPES.map(b => ({ type: b.type, label: b.label, make: b.make() })),
     pub: p, channels: CHANNELS, lists: LISTS, pictures,
     areaNames: areas.map(c => (names ?? []).find((n: any) => n.area_code === c)?.area_name ?? c),
     reach: { total: people.length, email: people.filter(x => x.email).length, sms: people.filter(x => x.phone).length, push: people.filter(x => x.personId).length, optedOut: optedOut.length, sample: people.slice(0, 40).map(x => ({ name: x.name, email: x.email, phone: x.phone, landlord: x.landlord })) },
     previews: {
-      email: { subject: e.subject, html: await buildEmail(e.html, { req, kind: 'publication' }) },
+      email: { subject: e.subject, html: await buildEmail(e.html, { req, kind: 'publication', theme: lookFor(p) }) },
       sms: smsFor(p, { ...sample, phone: sample.phone ?? '07700900000' }),
       push: pushFor(p),
       caption: captionFor(p),
@@ -109,7 +112,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const { data: who } = await s.from('people').select('id, salutation, first_name, last_name, phone').eq('id', me.personId).maybeSingle() as { data: any }
     const x = { personId: null, name: [who?.first_name, who?.last_name].filter(Boolean).join(' ') || 'you', email: me.email, phone: who?.phone ?? null, landlord: true, dear: `Dear ${who?.first_name ?? 'you'},` }
     const e = await emailFor(s, { ...p, audience: { ...p.audience, ownAreas: false } }, x, {})
-    const r = await sendEmail(me.email, `[Test] ${e.subject}`, e.html, { req, kind: 'publication', ...(e.pdf ? { attachments: [e.pdf] } : {}) })
+    const r = await sendEmail(me.email, `[Test] ${e.subject}`, e.html, { req, kind: 'publication', theme: lookFor(p), ...(e.pdf ? { attachments: [e.pdf] } : {}) })
     let text = ''
     if (p.channels?.sms && x.phone) { const t = await sendSms(x.phone, smsFor(p, x)).catch(() => ({ ok: false })); text = t.ok ? ' and the text to your mobile' : ' (the test text didn’t send)' }
     return r.ok ? NextResponse.json({ ok: true, message: `Test sent to ${me.email}${text}.` }) : NextResponse.json({ error: r.error || 'The test didn’t send' }, { status: 502 })

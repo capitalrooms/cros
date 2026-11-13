@@ -23,12 +23,13 @@ export default function PublishList() {
   const [items, setItems] = useState<Item[] | null>(null)
   const [setup, setSetup] = useState(false)
   const [tracking, setTracking] = useState(true)
+  const [templates, setTemplates] = useState<{ key: string; name: string; note: string; picture: string; look: string }[]>([])
   const [busy, setBusy] = useState('')
   const [err, setErr] = useState('')
-  useEffect(() => { adminFetch('/api/admin/publish').then(r => r.json()).then(j => { setSetup(!!j.setupNeeded); setTracking(j.trackingReady !== false); setItems(j.items ?? []) }).catch(() => setItems([])) }, [])
-  async function create(kind: 'market_update' | 'announcement') {
-    setBusy(kind); setErr('')
-    const r = await adminFetch('/api/admin/publish', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind }) })
+  useEffect(() => { adminFetch('/api/admin/publish').then(r => r.json()).then(j => { setSetup(!!j.setupNeeded); setTracking(j.trackingReady !== false); setTemplates(j.templates ?? []); setItems(j.items ?? []) }).catch(() => setItems([])) }, [])
+  async function create(template: string) {
+    setBusy(template); setErr('')
+    const r = await adminFetch('/api/admin/publish', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ template, kind: template === 'market' ? 'market_update' : 'announcement' }) })
     const j = await r.json().catch(() => ({}))
     setBusy('')
     if (!r.ok) { setErr(j.error || 'Couldn’t start it'); return }
@@ -40,15 +41,21 @@ export default function PublishList() {
       <PageHero eyebrow="Communications" title="Publish" subtitle="Write it once, then choose who gets it and where — email with a PDF letter, text, app notification, the website and social. Every send is logged; anyone who unsubscribes is left off." />
       <main className="mx-auto max-w-6xl space-y-lg px-lg py-xl">
         {setup && <p className="rounded-xl border-2 border-neutral-900 bg-white p-md text-sm">Run migration 285 in Supabase to switch Publish on.</p>}
-        <div className="grid gap-sm sm:grid-cols-2">
-          <button type="button" disabled={!!busy || setup} onClick={() => create('market_update')} className="rounded-2xl bg-neutral-900 p-lg text-left text-white disabled:opacity-50">
-            <span className="block text-lg font-bold">{busy === 'market_update' ? 'Writing it — about 20 seconds…' : 'Market update'}</span>
-            <span className="block text-sm text-neutral-300">The latest rents and prices with a commentary. Each landlord can get their own areas. Drafts itself each month when new figures land.</span>
-          </button>
-          <button type="button" disabled={!!busy || setup} onClick={() => create('announcement')} className="rounded-2xl bg-white p-lg text-left ring-1 ring-neutral-200 disabled:opacity-50">
-            <span className="block text-lg font-bold text-neutral-900">News or announcement</span>
-            <span className="block text-sm text-neutral-600">Anything else — a new service, office closing for Christmas, a change in the law.</span>
-          </button>
+        {/* start from a template (13 Nov 2026 — the Mailchimp gap) */}
+        <div>
+          <p className="mb-sm text-xs font-bold uppercase tracking-wide text-neutral-500">Start something new</p>
+          <div className="grid gap-sm sm:grid-cols-2 lg:grid-cols-3">
+            {templates.map(t => {
+              const [kind, key] = t.picture.split(':')
+              const thumb = kind === 'illus' ? `/publish/illustrations/${key}.png` : kind === 'scene' ? `/email/insight/${key}.png` : null
+              return (
+                <button key={t.key} type="button" disabled={!!busy || setup} onClick={() => create(t.key)} className="group flex overflow-hidden rounded-2xl bg-white text-left ring-1 ring-neutral-200 transition hover:ring-neutral-900 disabled:opacity-50">
+                  <span className={`w-24 shrink-0 ${t.look === 'christmas' ? 'bg-[#163A27]' : 'bg-[#F3F0E6]'}`}>{thumb ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={thumb} alt="" className="h-full w-full object-cover" /> : <span className="flex h-full items-center justify-center bg-[#1F3B2E] text-2xl text-[#C9A227]">£</span>}</span>
+                  <span className="p-md"><span className="block font-bold text-neutral-900">{busy === t.key ? 'Setting it up…' : t.name}</span><span className="block text-xs text-neutral-600">{t.note}</span></span>
+                </button>
+              )
+            })}
+          </div>
         </div>
         {err && <p className="text-sm text-red-700">{err}</p>}
         {!tracking && !setup && (
