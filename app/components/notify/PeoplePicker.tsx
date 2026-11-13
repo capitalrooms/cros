@@ -7,12 +7,12 @@ import { useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { parseContacts, type PastedContact } from '@/lib/contacts/parse'
 
-export interface Recipient extends PastedContact { from?: string; propertyName?: string | null }
+export interface Recipient extends PastedContact { from?: string; propertyName?: string | null; /** a landlord's person id (includeLandlords) */ personId?: string }
 
 const key = (r: Recipient) => `${r.email ?? ''}|${r.phone ?? ''}`
 const words = (v: string) => v.toLowerCase().split(/[^a-z0-9@.+]+/).filter(Boolean)
 
-export default function PeoplePicker({ value, onChange, compact = false }: { value: Recipient[]; onChange: (v: Recipient[]) => void; compact?: boolean }) {
+export default function PeoplePicker({ value, onChange, compact = false, includeLandlords = false }: { value: Recipient[]; onChange: (v: Recipient[]) => void; compact?: boolean; /** list our landlords too (market reports, 13 Nov 2026) */ includeLandlords?: boolean }) {
   const [known, setKnown] = useState<Recipient[]>([])
   const [q, setQ] = useState('')
   const [pasteOpen, setPasteOpen] = useState(false)
@@ -27,15 +27,17 @@ export default function PeoplePicker({ value, onChange, compact = false }: { val
       s.from('applicants').select('full_name, email, phone, pipeline_stage, archived_at, properties(name)').is('archived_at', null).order('created_at', { ascending: false }).limit(200),
       // people living in let-only houses, as their landlord told us (12 Nov 2026)
       s.from('let_only_occupants').select('name, phone, email, properties(name), rooms(name)').is('ended_at', null).limit(500),
-    ]).then(([v, a, lo]) => {
+      includeLandlords ? s.from('people').select('id, salutation, first_name, last_name, full_name, company, email, phone').eq('role', 'landlord').not('email', 'is', null).order('last_name').limit(500) : Promise.resolve({ data: [] as any[] }),
+    ]).then(([v, a, lo, ll]) => {
       const list: Recipient[] = [
+        ...((ll.data ?? []) as any[]).map(x => ({ name: x.company || [x.salutation, x.first_name, x.last_name].filter(Boolean).join(' ') || x.full_name || x.email, email: String(x.email).toLowerCase(), phone: x.phone ?? null, from: 'Landlord', personId: x.id })),
         ...((v.data ?? []) as any[]).filter(x => x.visitor_email || x.visitor_phone).map(x => ({ name: x.visitor_name, email: x.visitor_email?.toLowerCase() ?? null, phone: x.visitor_phone ?? null, from: `Viewing ${new Date(`${x.viewing_date}T00:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })}`, propertyName: x.properties?.name ?? null })),
         ...((a.data ?? []) as any[]).filter(x => x.email || x.phone).map(x => ({ name: x.full_name, email: x.email?.toLowerCase() ?? null, phone: x.phone ?? null, from: 'Applicant', propertyName: x.properties?.name ?? null })),
         ...((lo.data ?? []) as any[]).filter(x => x.email || x.phone).map(x => ({ name: x.name, email: x.email?.toLowerCase() ?? null, phone: x.phone ?? null, from: `Lives there (let only)${x.rooms?.name ? ` · ${x.rooms.name}` : ''}`, propertyName: x.properties?.name ?? null })),
       ]
       setKnown([...new Map(list.map(r => [key(r), r])).values()])
     })
-  }, [])
+  }, [includeLandlords])
 
   const chosen = new Set(value.map(key))
   const hits = useMemo(() => {

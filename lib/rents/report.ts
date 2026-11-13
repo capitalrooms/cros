@@ -46,8 +46,13 @@ Write 150–220 words in British English, warm and professional, to a landlord:
   const run = (tools: boolean) => client.messages.create({ model: AI_MODEL_SMART, max_tokens: 1200,
     ...(tools ? { tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 2, user_location: { type: 'approximate', country: 'GB', city: 'London' } } as any] } : {}),
     messages: [{ role: 'user', content: prompt }] })
-  let res; try { res = await run(true) } catch { res = await run(false) }
-  return (res.content as any[]).filter(x => x.type === 'text').map(x => x.text).join('').replace(/\n{3,}/g, '\n\n').trim()
+  const text = (res: any) => ((res?.content ?? []) as any[]).filter(x => x.type === 'text').map(x => x.text).join('').replace(/\n{3,}/g, '\n\n').trim()
+  // the news search can stop part-way and leave no words (13 Nov 2026 — a report went out with no commentary); then it's
+  // written again from the figures alone, so a report never goes out empty
+  let out = ''
+  try { out = text(await run(true)) } catch { /* the search failed */ }
+  if (out.length < 200) out = text(await run(false))
+  return out
 }
 
 /** The comparison as rows: [label, value per area]. */
