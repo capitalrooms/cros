@@ -282,6 +282,9 @@ export async function generateManagementAgreementPDF(data: ManagementAgreementDa
     const prop = data.properties.length === 1 ? 'the Property' : 'the Properties'
     const mgmtFee = `${data.managementFee}%`
     const vat = (fee: string) => vatApplies(data.agreementDate) ? plusVat(fee) : fee
+    // a cost we pass on at what we paid (13 Nov 2026, Harry): the EPC invoice comes to us with VAT on it and the landlord
+    // pays that same price — so it reads "including VAT", never "+ VAT" (our own services, like extra visits, stay + VAT)
+    const atCost = (fee: string) => vatApplies(data.agreementDate) ? `${fee} (including VAT, as charged to us)` : fee
     const floatStr = data.floatAmount ? `£${data.floatAmount}` : undefined
 
     drawClause('1', 'Appointment',
@@ -321,7 +324,7 @@ export async function generateManagementAgreementPDF(data: ManagementAgreementDa
       `The Client warrants that smoke alarms are installed on every storey of the Property and carbon monoxide alarms are installed in every room containing a fixed combustion appliance. The Agent shall check alarm functionality at the start of each new tenancy.`)
 
     drawClause('13', 'Energy Performance Certificate',
-      `The Property must have a valid Energy Performance Certificate (EPC) with a rating of E or above (or such other minimum rating as required by law from time to time). If the Client requires an EPC to be obtained or renewed, the Agent shall arrange this at a cost of ${vat(data.agreementType === 'hmo' ? `£${data.epcCost} per unit` : `£${data.epcCost}`)}. The Client shall be responsible for any required improvement works.`)
+      `The Property must have a valid Energy Performance Certificate (EPC) with a rating of E or above (or such other minimum rating as required by law from time to time). If the Client requires an EPC to be obtained or renewed, the Agent shall arrange this at a cost of ${atCost(data.agreementType === 'hmo' ? `£${data.epcCost} per unit` : `£${data.epcCost}`)}. The Client shall be responsible for any required improvement works.`)
 
     drawClause('14', 'HMO Licensing',
       `Where the Property requires a House in Multiple Occupation (HMO) licence, the Client is responsible for obtaining and maintaining such licence and for ensuring that the Property meets all licence conditions. The Agent shall provide reasonable assistance in the licensing application process.`)
@@ -434,7 +437,7 @@ export async function generateManagementAgreementPDF(data: ManagementAgreementDa
     const fees: [string, string][] = [
       ['Management Fee', `${vat(mgmtFee)} of all rent collected`],
       ['Let Fee (new tenancy)', vat(data.letFee)],
-      ['EPC (if required)', vat(data.agreementType === 'hmo' ? `£${data.epcCost} per unit` : `£${data.epcCost}`)],
+      ['EPC (if required)', atCost(data.agreementType === 'hmo' ? `£${data.epcCost} per unit` : `£${data.epcCost}`)],
       ...(data.floatAmount ? [['Working Float', `£${data.floatAmount} (held by Agent to cover day-to-day expenditure)`] as [string, string]] : []),
       ['Inventory (new tenancy)', data.inventoryNote ? 'As agreed' : 'Cost to be agreed prior to each tenancy'],
       ['Contractor Administration', 'Included in management fee (no surcharge on contractor invoices)'],
