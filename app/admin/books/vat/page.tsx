@@ -68,7 +68,7 @@ export default function VatPage() {
   return (
     <div className="min-h-screen fin pb-3xl">
       <AppBar left={<BackButton href="/admin/books" label="Transactions" />} />
-      <PageHero look="olive" eyebrow="Finance" title="VAT" subtitle="The VAT on our fees each quarter, as the statements show it, and the VAT paid on company costs — ready for the return." tabs={financeTabs('books')} />
+      <PageHero look="olive" eyebrow="Finance" title="VAT" subtitle="The VAT on our fees each quarter, as the statements show it, and the VAT paid on company costs — ready for the return." tabs={financeTabs('vat')} />
       <main className="mx-auto max-w-6xl px-lg py-lg space-y-lg">
         {err && <p className="rounded-lg bg-red-50 px-md py-sm text-sm text-red-800">{err}</p>}
         {st && (

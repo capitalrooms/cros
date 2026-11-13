@@ -1,4 +1,5 @@
 // Admin navigation — zones and their sub-pages. Shared by the desktop layout and the phone "More" screen.
+import { CROS_COLLECTS_RENT } from '@/lib/finance/mode'
 
 // ─── Zone & subnav configuration ────────────────────────────────────────────
 
@@ -146,18 +147,30 @@ const ZONES_AS_WRITTEN: Zone[] = [
       '/admin/payouts',
       '/admin/reports',
     ],
-    // the month's cycle first; everything else is under "Other tools" on Finance home
-    subnav: [
+    // Import mode (now — the old system collects rent and makes statements, CROS takes them in) shows only what's used;
+    // Pay mode (CROS_COLLECTS_RENT, later) adds the rent roll, payment run, arrears and client money (13 Nov 2026 tidy)
+    subnav: CROS_COLLECTS_RENT ? [
       { emoji: '🏠', label: 'Finance Home',     href: '/admin/finance' },
       { emoji: '📋', label: 'Rent Roll',        href: '/admin/rent-roll' },
       { emoji: '🧾', label: 'Statements',       href: '/admin/statements' },
       { emoji: '💸', label: 'Payment Run',      href: '/admin/payment-run' },
       { emoji: '🏦', label: 'Bank',             href: '/admin/bank-calendar' },
-      { emoji: '📒', label: 'Transactions',     href: '/admin/books' },   // every rent, fee, expense, landlord payment and deposit — accountant and HMRC exports
+      { emoji: '📒', label: 'Transactions',     href: '/admin/books' },
+      { emoji: '🧮', label: 'VAT',              href: '/admin/books/vat' },
       { emoji: '💷', label: 'Expenses',         href: '/admin/expense-log' },
       { emoji: '💰', label: 'Agency Income',    href: '/admin/income' },
-      { emoji: '⏰', label: 'Rent Arrears',     href: '/admin/rents-due' },   // Rents due · Arrears · Arrears reminders
-      { emoji: '🔐', label: 'Client Money',     href: '/admin/client-money' },   // Client money · Deposits
+      { emoji: '⏰', label: 'Rent Arrears',     href: '/admin/rents-due' },
+      { emoji: '🔐', label: 'Client Money',     href: '/admin/client-money' },
+      { emoji: '📊', label: 'Reports',          href: '/admin/reports' },
+    ] : [
+      { emoji: '🏠', label: 'Finance Home',     href: '/admin/finance' },
+      { emoji: '📥', label: 'Statements In',    href: '/admin/statements/review' },   // what arrived at statements@ — check against the PDF
+      { emoji: '🧾', label: 'Statements',       href: '/admin/statements' },          // the record, by landlord and month
+      { emoji: '💷', label: 'Expenses',         href: '/admin/expense-log' },
+      { emoji: '📒', label: 'Transactions',     href: '/admin/books' },
+      { emoji: '🧮', label: 'VAT',              href: '/admin/books/vat' },
+      { emoji: '💰', label: 'Agency Income',    href: '/admin/income' },
+      { emoji: '🏦', label: 'Bank & Deposits',  href: '/admin/bank-calendar' },
       { emoji: '📊', label: 'Reports',          href: '/admin/reports' },
     ],
   },
