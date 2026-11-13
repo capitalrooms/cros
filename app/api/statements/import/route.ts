@@ -175,5 +175,15 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // the VAT on our fees, kept as its own line so the VAT page counts it (13 Nov 2026)
+  if (Number(s.fees_vat) > 0) {
+    const { error: vErr } = await supabase.from('statement_line_items').insert({
+      statement_id: stmt.id, property_id, landlord_id, category: 'management_fee', category_type: 'property_wide', room_label: null,
+      statement_date: date ?? s.statement_date, period_start: s.period_start || null, period_end: s.period_end || null,
+      description: 'VAT on fees (as shown on the statement)', amount: Number(s.fees_vat), ai_confidence: s.confidence ?? null, admin_confirmed: false,
+    })
+    if (vErr) warnings.push(`The VAT on fees wasn’t saved: ${vErr.message}`)
+  }
+
   return NextResponse.json({ success: true, statement_id: stmt.id, warnings })
 }

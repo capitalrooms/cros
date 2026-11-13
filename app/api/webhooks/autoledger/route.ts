@@ -404,6 +404,8 @@ Include EVERY line that has a money amount:
 - Rent received / rental income (money received from tenants per room or overall)
 - Management fees (Capital Rooms' percentage fee, e.g. "Management Fee 10%")
 - Letting fees (new tenant setup/finding fees)
+- VAT on those fees — EVERY "… VAT" line ("Management Fee (12%) VAT …", "Letting Fee VAT …") as its own item, with
+  "VAT" kept in the description. Never merge VAT into the fee line and never leave a VAT line out.
 - All expense, repair, and charge lines
 
 For each line item return a JSON array:

@@ -126,17 +126,28 @@ export async function loadBooks(s: SupabaseClient, o: { from: string; to: string
 
       // fees: management by room or line, else the total; letting fees from their lines, else the total
       const mLines = L.filter(l => l.category === 'management_fee'), lLines = L.filter(l => l.category === 'letting_fee')
-      const fee = (category: 'management fee' | 'letting fee', amount: number, extra: Partial<BookRow>) => {
+      // VAT as the statement shows it (13 Nov 2026): a statement made by the old system lists our VAT on its own lines
+      // ("Management Fee VAT …"), so those lines ARE the VAT and the rest is net — nothing is worked out by rate.
+      // A statement with no VAT lines charged none, even after the VAT date (flagged below to check against the PDF).
+      const isVat = (l: any) => /\bVAT\b/i.test(String(l.description ?? ''))
+      const itemised = [...mLines, ...lLines].some(isVat)
+      const fee = (category: 'management fee' | 'letting fee', amount: number, extra: Partial<BookRow>, vatLine = false) => {
         if (!amount) return
-        const v = splitVat(amount, rentDate, vat)
+        const v = L.length ? (vatLine ? { net: 0, vat: r2(amount) } : { net: r2(amount), vat: 0 }) : splitVat(amount, rentDate, vat)
         rows.push({ ...base, kind: 'fee', date: rentDate, month, taxYear: taxYearOf(rentDate), room: null, tenant: null, description: category === 'management fee' ? 'Management fee' : 'Letting fee', category, amount: r2(amount), net: v.net, vat: v.vat, source: 'per statement', ...extra })
       }
-      if (R.length && Math.abs(sum(R, r => Number(r.management_fee || 0)) - mgmt) < 0.02) R.forEach(r => fee('management fee', Number(r.management_fee || 0), { room: r.rooms?.name ?? null, tenant: who(r.tenant_id) || null, source: 'statement room' }))
-      else if (mLines.length && Math.abs(sum(mLines, l => Number(l.amount || 0)) - mgmt) < 0.02) mLines.forEach(l => fee('management fee', Number(l.amount || 0), { description: l.description, room: l.room_label ?? null, source: 'statement line' }))
-      else if (mLines.length + lLines.length && Math.abs(sum([...mLines, ...lLines], l => Number(l.amount || 0)) - (mgmt + letf)) < 0.02 && !letf) [...mLines, ...lLines].forEach(l => fee(l.category === 'letting_fee' ? 'letting fee' : 'management fee', Number(l.amount || 0), { description: l.description, source: 'statement line' }))
-      else fee('management fee', mgmt, {})
+      if (vat && rentDate >= vat.from && (mgmt + letf) > 0 && L.length && !itemised) checks.push(`${st.statement_reference}: fees of £${r2(mgmt + letf).toFixed(2)} after the VAT date with no VAT shown — check the statement PDF`)
+      if (!itemised && R.length && Math.abs(sum(R, r => Number(r.management_fee || 0)) - mgmt) < 0.02) R.forEach(r => fee('management fee', Number(r.management_fee || 0), { room: r.rooms?.name ?? null, tenant: who(r.tenant_id) || null, source: 'statement room' }))
+      else if (mLines.length && Math.abs(sum(mLines, l => Number(l.amount || 0)) - mgmt) < 0.02) mLines.forEach(l => fee('management fee', Number(l.amount || 0), { description: l.description, room: l.room_label ?? null, source: 'statement line' }, isVat(l)))
+      else if (mLines.length + lLines.length && Math.abs(sum([...mLines, ...lLines], l => Number(l.amount || 0)) - (mgmt + letf)) < 0.02 && !letf) [...mLines, ...lLines].forEach(l => fee(l.category === 'letting_fee' ? 'letting fee' : 'management fee', Number(l.amount || 0), { description: l.description, source: 'statement line' }, isVat(l)))
+      else {
+        // the fee as one total — with any VAT lines the statement shows taken out of it and counted as VAT
+        const vl = [...mLines, ...lLines].filter(isVat)
+        fee('management fee', r2(mgmt - sum(vl, l => Number(l.amount || 0))), {})
+        vl.forEach(l => fee(l.category === 'letting_fee' ? 'letting fee' : 'management fee', Number(l.amount || 0), { description: l.description, source: 'statement line' }, true))
+      }
       if (letf) {
-        if (lLines.length && Math.abs(sum(lLines, l => Number(l.amount || 0)) - letf) < 0.02) lLines.forEach(l => fee('letting fee', Number(l.amount || 0), { description: l.description, source: 'statement line' }))
+        if (lLines.length && Math.abs(sum(lLines, l => Number(l.amount || 0)) - letf) < 0.02) lLines.forEach(l => fee('letting fee', Number(l.amount || 0), { description: l.description, source: 'statement line' }, isVat(l)))
         else if (mLines.length && !lLines.length && Math.abs(sum(mLines, l => Number(l.amount || 0)) - (mgmt + letf)) < 0.02) fee('letting fee', letf, {})   // the letting fee sat among the management lines
         else fee('letting fee', letf, {})
       }

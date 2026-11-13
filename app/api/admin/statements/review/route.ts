@@ -58,6 +58,19 @@ export async function GET(req: NextRequest) {
     })
   }
 
+  // removed statements that can be put back: the full copy kept in the finance audit log, not back in CROS since
+  if (req.nextUrl.searchParams.get('removed')) {
+    const { data: log } = await s.from('finance_audit_log').select('id, row_id, actor, at, old_row').eq('table_name', 'landlord_statements').eq('action', 'delete').order('at', { ascending: false }).limit(40) as { data: any[] | null }
+    const copies = (log ?? []).filter(l => Array.isArray(l.old_row?.line_items))
+    const ids = copies.map(l => l.row_id)
+    const { data: back } = ids.length ? await s.from('landlord_statements').select('id').in('id', ids) : { data: [] as any[] }
+    const live = new Set((back ?? []).map((x: any) => x.id))
+    const props = [...new Set(copies.map(l => l.old_row.property_id).filter(Boolean))]
+    const { data: pp } = props.length ? await s.from('properties').select('id, name').in('id', props) : { data: [] as any[] }
+    const name = new Map((pp ?? []).map((p: any) => [p.id, one(p.name)]))
+    return NextResponse.json({ removed: copies.filter(l => !live.has(l.row_id)).map(l => ({ auditId: l.id, reference: l.old_row.statement_reference, property: name.get(l.old_row.property_id) ?? '', removedAt: l.at, removedBy: l.actor, reason: l.old_row.removed_reason ?? '', gross: Number(l.old_row.gross_rent), lines: l.old_row.line_items.length })) })
+  }
+
   const status = req.nextUrl.searchParams.get('status') || 'to_review'
   const month = req.nextUrl.searchParams.get('month')
   let q = s.from('landlord_statements').select('id, property_id, landlord_id, statement_reference, statement_date, gross_rent, management_fees, letting_fees, property_charges, net_to_landlord, review_status, reviewed_at, reviewed_by, pdf_path, possible_duplicate_of, created_at, received_via, source, properties(name, address), people!landlord_id(salutation, first_name, last_name, full_name, company)')
@@ -90,6 +103,24 @@ export async function POST(req: NextRequest) {
   if (!me) return NextResponse.json({ error: 'Please sign in again.' }, { status: 401 })
   const b = await req.json().catch(() => ({}))
   const s = createServiceClient()
+
+  // put a removed statement back exactly as it was, from its audit copy (13 Nov 2026 — the wrong one of a pair can be removed)
+  if (b.action === 'restore') {
+    const { data: l } = await s.from('finance_audit_log').select('id, row_id, old_row').eq('id', String(b.auditId ?? '')).eq('table_name', 'landlord_statements').eq('action', 'delete').maybeSingle() as { data: any }
+    const o = l?.old_row
+    if (!o || !Array.isArray(o.line_items)) return NextResponse.json({ error: 'That removed statement can’t be found in the audit log.' }, { status: 404 })
+    const { data: there } = await s.from('landlord_statements').select('id').eq('id', l.row_id).maybeSingle()
+    if (there) return NextResponse.json({ error: 'It’s already back.' }, { status: 409 })
+    const { rooms, line_items, removed_reason, ...row } = o
+    const { error: e1 } = await s.from('landlord_statements').insert({ ...row, review_status: 'to_review', reviewed_at: null, reviewed_by: null, possible_duplicate_of: null, pdf_path: null })
+    if (e1) return NextResponse.json({ error: `Couldn’t put it back: ${e1.message}` }, { status: 500 })
+    const e2 = rooms?.length ? (await s.from('landlord_statement_rooms').insert(rooms)).error : null
+    const e3 = line_items.length ? (await s.from('statement_line_items').insert(line_items)).error : null
+    if (e2 || e3) return NextResponse.json({ error: `Put back, but some lines didn’t come with it: ${(e2 || e3)!.message}` }, { status: 500 })
+    await s.from('finance_audit_log').insert({ table_name: 'landlord_statements', row_id: l.row_id, action: 'insert', actor: me.email, new_row: { restored_from_audit: l.id, statement_reference: o.statement_reference } })
+    return NextResponse.json({ ok: true, restored: o.statement_reference, id: l.row_id })
+  }
+
   const { data: st } = await s.from('landlord_statements').select('*').eq('id', String(b.id ?? '')).maybeSingle() as { data: any }
   if (!st) return NextResponse.json({ error: 'Statement not found' }, { status: 404 })
 
