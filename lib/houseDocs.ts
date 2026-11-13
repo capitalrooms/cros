@@ -67,10 +67,10 @@ export async function loadHouse(s: SupabaseClient, propertyId: string) {
   // the landlord can be sent the same certificates (ticked by hand — never by default)
   let landlord: HouseTenant | null = null
   if (prop.landlord_id) {
-    const { data: l } = await s.from('people').select('id, salutation, first_name, last_name, full_name, company, email').eq('id', prop.landlord_id).maybeSingle()
+    const { data: l } = await s.from('people').select('id, salutation, first_name, last_name, full_name, company, email, joint_salutation, joint_first_name, joint_last_name, joint_email').eq('id', prop.landlord_id).maybeSingle()
     if (l?.email) {
       const name = [l.salutation, l.first_name, l.last_name].filter(Boolean).join(' ') || l.company || l.full_name || l.email
-      landlord = { personId: l.id, name, firstName: l.first_name || name.split(' ')[0], dear: dearName(l), email: l.email, room: 'Landlord' }
+      landlord = { personId: l.id, name, firstName: l.first_name || name.split(' ')[0], dear: dearName(l as any), email: l.email, jointEmail: (l as any).joint_email || null, room: 'Landlord' } as HouseTenant
     }
   }
   return { property: { id: prop.id, name: prop.name, address: fullAddress(prop.name, prop.address, prop.postcode) }, documents, tenants, landlord }
