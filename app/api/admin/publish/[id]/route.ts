@@ -20,6 +20,7 @@ import { buildEmail } from '@/lib/emailWrapper'
 import { sendEmail } from '@/lib/sendEmail'
 import { sendSms } from '@/lib/sms'
 import { slugify } from '@/lib/website/markdown'
+import { SCENES, ILLUSTRATIONS, seasonNow } from '@/lib/publish/pictures'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 300
@@ -41,8 +42,18 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const { data: sends } = await s.from('publication_sends').select('channel, name, address, status, note, at').eq('publication_id', p.id).order('at', { ascending: false }).limit(500)
   const areas = p.areas.length ? p.areas : [LONDON]
   const { data: names } = await s.from('ons_rents').select('area_code, area_name').in('area_code', areas)
+  // the pictures to choose from: the figures in three looks, this season's scenes first, the illustrations, our photos
+  const season = seasonNow()
+  const { data: photos } = await s.from('property_photos').select('id, file_url, file_path, property_id, properties(name)').order('created_at', { ascending: false }).limit(30) as { data: any[] | null }
+  const photoUrl = (x: any) => x.file_url || s.storage.from('property-photos').getPublicUrl(String(x.file_path)).data.publicUrl
+  const pictures = {
+    figures: [['dark', 'Dark green'], ['light', 'Light'], ['gold', 'Gold']].map(([k, l]) => ({ key: `figures:${k}`, label: l, thumb: `${SITE_URL}/api/publish/image/${p.id}?size=square&k=figures:${k}` })),
+    scenes: [...SCENES.filter(x => x.endsWith(season)), ...SCENES.filter(x => !x.endsWith(season))].map(k => ({ key: `scene:${k}`, label: k.replace('-', ' · '), thumb: `${SITE_URL}/email/insight/${k}.png` })),
+    illustrations: ILLUSTRATIONS.map(i => ({ key: `illus:${i.key}`, label: i.label, thumb: `${SITE_URL}/publish/illustrations/${i.key}.png` })),
+    photos: (photos ?? []).map(x => ({ key: `photo:${x.id}`, label: String(x.properties?.name ?? '').split(/\n|,/)[0], thumb: photoUrl(x) })),
+  }
   return NextResponse.json({
-    pub: p, channels: CHANNELS, lists: LISTS,
+    pub: p, channels: CHANNELS, lists: LISTS, pictures,
     areaNames: areas.map(c => (names ?? []).find((n: any) => n.area_code === c)?.area_name ?? c),
     reach: { total: people.length, email: people.filter(x => x.email).length, sms: people.filter(x => x.phone).length, push: people.filter(x => x.personId).length, optedOut: optedOut.length, sample: people.slice(0, 40).map(x => ({ name: x.name, email: x.email, phone: x.phone, landlord: x.landlord })) },
     previews: {
@@ -57,7 +68,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   })
 }
 
-const EDITABLE = ['title', 'intro', 'body', 'sms_text', 'push_title', 'push_body', 'social_caption', 'areas', 'audience', 'channels']
+const EDITABLE = ['title', 'intro', 'body', 'sms_text', 'push_title', 'push_body', 'social_caption', 'areas', 'audience', 'channels', 'image']
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   if (!(await requireAdmin(req))) return NextResponse.json({ error: 'Please sign in again.' }, { status: 401 })
