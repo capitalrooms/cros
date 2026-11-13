@@ -8,6 +8,7 @@
  */
 
 import { use, useCallback, useEffect, useState } from 'react'
+import { CROS_COLLECTS_RENT } from '@/lib/finance/mode'
 import { isOfficeRole } from '@/lib/access/areas'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -86,14 +87,17 @@ function FinanceHomeScreen({ initialMonth }: { initialMonth?: string }) {
             </Link>
           </div>
         </div>
-        {d && !d.collectsRent && <p className={`mb-md rounded-2xl px-lg py-md text-sm ${C.paper}`}><b>Statements only.</b> Rent is collected in your other system; CROS mirrors the statements you add. Nothing here raises, chases or pays rent until you switch CROS to collecting rent.</p>}
+        {d && !d.collectsRent && <p className={`mb-md rounded-2xl px-lg py-md text-sm ${C.paper}`}><b>Import mode.</b> Your other system collects rent and makes the statements; CROS takes them in (email them to statements@ or upload them) and keeps the books and VAT from them. The rent roll, payment run, arrears and client money screens come back when CROS starts collecting rent.</p>}
         {error && <p className="mb-md rounded-2xl bg-red-50 px-lg py-md text-sm text-red-700">{error}</p>}
 
         <div className="grid items-start gap-md md:grid-cols-2 lg:grid-cols-3">
           {!d && !error && [1, 2, 3, 4, 5, 6].map(i => <div key={i} className="h-56 animate-pulse rounded-[28px] bg-[var(--paper,#FFFDF6)]" />)}
           {d && <>
+            {/* Import mode (13 Nov 2026 tidy): this month's statements lead — what's in, what's not, what to check */}
+            {!d.collectsRent && <StatementsTile />}
+            {(d.collectsRent || d.ready.letOnly.length > 0) && (
             <Tile id="ready" open={open} setOpen={setOpen} tone="olive"
-              title="Ready to pay" big={String(d.ready.count)} sub={d.ready.count ? [d.ready.items.length && `${d.ready.items.length} house${d.ready.items.length === 1 ? '' : 's'} with every rent in`, d.ready.letOnly.length && `${d.ready.letOnly.length} let-only move-in${d.ready.letOnly.length === 1 ? '' : 's'}`].filter(Boolean).join(' · ') + (d.ready.total ? ` · ${gbp(d.ready.total)}` : '') : 'Nothing to pay out yet'}
+              title={d.collectsRent ? 'Ready to pay' : 'Let-only money to pass on'} big={String(d.ready.count)} sub={d.ready.count ? [d.ready.items.length && `${d.ready.items.length} house${d.ready.items.length === 1 ? '' : 's'} with every rent in`, d.ready.letOnly.length && `${d.ready.letOnly.length} let-only move-in${d.ready.letOnly.length === 1 ? '' : 's'}`].filter(Boolean).join(' · ') + (d.ready.total ? ` · ${gbp(d.ready.total)}` : '') : 'Nothing to pay out yet'}
               actions={[{ label: 'Rent Roll', href: `/admin/rent-roll${q}` }, { label: 'Payment run', href: `/admin/payment-run${q}` }]}>
               {d.ready.items.map(r => (
                 <Row key={r.id} href={`/admin/statements/prepare?property=${r.id}&month=${month}`} left={r.name} sub={`${r.landlord}${r.part ? ' · paying part now' : ''}`} right={gbp(r.amount)} cta="Prepare" />
@@ -102,7 +106,9 @@ function FinanceHomeScreen({ initialMonth }: { initialMonth?: string }) {
                 <Row key={l.tenancyId} href={`/admin/lettings/${l.tenancyId}?tab=money`} left={l.name} sub={`Let only · ${l.landlord} · ${l.tenant} from ${short(l.start)}${l.step === 'record' ? ' · record the move-in money' : l.step === 'close' ? ' · send the statement / move the fee to close' : ''}`} right={gbp(l.amount)} cta={l.step === 'pay' ? 'Pay' : l.step === 'close' ? 'Close' : 'Record'} />
               ))}
             </Tile>
+            )}
 
+            {d.collectsRent && (
             <Tile id="due" open={open} setOpen={setOpen} tone="mustard"
               title="Rents due" big={String(d.due.count)} sub={!d.collectsRent ? 'Collected in your other system — shown for checking only' : d.due.count ? `${gbp(d.due.total)} outstanding${d.due.notRaised ? ` · ${d.due.notRaised} not raised yet` : ''}` : 'Every rent is in'}
               actions={[{ label: 'Rents due', href: `/admin/rents-due${q}` }, ...(d.collectsRent && d.due.count ? [{ label: 'Chase', href: '/admin/rent-chase' }] : []), ...(d.collectsRent && d.due.notRaised ? [{ label: `Raise ${d.due.notRaised} rents`, href: '/admin/rent-charges' }] : [])]}>
@@ -110,6 +116,7 @@ function FinanceHomeScreen({ initialMonth }: { initialMonth?: string }) {
                 <Row key={i} href={r.tenancyId ? `/admin/lettings/${r.tenancyId}?tab=money` : `/admin/rents-due${q}`} left={r.tenant || r.room} sub={`${r.room}, ${r.property}${r.status === 'no_charge' ? ' · not raised' : ''}`} right={gbp(r.owed)} />
               ))}
             </Tile>
+            )}
 
             <Tile id="exp" open={open} setOpen={setOpen} tone="paper"
               title="Expenses" big={String(d.expenses.count)} sub={d.expenses.count ? `${gbp(d.expenses.total)} waiting to go on statements` : 'Nothing waiting'}
@@ -156,6 +163,8 @@ function FinanceHomeScreen({ initialMonth }: { initialMonth?: string }) {
 }
 
 // Everything else in finance, alphabetical (Harry: menus always alphabetical), so no screen is more than two clicks away
+// screens that only mean something once CROS collects rent (Pay mode) — left off the list in Import mode
+const PAY_ONLY = ['/admin/arrears', '/admin/rent-charges', '/admin/rent-chase', '/admin/rent-roll', '/admin/reports/rent-demands', '/admin/reports/tenant-balances']
 const MORE = [
   ['Income', '/admin/income'],
   ['Arrears letters', '/admin/arrears'], ['Bank', '/admin/bank-calendar'], ['Cashbook', '/admin/reports/cashbook'], ['Deposits', '/admin/deposits'],
@@ -164,7 +173,7 @@ const MORE = [
   ['Rent charges', '/admin/rent-charges'], ['Rent Chase', '/admin/rent-chase'], ['Rent demands', '/admin/reports/rent-demands'], ['Rent increase', '/admin/rent-increase'],
   ['Rent Roll', '/admin/rent-roll'], ['Reports (all)', '/admin/reports'], ['Tax year', '/admin/reports/tax-year'],
   ['Tenant balances', '/admin/reports/tenant-balances'], ['Utilities', '/admin/reports/utilities'], ['Voids', '/admin/reports/voids'],
-].sort((a, b) => a[0].localeCompare(b[0]))
+].filter(([, h]) => CROS_COLLECTS_RENT || !PAY_ONLY.includes(h)).sort((a, b) => a[0].localeCompare(b[0]))
 
 function More() {
   const [o, setO] = useState(false)
@@ -220,5 +229,28 @@ function Row({ href, left, sub, right, cta }: { href: string; left: string; sub?
         </span>
       </Link>
     </li>
+  )
+}
+
+
+/** Import mode: this month's statements — in, still to check, not in yet (13 Nov 2026). /api/admin/statements/review?coverage */
+function StatementsTile() {
+  const [c, setC] = useState<{ month: string; in: number; toReview: number; missing: { propertyId: string; property: string; last: string }[]; linesToConfirm: number } | null>(null)
+  const [open, setOpen] = useState(false)
+  useEffect(() => { adminFetch('/api/admin/statements/review?coverage=1').then(r => r.json()).then(setC).catch(() => null) }, [])
+  if (!c) return <div className="h-56 animate-pulse rounded-[28px] bg-[var(--paper,#FFFDF6)]" />
+  const name = new Date(`${c.month}-15T12:00:00`).toLocaleDateString('en-GB', { month: 'long' })
+  return (
+    <div className={`flex min-h-[15rem] flex-col rounded-[28px] p-lg shadow-[0_2px_0_rgba(35,38,26,0.12)] ${C.olive} ${c.missing.length ? 'ring-2 ring-amber-400' : ''}`}>
+      <h2 className="text-xs font-semibold uppercase tracking-[0.08em] opacity-75">{name} statements</h2>
+      <p className={`${display.className} mt-sm text-5xl font-extrabold tabular-nums tracking-tight`}>{c.in}</p>
+      <p className="mt-xs text-sm opacity-85">{[c.toReview ? `${c.toReview} to check against the PDF` : 'all checked', c.missing.length ? `${c.missing.length} not in yet` : 'none missing'].join(' · ')}</p>
+      <div className="mt-auto flex flex-wrap items-center gap-sm pt-md">
+        <Pill href="/admin/statements/review" tone="olive">Statements in</Pill>
+        <Pill href="/admin/books/vat" tone="olive" second>VAT</Pill>
+        {c.missing.length > 0 && <button type="button" onClick={() => setOpen(!open)} className="ml-auto text-sm font-semibold">{open ? 'Hide' : `Show ${c.missing.length}`} <span aria-hidden>{open ? '▴' : '▾'}</span></button>}
+      </div>
+      {open && <ul className="-mx-sm mt-md rounded-2xl bg-[var(--paper,#FFFDF6)] px-md text-[var(--ink,#23261A)]">{c.missing.map(x => <Row key={x.propertyId} href={`/admin/properties/${x.propertyId}`} left={x.property} sub={`Last: ${x.last}`} right="Not in yet" />)}</ul>}
+    </div>
   )
 }

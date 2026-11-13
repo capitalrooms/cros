@@ -15,6 +15,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/adminAuth'
 import { createServiceClient } from '@/lib/supabase'
 import { viewLink } from '@/lib/files/fileCrypt'
+import { demoPropertyIds } from '@/lib/demoProperties'
 
 export const dynamic = 'force-dynamic'
 
@@ -56,6 +57,23 @@ export async function GET(req: NextRequest) {
       rooms: rooms ?? [], lines: lines ?? [],
       twin: twin?.data ?? (twinOf?.[0] ?? null),
     })
+  }
+
+  // this month at a glance (13 Nov 2026 tidy): which properties had a statement last month but none yet this month,
+  // what's waiting to be checked, and statement lines whose type was never confirmed
+  if (req.nextUrl.searchParams.get('coverage')) {
+    const now = new Date(), m = req.nextUrl.searchParams.get('month') || `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+    const [y, mo] = m.split('-').map(Number)
+    const prev = mo === 1 ? `${y - 1}-12` : `${y}-${String(mo - 1).padStart(2, '0')}`
+    const next = mo === 12 ? `${y + 1}-01` : `${y}-${String(mo + 1).padStart(2, '0')}`
+    const { data: rows } = await s.from('landlord_statements').select('property_id, statement_date, statement_reference, review_status, properties(name)').gte('statement_date', `${prev}-01`).lt('statement_date', `${next}-01`) as { data: any[] | null }
+    const demo = await demoPropertyIds(s as any)
+    const thisMonth = (rows ?? []).filter(r => String(r.statement_date).startsWith(m) && !demo.has(r.property_id))
+    const lastMonth = (rows ?? []).filter(r => String(r.statement_date).startsWith(prev) && !demo.has(r.property_id))
+    const have = new Set(thisMonth.map(r => r.property_id))
+    const missing = [...new Map(lastMonth.filter(r => !have.has(r.property_id)).map(r => [r.property_id, { propertyId: r.property_id, property: one(r.properties?.name), last: String(r.statement_reference ?? '') }])).values()]
+    const { count: lines } = await s.from('statement_line_items').select('id', { count: 'exact', head: true }).eq('admin_confirmed', false)
+    return NextResponse.json({ month: m, in: have.size, toReview: thisMonth.filter(r => r.review_status === 'to_review').length, missing, linesToConfirm: lines ?? 0 })
   }
 
   // removed statements that can be put back: the full copy kept in the finance audit log, not back in CROS since

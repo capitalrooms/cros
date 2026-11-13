@@ -39,6 +39,8 @@ export default function StatementsReview() {
   const [moving, setMoving] = useState(false)
   const [props, setProps] = useState<{ id: string; name: string }[]>([])
   const [moveTo, setMoveTo] = useState('')
+  const [cov, setCov] = useState<{ month: string; in: number; toReview: number; missing: { propertyId: string; property: string; last: string }[]; linesToConfirm: number } | null>(null)
+  useEffect(() => { adminFetch('/api/admin/statements/review?coverage=1').then(r => r.json()).then(setCov).catch(() => null) }, [])
   const [removed, setRemoved] = useState<{ auditId: string; reference: string; property: string; removedAt: string; removedBy: string; reason: string; gross: number; lines: number }[]>([])
   const loadRemoved = useCallback(() => { adminFetch('/api/admin/statements/review?removed=1').then(r => r.json()).then(j => setRemoved(j.removed ?? [])).catch(() => null) }, [])
   useEffect(() => { loadRemoved() }, [loadRemoved])
@@ -88,11 +90,22 @@ export default function StatementsReview() {
       <AppBar left={<BackButton href="/admin/statements" label="Statements" />} />
       <PageHero look="olive" eyebrow="Monthly cycle" title="Statements in"
         subtitle="Everything that came in to statements@ or was uploaded — check each one against its PDF and agree it, property by property, month by month."
-        tabs={financeTabs('statements')} />
+        tabs={financeTabs('statements-in')} />
       <main className="mx-auto max-w-6xl px-lg py-lg">
         {setup && <p className="mb-md rounded-xl border-2 border-neutral-900 bg-white p-md text-sm">Run migration 284 in Supabase to switch this on.</p>}
 
         {!openId && (<>
+          {/* this month at a glance */}
+          {cov && (
+            <div className="mb-md grid gap-sm sm:grid-cols-3">
+              <div className="rounded-xl bg-white p-md ring-1 ring-neutral-200"><p className="text-[11px] font-bold uppercase tracking-wider text-neutral-500">{new Date(`${cov.month}-15T12:00:00`).toLocaleDateString('en-GB', { month: 'long' })} statements in</p><p className="text-2xl font-bold tabular-nums">{cov.in}</p><p className="text-xs text-neutral-600">{cov.toReview ? `${cov.toReview} still to check against the PDF` : 'All checked'}</p></div>
+              <div className={`rounded-xl p-md ${cov.missing.length ? 'bg-amber-50 ring-1 ring-amber-200' : 'bg-white ring-1 ring-neutral-200'}`}><p className="text-[11px] font-bold uppercase tracking-wider text-neutral-500">Not in yet</p><p className="text-2xl font-bold tabular-nums">{cov.missing.length}</p><p className="text-xs text-neutral-700">{cov.missing.length ? cov.missing.map(x => x.property).join(', ') : 'Every property that had one last month'}</p></div>
+              <div className="rounded-xl bg-white p-md ring-1 ring-neutral-200"><p className="text-[11px] font-bold uppercase tracking-wider text-neutral-500">Also here</p>
+                <p className="mt-xs text-sm"><Link href="/admin/autoledger" className="font-semibold underline">Emails to statements@</Link> — every email and what it became</p>
+                <p className="text-sm"><Link href="/admin/expense-review" className="font-semibold underline">Cost lines to confirm</Link>{cov.linesToConfirm ? ` — ${cov.linesToConfirm} waiting` : ''}</p>
+                <p className="text-sm"><Link href="/admin/statements/import" className="font-semibold underline">Upload statements</Link> instead of emailing</p></div>
+            </div>
+          )}
           <div className="mb-md flex flex-wrap items-center gap-sm">
             {([['to_review', `To review${toReview ? ` (${toReview})` : ''}`], ['agreed', 'Agreed'], ['all', 'All']] as const).map(([k, l]) => (
               <button key={k} type="button" onClick={() => setStatus(k)} className={`rounded-full px-md py-xs text-sm font-semibold ${status === k ? 'bg-neutral-900 text-white' : 'border border-neutral-300 bg-white text-neutral-700'}`}>{l}</button>
