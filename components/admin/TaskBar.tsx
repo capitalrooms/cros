@@ -11,7 +11,8 @@ import { adminFetch } from '@/lib/adminFetch'
 import type { Action, Plan } from '@/lib/taskbar/plan'
 
 type Card = Action & { _state?: 'busy' | 'done' | 'error' | 'gone'; _note?: string; _link?: string; _dup?: boolean }
-type Turn = { you: string; reply?: Omit<Plan, 'actions'>; cards?: Card[]; error?: string }
+type Turn = { you: string; reply?: Omit<Plan, 'actions'>; cards?: Card[]; error?: string; logId?: string | null }
+type Past = { id: string; created_by: string; text: string; reply: string | null; actions: { kind: string; title: string }[]; results: Record<string, { state: string; note: string }>; created_at: string }
 
 const EXAMPLES = [
   'Email the tenant of Room 2 at Crownfield to say the cleaner is coming Thursday',
@@ -24,14 +25,21 @@ const EXAMPLES = [
   'Add a £85 plumber invoice to Alloa Road, dated today',
   'Draft a newsletter to landlords about the Renters’ Rights changes',
   'Who lives at Spurgeon Road?',
+  'Write to the landlord of Willis Road that our fees go up to 12% from 1 January',
+  'Book a viewing of Room 4 at Crownfield for Sam Lee 07700 900123 on Saturday at 11',
+  'Send the gas and electrical certificates for Claverton to the tenants',
+  'Remind me to renew the HMO licence at Alloa Road by 1 December',
+  'When does the gas certificate at Saltwell expire?',
 ]
 const IDEAS: [string, string[]][] = [
   ['Tell someone', ['Email the tenant of [room] at [property] that…', 'Text everyone at [property] that…', 'Send [tenant] their rent payment history']],
   ['Property', ['Add the WiFi details to [property]: network … password …', 'Get quotes to [job] in [room] at [property]', 'Add a £[amount] [supplier] invoice to [property]']],
   ['Market & news', ['[Borough] [n]-bed rents over the last 6 months for [landlord]', 'Market analysis for a new landlord in [borough]', 'Draft an announcement to landlords about…']],
-  ['Find out', ['Who lives at [property]?', 'When did we last charge a TV licence at [property]?', 'When does [tenant]’s tenancy end?']],
+  ['Paperwork', ['Write to the landlord of [property] that…', 'Send the gas and EICR certificates for [property] to the tenants', 'Book a viewing of [room] at [property] for [name] on [day] at [time]']],
+  ['Reminders & notes', ['Remind me to [task] at [property] by [date]', 'Note on [property]: …', 'What’s left to do at [property]?']],
+  ['Find out', ['Who lives at [property]?', 'When did we last charge a TV licence at [property]?', 'When does the gas certificate at [property] expire?']],
 ]
-const KIND: Record<Action['kind'], string> = { message: 'Email or text', house_message: 'Message the house', wifi: 'WiFi details', quotes: 'Ask for quotes', market_report: 'Market report', expense: 'Add an expense', publish: 'Draft in Publish', open: 'Open' }
+const KIND: Record<Action['kind'], string> = { message: 'Email or text', house_message: 'Message the house', wifi: 'WiFi details', quotes: 'Ask for quotes', market_report: 'Market report', expense: 'Add an expense', publish: 'Draft in Publish', open: 'Open', letter: 'Letter', note: 'Note', todo: 'To-do', certs: 'Send certificates', viewing: 'Book a viewing' }
 
 const Spark = ({ size = 18 }: { size?: number }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" aria-hidden><path d="M12 3l1.8 4.6L18 9.4l-4.2 1.8L12 16l-1.8-4.8L6 9.4l4.2-1.8z" /><path d="M19 15l.7 1.8 1.8.7-1.8.7L19 20l-.7-1.8-1.8-.7 1.8-.7z" /></svg>
 const field = 'mt-1 block w-full rounded-lg border border-neutral-300 bg-white px-2.5 py-1.5 text-sm text-neutral-900 disabled:bg-neutral-50 disabled:text-neutral-600'
@@ -56,6 +64,8 @@ export default function TaskBar() {
   const [turns, setTurns] = useState<Turn[]>([])
   const [thinking, setThinking] = useState(false)
   const [ex, setEx] = useState(0)
+  const [past, setPast] = useState<Past[] | null>(null)
+  const turnsRef = useRef<Turn[]>([]); turnsRef.current = turns
   const input = useRef<HTMLTextAreaElement>(null)
   const end = useRef<HTMLDivElement>(null)
 
@@ -66,6 +76,8 @@ export default function TaskBar() {
     return () => { window.removeEventListener('cros:task', onTask); window.removeEventListener('keydown', onKey) }
   }, [])
   useEffect(() => { if (!open || text) return; const t = setInterval(() => setEx(i => (i + 1) % EXAMPLES.length), 3500); return () => clearInterval(t) }, [open, text])
+  // what was asked before (migration 288) — shown when the panel opens empty
+  useEffect(() => { if (open && !turns.length) adminFetch('/api/admin/task').then(r => r.json()).then(j => setPast(j.items ?? [])).catch(() => setPast([])) }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { end.current?.scrollIntoView({ block: 'end', behavior: 'smooth' }) }, [turns, thinking])
 
   const ask = useCallback(async (said: string) => {
@@ -75,10 +87,15 @@ export default function TaskBar() {
     const r = await adminFetch('/api/admin/task', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: t, history }) }).catch(() => null)
     const j = r ? await r.json().catch(() => ({})) : {}
     setThinking(false)
-    setTurns(v => v.map((x, i) => i !== v.length - 1 ? x : r?.ok ? { ...x, reply: { message: j.message, choices: j.choices ?? [] }, cards: j.actions ?? [] } : { ...x, error: j.error || 'That didn’t work — try again.' }))
+    setTurns(v => v.map((x, i) => i !== v.length - 1 ? x : r?.ok ? { ...x, reply: { message: j.message, choices: j.choices ?? [] }, cards: j.actions ?? [], logId: j.logId ?? null } : { ...x, error: j.error || 'That didn’t work — try again.' }))
   }, [turns, thinking])
 
-  const setCard = (ti: number, ci: number, patch: Partial<Card>) => setTurns(v => v.map((x, i) => i !== ti ? x : { ...x, cards: (x.cards ?? []).map((c, k) => k !== ci ? c : { ...c, ...patch } as Card) }))
+  const setCard = (ti: number, ci: number, patch: Partial<Card>) => {
+    setTurns(v => v.map((x, i) => i !== ti ? x : { ...x, cards: (x.cards ?? []).map((c, k) => k !== ci ? c : { ...c, ...patch } as Card) }))
+    // the history remembers what was actually done
+    const logId = turnsRef.current[ti]?.logId
+    if (logId && (patch._state === 'done' || patch._state === 'error')) adminFetch('/api/admin/task', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ logId, index: ci, state: patch._state, note: patch._note ?? '' }) }).catch(() => null)
+  }
 
   async function run(ti: number, ci: number) {
     const c = turns[ti]?.cards?.[ci]; if (!c) return
@@ -125,6 +142,37 @@ export default function TaskBar() {
         if (!r.ok) return fail(r.j.error || 'Not added')
         return setCard(ti, ci, { _state: 'done', _note: r.j.message || 'Added', _link: '/admin/expenses' })
       }
+      if (c.kind === 'letter') {
+        if (!c.letter) {   // step 1: write it (Generate letter's drafter), then they read it here
+          const d = await post('/api/admin/document-generator/draft', { instructions: c.instructions, kind: c.letterKind, recipient: { name: c.recipient.name, address: c.recipient.address, role: c.recipient.role, email: c.recipient.email } })
+          if (!d.ok) return fail(d.j.error || 'The letter wasn’t written')
+          return setCard(ti, ci, { _state: undefined, _note: d.j.missing?.length ? `Fill in: ${d.j.missing.join(', ')}` : '', letter: d.j.letter, coverEmail: d.j.coverEmail } as any)
+        }
+        if (!/@/.test(c.recipient.email)) return fail('Add their email address')
+        const r = await post('/api/admin/document-generator/send', { to: [c.recipient.email], cc: [], subject: c.letter.subject, message: c.coverEmail ?? '', letter: c.letter })
+        if (!r.ok) return fail(r.j.error || 'Not sent')
+        return setCard(ti, ci, { _state: 'done', _note: `Emailed to ${c.recipient.email} — saved in Letters & Invoices`, _link: '/admin/document-generator' })
+      }
+      if (c.kind === 'note') {
+        const r = await post('/api/property-notes', { propertyId: c.propertyId, roomId: c.roomId || undefined, title: c.title.slice(0, 120), content: c.content, noteType: 'admin' })
+        if (!r.ok) return fail(r.j.error || 'Not saved')
+        return setCard(ti, ci, { _state: 'done', _note: 'Saved on the property', _link: `/admin/properties/${c.propertyId}` })
+      }
+      if (c.kind === 'todo') {
+        const r = await post('/api/admin/property-tasks', { property_id: c.propertyId, room_id: c.roomId || null, description: c.description, notes: c.notes || null, responsible: c.responsible || null, due_date: c.due_date || null })
+        if (!r.ok) return fail(r.j.error || 'Not saved')
+        return setCard(ti, ci, { _state: 'done', _note: `Added to ${c.propertyName}’s to-dos${c.due_date ? `, due ${new Date(c.due_date + 'T12:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}` : ''}`, _link: `/admin/properties/${c.propertyId}` })
+      }
+      if (c.kind === 'certs') {
+        const r = await post('/api/admin/send-certs', { property_id: c.propertyId, cert_types: c.cert_types, recipient_type: c.certsTo, custom_message: c.message || undefined })
+        if (!r.ok) return fail(r.j.error || 'Not sent')
+        return setCard(ti, ci, { _state: 'done', _note: `Sent to ${r.j.sent} of ${r.j.total}${r.j.errors?.length ? ` — ${r.j.errors.length} failed` : ''}` })
+      }
+      if (c.kind === 'viewing') {
+        const r = await post('/api/viewings/book', { room_id: c.roomId, property_id: c.propertyId, visitor_name: c.visitor_name, visitor_phone: c.visitor_phone || null, viewing_date: c.viewing_date, viewing_slot: c.viewing_slot, notes: c.notes || null, sms_occupant: c.sms_occupant })
+        if (!r.ok) return fail(r.j.error || 'Not booked')
+        return setCard(ti, ci, { _state: 'done', _note: `Booked${r.j.smsSent ? ' — the tenant in the room was texted' : r.j.smsError && c.sms_occupant ? ` — the tenant wasn’t texted (${r.j.smsError})` : ''}`, _link: '/admin/agency-diary' })
+      }
       if (c.kind === 'publish') {
         const n = await post('/api/admin/publish', { template: 'announcement', kind: 'announcement' })
         if (!n.ok || !n.j.id) return fail(n.j.error || 'Couldn’t start it')
@@ -153,6 +201,22 @@ export default function TaskBar() {
           {idle && (
             <div className="space-y-3">
               <p className="text-sm text-neutral-600">Say what you want done, the way you’d tell a colleague. CROS finds the people and property and sets it up for you to check — <b className="font-semibold text-neutral-800">nothing goes until you press send</b>.</p>
+              {past && past.length > 0 && (
+                <div className="rounded-2xl bg-white p-3 ring-1 ring-neutral-200">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-neutral-400">Recently</p>
+                  <ul className="mt-1.5 divide-y divide-neutral-100">
+                    {past.slice(0, 8).map(p => {
+                      const did = Object.values(p.results ?? {}).filter(r => r.state === 'done').map(r => r.note).filter(Boolean)
+                      return (
+                        <li key={p.id} className="flex items-baseline gap-2 py-1.5 text-[13px]">
+                          <button type="button" onClick={() => { setText(p.text); input.current?.focus() }} title="Ask this again" className="min-w-0 flex-1 truncate text-left text-neutral-800 hover:underline">{p.text}</button>
+                          <span className="shrink-0 truncate text-[11.5px] text-neutral-500 max-w-[45%]">{did.length ? `✓ ${did.join(' · ')}` : p.actions?.length ? 'not done' : 'answered'} · {p.created_by.split('@')[0]} · {new Date(p.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</span>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                </div>
+              )}
               <div className="grid gap-2 sm:grid-cols-2">
                 {IDEAS.map(([group, items]) => (
                   <div key={group} className="rounded-2xl bg-white p-3 ring-1 ring-neutral-200">
@@ -196,7 +260,7 @@ function CardView({ c, set, run, onLink }: { c: Card; set: (p: Partial<Card>) =>
   const f = (k: string, v: unknown) => set({ [k]: v } as any)
   const verb = c.kind === 'message' ? `Send${c.email && c.sms ? ' email and text' : c.sms ? ' text' : ' email'}${c.recipients.length > 1 ? ` to ${c.recipients.length}` : ''}`
     : c.kind === 'house_message' ? `Send to ${c.roomName ? c.roomName : 'everyone'}` : c.kind === 'wifi' ? 'Save WiFi details' : c.kind === 'quotes' ? `Ask ${c.contractors.length + (c.others?.length ?? 0)} for quotes`
-    : c.kind === 'market_report' ? 'Email the report' : c.kind === 'expense' ? (c._dup ? 'Add it anyway' : `Add £${c.amount.toFixed(2)}`) : c.kind === 'publish' ? 'Draft it' : 'Open'
+    : c.kind === 'market_report' ? 'Email the report' : c.kind === 'expense' ? (c._dup ? 'Add it anyway' : `Add £${c.amount.toFixed(2)}`) : c.kind === 'publish' ? 'Draft it' : c.kind === 'letter' ? (c.letter ? 'Email the letter' : 'Write the letter') : c.kind === 'note' ? 'Save note' : c.kind === 'todo' ? 'Add to-do' : c.kind === 'certs' ? `Send ${c.cert_types.length} certificate${c.cert_types.length === 1 ? '' : 's'}` : c.kind === 'viewing' ? 'Book it' : 'Open'
   const gaps = JSON.stringify(c).match(/\[[^\]"]{2,60}\]/g)
   return (
     <div className={`rounded-2xl bg-white p-3 ring-1 ${done ? 'ring-emerald-300' : 'ring-neutral-200'}`}>
@@ -250,6 +314,44 @@ function CardView({ c, set, run, onLink }: { c: Card; set: (p: Partial<Card>) =>
           <p className="text-xs text-neutral-600">Tone <select disabled={lock} value={c.tone} onChange={e => f('tone', e.target.value)} className="rounded border border-neutral-300 bg-white px-1 py-0.5"><option value="friendly">friendly</option><option value="professional">professional</option><option value="celebratory">celebratory</option><option value="important">important</option></select> · <label className="inline-flex items-center gap-1"><input type="checkbox" disabled={lock} checked={c.withMarket} onChange={e => f('withMarket', e.target.checked)} /> use market figures</label> · you choose who gets it in Publish</p>
         </>)}
         {c.kind === 'open' && <p className="text-xs text-neutral-600">{c.href}</p>}
+        {c.kind === 'letter' && (<>
+          <div className="grid gap-2 sm:grid-cols-2"><label className={lab}>To<input disabled={lock} value={c.recipient.name} onChange={e => f('recipient', { ...c.recipient, name: e.target.value })} className={field} /></label><label className={lab}>Email<input disabled={lock} value={c.recipient.email} onChange={e => f('recipient', { ...c.recipient, email: e.target.value })} className={field} /></label></div>
+          <label className={lab}>Postal address (printed on the letter)<input disabled={lock} value={c.recipient.address} onChange={e => f('recipient', { ...c.recipient, address: e.target.value })} className={field} /></label>
+          {!c.letter ? <label className={lab}>What the letter should say<textarea disabled={lock} rows={3} value={c.instructions} onChange={e => f('instructions', e.target.value)} className={field} /></label> : (<>
+            <label className={lab}>Re:<input disabled={lock} value={c.letter.subject} onChange={e => f('letter', { ...c.letter, subject: e.target.value })} className={field} /></label>
+            <label className={lab}>{c.letter.salutation},<textarea disabled={lock} rows={9} value={c.letter.body} onChange={e => f('letter', { ...c.letter, body: e.target.value })} className={field} /></label>
+            <p className="text-xs text-neutral-500">{c.letter.closing}, then your name and signature — on the letterhead.</p>
+            <label className={lab}>Covering email<textarea disabled={lock} rows={3} value={c.coverEmail ?? ''} onChange={e => f('coverEmail', e.target.value)} className={field} /></label>
+            {!done && <button type="button" onClick={async () => { const r = await adminFetch('/api/admin/document-generator/pdf', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ letter: c.letter, inline: true }) }); if (r.ok) window.open(URL.createObjectURL(await r.blob()), '_blank') }} className="text-xs font-semibold underline">Preview the PDF</button>}
+          </>)}
+        </>)}
+        {c.kind === 'note' && (<>
+          <p className="text-xs text-neutral-600">On {c.propertyName} — for the office, not tenants</p>
+          <textarea disabled={lock} rows={3} value={c.content} onChange={e => f('content', e.target.value)} className={field} aria-label="Note" />
+        </>)}
+        {c.kind === 'todo' && (
+          <div className="grid gap-2 sm:grid-cols-2">
+            <label className={`${lab} sm:col-span-2`}>To-do at {c.propertyName}<input disabled={lock} value={c.description} onChange={e => f('description', e.target.value)} className={field} /></label>
+            <label className={lab}>Due<input disabled={lock} type="date" value={c.due_date ?? ''} onChange={e => f('due_date', e.target.value || null)} className={field} /></label>
+            <label className={lab}>Who<input disabled={lock} value={c.responsible ?? ''} onChange={e => f('responsible', e.target.value)} placeholder="e.g. Harry" className={field} /></label>
+            <label className={`${lab} sm:col-span-2`}>Notes<input disabled={lock} value={c.notes ?? ''} onChange={e => f('notes', e.target.value)} className={field} /></label>
+          </div>
+        )}
+        {c.kind === 'certs' && (<>
+          <p className="text-xs text-neutral-600">{c.propertyName} → <select disabled={lock} value={c.certsTo} onChange={e => f('certsTo', e.target.value)} className="rounded border border-neutral-300 bg-white px-1 py-0.5"><option value="tenants">the tenants</option><option value="landlord">the landlord</option><option value="both">landlord and tenants</option></select></p>
+          <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs">{([['gas_safe', 'Gas safety'], ['eicr', 'EICR'], ['pat', 'PAT'], ['fire_detection', 'Fire alarm'], ['emergency_lighting', 'Emergency lighting'], ['fire_risk', 'Fire risk assessment']] as const).map(([k, l]) => <label key={k} className="flex items-center gap-1"><input type="checkbox" disabled={lock} checked={c.cert_types.includes(k)} onChange={e => f('cert_types', e.target.checked ? [...c.cert_types, k] : c.cert_types.filter(x => x !== k))} /> {l}</label>)}</div>
+          <label className={lab}>A line to add (optional)<input disabled={lock} value={c.message ?? ''} onChange={e => f('message', e.target.value)} className={field} /></label>
+        </>)}
+        {c.kind === 'viewing' && (
+          <div className="grid gap-2 sm:grid-cols-2">
+            <p className="text-xs text-neutral-600 sm:col-span-2">{c.roomName}, {c.propertyName}</p>
+            <label className={lab}>Who’s viewing<input disabled={lock} value={c.visitor_name} onChange={e => f('visitor_name', e.target.value)} className={field} /></label>
+            <label className={lab}>Their mobile<input disabled={lock} value={c.visitor_phone ?? ''} onChange={e => f('visitor_phone', e.target.value)} className={field} /></label>
+            <label className={lab}>Day<input disabled={lock} type="date" value={c.viewing_date} onChange={e => f('viewing_date', e.target.value)} className={field} /></label>
+            <label className={lab}>Time<input disabled={lock} type="time" step={900} value={c.viewing_slot} onChange={e => f('viewing_slot', e.target.value)} className={field} /></label>
+            <label className="flex items-center gap-1.5 text-xs text-neutral-700 sm:col-span-2"><input type="checkbox" disabled={lock} checked={c.sms_occupant} onChange={e => f('sms_occupant', e.target.checked)} /> Text whoever lives in the room that a viewing is coming</label>
+          </div>
+        )}
       </div>
 
       {gaps && !done && <p className="mt-2 text-xs font-semibold text-amber-800">Fill in {[...new Set(gaps)].join(', ')} first.</p>}

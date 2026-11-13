@@ -22,6 +22,11 @@ export type Action =
   | { kind: 'expense'; title: string; propertyId: string; propertyName: string; description: string; amount: number; expense_date: string; supplier?: string | null; invoice_number?: string | null }
   | { kind: 'publish'; title: string; brief: string; tone: 'friendly' | 'professional' | 'celebratory' | 'important'; withMarket: boolean }
   | { kind: 'open'; title: string; href: string }
+  | { kind: 'letter'; title: string; recipient: { name: string; address: string; email: string; role?: string }; instructions: string; letterKind: 'letter' | 'notice' | 'fees' | 'other'; letter?: any; coverEmail?: string }
+  | { kind: 'note'; title: string; propertyId: string; propertyName: string; roomId?: string | null; content: string }
+  | { kind: 'todo'; title: string; propertyId: string; propertyName: string; roomId?: string | null; description: string; due_date: string | null; responsible?: string | null; notes?: string | null }
+  | { kind: 'certs'; title: string; propertyId: string; propertyName: string; cert_types: string[]; certsTo: 'landlord' | 'tenants' | 'both'; message?: string }
+  | { kind: 'viewing'; title: string; propertyId: string; propertyName: string; roomId: string; roomName: string; visitor_name: string; visitor_phone?: string | null; viewing_date: string; viewing_slot: string; notes?: string | null; sms_occupant: boolean }
 export interface Plan { message: string; choices: string[]; actions: Action[] }
 
 // ── read-only lookups ────────────────────────────────────────────────────────────────────────────────────────────
@@ -42,13 +47,13 @@ const clean = (q: unknown) => String(q ?? '').replace(/[,()%*\\]/g, ' ').trim().
 
 async function findPeople(s: SupabaseClient, q: string, role?: string) {
   const like = `%${clean(q)}%`
-  let req = s.from('people').select('id, salutation, first_name, last_name, full_name, company, email, phone, role')
+  let req = s.from('people').select('id, salutation, first_name, last_name, full_name, company, email, phone, role, home_address')
     .or([`first_name.ilike.${like}`, `last_name.ilike.${like}`, `full_name.ilike.${like}`, `email.ilike.${like}`, `company.ilike.${like}`].join(',')).limit(10)
   if (role) req = req.eq('role', role)
   const { data } = await req
   const people = (data ?? []) as any[]
   const ten = await currentTenancies(s, people.filter(p => p.role === 'tenant').map(p => p.id))
-  return people.map(p => ({ id: p.id, name: name(p), role: p.role, company: p.company ?? undefined, email: p.email, phone: p.phone, tenancy: ten.get(p.id) }))
+  return people.map(p => ({ id: p.id, name: name(p), role: p.role, company: p.company ?? undefined, email: p.email, phone: p.phone, address: p.home_address ?? undefined, tenancy: ten.get(p.id) }))
 }
 
 async function findProperty(s: SupabaseClient, q: string) {
@@ -102,6 +107,14 @@ async function moneyHistory(s: SupabaseClient, search: string, property?: string
   }
 }
 
+const CERTS: [string, string, string][] = [['gas_safe', 'Gas safety (CP12)', 'gas_safe_cert_expiry'], ['eicr', 'EICR (electrical)', 'electrical_cert_expiry'], ['pat', 'PAT testing', 'pat_test_expiry'], ['fire_detection', 'Fire detection & alarm', 'fire_detection_expiry'], ['emergency_lighting', 'Emergency lighting', 'emergency_lighting_expiry'], ['fire_risk', 'Fire risk assessment', 'fire_risk_assessment_expiry']]
+async function compliance(s: SupabaseClient, q: string) {
+  const like = `%${clean(q)}%`
+  const { data } = await s.from('properties').select(`id, name, address, ${CERTS.map(c => c[2]).join(', ')}`).or(`name.ilike.${like},address.ilike.${like},postcode.ilike.${like}`).limit(4)
+  const t = today()
+  return ((data ?? []) as any[]).map(p => ({ id: p.id, name: p.name || p.address, certificates: CERTS.map(([key, label, col]) => ({ key, label, expires: p[col] ?? null, status: !p[col] ? 'not recorded' : p[col] < t ? 'EXPIRED' : 'in date' })) }))
+}
+
 async function findArea(s: SupabaseClient, q: string) {
   const { data } = await s.from('ons_rents').select('area_code, area_name, region').ilike('area_name', `%${clean(q)}%`).limit(6)
   return (data ?? []) as any[]
@@ -111,7 +124,7 @@ async function findArea(s: SupabaseClient, q: string) {
 const S = { type: 'string' } as const, B = { type: 'boolean' } as const
 const person = { type: 'object', properties: { name: S, email: S, phone: S, personId: S } }
 const ACTION_PROPS = {
-  kind: { type: 'string', enum: ['message', 'house_message', 'wifi', 'quotes', 'market_report', 'expense', 'publish', 'open'] },
+  kind: { type: 'string', enum: ['message', 'house_message', 'wifi', 'quotes', 'market_report', 'expense', 'publish', 'open', 'letter', 'note', 'todo', 'certs', 'viewing'] },
   title: { type: 'string', description: 'What the card does, e.g. "Email Sarah Khan about the cleaner"' },
   recipients: { type: 'array', items: person }, subject: S, message: S, email: B, sms: B, statementTenancyId: S,
   propertyId: S, propertyName: S, roomId: S, roomName: S, channels: { type: 'string', enum: ['push_email', 'email_only', 'push_email_sms', 'sms_only'] },
@@ -121,6 +134,10 @@ const ACTION_PROPS = {
   description: S, amount: { type: 'number' }, expense_date: S, invoice_number: S,
   brief: S, tone: { type: 'string', enum: ['friendly', 'professional', 'celebratory', 'important'] }, withMarket: B,
   href: S,
+  recipient: { type: 'object', properties: { name: S, address: S, email: S, role: S } }, instructions: S, letterKind: { type: 'string', enum: ['letter', 'notice', 'fees', 'other'] },
+  content: S, due_date: S, responsible: S, notes: S,
+  cert_types: { type: 'array', items: { type: 'string', enum: ['gas_safe', 'eicr', 'pat', 'fire_detection', 'emergency_lighting', 'fire_risk'] } }, certsTo: { type: 'string', enum: ['landlord', 'tenants', 'both'] },
+  visitor_name: S, visitor_phone: S, viewing_date: S, viewing_slot: S, sms_occupant: B,
 }
 
 const TOOLS: Anthropic.Tool[] = [
@@ -128,6 +145,7 @@ const TOOLS: Anthropic.Tool[] = [
   { name: 'find_property', description: 'Look up a property by name, street, or postcode. Returns its id, landlord, rooms with who lives in each now, whole-property tenants, and its internet account if any.', input_schema: { type: 'object', properties: { query: { type: 'string', description: 'e.g. "Crownfield" or "44 Claverton"' } }, required: ['query'] } },
   { name: 'list_contractors', description: 'Every contractor on CROS (id, name, company).', input_schema: { type: 'object', properties: {} } },
   { name: 'money_history', description: 'Search money on landlord statements and logged expenses by words in the description (e.g. "tv licence", "management fee", "plumber"), optionally for one property. Newest first, with dates and amounts.', input_schema: { type: 'object', properties: { search: { type: 'string' }, property: { type: 'string' } }, required: ['search'] } },
+  { name: 'compliance', description: 'A property\'s safety certificates (gas, EICR, PAT, fire detection, emergency lighting, fire risk assessment) with expiry dates.', input_schema: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] } },
   { name: 'find_area', description: 'Find the official area code for a London borough or other area (for market reports).', input_schema: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] } },
   {
     name: 'respond', description: 'Your final reply. Always end with this — once.',
@@ -150,6 +168,11 @@ const ACTIONS = `ACTIONS you can propose (fields exactly as named):
 - market_report — the local market report (official ONS rents by bedrooms + Land Registry prices, up to 3 areas) with written commentary, emailed with a PDF: codes [area codes from find_area], areaNames, focus (what it should concentrate on and any point to make — e.g. "1-bed rents, for a new landlord wanting a valuation; say a nicely furnished property would likely let above the average"), to {name, email} (or null to just preview), landlordId if they're a landlord on CROS.
 - expense — add a landlord expense to a property: propertyId, propertyName, description, amount (£), expense_date (YYYY-MM-DD), supplier?, invoice_number?.
 - publish — draft an announcement or newsletter in Publish (email/text/app/website/social) for the office to finish: brief (the notes), tone friendly | professional | celebratory | important, withMarket true/false.
+- letter — a formal letter on the letterhead, emailed as a PDF with a covering email (Generate letter): recipient {name, address (their postal address, lines separated by ", " — a tenant's is their room and the property address; a landlord's or anyone else's is the address find_people returns for them, NEVER the property's — if none, write "[postal address]" so the office fills it in), email, role}, instructions (everything the letter must say, in plain notes), letterKind letter | notice | fees | other. The letter itself is written on the card when they press "Write the letter".
+- note — a note on a property (or one room) for the office: propertyId, propertyName, roomId?, content.
+- todo — a to-do on a property, with a due date (the office's reminders): propertyId, propertyName, roomId?, description, due_date (YYYY-MM-DD or null), responsible? (who), notes?.
+- certs — email a property's safety certificates: propertyId, propertyName, cert_types [gas_safe, eicr, pat, fire_detection, emergency_lighting, fire_risk — check with compliance which are recorded], certsTo landlord | tenants | both, message? (a line to add).
+- viewing — book a viewing of a room: propertyId, propertyName, roomId, roomName, visitor_name, visitor_phone?, viewing_date (YYYY-MM-DD), viewing_slot (HH:MM, 24-hour, on the quarter hour), notes?, sms_occupant (text whoever lives in the room to say a viewing is coming — true unless they say not to).
 - open — take them to a CROS screen or record: href (a screen below, /admin/properties/<id>, /admin/lettings/<tenancyId>).`
 
 function system(by: string) {
@@ -163,6 +186,10 @@ How to work:
 - Fill every field you can and write the message text fully, ready to send, in British English — warm, plain, short. Say "property" or "room", never "home". No fixed or minimum terms (Renters' Rights rules). Leave a [placeholder in square brackets] only for a fact you genuinely don't have.
 - A request can need several actions (e.g. save the WiFi AND tell the tenants) — propose them in order. A question ("when does Sarah's tenancy end?", "who lives at Crownfield?") — answer it in "message" from what the tools return; add an "open" action to the record when useful.
 - Nothing is sent by you: every action is a card they check and confirm. So don't ask "shall I?" — propose it, with every field for that kind filled in. Never say "done" or "sent" — say what you've set up for them to check.
+- Rent reminders and arrears chasers aren't sent from CROS at the moment: it is on statements only (rent is collected in another system), so CROS doesn't hold what anyone owes. Say so, and offer to open the rent screens instead — never write an amount owed.
+- "Write to", "letter", "notice", "formally", or anything they'd want on file (fees, rent changes, notices, complaints, references) → a letter, not a message. Everyday news and arrangements → a message.
+- When you offer options ("open the screens, or draft a message?"), put each as a short tap-able choice.
+- Dates: "Friday", "tomorrow", "next week" → work out the real date from today.
 - Don't guess anyone's pronouns from their name — use their name or they/them.
 - Never reveal key safe codes or alarm codes. If asked for something outside the actions, say what you can do instead and offer to open the right screen.
 
@@ -192,6 +219,7 @@ export async function planTask(s: SupabaseClient, text: string, by: string, hist
           : u.name === 'list_contractors' ? await contractors(s)
           : u.name === 'find_area' ? await findArea(s, i.query)
           : u.name === 'money_history' ? await moneyHistory(s, i.search, i.property)
+          : u.name === 'compliance' ? await compliance(s, i.query)
           : { error: 'unknown tool' }
       } catch (e) { out = { error: e instanceof Error ? e.message : 'lookup failed' } }
       return { type: 'tool_result' as const, tool_use_id: u.id, content: JSON.stringify(out).slice(0, 12000) }
@@ -231,6 +259,18 @@ async function finish(s: SupabaseClient, r: any): Promise<Plan> {
       actions.push({ kind: 'expense', title, propertyId: str(a.propertyId, 60), propertyName: str(a.propertyName, 120), description: str(a.description, 300), amount: Math.round(Number(a.amount) * 100) / 100, expense_date: /^\d{4}-\d{2}-\d{2}$/.test(a.expense_date) ? a.expense_date : today(), supplier: str(a.supplier, 120) || null, invoice_number: str(a.invoice_number, 60) || null })
     } else if (a.kind === 'publish' && str(a.brief)) {
       actions.push({ kind: 'publish', title, brief: str(a.brief, 3000), tone: ['friendly', 'professional', 'celebratory', 'important'].includes(a.tone) ? a.tone : 'friendly', withMarket: !!a.withMarket })
+    } else if (a.kind === 'letter' && str(a.instructions)) {
+      const r = a.recipient ?? {}
+      actions.push({ kind: 'letter', title, recipient: { name: str(r.name, 160), address: str(r.address, 400), email: str(r.email, 160), role: str(r.role, 40) || undefined }, instructions: str(a.instructions, 6000), letterKind: ['letter', 'notice', 'fees', 'other'].includes(a.letterKind) ? a.letterKind : 'letter' })
+    } else if (a.kind === 'note' && a.propertyId && str(a.content)) {
+      actions.push({ kind: 'note', title, propertyId: str(a.propertyId, 60), propertyName: str(a.propertyName, 120), roomId: str(a.roomId, 60) || null, content: str(a.content, 3000) })
+    } else if (a.kind === 'todo' && a.propertyId && str(a.description)) {
+      actions.push({ kind: 'todo', title, propertyId: str(a.propertyId, 60), propertyName: str(a.propertyName, 120), roomId: str(a.roomId, 60) || null, description: str(a.description, 300), due_date: /^\d{4}-\d{2}-\d{2}$/.test(a.due_date) ? a.due_date : null, responsible: str(a.responsible, 80) || null, notes: str(a.notes, 1000) || null })
+    } else if (a.kind === 'certs' && a.propertyId) {
+      const types = (Array.isArray(a.cert_types) ? a.cert_types : []).filter((t: string) => CERTS.some(c => c[0] === t))
+      if (types.length) actions.push({ kind: 'certs', title, propertyId: str(a.propertyId, 60), propertyName: str(a.propertyName, 120), cert_types: types, certsTo: ['landlord', 'tenants', 'both'].includes(a.certsTo) ? a.certsTo : 'tenants', message: str(a.message, 1000) })
+    } else if (a.kind === 'viewing' && a.propertyId && a.roomId && str(a.visitor_name)) {
+      actions.push({ kind: 'viewing', title, propertyId: str(a.propertyId, 60), propertyName: str(a.propertyName, 120), roomId: str(a.roomId, 60), roomName: str(a.roomName, 60), visitor_name: str(a.visitor_name, 120), visitor_phone: str(a.visitor_phone, 40) || null, viewing_date: /^\d{4}-\d{2}-\d{2}$/.test(a.viewing_date) ? a.viewing_date : today(), viewing_slot: /^\d{2}:\d{2}$/.test(a.viewing_slot) ? a.viewing_slot : '12:00', notes: str(a.notes, 500) || null, sms_occupant: a.sms_occupant !== false })
     } else if (a.kind === 'open' && /^\/admin(\/|$)/.test(str(a.href))) {
       actions.push({ kind: 'open', title, href: str(a.href, 300) })
     }
