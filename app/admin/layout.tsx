@@ -11,6 +11,7 @@ import { ZONES, type Zone } from '@/lib/adminNav'
 import { areasFor, canOpenPage, homeFor, isAdministrator, type AreaKey } from '@/lib/access/areas'
 import MobileTabBar from './components/MobileTabBar'
 import AdminFinder from './components/AdminFinder'
+import TaskBar, { TaskBarButton } from '@/components/admin/TaskBar'
 import TopBar from '@/app/components/TopBar'
 import Footer from '@/app/components/Footer'
 import BackButton from '@/app/components/BackButton'
@@ -177,11 +178,12 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         {/* ── Top bar — the one top bar every user has (app/components/TopBar) ── */}
         <TopBar homeHref="/admin"
           left={!isPhoneTabRoot(pathname) && <BackButton optional={!backFallback} href={backFallback?.href} label={backFallback?.label} />}
-          right={allowed('/admin/notify') && (
+          right={<span className="flex items-center gap-2">{access && isAdministrator(access.role) && <TaskBarButton />}{allowed('/admin/notify') && (
             <Link href="/admin/notify" className="flex items-center gap-1 rounded-md bg-amber-600 px-2 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-amber-500">
               <span><LineIcon glyph="⚡" /></span><span className="hidden sm:inline">Quick Notify</span>
             </Link>
-          )} />
+          )}</span>} />
+        {access && isAdministrator(access.role) && <TaskBar />}
 
         {/* Main content — the footer closes every page on desktop */}
         {/* the page fills the screen and the footer sits at the bottom of it — a short or still-loading page no longer

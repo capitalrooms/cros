@@ -10,6 +10,10 @@ import { sendSms } from '@/lib/sms'
 import { messageHtml } from '@/lib/email/messageHtml'
 import { getSmsSignOff } from '@/lib/auth'
 import { hiName, personFromText } from '@/lib/people'
+import { requireAdmin } from '@/lib/adminAuth'
+import { createServiceClient } from '@/lib/supabase'
+import { tenantAccount } from '@/lib/finance/tenantAccount'
+import { renderTenantAccountPdf } from '@/lib/finance/tenantAccountPdf'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -32,6 +36,15 @@ export async function POST(req: NextRequest) {
   if (message.length > 1200) return NextResponse.json({ error: 'Keep the message under 1,200 characters' }, { status: 400 })
   if (!wantSms && !wantEmail) return NextResponse.json({ error: 'Choose text or email' }, { status: 400 })
 
+  // the tenant's statement of account (their rent payment history) as a PDF — finance, so administrators only (13 Nov 2026,
+  // the task bar: "send the tenant of x their full rent payment history")
+  let attachments: { filename: string; content: string }[] | undefined
+  if (b.statementTenancyId && wantEmail) {
+    if (!(await requireAdmin(req))) return NextResponse.json({ error: 'Only administrators can send a statement of account.' }, { status: 403 })
+    const acc = await tenantAccount(createServiceClient(), String(b.statementTenancyId))
+    if (!acc) return NextResponse.json({ error: 'That tenancy wasn’t found, so there’s no statement to attach.' }, { status: 404 })
+    attachments = [{ filename: `Statement of account - ${acc.tenant}.pdf`.replace(/[^\w ,.-]/g, ''), content: Buffer.from(await renderTenantAccountPdf(acc)).toString('base64') }]
+  }
   const signOff = await getSmsSignOff(caller.email)
   const results: { who: string; text?: 'sent' | string; email?: 'sent' | string }[] = []
   for (const r of list) {
@@ -44,7 +57,7 @@ export async function POST(req: NextRequest) {
     if (wantEmail && r.email) {
       if (!isEmail(r.email)) row.email = 'not a valid address'
       else {
-        const e = await sendEmail(r.email, subject || 'A message from Capital Rooms', messageHtml(`Hi ${hi},\n\n${message}`), { kind: 'quick-message', req })
+        const e = await sendEmail(r.email, subject || 'A message from Capital Rooms', messageHtml(`Hi ${hi},\n\n${message}`), { kind: 'quick-message', req, ...(attachments ? { attachments } : {}) })
         row.email = e.ok ? 'sent' : (e.error || 'failed')
       }
     }

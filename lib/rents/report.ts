@@ -6,6 +6,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import Anthropic from '@anthropic-ai/sdk'
 import { AI_MODEL_SMART } from '@/lib/ai-classify'
 import { areaPack, packText, SOURCES, type AreaPack } from '@/lib/rents/areaPack'
+import { rentHistory } from '@/lib/rents/ons'
 import { PDF } from '@/lib/pdf/palette'
 import { loadPDFLetterheadAssets, fetchPDFBizSettings, drawPDFLogo, drawPDFFooter, PAGE_W, PAGE_H, MARGIN, COL_W, LOGO_H, FOOTER_BAND_H } from '@/lib/pdfLetterhead'
 
@@ -30,14 +31,22 @@ export async function reportPacks(s: SupabaseClient, codes: string[]) {
 }
 
 /** A short commentary written from the figures (and, for reasons, recent news — marked as such). */
-export async function reportCommentary(packs: AreaPack[], forName: string | null): Promise<string> {
+/** focus (13 Nov 2026, the task bar): what this report is for — e.g. "2-bed flats over the last 6 months" or "a new landlord
+ *  wanting a valuation; say a nicely furnished property could beat the average". With a focus, the monthly rents
+ *  history for each area is added so a "last N months" answer uses real figures. */
+export async function reportCommentary(packs: AreaPack[], forName: string | null, focus?: string | null, s?: SupabaseClient): Promise<string> {
   if (!process.env.ANTHROPIC_API_KEY || !packs.length) return ''
+  let history = ''
+  if (focus?.trim() && s) {
+    const rows = await Promise.all(packs.map(async p => { const h = await rentHistory(s, p.code, 13).catch(() => []); return h.length ? `${p.name} monthly average rents (ONS): ${h.map(r => `${r.period.slice(0, 7)} all £${r.all ?? '–'}, 1-bed £${r.one ?? '–'}, 2-bed £${r.two ?? '–'}, 3-bed £${r.three ?? '–'}`).join('; ')}` : '' }))
+    history = rows.filter(Boolean).join('\n')
+  }
   const client = new Anthropic()
   const prompt = `Write the commentary for Capital Rooms' local market report${forName ? ` for our landlord ${forName}` : ''}, comparing: ${packs.map(p => p.name).join(', ')}.
 
 THE FIGURES (official — use exactly, never invent):
-${packs.map(packText).join('\n\n')}
-
+${packs.map(packText).join('\n\n')}${history ? `\n\nMONTHLY HISTORY (official — use exactly):\n${history}` : ''}
+${focus?.trim() ? `\nWHAT THIS REPORT IS FOR (lead with it and keep to it): ${focus.trim().slice(0, 400)}\nAny claim about what we could achieve is our view, worded as "we'd expect" or "likely", never as a fact or a valuation.\n` : ''}
 Write 150–220 words in British English, warm and professional, to a landlord:
 - One short paragraph per theme: rents (where they're rising fastest, by bedrooms), house prices (direction, by type of property), yields, and what it means for letting in these areas.
 - You may search recent UK news for a likely reason behind a big move; if you use one, say "possibly" and keep it to a clause.
