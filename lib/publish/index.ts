@@ -13,6 +13,8 @@ import { sendSms, toE164 } from '@/lib/sms'
 import { tryPush, insertNotifications } from '@/lib/serverNotify'
 import { dearLine, dearFromText, landlordName } from '@/lib/people'
 import { demoPropertyIds } from '@/lib/demoProperties'
+import { blocksHtml, blocksMarkdown, TEMPLATES, type Block } from '@/lib/publish/blocks'
+import { themeByKey } from '@/lib/email/themes'
 
 export const SITE_URL = 'https://capitalrooms.co.uk'
 export const LONDON = 'E12000007'
@@ -38,7 +40,7 @@ export interface Pub {
   status: string; scheduled_for: string | null; website_slug: string | null; website_published_at: string | null; cache: Record<string, string>
   image?: string | null
   preheader?: string | null
-  blocks?: any[]
+  blocks?: Block[]
   template?: string | null
   ab?: { subjectB?: string; testShare?: number; decideAfterHours?: number; winner?: 'A' | 'B'; decidedAt?: string }
 }
@@ -51,6 +53,8 @@ export const unsubLink = (addr: string) => `${SITE_URL}/unsubscribe?a=${encodeUR
 
 const esc = (t: unknown) => String(t ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!))
 const paras = (t: string | null) => String(t ?? '').split(/\n\s*\n/).map(p => p.trim()).filter(Boolean)
+/** the email look chosen for this piece (lib/email/themes) — the Christmas one for a seasonal greeting, and so on */
+export const lookFor = (p: Pub) => (p.channels as any)?.look ? themeByKey((p.channels as any).look) : undefined
 export const webLink = (p: Pub) => p.website_published_at && p.website_slug ? `${SITE_URL}/blogs/${p.website_slug}` : null
 
 // ── audiences ────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -108,7 +112,7 @@ export async function emailFor(s: SupabaseClient, p: Pub, x: Person, cache: Reco
     }
     const packs = await reportPacks(s, codes)
     // the report opens with the greeting and its own first line (the piece's opening line is for the website and app)
-    const html = preheader(p) + header(p) + reportHtml(packs, words, x.dear) + (webLink(p) ? `<p><a href="${webLink(p)}">Read it on our website</a></p>` : '') + footer(x.email, why(x))
+    const html = preheader(p) + header(p) + reportHtml(packs, words, x.dear) + await blocksHtml(s, p.blocks) + (webLink(p) ? `<p><a href="${webLink(p)}">Read it on our website</a></p>` : '') + footer(x.email, why(x))
     // a landlord's own areas → the subject names them ("Newham market update — September 2026")
     const own = codes.join() !== (p.areas.length ? p.areas : [LONDON]).join()
     const month = p.period ? new Date(`${p.period}-15T12:00:00Z`).toLocaleDateString('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' }) : ''
@@ -116,7 +120,7 @@ export async function emailFor(s: SupabaseClient, p: Pub, x: Person, cache: Reco
     const pdf = p.channels?.pdf ? { filename: `Market update - ${packs.map(k => k.name).join(', ')}.pdf`.replace(/[^\w ,.-]/g, ''), content: (await reportPdf(packs, words, x.landlord ? x.name : null)).toString('base64') } : undefined
     return { subject, html, pdf }
   }
-  const html = `${preheader(p)}${header(p)}<p>${esc(x.dear)}</p>${p.intro ? `<p><strong>${esc(p.intro)}</strong></p>` : ''}${paras(p.body).map(t => `<p>${esc(t)}</p>`).join('')}${webLink(p) ? `<p><a href="${webLink(p)}">Read it on our website</a></p>` : ''}${footer(x.email, why(x))}`
+  const html = `${preheader(p)}${header(p)}<p>${esc(x.dear)}</p>${p.intro ? `<p><strong>${esc(p.intro)}</strong></p>` : ''}${paras(p.body).map(t => `<p>${esc(t)}</p>`).join('')}${await blocksHtml(s, p.blocks)}${webLink(p) ? `<p><a href="${webLink(p)}">Read it on our website</a></p>` : ''}${footer(x.email, why(x))}`
   return { subject: p.title, html }
 }
 
@@ -138,6 +142,7 @@ export async function websiteMarkdown(s: SupabaseClient, p: Pub) {
     parts.push(comparison(packs).map(([label, vs]) => `- **${label}:** ${packs.length > 1 ? vs.map((v, i) => `${packs[i].name} ${v}`).join(' · ') : vs[0]}`).join('\n'))
   }
   parts.push(...paras(p.body))
+  const extra = blocksMarkdown(p.blocks); if (extra) parts.push(extra)
   if (p.kind === 'market_update') parts.push('_Figures: ONS Price Index of Private Rents and HM Land Registry UK House Price Index (Crown copyright, Open Government Licence). A guide, not a valuation._')
   return parts.join('\n\n')
 }
@@ -162,7 +167,7 @@ export async function runSend(s: SupabaseClient, p: Pub, budgetMs = 200_000): Pr
     if (ch.email && x.email && !has.has(`email|${x.email}`)) jobs.push(async () => {
       try {
         const e = await emailFor(s, p, x, cache)
-        const r = await sendEmail(x.email!, e.subject, e.html, { kind: 'publication', ...(e.pdf ? { attachments: [e.pdf] } : {}) })
+        const r = await sendEmail(x.email!, e.subject, e.html, { kind: 'publication', theme: lookFor(p), ...(e.pdf ? { attachments: [e.pdf] } : {}) })
         await log('email', x, x.email, r.ok ? 'sent' : 'failed', r.ok ? (e.pdf ? 'with the PDF' : '') : r.error ?? 'not sent', { provider_id: r.id ?? null, variant: e.variant ?? null }); r.ok ? sent++ : failed++
       } catch (err) { await log('email', x, x.email, 'failed', err instanceof Error ? err.message : 'error'); failed++ }
     })
@@ -189,7 +194,9 @@ export async function runSend(s: SupabaseClient, p: Pub, budgetMs = 200_000): Pr
 
 /** A new piece. A market update starts with London's latest figures, a commentary written from them, and sensible
  *  channels (email with the PDF, app notification) to all landlords — each getting their own areas. */
-export async function createPublication(s: SupabaseClient, o: { kind: 'market_update' | 'announcement'; areas?: string[]; by: string; auto?: boolean }) {
+export async function createPublication(s: SupabaseClient, o: { kind: 'market_update' | 'announcement'; areas?: string[]; by: string; auto?: boolean; template?: string }) {
+  const tpl = TEMPLATES.find(t => t.key === o.template)
+  if (tpl) o = { ...o, kind: tpl.kind }
   const { data: latest } = await s.from('ons_rents').select('period').order('period', { ascending: false }).limit(1).maybeSingle() as { data: any }
   const period = latest?.period ? String(latest.period).slice(0, 7) : null
   const month = period ? new Date(`${period}-15T12:00:00Z`).toLocaleDateString('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' }) : ''
@@ -210,11 +217,22 @@ export async function createPublication(s: SupabaseClient, o: { kind: 'market_up
       channels: { email: true, pdf: true, push: true, sms: false, website: false, social: false },
       created_by: o.by,
     }
-    const { data, error } = await s.from('publications').insert(row).select('id').single()
+    const extra = tpl ? { template: tpl.key, image: tpl.picture, blocks: tpl.blocks, channels: { ...row.channels, look: tpl.look } } : { image: 'illus:chart', blocks: [{ type: 'contact' }], channels: { ...row.channels, look: 'website' } }
+    let { data, error } = await s.from('publications').insert({ ...row, ...extra }).select('id').single()
+    if (error && /template|blocks|image/.test(error.message)) ({ data, error } = await s.from('publications').insert(row).select('id').single())   // before migrations 286/287
     if (error) throw new Error(error.message)
     return (data as any).id as string
   }
-  const { data, error } = await s.from('publications').insert({ kind: 'announcement', title: 'New announcement', intro: '', body: '', audience: { lists: ['all_landlords'], people: [] }, channels: { email: true }, created_by: o.by }).select('id').single()
+  const base = { kind: 'announcement', title: tpl?.title || 'New announcement', intro: '', body: '', audience: { lists: ['all_landlords'], people: [] }, channels: { email: true, push: true, look: tpl?.look ?? 'website' }, created_by: o.by }
+  let { data, error } = await s.from('publications').insert({ ...base, ...(tpl ? { template: tpl.key, image: tpl.picture, blocks: tpl.blocks } : {}) }).select('id').single()
+  if (error && /template|blocks|image/.test(error.message)) ({ data, error } = await s.from('publications').insert(base).select('id').single())
   if (error) throw new Error(error.message)
-  return (data as any).id as string
+  const id = (data as any).id as string
+  // a template with a brief is written straight away (the seasonal greeting), so it opens ready to read
+  if (tpl?.brief) {
+    const { writePublication } = await import('@/lib/publish/write')
+    const w = await writePublication(s, { brief: tpl.brief, tone: tpl.tone, length: 'short' }).catch(() => null)
+    if (w) await s.from('publications').update({ title: w.title, intro: w.intro, preheader: w.preheader, body: w.body, sms_text: w.sms_text, push_title: w.push_title, push_body: w.push_body, social_caption: w.social_caption }).eq('id', id).then(r => r, () => null)
+  }
+  return id
 }

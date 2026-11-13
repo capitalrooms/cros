@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/adminAuth'
 import { createServiceClient } from '@/lib/supabase'
 import { createPublication } from '@/lib/publish'
+import { TEMPLATES } from '@/lib/publish/blocks'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -19,7 +20,7 @@ export async function GET(req: NextRequest) {
   const ids = (data ?? []).map((x: any) => x.id)
   const { data: sends } = ids.length ? await s.from('publication_sends').select('publication_id, status').in('publication_id', ids) : { data: [] as any[] }
   const count = (id: string, st: string) => ((sends ?? []) as any[]).filter(x => x.publication_id === id && x.status === st).length
-  return NextResponse.json({ trackingReady: !!process.env.RESEND_EVENTS_SECRET, items: (data ?? []).map((x: any) => ({ ...x, sent: count(x.id, 'sent'), failed: count(x.id, 'failed') })) })
+  return NextResponse.json({ templates: TEMPLATES.map(t => ({ key: t.key, name: t.name, note: t.note, picture: t.picture, look: t.look })), trackingReady: !!process.env.RESEND_EVENTS_SECRET, items: (data ?? []).map((x: any) => ({ ...x, sent: count(x.id, 'sent'), failed: count(x.id, 'failed') })) })
 }
 
 export async function POST(req: NextRequest) {
@@ -27,7 +28,7 @@ export async function POST(req: NextRequest) {
   if (!me) return NextResponse.json({ error: 'Please sign in again.' }, { status: 401 })
   const b = await req.json().catch(() => ({}))
   try {
-    const id = await createPublication(createServiceClient(), { kind: b.kind === 'announcement' ? 'announcement' : 'market_update', areas: Array.isArray(b.areas) ? b.areas.map(String) : [], by: me.email })
+    const id = await createPublication(createServiceClient(), { kind: b.kind === 'announcement' ? 'announcement' : 'market_update', areas: Array.isArray(b.areas) ? b.areas.map(String) : [], by: me.email, template: typeof b.template === 'string' ? b.template : undefined })
     return NextResponse.json({ ok: true, id })
   } catch (e) {
     const m = e instanceof Error ? e.message : 'Couldn’t start it'

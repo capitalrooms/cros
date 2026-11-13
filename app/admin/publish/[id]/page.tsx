@@ -11,13 +11,15 @@ import { adminFetch } from '@/lib/adminFetch'
 import PeoplePicker, { type Recipient } from '@/app/components/notify/PeoplePicker'
 import { pictureStyle, withStyle, type SizeKey, type FontKey } from '@/lib/publish/pictures'
 
-type Pub = { id: string; kind: string; title: string; period: string | null; areas: string[]; intro: string | null; body: string | null; sms_text: string | null; push_title: string | null; push_body: string | null; social_caption: string | null; audience: { lists?: string[]; people?: Recipient[]; ownAreas?: boolean }; channels: Record<string, boolean>; status: string; scheduled_for: string | null; website_published_at: string | null; approved_by: string | null; image?: string | null; preheader?: string | null }
+type Pub = { id: string; kind: string; title: string; period: string | null; areas: string[]; intro: string | null; body: string | null; sms_text: string | null; push_title: string | null; push_body: string | null; social_caption: string | null; audience: { lists?: string[]; people?: Recipient[]; ownAreas?: boolean }; channels: Record<string, boolean>; status: string; scheduled_for: string | null; website_published_at: string | null; approved_by: string | null; image?: string | null; preheader?: string | null; blocks?: any[]; template?: string | null }
 type Data = {
   pub: Pub; channels: { key: string; label: string; note: string }[]; lists: { key: string; label: string }[]; areaNames: string[]
   reach: { total: number; email: number; sms: number; push: number; optedOut: number; sample: { name: string | null; email: string | null; phone: string | null; landlord: boolean }[] }
   previews: { email: { subject: string; html: string }; sms: string; push: { title: string; body: string; link: string }; caption: string; images: { square: string; wide: string }; website: string | null }
   log: { channel: string; name: string | null; address: string | null; status: string; note: string | null; at: string; opened_at?: string | null; clicked_at?: string | null; opens?: number; clicks?: number; bounced?: string | null; variant?: string | null }[]
   report: { trackingReady: boolean; sent: number; delivered: number; bounced: number; opened: number; clicked: number; links: { url: string; clicks: number }[]; byVariant: { v: string; sent: number; opened: number; clicked: number }[] }
+  looks: { key: string; name: string }[]
+  blockTypes: { type: string; label: string; make: any }[]
   pictures: Record<'figures' | 'scenes' | 'illustrations' | 'photos', { key: string; label: string; thumb: string }[]>
 }
 const STATUS: Record<string, string> = { draft: 'Draft', approved: 'Approved — ready to send', scheduled: 'Scheduled', sending: 'Sending', sent: 'Sent' }
@@ -58,7 +60,7 @@ export default function PublishEditor({ params }: { params: Promise<{ id: string
   const locked = !!d && ['sending', 'sent'].includes(d.pub.status)
   async function save() {
     setBusy('save'); setMsg(null)
-    const r = await adminFetch(`/api/admin/publish/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: f.title, intro: f.intro, body: f.body, sms_text: f.sms_text, push_title: f.push_title, push_body: f.push_body, social_caption: f.social_caption, areas: f.areas, audience: f.audience, channels: f.channels, image: f.image ?? null, preheader: f.preheader ?? null }) })
+    const r = await adminFetch(`/api/admin/publish/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: f.title, intro: f.intro, body: f.body, sms_text: f.sms_text, push_title: f.push_title, push_body: f.push_body, social_caption: f.social_caption, areas: f.areas, audience: f.audience, channels: f.channels, image: f.image ?? null, preheader: f.preheader ?? null, blocks: f.blocks ?? [] }) })
     const j = await r.json().catch(() => ({}))
     setBusy('')
     if (!r.ok) { setMsg({ ok: false, text: j.error || 'Couldn’t save' }); return false }
@@ -148,6 +150,43 @@ export default function PublishEditor({ params }: { params: Promise<{ id: string
               <label className={label}>{p.kind === 'market_update' ? 'Commentary' : 'Message'}<textarea disabled={locked} rows={10} value={f.body ?? ''} onChange={e => set('body', e.target.value)} className={`${field} leading-relaxed`} /></label>
               {p.kind === 'market_update' && !locked && <button type="button" disabled={!!busy} onClick={async () => { const j = await act('rewrite'); if (j) { setMsg({ ok: true, text: 'Written again from the latest figures.' }); load() } }} className="text-xs font-semibold underline">{busy === 'rewrite' ? 'Writing…' : 'Write the commentary again from the figures'}</button>}
             </div>
+          </section>
+
+
+          {/* content blocks — add, edit, move and remove (13 Nov 2026) */}
+          <section className={card}>
+            <div className="flex flex-wrap items-center justify-between gap-sm">
+              <p className={label}>More in the email</p>
+              <label className="flex items-center gap-xs text-xs font-semibold text-neutral-600">Email look
+                <select disabled={locked} value={(f.channels as any)?.look ?? ''} onChange={e => set('channels', { ...(f.channels ?? {}), look: e.target.value || undefined })} className="rounded-lg border border-neutral-300 bg-white px-sm py-xs text-xs">
+                  <option value="">The usual for all emails</option>{d.looks.map(l => <option key={l.key} value={l.key}>{l.name}</option>)}
+                </select></label>
+            </div>
+            <div className="mt-sm space-y-sm">
+              {(f.blocks ?? []).map((b: any, i: number) => {
+                const upd = (patch: any) => set('blocks', (f.blocks ?? []).map((x: any, j: number) => j === i ? { ...x, ...patch } : x))
+                const move = (dir: number) => { const arr = [...(f.blocks ?? [])]; const k = i + dir; if (k < 0 || k >= arr.length) return; [arr[i], arr[k]] = [arr[k], arr[i]]; set('blocks', arr) }
+                const name = d.blockTypes.find(t => t.type === b.type)?.label ?? b.type
+                const inp = 'mt-xs block w-full rounded-lg border border-neutral-300 px-sm py-xs text-sm'
+                return (
+                  <div key={i} className="rounded-xl border border-neutral-200 p-sm">
+                    <div className="flex items-center justify-between gap-sm"><span className="text-xs font-bold uppercase tracking-wide text-neutral-500">{name}</span>
+                      {!locked && <span className="flex gap-xs text-xs"><button type="button" onClick={() => move(-1)} aria-label="Move up" className="rounded border border-neutral-300 px-xs">↑</button><button type="button" onClick={() => move(1)} aria-label="Move down" className="rounded border border-neutral-300 px-xs">↓</button><button type="button" onClick={() => set('blocks', (f.blocks ?? []).filter((_: any, j: number) => j !== i))} className="rounded border border-neutral-300 px-xs text-red-700">Remove</button></span>}</div>
+                    {b.type === 'heading' && <input disabled={locked} value={b.text} onChange={e => upd({ text: e.target.value })} className={inp} />}
+                    {b.type === 'text' && <textarea disabled={locked} rows={3} value={b.text} onChange={e => upd({ text: e.target.value })} placeholder="Write here" className={inp} />}
+                    {b.type === 'button' && <div className="grid gap-xs sm:grid-cols-[1fr_1.4fr_auto]"><input disabled={locked} value={b.label} onChange={e => upd({ label: e.target.value })} placeholder="Button words" className={inp} /><input disabled={locked} value={b.url} onChange={e => upd({ url: e.target.value })} placeholder="Link — a web address, tel:… or mailto:…" className={inp} /><select disabled={locked} value={b.style ?? 'solid'} onChange={e => upd({ style: e.target.value })} className={inp}><option value="solid">Solid</option><option value="outline">Outline</option></select></div>}
+                    {b.type === 'picture' && <div className="mt-xs space-y-xs"><div className="flex gap-xs overflow-x-auto pb-xs">{[...(d.pictures?.illustrations ?? []), ...(d.pictures?.scenes ?? []).slice(0, 4), ...(d.pictures?.photos ?? []).slice(0, 12)].map(x => <button key={x.key} type="button" disabled={locked} onClick={() => upd({ pic: x.key })} className={`shrink-0 overflow-hidden rounded-lg ring-2 ${b.pic === x.key ? 'ring-neutral-900' : 'ring-transparent'}`}>{/* eslint-disable-next-line @next/next/no-img-element */}<img src={x.thumb} alt={x.label} className="h-16 w-16 object-cover" /></button>)}</div><input disabled={locked} value={b.caption ?? ''} onChange={e => upd({ caption: e.target.value })} placeholder="Caption (optional)" className={inp} /></div>}
+                    {b.type === 'columns' && <div className="grid gap-sm sm:grid-cols-2">{(['left', 'right'] as const).map(side => <div key={side}><input disabled={locked} value={b[side].title} onChange={e => upd({ [side]: { ...b[side], title: e.target.value } })} placeholder="Title" className={inp} /><textarea disabled={locked} rows={3} value={b[side].text} onChange={e => upd({ [side]: { ...b[side], text: e.target.value } })} placeholder="Text" className={inp} /></div>)}</div>}
+                    {b.type === 'quote' && <div className="grid gap-xs sm:grid-cols-[2fr_1fr]"><input disabled={locked} value={b.text} onChange={e => upd({ text: e.target.value })} placeholder="The quote" className={inp} /><input disabled={locked} value={b.by ?? ''} onChange={e => upd({ by: e.target.value })} placeholder="Who said it" className={inp} /></div>}
+                    {b.type === 'figures' && <p className="mt-xs text-xs text-neutral-600">Rents and prices for {(f.areas ?? []).length ? 'the areas above' : 'London'} — official figures, always the latest.</p>}
+                    {b.type === 'contact' && <p className="mt-xs text-xs text-neutral-600">“Questions? We’re here” — our number and a button to the website.</p>}
+                    {b.type === 'divider' && <hr className="mt-xs border-neutral-200" />}
+                  </div>
+                )
+              })}
+            </div>
+            {!locked && <div className="mt-sm flex flex-wrap gap-xs">{d.blockTypes.map(t => <button key={t.type} type="button" onClick={() => set('blocks', [...(f.blocks ?? []), (t.type === 'figures' ? { ...t.make, areas: f.areas ?? [] } : t.make)])} className="rounded-full border border-neutral-300 px-md py-0.5 text-xs font-semibold hover:bg-neutral-50">+ {t.label}</button>)}</div>}
+            <p className="mt-xs text-xs text-neutral-500">Blocks go after the message, in this order. Built the way email apps keep them, so they look right in Gmail, Outlook and on a phone. Save to see them in the preview.</p>
           </section>
 
           {/* the picture — used for Instagram, Facebook / the website cover and the top of the email */}

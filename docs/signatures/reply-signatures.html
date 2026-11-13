@@ -1,0 +1,43 @@
+<!doctype html><html lang="en-GB"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Reply signatures</title>
+<style>
+body{font-family:Arial,Helvetica,sans-serif;background:#f4f4f2;color:#1c1917;margin:0;padding:32px 16px}
+main{max-width:640px;margin:0 auto} h1{font-size:22px;margin:0 0 6px} p.lead{color:#57534e;margin:0 0 24px;line-height:1.5}
+section{background:#fff;border:1px solid #e7e5e4;border-radius:14px;padding:20px;margin-bottom:18px} h2{font-size:15px;margin:0 0 14px}
+.row{display:flex;gap:12px;align-items:center;margin-top:14px} button{background:#17332B;color:#fff;border:0;border-radius:10px;padding:10px 16px;font-weight:700;cursor:pointer}
+.msg{font-size:13px;color:#166534} details{margin-top:12px;font-size:13px;color:#57534e} textarea{width:100%;height:90px;font-size:11px;margin-top:6px}
+ol{line-height:1.7;color:#44403c;padding-left:20px}
+</style></head><body><main>
+<h1>Reply signatures — Harry and Jacob</h1>
+<p class="lead">Each is one picture, so it can’t break up, be typed into or change font in anyone’s mail app. Clicking it opens capitalrooms.co.uk.</p>
+<section>
+  <h2>Harry Buchanan</h2>
+  <div class="sig" id="sig-harry"><a href="https://www.capitalrooms.co.uk" style="text-decoration:none;"><img src="https://cros-sigma.vercel.app/api/brand/signature-card?d=eyJuIjoiSGFycnkgQnVjaGFuYW4iLCJ0IjoiRGlyZWN0b3IiLCJwaCI6Iis0NCA3NTA2IDc5MCA3NDEiLCJlIjoiaGFycnlAY2FwaXRhbHJvb21zLmNvLnVrIn0&amp;s=Rem8f0fx4Z6LcubTLWRWhZol" width="480" height="84" alt="Harry Buchanan · Capital Rooms · +44 7506 790 741 · harry@capitalrooms.co.uk" style="display:block;border:0;outline:none;width:480px;max-width:100%;height:auto;"></a></div>
+  <div class="row"><button onclick="copySig('harry')">Copy Harry’s signature</button><span id="msg-harry" class="msg"></span></div>
+  <details><summary>HTML (if the button doesn’t work)</summary><textarea readonly>&lt;a href=&quot;https://www.capitalrooms.co.uk&quot; style=&quot;text-decoration:none;&quot;&gt;&lt;img src=&quot;https://cros-sigma.vercel.app/api/brand/signature-card?d=eyJuIjoiSGFycnkgQnVjaGFuYW4iLCJ0IjoiRGlyZWN0b3IiLCJwaCI6Iis0NCA3NTA2IDc5MCA3NDEiLCJlIjoiaGFycnlAY2FwaXRhbHJvb21zLmNvLnVrIn0&amp;amp;s=Rem8f0fx4Z6LcubTLWRWhZol&quot; width=&quot;480&quot; height=&quot;84&quot; alt=&quot;Harry Buchanan · Capital Rooms · +44 7506 790 741 · harry@capitalrooms.co.uk&quot; style=&quot;display:block;border:0;outline:none;width:480px;max-width:100%;height:auto;&quot;&gt;&lt;/a&gt;</textarea></details>
+</section>
+<section>
+  <h2>Jacob Imrie-Gale</h2>
+  <div class="sig" id="sig-jacob"><a href="https://www.capitalrooms.co.uk" style="text-decoration:none;"><img src="https://cros-sigma.vercel.app/api/brand/signature-card?d=eyJuIjoiSmFjb2IgSW1yaWUtR2FsZSIsInQiOiJMZXR0aW5ncyIsInBoIjoiKzQ0IDc5NzkgOTAyIDMyMSIsImUiOiJqYWNvYkBjYXBpdGFscm9vbXMuY28udWsifQ&amp;s=88YoEH9faIJflyPQQ1CamNh3" width="480" height="84" alt="Jacob Imrie-Gale · Capital Rooms · +44 7979 902 321 · jacob@capitalrooms.co.uk" style="display:block;border:0;outline:none;width:480px;max-width:100%;height:auto;"></a></div>
+  <div class="row"><button onclick="copySig('jacob')">Copy Jacob’s signature</button><span id="msg-jacob" class="msg"></span></div>
+  <details><summary>HTML (if the button doesn’t work)</summary><textarea readonly>&lt;a href=&quot;https://www.capitalrooms.co.uk&quot; style=&quot;text-decoration:none;&quot;&gt;&lt;img src=&quot;https://cros-sigma.vercel.app/api/brand/signature-card?d=eyJuIjoiSmFjb2IgSW1yaWUtR2FsZSIsInQiOiJMZXR0aW5ncyIsInBoIjoiKzQ0IDc5NzkgOTAyIDMyMSIsImUiOiJqYWNvYkBjYXBpdGFscm9vbXMuY28udWsifQ&amp;amp;s=88YoEH9faIJflyPQQ1CamNh3&quot; width=&quot;480&quot; height=&quot;84&quot; alt=&quot;Jacob Imrie-Gale · Capital Rooms · +44 7979 902 321 · jacob@capitalrooms.co.uk&quot; style=&quot;display:block;border:0;outline:none;width:480px;max-width:100%;height:auto;&quot;&gt;&lt;/a&gt;</textarea></details>
+</section>
+<section><h2>Putting it into Gmail</h2><ol>
+<li>Press <b>Copy</b> on the signature.</li>
+<li>Gmail → cog → <b>See all settings</b> → <b>General</b> → <b>Signature</b> → <b>Create new</b> (call it “Reply picture”), and paste.</li>
+<li>Under <b>Signature defaults</b>, set <b>On reply/forward use</b> to “Reply picture”.</li>
+<li>Scroll down and press <b>Save changes</b>.</li>
+</ol></section>
+</main>
+<script>
+async function copySig(k){
+  const el=document.getElementById('sig-'+k), msg=document.getElementById('msg-'+k)
+  try{
+    await navigator.clipboard.write([new ClipboardItem({'text/html':new Blob([el.innerHTML],{type:'text/html'}),'text/plain':new Blob([el.querySelector('img').alt],{type:'text/plain'})})])
+    msg.textContent='Copied — paste it into Gmail’s signature box'
+  }catch(e){
+    const r=document.createRange(); r.selectNode(el); const s=getSelection(); s.removeAllRanges(); s.addRange(r); document.execCommand('copy'); s.removeAllRanges()
+    msg.textContent='Copied — paste it into Gmail’s signature box'
+  }
+}
+</script></body></html>
