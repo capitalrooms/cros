@@ -36,6 +36,12 @@ export default function PublishEditor({ params }: { params: Promise<{ id: string
   const [when, setWhen] = useState('')
   const [areas, setAreas] = useState<{ code: string; name: string }[]>([])
   const [q, setQ] = useState('')
+  // the writer (lib/publish/write)
+  const [brief, setBrief] = useState('')
+  const [tone, setTone] = useState<'friendly' | 'professional' | 'celebratory' | 'important'>('friendly')
+  const [length, setLength] = useState<'short' | 'standard'>('standard')
+  const [withMarket, setWithMarket] = useState(false)
+  const [missing, setMissing] = useState<string[]>([])
   const [picTab, setPicTab] = useState<'figures' | 'scenes' | 'illustrations' | 'photos'>('figures')
 
   const load = useCallback(async () => {
@@ -91,6 +97,32 @@ export default function PublishEditor({ params }: { params: Promise<{ id: string
       <PageHero eyebrow={`Communications · Publish · ${p.kind === 'market_update' ? 'Market update' : 'News'}`} title={p.title} chip={{ label: STATUS[p.status] ?? p.status, tone: p.status === 'sent' ? 'good' : p.status === 'draft' ? 'plain' : 'info' }} />
       <main className="mx-auto grid max-w-6xl gap-lg px-lg py-xl lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
         <div className="space-y-lg">
+          {/* the writer — notes in, every version out (like Generate letter) */}
+          {!locked && (
+            <section className="rounded-2xl bg-neutral-900 p-lg text-white">
+              <p className="text-xs font-bold uppercase tracking-wide text-neutral-400">Write it for me</p>
+              <textarea value={brief} onChange={e => setBrief(e.target.value)} rows={3} placeholder={p.kind === 'market_update' ? 'Anything to add to the market update — e.g. mention we have rooms available in Newham from January' : 'What do you want to tell them? Rough notes are fine — e.g. office closed 24 Dec to 2 Jan, emergencies still covered on 0207 112 9163, thank landlords for a great year'} className="mt-xs block w-full rounded-xl border-0 bg-white/10 px-md py-sm text-sm text-white placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-white/40" />
+              <div className="mt-sm flex flex-wrap items-center gap-sm text-xs">
+                <span className="flex gap-1 rounded-full bg-white/10 p-1 font-semibold">{([['friendly', 'Friendly'], ['professional', 'Professional'], ['celebratory', 'Celebratory'], ['important', 'Important']] as const).map(([k, l]) => <button key={k} type="button" onClick={() => setTone(k)} className={`rounded-full px-sm py-0.5 ${tone === k ? 'bg-white text-neutral-900' : 'text-neutral-300'}`}>{l}</button>)}</span>
+                <span className="flex gap-1 rounded-full bg-white/10 p-1 font-semibold">{([['short', 'Short'], ['standard', 'Standard']] as const).map(([k, l]) => <button key={k} type="button" onClick={() => setLength(k)} className={`rounded-full px-sm py-0.5 ${length === k ? 'bg-white text-neutral-900' : 'text-neutral-300'}`}>{l}</button>)}</span>
+                <label className="flex items-center gap-xs"><input type="checkbox" checked={withMarket} onChange={e => setWithMarket(e.target.checked)} /> Include market figures{withMarket ? ` — ${(f.areas ?? []).length ? (f.areas ?? []).map(c => areas.find(a => a.code === c)?.name ?? c).join(', ') : 'London'}` : ''}</label>
+              </div>
+              {withMarket && p.kind !== 'market_update' && (
+                <div className="mt-xs">
+                  <div className="flex flex-wrap gap-xs">{(f.areas ?? []).map(c => <span key={c} className="inline-flex items-center gap-xs rounded-full bg-white/15 px-md py-0.5 text-xs">{areas.find(a => a.code === c)?.name ?? c}<button type="button" onClick={() => set('areas', (f.areas ?? []).filter(x => x !== c))} aria-label="Remove">×</button></span>)}</div>
+                  {(f.areas ?? []).length < 3 && <div className="relative mt-xs"><input value={q} onChange={e => setQ(e.target.value)} placeholder="Areas for the figures (London if none) — e.g. Lambeth" className="w-full rounded-xl border-0 bg-white/10 px-md py-xs text-sm text-white placeholder:text-neutral-400" />
+                    {hits.length > 0 && <ul className="absolute z-10 mt-1 w-full overflow-hidden rounded-xl bg-white text-neutral-900 shadow-lg">{hits.map(a => <li key={a.code}><button type="button" onClick={() => { set('areas', [...(f.areas ?? []), a.code]); setQ('') }} className="block w-full px-md py-sm text-left text-sm hover:bg-neutral-50">{a.name}</button></li>)}</ul>}</div>}
+                </div>
+              )}
+              <div className="mt-sm flex flex-wrap items-center gap-sm">
+                <button type="button" disabled={!!busy || (brief.trim().length < 8)} onClick={async () => { const j = await act('write', { brief, tone, length, withMarket }); if (j) { setMissing(j.missing ?? []); setMsg({ ok: true, text: 'Written — headline, message, text, app notification and caption. Read it through and change anything.' }); setBrief(''); load() } }} className="rounded-full bg-white px-lg py-xs text-sm font-semibold text-neutral-900 disabled:opacity-40">{busy === 'write' ? 'Writing…' : 'Write it'}</button>
+                {(f.body ?? '').trim() && <span className="text-xs text-neutral-400">or redo what’s there:</span>}
+                {(f.body ?? '').trim() && ([['shorter', 'Shorter'], ['friendlier', 'Friendlier'], ['formal', 'More formal'], ['cta', 'With a call to action']] as const).map(([k, l]) => <button key={k} type="button" disabled={!!busy} onClick={async () => { const j = await act('write', { rewrite: k, tone, length, withMarket }); if (j) { setMissing(j.missing ?? []); setMsg({ ok: true, text: `Rewritten — ${l.toLowerCase()}.` }); load() } }} className="rounded-full border border-white/30 px-md py-xs text-xs font-semibold">{busy === 'write' ? '…' : l}</button>)}
+              </div>
+              {missing.length > 0 && <p className="mt-sm rounded-lg bg-amber-300/20 px-md py-xs text-xs text-amber-100">Fill these in before sending: {missing.join(' · ')} — they’re in [square brackets] in the text.</p>}
+            </section>
+          )}
+
           {/* the words */}
           <section className={card}>
             <div className="space-y-md">

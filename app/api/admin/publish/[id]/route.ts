@@ -21,6 +21,7 @@ import { sendEmail } from '@/lib/sendEmail'
 import { sendSms } from '@/lib/sms'
 import { slugify } from '@/lib/website/markdown'
 import { SCENES, ILLUSTRATIONS, seasonNow } from '@/lib/publish/pictures'
+import { writePublication, TONES, REWRITES } from '@/lib/publish/write'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 300
@@ -104,6 +105,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (b.action === 'approve' || b.action === 'unapprove') {
     if (['sending', 'sent'].includes(p.status)) return NextResponse.json({ error: 'It’s already gone out.' }, { status: 409 })
     if (b.action === 'approve' && !String(p.body ?? '').trim() && p.kind === 'announcement') return NextResponse.json({ error: 'Write the message first.' }, { status: 400 })
+    // nothing goes out with a gap the writer left for us to fill
+    const gaps = b.action === 'approve' ? [p.title, p.intro, p.body, p.sms_text, p.push_title, p.push_body, p.social_caption].join(' ').match(/\[[^\]]{2,60}\]/g) : null
+    if (gaps?.length) return NextResponse.json({ error: `Fill in ${[...new Set(gaps)].join(', ')} first.` }, { status: 400 })
     await s.from('publications').update(b.action === 'approve' ? { status: 'approved', approved_by: me.email, approved_at: new Date().toISOString() } : { status: 'draft', approved_by: null, approved_at: null, scheduled_for: null }).eq('id', p.id)
     return NextResponse.json({ ok: true })
   }
@@ -141,6 +145,22 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const packs = await reportPacks(s, p.areas.length ? p.areas : [LONDON])
     const pdf = await reportPdf(packs, p.body ?? '', null)
     return new NextResponse(new Uint8Array(pdf), { headers: { 'Content-Type': 'application/pdf', 'Content-Disposition': 'inline; filename="Market update.pdf"' } })
+  }
+  // the writer (lib/publish/write): rough notes (or a rewrite of what's there) → every version at once, saved as a draft
+  if (b.action === 'write') {
+    if (['sending', 'sent'].includes(p.status)) return NextResponse.json({ error: 'It’s already gone out.' }, { status: 409 })
+    const brief = String(b.brief ?? '').trim()
+    if (!b.rewrite && brief.length < 8) return NextResponse.json({ error: 'Say what you want to tell them — a line or two of notes is enough.' }, { status: 400 })
+    try {
+      const w = await writePublication(s, {
+        brief, tone: (b.tone in TONES ? b.tone : 'friendly'), length: b.length === 'short' ? 'short' : 'standard',
+        audience: (p.audience?.lists ?? []).includes('all_landlords') ? 'its landlords' : 'landlords and contacts',
+        withMarket: !!b.withMarket, areas: p.areas,
+        ...(b.rewrite && b.rewrite in REWRITES ? { rewrite: b.rewrite, current: { title: p.title, intro: p.intro ?? '', body: p.body ?? '', sms_text: p.sms_text ?? '', push_title: p.push_title ?? '', push_body: p.push_body ?? '', social_caption: p.social_caption ?? '' } } : {}),
+      })
+      await s.from('publications').update({ title: w.title, intro: w.intro, body: w.body, sms_text: w.sms_text, push_title: w.push_title, push_body: w.push_body, social_caption: w.social_caption, status: 'draft', approved_at: null, approved_by: null, updated_at: new Date().toISOString() }).eq('id', p.id)
+      return NextResponse.json({ ok: true, missing: w.missing })
+    } catch (e) { return NextResponse.json({ error: e instanceof Error ? e.message : 'The writing didn’t work — try again' }, { status: 502 }) }
   }
   if (b.action === 'rewrite') {
     if (p.kind !== 'market_update' || ['sending', 'sent'].includes(p.status)) return NextResponse.json({ error: 'Only a market update that hasn’t gone out.' }, { status: 409 })
