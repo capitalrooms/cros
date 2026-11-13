@@ -29,6 +29,8 @@ export interface EmailTheme {
   band?: { bg: string; text: string; line: string }   // a seasonal strip under the bar
   /** a full-width photo under the bar (public path) */
   photo?: { src: string; alt: string }
+  /** a full-width picture above the footer (public path) — the Christmas holly */
+  footerArt?: { src: string; alt: string }
   /** body text size (default 14.5px) */
   size?: string
   /** recolours / re-fonts the email's own content too (the website theme) — the other themes leave it as designed */
@@ -40,8 +42,12 @@ export const THEMES: EmailTheme[] = [
   { key: 'editorial', name: 'Editorial', from: 'The landlord new-let email', page: '#E8E4DB', bar: '#1C1C1B', logo: 'white', rule: '#1C1C1B', body: '#FBF9F4', font: "'Instrument Sans','Helvetica Neue',Arial,sans-serif", text: '#2E2C28', link: '#1F3B2E' },
   { key: 'forest', name: 'Forest', from: 'The tenant emails', page: '#E6EFE8', bar: '#1F3B2E', logo: 'white', rule: '#C4922A', body: '#ffffff', font: "Lato,'Helvetica Neue',Arial,sans-serif", text: '#3A4A40', link: '#1F3B2E' },
   { key: 'couture', name: 'Couture', from: 'The website and application pages', page: '#ffffff', bar: '#ffffff', logo: 'ink', rule: '#111111', body: '#ffffff', font: "'Instrument Sans','Helvetica Neue',Arial,sans-serif", text: '#111111', link: '#111111' },
-  { key: 'christmas', name: 'Christmas', from: 'Seasonal', page: '#F4EFE6', bar: '#14321F', logo: 'white', rule: '#C4922A', body: '#ffffff', font: "Lato,'Helvetica Neue',Arial,sans-serif", text: '#2b2a27', link: '#8E1B1B',
-    band: { bg: '#8E1B1B', text: '#FBEFD9', line: 'Season’s greetings from all of us at Capital Rooms' } },
+  // redrawn 13 Nov 2026 (Harry: "really bad and not even christmassy"): festive green around the email, a gold line, an
+  // illustrated header (London at night under snow, a lit tree, fairy lights — scripts/christmas-email.mjs), red links,
+  // holly above the footer
+  { key: 'christmas', name: 'Christmas', from: 'Seasonal', page: '#163A27', bar: '#0E2418', logo: 'white', rule: '#D4AF37', body: '#ffffff', font: "Lato,'Helvetica Neue',Arial,sans-serif", text: '#2b2a27', link: '#A31D24', size: '15.5px',
+    photo: { src: '/email/themes/christmas-header.png', alt: 'Season’s greetings from all of us at Capital Rooms — London at night under snow, with a Christmas tree' },
+    footerArt: { src: '/email/themes/christmas-holly.png', alt: '' } },
   // clean like the site (Harry, 11 Nov 2026: "white background … cleaner than a cream"): white, the dark logo, a gold rule
   { key: 'website', name: 'Website', from: 'capitalrooms.co.uk', page: '#F2F5F1', bar: '#ffffff', logo: 'ink', rule: '#E8B931', body: '#ffffff', font: "Figtree,'Helvetica Neue',Arial,sans-serif", text: '#22332A', link: '#1F3B2E', size: '16px',
     restyle: websiteRestyle },

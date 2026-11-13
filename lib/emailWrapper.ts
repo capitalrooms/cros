@@ -200,6 +200,7 @@ a[x-apple-data-detectors] { color: inherit !important; text-decoration: none !im
       ${content}
     </td>
   </tr>
+  ${T.footerArt ? `<tr><td style="padding:0;line-height:0;"><img src="${PORTAL_URL}${T.footerArt.src}" width="600" alt="${T.footerArt.alt}" style="display:block;border:0;width:100%;max-width:600px;height:auto;"></td></tr>` : ''}
   <tr><td style="padding:0;">${footerHtml ?? companyFooter(biz)}</td></tr>
 </table>
 <p style="max-width:600px;margin:10px auto 0;padding:0 16px;font-family:${BODY_FONT};font-size:10px;line-height:1.55;color:#9a978f;text-align:left;">This email and any attachments are intended for the recipient only. If you have received it in error, please tell the sender and delete it.</p>
