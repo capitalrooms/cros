@@ -12,6 +12,7 @@ import AskForMissing from './AskForMissing'
 import FollowUp from '../FollowUp'
 import { dearFromText } from '@/lib/people'
 import TakeDetails from './TakeDetails'
+import AgreementTerms from './AgreementTerms'
 
 type Status = 'pass' | 'review' | 'fail'
 interface Check { area: string; label: string; status: Status; detail: string }
@@ -241,6 +242,7 @@ export default function OnboardingReviewPage({ params }: { params: Promise<{ id:
         <div className="space-y-lg">
           <div className={card}><p className="text-sm text-neutral-600">The landlord hasn’t submitted their form yet. Their progress saves automatically — the checks run once they submit. Documents they’ve uploaded so far are below.</p></div>
           <TakeDetails id={id} card={card} h2={h2} hasAgreement={hasSnapshot} />
+          <AgreementTerms id={id} card={card} h2={h2} onResend={busy ? undefined : resend} />
           {documentCards}
         </div>
       )}
@@ -381,6 +383,7 @@ export default function OnboardingReviewPage({ params }: { params: Promise<{ id:
             </div>
 
             <TakeDetails id={id} card={card} h2={h2} hasAgreement={false} />
+            <AgreementTerms id={id} card={card} h2={h2} />
             <div className={card}>
               <h2 className={h2}>Management agreement</h2>
               {!hasSnapshot && <p className="text-sm text-neutral-600">This record was created without an agreement on file, so there is nothing to compare. Generate one from the Management Agreement page.</p>}

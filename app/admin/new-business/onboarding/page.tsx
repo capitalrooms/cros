@@ -483,6 +483,8 @@ export default function OnboardingPage() {
                 }
               />
 
+              <ChangesAtAGlance id={selected.id} />
+
               <Link href={`/admin/new-business/onboarding/${selected.id}`}
                 className="block w-full text-center rounded-xl bg-neutral-900 text-white py-sm text-sm font-semibold hover:bg-neutral-700 transition">
                 {selected.stage >= 3 || askedFor(selected) ? 'Open full AML review →' : 'Open record →'}
@@ -760,6 +762,38 @@ export default function OnboardingPage() {
           )}
         </div>
       </main>
+    </div>
+  )
+}
+
+
+/** In the pipeline's side panel (13 Nov 2026): what the landlord has given that differs from our record, and whether the
+ *  agreement's terms have changed — so nothing they updated is hidden away. Taken on from the record's page. */
+function ChangesAtAGlance({ id }: { id: string }) {
+  const [items, setItems] = useState<string[] | null>(null)
+  useEffect(() => {
+    let live = true
+    setItems(null)
+    Promise.all([
+      adminFetch(`/api/landlord-onboarding/${id}/take-details`).then(r => r.ok ? r.json() : null).catch(() => null),
+      adminFetch(`/api/landlord-onboarding/${id}/terms`).then(r => r.ok ? r.json() : null).catch(() => null),
+    ]).then(([t, a]) => {
+      if (!live) return
+      const out: string[] = []
+      if (t?.contact?.differs) out.push('New contact details')
+      for (const sec of t?.sections ?? []) if (sec.differs) out.push(sec.label.replace(/ \(.*\)$/, ''))
+      if (t?.bank?.theirs && !t.bank.onFile) out.push('A bank account for rent')
+      if (a?.history?.length) out.push(`Agreement terms changed (version ${a.version})`)
+      setItems(out)
+    })
+    return () => { live = false }
+  }, [id])
+  if (!items) return null
+  return (
+    <div className={`rounded-xl px-md py-sm text-sm ${items.length ? 'bg-amber-50 ring-1 ring-amber-200' : 'bg-neutral-50'}`}>
+      <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">From their form</p>
+      {items.length ? <ul className="mt-xs list-disc pl-lg text-neutral-900">{items.map(x => <li key={x}>{x}</li>)}</ul> : <p className="mt-xs text-neutral-600">Nothing different from our record.</p>}
+      {items.length > 0 && <p className="mt-xs text-xs text-neutral-600">Open the record to see them side by side and take them on.</p>}
     </div>
   )
 }
