@@ -345,6 +345,7 @@ export function ProgressTab({ file, step, setStep, patch, reload }: { file: Lett
               <Tick title="Sent to Homeppl" step="referencing_sent" value={t.referencing_sent_at} patch={patch} disabled={ended} />
               <Tick title="Referencing passed" help="Add any guarantor in the tenant’s profile." step="referencing_passed" value={t.referencing_passed_at} patch={patch} disabled={ended} />
               <StepDocs file={file} types={['reference_report', 'employment_letter', 'referencing_evidence', 'guarantor_document']} reload={reload} disabled={ended} />
+              <ReferencedEmail file={file} reload={reload} disabled={ended} />
             </>
           )}
 
@@ -1243,5 +1244,51 @@ function FillFromReport({ file }: { file: LettingFile }) {
       )}
       {msg && <p className="mt-sm text-sm text-neutral-700">{msg}</p>}
     </section>
+  )
+}
+
+
+/** "Your references are complete — we're preparing your paperwork" to the tenant (13 Nov 2026). Preview first, then send. */
+function ReferencedEmail({ file, reload, disabled }: { file: any; reload: () => void; disabled?: boolean }) {
+  const [ask, setAsk] = useState<{ to: string[]; subject: string; html: string } | null>(null)
+  const [look, setLook] = useState<'website' | 'landlord'>('website')
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState('')
+  const [err, setErr] = useState('')
+  const sent = (file.events as any[]).find(e => e.kind === 'referencing_email')
+  const passed = !!file.tenancy.referencing_passed_at
+  async function call(action: 'preview' | 'send', lk = look) {
+    setBusy(true); setErr('')
+    const r = await adminFetch(`/api/admin/lettings/${file.tenancy.id}/referenced-email`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, look: lk }) })
+    const x = await r.json().catch(() => ({}))
+    setBusy(false)
+    if (!r.ok) { setErr(x.error || 'That didn’t work'); return null }
+    return x
+  }
+  return (
+    <div className="rounded-xl border border-neutral-200 p-md">
+      <div className="flex flex-wrap items-center justify-between gap-sm">
+        <div>
+          <p className="text-sm font-bold text-neutral-900">Tell them referencing is done</p>
+          <p className="text-xs text-neutral-500">{sent ? `Sent ${new Date(sent.at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}${sent.by_email ? ` by ${sent.by_email}` : ''}.` : passed ? 'An email saying their references are complete and you’re preparing the paperwork — with what happens next.' : 'Tick “Referencing passed” first, or send it once it has.'}</p>
+        </div>
+        {!disabled && <button type="button" disabled={busy} onClick={async () => { const x = await call('preview'); if (x) setAsk(x) }} className="rounded-full bg-neutral-900 px-md py-xs text-sm font-semibold text-white disabled:opacity-50">{sent ? 'Send again' : 'Preview the email'}</button>}
+      </div>
+      {err && <p className="mt-sm text-sm text-red-700">{err}</p>}
+      {msg && <p className="mt-sm text-sm text-emerald-700">{msg}</p>}
+      {ask && (
+        <div className="mt-md rounded-xl bg-neutral-50 p-md text-sm">
+          <p className="text-neutral-600">To <b>{ask.to.join(', ') || 'no email on file'}</b> · <b>{ask.subject}</b></p>
+          <div className="mt-sm flex w-fit gap-1 rounded-full bg-white p-1 text-xs font-semibold ring-1 ring-neutral-200">
+            {([['website', 'Website look'], ['landlord', 'Letter look']] as const).map(([k, l]) => <button key={k} type="button" onClick={async () => { setLook(k); const x = await call('preview', k); if (x) setAsk(x) }} className={`rounded-full px-md py-xs ${look === k ? 'bg-neutral-900 text-white' : 'text-neutral-600'}`}>{l}</button>)}
+          </div>
+          <iframe title="The email" srcDoc={ask.html} className="mt-sm h-[560px] w-full rounded-lg bg-white ring-1 ring-neutral-200" />
+          <div className="mt-sm flex gap-xs">
+            <button type="button" disabled={busy || !ask.to.length} onClick={async () => { const x = await call('send'); if (x) { setAsk(null); setMsg(`Sent to ${x.to.join(', ')}.`); reload() } }} className="rounded-full bg-neutral-900 px-md py-xs text-sm font-semibold text-white disabled:opacity-50">{busy ? 'Sending…' : 'Send to the tenant'}</button>
+            <button type="button" onClick={() => setAsk(null)} className="rounded-full border border-neutral-300 px-md py-xs text-sm font-semibold">Cancel</button>
+          </div>
+        </div>
+      )}
+    </div>
   )
 }
