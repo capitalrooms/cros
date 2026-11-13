@@ -36,6 +36,7 @@ export interface Pub {
   audience: { lists?: string[]; people?: { name: string | null; email: string | null; phone: string | null; personId?: string | null }[]; ownAreas?: boolean }
   channels: Partial<Record<ChannelKey, boolean>>
   status: string; scheduled_for: string | null; website_slug: string | null; website_published_at: string | null; cache: Record<string, string>
+  image?: string | null
 }
 export interface Person { personId: string | null; name: string | null; email: string | null; phone: string | null; landlord: boolean; dear: string }
 
@@ -84,6 +85,7 @@ const footer = (addr: string | null, why: string) => `<p style="margin:28px 0 0;
 const why = (x: Person) => x.landlord ? 'You’re receiving this as a Capital Rooms landlord.' : 'You’re receiving this because you’re in touch with Capital Rooms.'
 
 /** Email (and the PDF letter) for one person. Market updates for a landlord can use their own properties' areas. */
+const header = (p: Pub) => p.image ? `<p style="margin:0 0 20px"><img src="${SITE_URL}/api/publish/image/${p.id}?size=wide&k=${encodeURIComponent(p.image)}" width="560" alt="" style="display:block;width:100%;max-width:560px;height:auto;border-radius:14px"></p>` : ''
 export async function emailFor(s: SupabaseClient, p: Pub, x: Person, cache: Record<string, string>): Promise<{ subject: string; html: string; pdf?: { filename: string; content: string } }> {
   if (p.kind === 'market_update') {
     let codes = p.areas.length ? p.areas : [LONDON]
@@ -99,7 +101,7 @@ export async function emailFor(s: SupabaseClient, p: Pub, x: Person, cache: Reco
     }
     const packs = await reportPacks(s, codes)
     // the report opens with the greeting and its own first line (the piece's opening line is for the website and app)
-    const html = reportHtml(packs, words, x.dear) + (webLink(p) ? `<p><a href="${webLink(p)}">Read it on our website</a></p>` : '') + footer(x.email, why(x))
+    const html = header(p) + reportHtml(packs, words, x.dear) + (webLink(p) ? `<p><a href="${webLink(p)}">Read it on our website</a></p>` : '') + footer(x.email, why(x))
     // a landlord's own areas → the subject names them ("Newham market update — September 2026")
     const own = codes.join() !== (p.areas.length ? p.areas : [LONDON]).join()
     const month = p.period ? new Date(`${p.period}-15T12:00:00Z`).toLocaleDateString('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' }) : ''
@@ -107,7 +109,7 @@ export async function emailFor(s: SupabaseClient, p: Pub, x: Person, cache: Reco
     const pdf = p.channels?.pdf ? { filename: `Market update - ${packs.map(k => k.name).join(', ')}.pdf`.replace(/[^\w ,.-]/g, ''), content: (await reportPdf(packs, words, x.landlord ? x.name : null)).toString('base64') } : undefined
     return { subject, html, pdf }
   }
-  const html = `<p>${esc(x.dear)}</p>${p.intro ? `<p><strong>${esc(p.intro)}</strong></p>` : ''}${paras(p.body).map(t => `<p>${esc(t)}</p>`).join('')}${webLink(p) ? `<p><a href="${webLink(p)}">Read it on our website</a></p>` : ''}${footer(x.email, why(x))}`
+  const html = `${header(p)}<p>${esc(x.dear)}</p>${p.intro ? `<p><strong>${esc(p.intro)}</strong></p>` : ''}${paras(p.body).map(t => `<p>${esc(t)}</p>`).join('')}${webLink(p) ? `<p><a href="${webLink(p)}">Read it on our website</a></p>` : ''}${footer(x.email, why(x))}`
   return { subject: p.title, html }
 }
 

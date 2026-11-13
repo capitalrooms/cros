@@ -10,12 +10,13 @@ import PageHero from '@/components/PageHero'
 import { adminFetch } from '@/lib/adminFetch'
 import PeoplePicker, { type Recipient } from '@/app/components/notify/PeoplePicker'
 
-type Pub = { id: string; kind: string; title: string; period: string | null; areas: string[]; intro: string | null; body: string | null; sms_text: string | null; push_title: string | null; push_body: string | null; social_caption: string | null; audience: { lists?: string[]; people?: Recipient[]; ownAreas?: boolean }; channels: Record<string, boolean>; status: string; scheduled_for: string | null; website_published_at: string | null; approved_by: string | null }
+type Pub = { id: string; kind: string; title: string; period: string | null; areas: string[]; intro: string | null; body: string | null; sms_text: string | null; push_title: string | null; push_body: string | null; social_caption: string | null; audience: { lists?: string[]; people?: Recipient[]; ownAreas?: boolean }; channels: Record<string, boolean>; status: string; scheduled_for: string | null; website_published_at: string | null; approved_by: string | null; image?: string | null }
 type Data = {
   pub: Pub; channels: { key: string; label: string; note: string }[]; lists: { key: string; label: string }[]; areaNames: string[]
   reach: { total: number; email: number; sms: number; push: number; optedOut: number; sample: { name: string | null; email: string | null; phone: string | null; landlord: boolean }[] }
   previews: { email: { subject: string; html: string }; sms: string; push: { title: string; body: string; link: string }; caption: string; images: { square: string; wide: string }; website: string | null }
   log: { channel: string; name: string | null; address: string | null; status: string; note: string | null; at: string }[]
+  pictures: Record<'figures' | 'scenes' | 'illustrations' | 'photos', { key: string; label: string; thumb: string }[]>
 }
 const STATUS: Record<string, string> = { draft: 'Draft', approved: 'Approved — ready to send', scheduled: 'Scheduled', sending: 'Sending', sent: 'Sent' }
 const card = 'rounded-2xl bg-white p-lg ring-1 ring-neutral-200'
@@ -34,6 +35,7 @@ export default function PublishEditor({ params }: { params: Promise<{ id: string
   const [when, setWhen] = useState('')
   const [areas, setAreas] = useState<{ code: string; name: string }[]>([])
   const [q, setQ] = useState('')
+  const [picTab, setPicTab] = useState<'figures' | 'scenes' | 'illustrations' | 'photos'>('figures')
 
   const load = useCallback(async () => {
     const r = await adminFetch(`/api/admin/publish/${id}`)
@@ -47,7 +49,7 @@ export default function PublishEditor({ params }: { params: Promise<{ id: string
   const locked = !!d && ['sending', 'sent'].includes(d.pub.status)
   async function save() {
     setBusy('save'); setMsg(null)
-    const r = await adminFetch(`/api/admin/publish/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: f.title, intro: f.intro, body: f.body, sms_text: f.sms_text, push_title: f.push_title, push_body: f.push_body, social_caption: f.social_caption, areas: f.areas, audience: f.audience, channels: f.channels }) })
+    const r = await adminFetch(`/api/admin/publish/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: f.title, intro: f.intro, body: f.body, sms_text: f.sms_text, push_title: f.push_title, push_body: f.push_body, social_caption: f.social_caption, areas: f.areas, audience: f.audience, channels: f.channels, image: f.image ?? null }) })
     const j = await r.json().catch(() => ({}))
     setBusy('')
     if (!r.ok) { setMsg({ ok: false, text: j.error || 'Couldn’t save' }); return false }
@@ -106,6 +108,36 @@ export default function PublishEditor({ params }: { params: Promise<{ id: string
             </div>
           </section>
 
+          {/* the picture — used for Instagram, Facebook / the website cover and the top of the email */}
+          <section className={card}>
+            <div className="flex flex-wrap items-center justify-between gap-sm">
+              <p className={label}>Picture</p>
+              <div className="flex gap-1 rounded-full bg-neutral-100 p-1 text-xs font-semibold">
+                {([['figures', 'Figures'], ['scenes', 'London scenes'], ['illustrations', 'Illustrations'], ['photos', 'Our photos']] as const).map(([k, l]) => <button key={k} type="button" onClick={() => setPicTab(k)} className={`rounded-full px-md py-xs ${picTab === k ? 'bg-neutral-900 text-white' : 'text-neutral-600'}`}>{l}</button>)}
+              </div>
+            </div>
+            <div className={`mt-sm grid gap-sm ${picTab === 'scenes' ? 'grid-cols-2 sm:grid-cols-3' : 'grid-cols-3 sm:grid-cols-5'}`}>
+              {(d.pictures?.[picTab] ?? []).map(x => {
+                const on = (f.image ?? 'figures:dark') === x.key
+                return (
+                  <button key={x.key} type="button" disabled={locked} onClick={() => set('image', x.key)} className={`overflow-hidden rounded-xl text-left ring-2 transition ${on ? 'ring-neutral-900' : 'ring-transparent hover:ring-neutral-300'}`}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={x.thumb} alt={x.label} loading="lazy" className={`w-full ${picTab === 'scenes' ? 'aspect-[5/2]' : 'aspect-square'} object-cover bg-neutral-100`} />
+                    <span className="block truncate px-xs py-0.5 text-[11px] text-neutral-600">{on ? '✓ ' : ''}{x.label || 'Photo'}</span>
+                  </button>
+                )
+              })}
+              {picTab === 'photos' && !(d.pictures?.photos ?? []).length && <p className="col-span-full text-sm text-neutral-500">No property photos in CROS yet — add them on a property’s Photos tab.</p>}
+            </div>
+            <div className="mt-md grid gap-sm sm:grid-cols-[1fr_1.6fr]">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={`${d.previews.images.square}&k=${encodeURIComponent(f.image ?? 'figures:dark')}`} alt="Instagram" className="w-full rounded-xl ring-1 ring-neutral-200" />
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={`${d.previews.images.wide}&k=${encodeURIComponent(f.image ?? 'figures:dark')}`} alt="Facebook and the website" className="w-full self-start rounded-xl ring-1 ring-neutral-200" />
+            </div>
+            <p className="mt-xs text-xs text-neutral-500">Square for Instagram; wide for Facebook, LinkedIn, the website post and the top of the email. Logo and headline are added for you.{dirty ? ' Save to keep your choice.' : ''}</p>
+          </section>
+
           {/* the channels, with a preview of each */}
           <section className={card}>
             <p className={label}>Where it goes</p>
@@ -134,9 +166,9 @@ export default function PublishEditor({ params }: { params: Promise<{ id: string
                   {d.previews.website && <button type="button" onClick={async () => { if (await act('unpublish')) load() }} className="rounded-full border border-neutral-300 px-md py-xs font-semibold">Take it down</button>}</div></div>)}
               {tab === 'social' && (<div className="space-y-sm"><div className="grid gap-sm sm:grid-cols-2">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <a href={d.previews.images.square} target="_blank" rel="noreferrer" download><img src={d.previews.images.square} alt="Instagram square" className="w-full rounded-xl ring-1 ring-neutral-200" /><span className="mt-xs block text-xs font-semibold underline">Instagram (square) — download</span></a>
+                  <a href={`${d.previews.images.square}&k=${encodeURIComponent(f.image ?? 'figures:dark')}`} target="_blank" rel="noreferrer" download><img src={`${d.previews.images.square}&k=${encodeURIComponent(f.image ?? 'figures:dark')}`} alt="Instagram square" className="w-full rounded-xl ring-1 ring-neutral-200" /><span className="mt-xs block text-xs font-semibold underline">Instagram (square) — download</span></a>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <a href={d.previews.images.wide} target="_blank" rel="noreferrer" download><img src={d.previews.images.wide} alt="Facebook wide" className="w-full rounded-xl ring-1 ring-neutral-200" /><span className="mt-xs block text-xs font-semibold underline">Facebook / LinkedIn (wide) — download</span></a></div>
+                  <a href={`${d.previews.images.wide}&k=${encodeURIComponent(f.image ?? 'figures:dark')}`} target="_blank" rel="noreferrer" download><img src={`${d.previews.images.wide}&k=${encodeURIComponent(f.image ?? 'figures:dark')}`} alt="Facebook wide" className="w-full rounded-xl ring-1 ring-neutral-200" /><span className="mt-xs block text-xs font-semibold underline">Facebook / LinkedIn (wide) — download</span></a></div>
                 <label className={label}>Caption<textarea disabled={locked && false} rows={5} value={f.social_caption ?? d.previews.caption} onChange={e => set('social_caption', e.target.value)} className={field} /></label>
                 <button type="button" onClick={() => { navigator.clipboard.writeText(f.social_caption ?? d.previews.caption); setMsg({ ok: true, text: 'Caption copied — paste it with the picture on Instagram or Facebook.' }) }} className="rounded-full border border-neutral-300 px-md py-xs text-sm font-semibold">Copy the caption</button>
                 <p className="text-xs text-neutral-500">Post them yourself for now. Posting straight from CROS needs your Instagram/Facebook business account connected — that’s the next step.</p></div>)}
