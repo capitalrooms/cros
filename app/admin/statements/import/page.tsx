@@ -18,6 +18,7 @@ type CardStatus = 'processing' | 'ready' | 'importing' | 'imported' | 'error' | 
 interface StatementCard {
   id: string             // local key
   fileName: string
+  file?: File            // kept so the PDF is stored with the statement (Statements in, 13 Nov 2026)
   status: CardStatus
   extracted?: ExtractedStatement
   matchedProperty?: Property | null
@@ -99,6 +100,7 @@ export default function StatementImportPage() {
     const newCard: StatementCard = {
       id: cardId,
       fileName: file.name,
+      file,
       status: 'processing',
       selectedPropertyId: '',
       properties: [],
@@ -156,6 +158,8 @@ export default function StatementImportPage() {
         landlord_id: prop.landlord_id,
         paid_outside: paidOutside,
         allow_same_month: card.confirmed,
+        // the PDF itself, so Statements in can show it next to what was read (small enough for one request)
+        ...(card.file && card.file.type === 'application/pdf' && card.file.size < 3_000_000 ? { pdf_base64: await new Promise<string>(res => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1] ?? ''); r.onerror = () => res(''); r.readAsDataURL(card.file!) }) } : {}),
       }),
     })
     const data = await res.json()

@@ -75,6 +75,22 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: stmtErr?.message || 'Failed to create statement' }, { status: 500 })
   }
 
+  // Statements in (migration 284): waits to be checked against its PDF, which is kept with it
+  try {
+    await supabase.from('landlord_statements').update({ received_via: 'upload', review_status: 'to_review' }).eq('id', stmt.id)
+    const b64 = typeof (body as any).pdf_base64 === 'string' ? (body as any).pdf_base64 : ''
+    if (b64) {
+      await supabase.storage.createBucket('statements', { public: false }).catch(() => null)
+      const { error: upErr } = await supabase.storage.from('statements').upload(`${stmt.id}.pdf`, Buffer.from(b64, 'base64'), { contentType: 'application/pdf', upsert: true })
+      if (!upErr) await supabase.from('landlord_statements').update({ pdf_path: `${stmt.id}.pdf` }).eq('id', stmt.id)
+    }
+    const month = String(s.statement_date || s.period_end || '').slice(0, 7)
+    if (/^\d{4}-\d{2}$/.test(month)) {
+      const { data: same } = await supabase.from('landlord_statements').select('id').eq('property_id', property_id).neq('id', stmt.id).gte('statement_date', `${month}-01`).lte('statement_date', `${month}-31`).limit(1)
+      if (same?.length) await supabase.from('landlord_statements').update({ possible_duplicate_of: (same[0] as any).id }).eq('id', stmt.id)
+    }
+  } catch { /* before migration 284 */ }
+
   const warnings: string[] = []
 
   // Insert per-room rent rows, resolving room_id + tenant_id from active tenancies

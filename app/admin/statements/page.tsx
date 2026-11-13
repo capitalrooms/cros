@@ -101,6 +101,9 @@ export default function AdminStatementsPage() {
   const [busy, setBusy] = useState(false)
   const [aiBusy, setAiBusy] = useState(false)
   const [error, setError] = useState('')
+  // how many statements are waiting in Statements in (migration 284)
+  const [toReview, setToReview] = useState(0)
+  useEffect(() => { adminFetch('/api/admin/statements/review?status=to_review').then(r => r.json()).then(j => setToReview(j.toReview ?? 0)).catch(() => null) }, [])
   const [notice, setNotice] = useState('')
   const [matchNote, setMatchNote] = useState('')
   const [expandedStatementId, setExpandedStatementId] = useState<string | null>(null)
@@ -437,6 +440,11 @@ export default function AdminStatementsPage() {
         {error && <div className="mt-lg rounded-xl border-2 border-neutral-900 bg-white p-md text-sm text-neutral-900">{error}</div>}
         {notice && <div className="mt-lg rounded-xl bg-green-600 p-md text-sm font-semibold text-white">{notice}</div>}
 
+        {/* what came in to statements@ (or was uploaded) waits to be checked against its PDF — 13 Nov 2026 */}
+        <Link href="/admin/statements/review" className="mb-sm flex items-center justify-between gap-md rounded-[10px] border-2 border-neutral-900 bg-white px-md py-sm text-neutral-900 hover:bg-neutral-50">
+          <span><span className="block font-bold">Statements in{toReview ? ` — ${toReview} to review` : ''}</span><span className="block text-xs text-neutral-600">Everything that came in to statements@ or was uploaded — check each against its PDF and agree it</span></span>
+          <span aria-hidden>→</span>
+        </Link>
         <Link href="/admin/statements/import" className="flex items-center justify-between gap-md rounded-[10px] bg-neutral-900 px-md py-sm text-white hover:bg-neutral-800">
           <span><span className="block font-bold">Upload a month of statements</span><span className="block text-xs text-neutral-300">Several PDFs at once, one per property — each checked before it’s saved</span></span>
           <span aria-hidden>→</span>
