@@ -76,7 +76,7 @@ export async function GET(req: NextRequest) {
   let q = s.from('landlord_statements').select('id, property_id, landlord_id, statement_reference, statement_date, gross_rent, management_fees, letting_fees, property_charges, net_to_landlord, review_status, reviewed_at, reviewed_by, pdf_path, possible_duplicate_of, created_at, received_via, source, properties(name, address), people!landlord_id(salutation, first_name, last_name, full_name, company)')
     .order('created_at', { ascending: false }).limit(400)
   if (status !== 'all') q = q.eq('review_status', status)
-  if (month && /^\d{4}-\d{2}$/.test(month)) q = q.gte('statement_date', `${month}-01`).lte('statement_date', `${month}-31`)
+  if (month && /^\d{4}-\d{2}$/.test(month)) q = q.gte('statement_date', `${month}-01`).lt('statement_date', (() => { const [y, m] = String(month).split('-').map(Number); return m === 12 ? `${y + 1}-01-01` : `${y}-${String(m + 1).padStart(2, '0')}-01` })())
   const { data, error } = await q as { data: any[] | null; error: any }
   if (notReady(error)) return NextResponse.json({ setupNeeded: true })
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
