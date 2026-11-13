@@ -39,6 +39,9 @@ export default function StatementsReview() {
   const [moving, setMoving] = useState(false)
   const [props, setProps] = useState<{ id: string; name: string }[]>([])
   const [moveTo, setMoveTo] = useState('')
+  const [removed, setRemoved] = useState<{ auditId: string; reference: string; property: string; removedAt: string; removedBy: string; reason: string; gross: number; lines: number }[]>([])
+  const loadRemoved = useCallback(() => { adminFetch('/api/admin/statements/review?removed=1').then(r => r.json()).then(j => setRemoved(j.removed ?? [])).catch(() => null) }, [])
+  useEffect(() => { loadRemoved() }, [loadRemoved])
 
   const load = useCallback(async () => {
     const r = await adminFetch(`/api/admin/statements/review?status=${status}`)
@@ -96,6 +99,21 @@ export default function StatementsReview() {
             ))}
             {status === 'to_review' && queue.length > 0 && <button type="button" onClick={() => open(queue[0].id)} className="ml-auto rounded-lg bg-neutral-900 px-lg py-sm text-sm font-semibold text-white">Start checking →</button>}
           </div>
+          {removed.length > 0 && (
+            <details className="mb-md rounded-xl bg-white ring-1 ring-neutral-200">
+              <summary className="cursor-pointer px-md py-sm text-sm font-semibold text-neutral-800">Removed — {removed.length} can be put back</summary>
+              <ul className="divide-y divide-neutral-100 text-sm">
+                {removed.map(r => (
+                  <li key={r.auditId} className="flex flex-wrap items-center justify-between gap-sm px-md py-sm">
+                    <span><b>{r.property}</b> — {r.reference} · {gbp(r.gross)} rent, {r.lines} lines<span className="block text-xs text-neutral-500">Removed {day(r.removedAt)} by {r.removedBy}{r.reason ? ` — “${r.reason}”` : ''}</span></span>
+                    <button type="button" disabled={busy} onClick={async () => { if (!window.confirm(`Put ${r.reference} back on ${r.property}, exactly as it was?`)) return; if (await act({ action: 'restore', auditId: r.auditId }, `${r.reference} is back — it’s in To review.`)) loadRemoved() }} className="rounded-lg border border-neutral-300 px-md py-xs text-xs font-semibold">Put it back</button>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
+          {msg && !openId && <p className="mb-md rounded-lg bg-emerald-50 px-md py-sm text-sm text-emerald-800">{msg}</p>}
+          {err && !openId && <p className="mb-md rounded-lg bg-red-50 px-md py-sm text-sm text-red-800">{err}</p>}
           {rows && !rows.length && !setup && <p className="rounded-xl bg-white p-lg text-sm text-neutral-600 ring-1 ring-neutral-200">{status === 'to_review' ? 'Nothing waiting — every statement that has come in has been checked.' : 'None yet.'}</p>}
           <div className="space-y-md">
             {groups.map(([who, list]) => (
@@ -208,7 +226,7 @@ export default function StatementsReview() {
                       <div className="mt-sm rounded-lg bg-red-50 p-sm">
                         <p className="text-xs text-red-900">Removes {s.reference} and all its lines from {s.property.name}. A full copy is kept in the audit log.</p>
                         <input value={reason} onChange={e => setReason(e.target.value)} placeholder="Why — e.g. uploaded twice, wrong statement" className="mt-xs w-full rounded-lg border border-red-200 bg-white px-md py-xs text-sm" />
-                        <button type="button" disabled={busy || reason.trim().length < 3} onClick={async () => { if (!window.confirm(`Remove ${s.reference} from ${s.property.name}? This can’t be undone here (a copy stays in the audit log).`)) return; if (await act({ id: s.id, action: 'remove', reason }, `Removed ${s.reference}.`)) { setOpenId(null); setD(null) } }} className="mt-xs rounded-lg bg-red-700 px-md py-xs text-sm font-bold text-white disabled:opacity-40">Remove it</button>
+                        <button type="button" disabled={busy || reason.trim().length < 3} onClick={async () => { if (!window.confirm(`Remove ${s.reference} from ${s.property.name}? This can’t be undone here (a copy stays in the audit log).`)) return; if (await act({ id: s.id, action: 'remove', reason }, `Removed ${s.reference}. If that was the wrong one, it can be put back under “Removed”.`)) { setOpenId(null); setD(null); loadRemoved() } }} className="mt-xs rounded-lg bg-red-700 px-md py-xs text-sm font-bold text-white disabled:opacity-40">Remove it</button>
                       </div>
                     )}
                     {moving && (

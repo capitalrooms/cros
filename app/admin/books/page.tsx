@@ -246,8 +246,8 @@ function VatCard({ vat, onSaved }: { vat: { from: string; rate: number } | null;
   return (
     <section className="rounded-2xl border border-neutral-200 bg-white px-lg py-md">
       <div className="flex flex-wrap items-center justify-between gap-sm">
-        <p className="text-sm"><b>VAT on our fees:</b> {vat ? `${vat.rate}% from ${new Date(vat.from + 'T12:00:00Z').toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })} — fees from then show net and VAT` : 'not registered — fees carry no VAT'}</p>
-        <button type="button" onClick={() => setOpen(v => !v)} className="text-sm font-semibold text-blue-700 hover:underline">{open ? 'Close' : 'Change'}</button>
+        <p className="text-sm"><b>VAT on our fees:</b> {vat ? `${vat.rate}% from ${new Date(vat.from + 'T12:00:00Z').toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })}` : 'registration details not confirmed yet'} — the VAT each statement shows is kept apart from the fee</p>
+        <a href="/admin/books/vat" className="text-sm font-semibold text-blue-700 hover:underline">VAT by quarter →</a>
       </div>
       {open && (
         <div className="mt-sm flex flex-wrap items-end gap-sm">
@@ -255,7 +255,7 @@ function VatCard({ vat, onSaved }: { vat: { from: string; rate: number } | null;
           <label className="text-xs font-bold text-neutral-600">Rate %<input inputMode="decimal" value={rate} onChange={e => setRate(e.target.value)} className="mt-1 block w-20 rounded-lg border border-neutral-300 px-sm py-xs text-sm" /></label>
           <button type="button" onClick={() => save()} className="rounded-lg bg-neutral-900 px-md py-xs text-sm font-bold text-white">Save</button>
           {vat && <button type="button" onClick={() => save(true)} className="rounded-lg border border-neutral-300 px-md py-xs text-sm font-semibold">Not registered</button>}
-          <p className="w-full text-xs text-neutral-500">Fees charged from that date are treated as including VAT (net and VAT worked out of what was charged). Fees before it are left as they were. Nothing on a statement is changed.</p>
+          <p className="w-full text-xs text-neutral-500">Statements show our VAT on its own lines, so that is what’s counted. Fees CROS makes itself from this date include VAT. Nothing on a statement is changed.</p>
           {msg && <p className="w-full text-sm text-red-700">{msg}</p>}
         </div>
       )}

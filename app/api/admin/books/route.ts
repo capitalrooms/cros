@@ -90,7 +90,11 @@ export async function POST(req: NextRequest) {
   if (!b.from) { await s.from('system_settings').upsert({ key: 'vat_registration', value: JSON.stringify(null) }, { onConflict: 'key' }); return NextResponse.json({ ok: true, vat: null }) }
   const rate = Number(b.rate)
   if (!/^\d{4}-\d{2}-\d{2}$/.test(String(b.from)) || !(rate > 0 && rate <= 30)) return NextResponse.json({ error: 'Give the date VAT starts and the rate (e.g. 20)' }, { status: 400 })
-  await s.from('system_settings').upsert({ key: 'vat_registration', value: JSON.stringify({ from: b.from, rate }) }, { onConflict: 'key' })
+  // keep the quarter months set on the VAT page (lib/finance/vatReturn)
+  const { data: cur } = await s.from('system_settings').select('value').eq('key', 'vat_registration').maybeSingle()
+  let quarterEnds: number | undefined
+  try { const v = typeof (cur as any)?.value === 'string' ? JSON.parse((cur as any).value) : (cur as any)?.value; if ([1, 2, 3].includes(Number(v?.quarterEnds))) quarterEnds = Number(v.quarterEnds) } catch { /* none */ }
+  await s.from('system_settings').upsert({ key: 'vat_registration', value: JSON.stringify({ from: b.from, rate, ...(quarterEnds ? { quarterEnds } : {}) }) }, { onConflict: 'key' })
   await s.from('audit_logs').insert({ user_id: admin.personId, action: 'vat_registration', details: `from ${b.from} at ${rate}%` })
   return NextResponse.json({ ok: true, vat: { from: b.from, rate } })
 }
