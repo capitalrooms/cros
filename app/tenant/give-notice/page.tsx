@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { tenantSelf } from '@/lib/viewAs'
 import { useRouter } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { blockAddress, inlineAddress } from '@/lib/formatAddress'
@@ -36,10 +37,10 @@ export default function GiveNoticePage() {
 
   useEffect(() => {
     async function init() {
-      const user = await getCurrentUser()
-      if (!user) { router.push('/login'); return }
+      const self = await tenantSelf()
+      if (!self) { router.push('/login'); return }
 
-      const pid = (user.assignment as any)?.id || null
+      const pid = self.personId
       setPersonId(pid)
 
       const supabase = createClient()

@@ -7,6 +7,7 @@
 // way each has asked, the soonest is confirmed, and the house is kept told.
 
 import BackButton from '@/app/components/BackButton'
+import { tenantSelf } from '@/lib/viewAs'
 import AppBar from '@/components/AppBar'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -36,8 +37,9 @@ export default function TenantEmergencyPage() {
   const [home, setHome] = useState<{ propertyId: string | null; roomId: string | null } | null>(null)
 
   useEffect(() => {
-    getCurrentUser().then(u => {
-      if (!u) { router.push('/login'); return }
+    tenantSelf().then(self => {
+      if (!self) { router.push('/login'); return }
+      const u = { assignment: { id: self.personId } as { id: string; property_id?: string; room_id?: string } }
       // the tenancy running now, not the static people.property_id
       currentTenancy<{ property_id: string; room_id: string | null }>(u.assignment?.id, 'property_id, room_id')
         .then(t => setHome({ propertyId: t?.property_id ?? u.assignment?.property_id ?? null, roomId: t?.room_id ?? u.assignment?.room_id ?? null }))

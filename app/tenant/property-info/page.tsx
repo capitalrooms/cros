@@ -1,6 +1,7 @@
 'use client'
 
 import { openMyFile } from '@/lib/files/useStoredFile'
+import { tenantSelf } from '@/lib/viewAs'
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
 import AppBar from '@/components/AppBar'
@@ -57,13 +58,12 @@ export default function PropertyInfoPage() {
     async function load() {
       try {
         const supabase = createClient()
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user?.email) { setError('Not signed in'); setLoading(false); return }
-
+        const self = await tenantSelf()
+        if (!self) { setError('Not signed in'); setLoading(false); return }
         const { data: person } = await supabase
           .from('people')
           .select('property_id')
-          .eq('email', user.email)
+          .eq('id', self.personId)
           .maybeSingle()
 
         if (!person?.property_id) { setError('No property assigned'); setLoading(false); return }

@@ -5,7 +5,7 @@ import type { NextRequest } from 'next/server'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { secondStepMissing, administratorWithoutTwoStep } from '@/lib/auth/aal'
 
-export interface Caller { userId: string; email: string; personId: string; role: string }
+export interface Caller { userId: string; email: string; personId: string; role: string; /** the administrator's own person id, when viewing as this tenant (read-only) */ viewingAsBy?: string }
 export const STAFF_ROLES = ['administrator', 'admin', 'lettings']
 
 const svc = () => createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { autoRefreshToken: false, persistSession: false } })
@@ -17,6 +17,26 @@ const memo = new Map<string, { at: number; who: Caller | null }>()
 
 /** The signed-in person making the request (from the Bearer token the apps send), or null. */
 export async function requireSignedIn(req: NextRequest): Promise<Caller | null> {
+  const who = await signedIn(req)
+  // while viewing a tenant's app nothing may be sent or changed — refuse outright rather than act as the administrator
+  if (who && req.headers.get('x-view-as') && req.method !== 'GET' && req.method !== 'HEAD') return null
+  return who ? viewingAs(req, who) : null
+}
+
+/**
+ * "View as" a tenant (13 Nov 2026): an administrator looking at a tenant's app gets that tenant's data back — but only
+ * for reading (GET). Anything that sends or changes something still runs as the administrator, and the tenant-only
+ * routes refuse that, so nothing can be done in a tenant's name. lib/viewAs.
+ */
+async function viewingAs(req: NextRequest, who: Caller): Promise<Caller> {
+  const id = req.headers.get('x-view-as')
+  if (!id || who.role !== 'administrator' || req.method !== 'GET' || !/^[0-9a-f-]{36}$/i.test(id)) return who
+  const { data: t } = await svc().from('people').select('id, role, email').eq('id', id).maybeSingle()
+  if (!t || t.role !== 'tenant') return who
+  return { userId: who.userId, email: t.email ?? who.email, personId: t.id, role: 'tenant', viewingAsBy: who.personId }
+}
+
+async function signedIn(req: NextRequest): Promise<Caller | null> {
   const token = req.headers.get('authorization')?.replace(/^Bearer\s+/i, '').trim()
   if (!token) return null
   const hit = memo.get(token)

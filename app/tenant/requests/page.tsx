@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { tenantSelf } from '@/lib/viewAs'
 import { createClient } from '@/lib/supabase';
 import { getCurrentUser } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
@@ -82,18 +83,16 @@ export default function TenantRequests() {
 
   useEffect(() => {
     async function init() {
-      const data = await getCurrentUser();
-      if (!data || data.assignment?.role !== 'tenant') {
-        router.push('/login');
-        return;
-      }
+      // the signed-in tenant, or the tenant an administrator is viewing as (lib/viewAs)
+      const self = await tenantSelf();
+      if (!self) { router.push('/login'); return; }
 
       const supabase = createClient();
       const { data: reqs } = await supabase
         .from('maintenance_tickets')
         .select('*, rooms(name)')
         // reports are kept against the person now; older ones against the sign-in id (25 Oct 2026)
-        .in('reporter_id', [data.assignment?.id, data.user.id].filter(Boolean) as string[])
+        .in('reporter_id', self.reporterIds)
         .order('created_at', { ascending: false });
 
       setRequests(reqs || []);

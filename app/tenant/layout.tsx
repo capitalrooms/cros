@@ -4,9 +4,10 @@ import type { Viewport } from 'next'
 import GardenTheme from '@/app/components/GardenTheme'
 import RoleShell from '@/app/components/role/RoleShell'
 import { gardenFontClasses } from '@/lib/fonts/garden'
+import ViewAsBar from './ViewAsBar'
 
 export const viewport: Viewport = { themeColor: '#17332B' }
 
 export default function TenantLayout({ children }: { children: React.ReactNode }) {
-  return <GardenTheme fonts={gardenFontClasses}><RoleShell role="tenant">{children}</RoleShell></GardenTheme>
+  return <GardenTheme fonts={gardenFontClasses}><RoleShell role="tenant"><ViewAsBar />{children}</RoleShell></GardenTheme>
 }
