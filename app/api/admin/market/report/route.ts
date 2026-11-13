@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
   if (!packs.length) return NextResponse.json({ error: 'No figures for those areas' }, { status: 404 })
   const forName = ll ? landlordName(ll) : null
   if (b.action === 'preview') {
-    const commentary = await reportCommentary(packs, forName).catch(() => '')
+    const commentary = await reportCommentary(packs, forName ?? (b.name ? String(b.name) : null), b.focus ? String(b.focus) : null, s as any).catch(() => '')
     return NextResponse.json({ title: reportTitle(packs), commentary, html: reportHtml(packs, commentary, ll ? dearLine(ll) : null), to: ll?.email ?? null, areas: packs.map(p => ({ code: p.code, name: p.name })) })
   }
   const commentary = String(b.commentary ?? '').slice(0, 5000)

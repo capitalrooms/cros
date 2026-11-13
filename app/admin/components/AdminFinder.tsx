@@ -136,6 +136,15 @@ export default function AdminFinder({ allowed }: { allowed: (href: string) => bo
               <kbd className="rounded border border-neutral-200 px-1 text-[10px] text-neutral-400">Esc</kbd>
             </label>
             <div className="max-h-[60vh] overflow-y-auto">
+              {/* a sentence rather than a name → hand it to the task bar (13 Nov 2026) */}
+              {q.trim().split(/\s+/).length >= 3 && (
+                <button type="button" onClick={() => { const t = q; setOpen(false); window.dispatchEvent(new CustomEvent('cros:task', { detail: t })) }}
+                  className="flex w-full items-center gap-2 border-b border-neutral-100 px-md py-sm text-left text-[14px] hover:bg-neutral-50">
+                  <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-[var(--accent,#E8B931)] text-[var(--ink,#23261A)]"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden><path d="M12 3l1.8 4.6L18 9.4l-4.2 1.8L12 16l-1.8-4.8L6 9.4l4.2-1.8z" /></svg></span>
+                  <span className="min-w-0 flex-1 truncate"><b className="font-semibold">Ask CROS to do this:</b> <span className="text-neutral-600">{q.trim()}</span></span>
+                  <kbd className="rounded border border-neutral-200 px-1 text-[10px] text-neutral-400">⌘J</kbd>
+                </button>
+              )}
               {!q.trim() && <p className="px-md py-md text-sm text-neutral-500">Try “deposits”, “Claverton”, a tenant’s name, a phone number or “boiler”.</p>}
               {rows.length > 0 && <Results rows={rows} active={active} onPick={pick} onHover={setActive} />}
               {q.trim().length >= 2 && searched && !loading && !rows.length && <p className="px-md py-md text-sm text-neutral-500">Nothing matches “{q.trim()}”.</p>}
