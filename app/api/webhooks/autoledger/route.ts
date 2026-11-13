@@ -176,6 +176,22 @@ function agentStatement(subject: string, files: string[], body = ''): { date: st
 }
 
 type ReadResult = { outcome: 'stamped' | 'already' | 'created' | 'failed'; detail: string }
+/** Keep the statement PDF as received, on its statement (migration 284) — so it can be checked against what CROS read.
+ *  Never overwrites a PDF already kept; tolerant before the migration has run. */
+async function keepPdf(supabase: ReturnType<typeof serviceClient>, statementId: string, att: Record<string, any> | undefined) {
+  try {
+    if (!att?.content) return false
+    const { data: cur } = await supabase.from('landlord_statements').select('pdf_path').eq('id', statementId).maybeSingle() as { data: any }
+    if (!cur || cur.pdf_path) return false
+    const path = `${statementId}.pdf`
+    await supabase.storage.createBucket('statements', { public: false }).catch(() => null)
+    const { error } = await supabase.storage.from('statements').upload(path, Buffer.from(att.content, 'base64'), { contentType: 'application/pdf', upsert: true })
+    if (error) { console.warn('AutoLedger: PDF not kept', error.message); return false }
+    await supabase.from('landlord_statements').update({ pdf_path: path }).eq('id', statementId)
+    return true
+  } catch (e) { console.warn('AutoLedger: PDF not kept', e); return false }
+}
+
 async function processStatement(body: any): Promise<ReadResult> {
   const emailData = body.data ?? body
   const inboundEmailId: string = emailData.email_id || emailData.id || ''
@@ -530,6 +546,9 @@ Respond with JSON only in this exact shape:
       dupOf = cands.sort((a, b) => overlap(b.id) - overlap(a.id) || (agent.date ? Math.abs(months(a.statement_date) - months(agent.date)) - Math.abs(months(b.statement_date) - months(agent.date)) : 0))[0]?.id
     }
     if (dupOf) {
+      // sent again: the copy already in CROS gets its PDF if it doesn't have one yet (forward old ones to attach them)
+      const attached = await keepPdf(supabase, dupOf, pdfAttachment)
+      if (attached && quiet === false) console.log('AutoLedger: PDF attached to the statement already in CROS')
       const { data: prev } = await supabase.from('landlord_statements').select('statement_reference, created_at').eq('id', dupOf).maybeSingle()
       // sent again with the agent's own date/number, which the first import didn't keep: correct the original's date
       // (nothing is added twice — 15 Oct 2026, so re-forwarding fixes which month each statement is for)
@@ -608,6 +627,16 @@ Respond with JSON only in this exact shape:
       return { outcome: 'failed', detail: why }
     }
     stmtRow = newStmt
+    // Statements in (migration 284): waits to be checked against its PDF; another statement already filed for the same
+    // property and month is flagged on it (13 Nov 2026 — Crownfield's November came in twice under two numbers)
+    await supabase.from('landlord_statements').update({ received_via: 'email', review_status: 'to_review' }).eq('id', newStmt.id).then(() => null, () => null)
+    await keepPdf(supabase, newStmt.id, pdfAttachment)
+    try {
+      const month = String(agent.date ?? periodEnd).slice(0, 7)
+      const { data: same } = await supabase.from('landlord_statements').select('id, statement_date').eq('property_id', property.id).neq('id', newStmt.id)
+        .gte('statement_date', `${month}-01`).lte('statement_date', `${month}-31`).order('created_at', { ascending: false }).limit(1)
+      if (same?.length) await supabase.from('landlord_statements').update({ possible_duplicate_of: (same[0] as any).id }).eq('id', newStmt.id)
+    } catch { /* before migration 284 */ }
   }
   console.log('AutoLedger: statement row', stmtRow.id)
 
@@ -1054,7 +1083,7 @@ Respond with JSON only in this exact shape:
           title: `${inserted} expense${inserted > 1 ? 's' : ''} imported — ${property!.name || property!.address}`,
           body: `AutoLedger: statement from ${landlordName}.${duplicates ? ` ${duplicates} duplicate${duplicates > 1 ? 's' : ''} skipped.` : ''}`,
           type: 'statement',
-          link: '/admin/expense-review',
+          link: '/admin/statements/review',
           read: false,
         })
       }
