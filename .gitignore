@@ -44,3 +44,7 @@ next-env.d.ts
 # local database files
 *.db
 .audit/
+
+# local-only backups (also in .vercelignore)
+backups/
+.template-backups/
