@@ -18,7 +18,7 @@ export default function InsightPage() {
   return (
     <div className="office min-h-screen bg-neutral-100 pb-3xl">
       <AppBar left={<BackButton href="/admin/market" />} title="Market insight" />
-      <PageHero eyebrow="Lettings · Market" title="Quarterly market insight" subtitle="The same London figures in three styles, each opening on a London scene for the season. Pick the one you like for the landlord updates." />
+      <PageHero eyebrow="Communications · Market updates" title="Quarterly market insight" subtitle="The same London figures in three styles, each opening on a London scene for the season. Pick the one you like for the landlord updates." />
       <div className="mx-auto max-w-4xl space-y-md px-lg py-xl">
         <div className="flex flex-wrap gap-xs">{STYLES.map(([k, l]) => <button key={k} type="button" className={pill(style === k)} onClick={() => setStyle(k)}>{l}</button>)}</div>
         <div className="flex flex-wrap gap-xs">{SEASONS.map(([k, l]) => <button key={k} type="button" className={pill(season === k)} onClick={() => setSeason(k)}>{l}</button>)}</div>

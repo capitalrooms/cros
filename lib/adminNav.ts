@@ -205,6 +205,7 @@ const ZONES_AS_WRITTEN: Zone[] = [
       { emoji: '💬', label: 'Messages',           href: '/admin/communications' },   // All · Send to a house · Acknowledgments · Feedback · Templates
       { emoji: '📄', label: 'Letters & Invoices', href: '/admin/document-generator' },
       { emoji: '✉️', label: 'Email hub',          href: '/admin/email-hub' },   // themes for every email (lib/email/themes) — administrators
+      { emoji: '📈', label: 'Market updates',     href: '/admin/market/report' },   // market reports and the quarterly insight to landlords — letters (13 Nov 2026)
     ],
   },
   {
