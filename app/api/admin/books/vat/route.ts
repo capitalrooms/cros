@@ -9,7 +9,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireDirector, requireAdministrator } from '@/lib/adminAuth'
 import { createServiceClient } from '@/lib/supabase'
-import { vatSettings, vatPeriods, vatPeriod, vatCsv } from '@/lib/finance/vatReturn'
+import { vatSettings, vatPeriods, vatPeriod, vatCsv, vatMonths, vatDueDate, vatFiled } from '@/lib/finance/vatReturn'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -24,13 +24,30 @@ export async function GET(req: NextRequest) {
     if (req.nextUrl.searchParams.get('csv')) return new NextResponse(vatCsv(p, st), { headers: { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': `attachment; filename="VAT ${from} to ${to}.csv"` } })
     return NextResponse.json(p)
   }
-  return NextResponse.json({ settings: st, periods: vatPeriods(st) })
+  const [months, filed] = await Promise.all([vatMonths(s, st), vatFiled(s)])
+  return NextResponse.json({ settings: st, periods: vatPeriods(st).map(p => ({ ...p, due: vatDueDate(p.to), filed: filed[p.from] ?? null })), months })
 }
 
 export async function POST(req: NextRequest) {
   const admin = await requireAdministrator(req)
   if (!admin) return NextResponse.json({ error: 'Administrators only' }, { status: 403 })
   const b = await req.json().catch(() => ({}))
+  // a return marked as filed and paid (or un-marked) — the history
+  if (b.action === 'filed') {
+    const s = createServiceClient()
+    const all = await vatFiled(s)
+    const key = String(b.periodFrom ?? '')
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(key)) return NextResponse.json({ error: 'Which quarter?' }, { status: 400 })
+    if (b.undo) delete all[key]
+    else {
+      const filedOn = String(b.filedOn ?? ''), amount = Number(b.amount)
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(filedOn) || !Number.isFinite(amount)) return NextResponse.json({ error: 'Give the date it was filed and the amount paid.' }, { status: 400 })
+      all[key] = { filedOn, amount: Math.round(amount * 100) / 100, by: admin.email }
+    }
+    const { error } = await s.from('system_settings').upsert({ key: 'vat_returns', value: JSON.stringify(all) }, { onConflict: 'key' })
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ ok: true })
+  }
   const rate = Number(b.rate ?? 20), q = Number(b.quarterEnds)
   if (!/^\d{4}-\d{2}-\d{2}$/.test(String(b.from)) || !(rate > 0 && rate <= 30) || ![1, 2, 3].includes(q)) return NextResponse.json({ error: 'Give the date VAT started, the rate and when your quarters end.' }, { status: 400 })
   const s = createServiceClient()

@@ -88,3 +88,42 @@ export function vatCsv(p: Awaited<ReturnType<typeof vatPeriod>>, st: VatSettings
   ]
   return rows.map(r => r.map(cell).join(',')).join('\n')
 }
+
+/** Month by month since registration (13 Nov 2026, Harry: "a VAT summary of what we have charged each month") —
+ *  as Xero / QuickBooks / FreeAgent show it: VAT on sales, VAT on purchases and the net, with a running total for the
+ *  quarter each month sits in. */
+export async function vatMonths(s: SupabaseClient, st: VatSettings, today = new Date().toISOString().slice(0, 10)) {
+  const to = endOfMonth(Number(today.slice(0, 4)), Number(today.slice(5, 7)) - 1)
+  const books = await loadBooks(s, { from: st.from, to })
+  let { data: docs, error } = await s.from('company_documents').select('expense_date, amount, vat_amount, voided_at').gte('expense_date', st.from).lte('expense_date', to) as { data: any[] | null; error: any }
+  if (error) docs = []
+  const periods = vatPeriods(st, today)
+  const months: { month: string; label: string; fees: number; vatOnFees: number; costs: number; vatOnCosts: number; net: number; quarter: string; quarterSoFar: number }[] = []
+  for (let d = st.from.slice(0, 7); d <= to.slice(0, 7);) {
+    const fees = books.rows.filter(r => r.kind === 'fee' && String(r.month ?? r.date).slice(0, 7) === d)
+    const cs = (docs ?? []).filter(x => !x.voided_at && String(x.expense_date).slice(0, 7) === d)
+    const vatOnFees = r2(fees.reduce((t, r) => t + (r.vat ?? 0), 0)), vatOnCosts = r2(cs.reduce((t, x) => t + Number(x.vat_amount || 0), 0))
+    const q = periods.find(p => d >= p.from.slice(0, 7) && d <= p.to.slice(0, 7))
+    months.push({ month: d, label: new Date(`${d}-15T12:00:00Z`).toLocaleDateString('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' }),
+      fees: r2(fees.reduce((t, r) => t + (r.net ?? 0), 0)), vatOnFees, costs: r2(cs.reduce((t, x) => t + Number(x.amount) - Number(x.vat_amount || 0), 0)), vatOnCosts, net: r2(vatOnFees - vatOnCosts), quarter: q?.label ?? '', quarterSoFar: 0 })
+    const [y, m] = d.split('-').map(Number); d = m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, '0')}`
+  }
+  // running total within each quarter
+  const run = new Map<string, number>()
+  for (const m of months) { const t = r2((run.get(m.quarter) ?? 0) + m.net); run.set(m.quarter, t); m.quarterSoFar = t }
+  return months.reverse()
+}
+
+/** HMRC's deadline for a return and payment: one calendar month and seven days after the period ends. */
+export function vatDueDate(periodTo: string) {
+  const [y, m] = periodTo.split('-').map(Number)
+  const end = endOfMonth(y, m)   // the last day of the following month
+  const d = new Date(`${end}T12:00:00Z`); d.setUTCDate(d.getUTCDate() + 7)
+  return d.toISOString().slice(0, 10)
+}
+
+/** Returns filed (system_settings 'vat_returns'): { [periodFrom]: { filedOn, amount, by } } — the return history. */
+export async function vatFiled(s: SupabaseClient): Promise<Record<string, { filedOn: string; amount: number; by: string }>> {
+  const { data } = await s.from('system_settings').select('value').eq('key', 'vat_returns').maybeSingle()
+  try { const v = typeof (data as any)?.value === 'string' ? JSON.parse((data as any).value) : (data as any)?.value; return v && typeof v === 'object' ? v : {} } catch { return {} }
+}
