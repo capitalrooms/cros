@@ -217,6 +217,15 @@ export default function StatementsReview() {
                     </>)}
                     {!s.locked && (
                       <div className="mt-md flex flex-wrap gap-md border-t border-neutral-100 pt-sm text-xs">
+                        {s.pdf && <button type="button" disabled={busy} onClick={async () => {
+                          if (!window.confirm(`Read ${s.reference} again from its PDF? What CROS read now is replaced (a copy is kept) — use this when something was missed, like a VAT column.`)) return
+                          setBusy(true); setErr(''); setMsg('Reading the PDF again — this takes up to a minute…')
+                          const r = await adminFetch('/api/webhooks/autoledger', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-cros-reread-statement': '1' }, body: JSON.stringify({ statementId: s.id }) })
+                          const j = await r.json().catch(() => ({}))
+                          setBusy(false)
+                          if (!r.ok) { setMsg(''); setErr(j.error || 'Couldn’t read it again'); return }
+                          setMsg(`Read again: ${j.reference} — ${gbp(j.gross)} rent in, ${gbp(j.net)} to the landlord.`); await load(); open(j.id)
+                        }} className="font-semibold underline">Read the PDF again</button>}
                         <button type="button" onClick={() => { setRemoving(!removing); setMoving(false) }} className="font-semibold text-red-700 underline">Remove — wrong upload</button>
                         <button type="button" onClick={async () => { setMoving(!moving); setRemoving(false); if (!props.length) { const { data } = await createClient().from('properties').select('id, name').order('name'); setProps(((data ?? []) as any[]).map(p => ({ id: p.id, name: String(p.name ?? '').split(/\n|,/)[0] }))) } }} className="font-semibold underline">Filed under the wrong property</button>
                       </div>

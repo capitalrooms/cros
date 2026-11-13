@@ -406,6 +406,10 @@ Include EVERY line that has a money amount:
 - Letting fees (new tenant setup/finding fees)
 - VAT on those fees — EVERY "… VAT" line ("Management Fee (12%) VAT …", "Letting Fee VAT …") as its own item, with
   "VAT" kept in the description. Never merge VAT into the fee line and never leave a VAT line out.
+- A VAT COLUMN: many statements print deductions as "Deductions ex. VAT" with a separate "VAT" column beside them.
+  For every line whose VAT column is more than £0.00, return TWO items: the line at its ex-VAT amount, and a second
+  item with the same description followed by " VAT" (e.g. "Room 2 - Management Fee (10%) 01/11/2026 - 30/11/2026 VAT")
+  for the VAT amount, line_type "expense". Lines whose VAT column is £0.00 get no VAT item. Never ignore the VAT column.
 - All expense, repair, and charge lines
 
 For each line item return a JSON array:
@@ -1133,6 +1137,49 @@ export async function POST(req: NextRequest) {
   // Office "re-read this email" (Finance › Statements › Statement emails, 15 Oct 2026): an administrator names an email
   // that reached statements@; it's fetched from the email service and imported again — a statement already in CROS is
   // never added twice (it gets the agent's number and date instead). Runs to the end so the screen can show the result.
+  // Statements in › "Read the PDF again" (13 Nov 2026): a statement already in CROS is read afresh from the PDF kept with
+  // it — the old reading is copied to the finance audit log and replaced; if the new reading doesn't come out as a
+  // statement for that property, the old one is put straight back. (13 Nov: Flat 4's VAT column had been missed.)
+  if (req.headers.get('x-cros-reread-statement')) {
+    const admin = await requireAdministrator(req)
+    if (!admin) return NextResponse.json({ error: 'Only an administrator can read a statement again.' }, { status: 403 })
+    const { statementId } = await req.json().catch(() => ({}))
+    const sb = serviceClient()
+    const { data: st } = await sb.from('landlord_statements').select('*').eq('id', String(statementId ?? '')).maybeSingle() as { data: any }
+    if (!st) return NextResponse.json({ error: 'Statement not found' }, { status: 404 })
+    if (st.payment_run_id || st.sent_at) return NextResponse.json({ error: 'This statement has been paid out or sent from CROS — it can’t be replaced.' }, { status: 409 })
+    if (!st.pdf_path) return NextResponse.json({ error: 'No PDF is kept for this statement — forward the email to statements@ to attach it first.' }, { status: 409 })
+    const { data: file } = await sb.storage.from('statements').download(st.pdf_path)
+    if (!file) return NextResponse.json({ error: 'The kept PDF couldn’t be opened.' }, { status: 500 })
+    const content = Buffer.from(await file.arrayBuffer()).toString('base64')
+    const number = String(st.statement_reference ?? '').match(/^[A-Z]{1,4}\d{3,}/i)?.[0] ?? ''
+    const [{ data: rooms }, { data: lines }] = await Promise.all([
+      sb.from('landlord_statement_rooms').select('*').eq('statement_id', st.id),
+      sb.from('statement_line_items').select('*').eq('statement_id', st.id),
+    ])
+    const { error: logErr } = await sb.from('finance_audit_log').insert({ table_name: 'landlord_statements', row_id: st.id, action: 'delete', actor: admin.email, old_row: { ...st, removed_reason: 'read the PDF again', rooms: rooms ?? [], line_items: lines ?? [] } })
+    if (logErr) return NextResponse.json({ error: `Not read again — couldn’t keep a copy of the old reading first (${logErr.message})` }, { status: 500 })
+    const putBack = async () => {
+      await sb.from('landlord_statements').insert({ ...st })
+      if (rooms?.length) await sb.from('landlord_statement_rooms').insert(rooms)
+      if (lines?.length) await sb.from('statement_line_items').insert(lines)
+    }
+    await sb.from('landlord_statements').update({ possible_duplicate_of: null }).eq('possible_duplicate_of', st.id).then(() => null, () => null)
+    await sb.from('statement_line_items').delete().eq('statement_id', st.id)
+    await sb.from('landlord_statement_rooms').delete().eq('statement_id', st.id)
+    await sb.from('landlord_statements').delete().eq('id', st.id)
+    try {
+      const result = await processStatement({ reread: true, data: { email_id: null, from: admin.email, to: 'statements@', subject: number ? `Statement ${number}` : 'Statement', text: '', html: '', attachments: [{ filename: `${number || 'statement'}.pdf`, content_type: 'application/pdf', content }] } })
+      const { data: fresh } = await sb.from('landlord_statements').select('id, statement_reference, gross_rent, net_to_landlord').eq('property_id', st.property_id).ilike('statement_reference', `${number || st.statement_reference}%`).order('created_at', { ascending: false }).limit(1)
+      if (!fresh?.length) { await putBack(); return NextResponse.json({ error: `The new reading didn’t come out as a statement for this property (${result?.detail ?? 'not read'}) — the old one is back as it was.` }, { status: 422 }) }
+      await sb.storage.from('statements').remove([st.pdf_path]).catch(() => null)
+      return NextResponse.json({ ok: true, id: fresh[0].id, reference: fresh[0].statement_reference, gross: fresh[0].gross_rent, net: fresh[0].net_to_landlord, detail: result?.detail })
+    } catch (e) {
+      await putBack()
+      return NextResponse.json({ error: `Couldn’t read it again (${e instanceof Error ? e.message : 'error'}) — the old one is back as it was.` }, { status: 500 })
+    }
+  }
+
   if (req.headers.get('x-cros-reread')) {
     if (!(await requireAdministrator(req))) return NextResponse.json({ error: 'Only an administrator can re-read statements.' }, { status: 403 })
     const { emailId } = await req.json().catch(() => ({}))
