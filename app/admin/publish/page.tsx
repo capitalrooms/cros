@@ -22,9 +22,10 @@ export default function PublishList() {
   const router = useRouter()
   const [items, setItems] = useState<Item[] | null>(null)
   const [setup, setSetup] = useState(false)
+  const [tracking, setTracking] = useState(true)
   const [busy, setBusy] = useState('')
   const [err, setErr] = useState('')
-  useEffect(() => { adminFetch('/api/admin/publish').then(r => r.json()).then(j => { setSetup(!!j.setupNeeded); setItems(j.items ?? []) }).catch(() => setItems([])) }, [])
+  useEffect(() => { adminFetch('/api/admin/publish').then(r => r.json()).then(j => { setSetup(!!j.setupNeeded); setTracking(j.trackingReady !== false); setItems(j.items ?? []) }).catch(() => setItems([])) }, [])
   async function create(kind: 'market_update' | 'announcement') {
     setBusy(kind); setErr('')
     const r = await adminFetch('/api/admin/publish', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind }) })
@@ -50,6 +51,16 @@ export default function PublishList() {
           </button>
         </div>
         {err && <p className="text-sm text-red-700">{err}</p>}
+        {!tracking && !setup && (
+          <div className="rounded-xl bg-amber-50 p-md text-sm text-amber-950 ring-1 ring-amber-200">
+            <p className="font-semibold">Switch on opens and clicks (once)</p>
+            <ol className="mt-xs list-decimal space-y-0.5 pl-lg">
+              <li>In Resend: <b>Domains</b> → capitalrooms.co.uk → turn on <b>Open tracking</b> and <b>Click tracking</b>.</li>
+              <li>In Resend: <b>Webhooks</b> → Add endpoint → <code>https://capitalrooms.co.uk/api/webhooks/resend-events</code> → events <b>email.delivered, email.opened, email.clicked, email.bounced</b>.</li>
+              <li>Copy its <b>signing secret</b> into Vercel as <code>RESEND_EVENTS_SECRET</code> (Settings → Environment Variables), then redeploy.</li>
+            </ol>
+          </div>
+        )}
         <section className="overflow-hidden rounded-xl bg-white ring-1 ring-neutral-200">
           {items && !items.length && <p className="p-lg text-sm text-neutral-600">Nothing yet — start one above.</p>}
           <ul className="divide-y divide-neutral-100">

@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
   const ids = (data ?? []).map((x: any) => x.id)
   const { data: sends } = ids.length ? await s.from('publication_sends').select('publication_id, status').in('publication_id', ids) : { data: [] as any[] }
   const count = (id: string, st: string) => ((sends ?? []) as any[]).filter(x => x.publication_id === id && x.status === st).length
-  return NextResponse.json({ items: (data ?? []).map((x: any) => ({ ...x, sent: count(x.id, 'sent'), failed: count(x.id, 'failed') })) })
+  return NextResponse.json({ trackingReady: !!process.env.RESEND_EVENTS_SECRET, items: (data ?? []).map((x: any) => ({ ...x, sent: count(x.id, 'sent'), failed: count(x.id, 'failed') })) })
 }
 
 export async function POST(req: NextRequest) {
