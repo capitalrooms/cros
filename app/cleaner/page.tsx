@@ -506,7 +506,7 @@ export default function CleanerDashboard() {
           {/* Diary — under Today only, so each section in the side rail opens on its own content */}
           {activeTab === 'today' && <div style={{ padding: '20px 28px' }}>
             <p style={{ fontSize: '12px', fontWeight: 700, color: 'rgb(var(--n-500))', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>Diary</p>
-            <MultiDayDiaryGrid jobs={diaryJobs} startHour={8} endHour={19} />
+            <MultiDayDiaryGrid jobs={diaryJobs} startHour={8} endHour={19} tone="clean" />
           </div>}
 
           {/* Tab-specific content */}

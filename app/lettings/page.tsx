@@ -683,6 +683,7 @@ export default function LettingsPage() {
                 )}
                 <p style={{ fontSize: 12, color: '#59544C', margin: '0 0 10px' }}>Choose an empty slot to book a viewing, or a viewing to move it or message people.</p>
                 <MultiDayDiaryGrid
+                  tone="viewing"
                   jobs={lettingsDiaryJobs}
                   startHour={9}
                   endHour={20}

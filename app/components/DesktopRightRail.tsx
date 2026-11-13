@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { MonthGrid } from '@/components/calendar/Calendar'
 
 /**
  * DesktopRightRail
@@ -115,65 +116,9 @@ export default function DesktopRightRail({
           </button>
         </div>
 
-        {/* Day-of-week headers */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '2px 0', marginBottom: 4 }}>
-          {DAY_HDRS.map((h, i) => (
-            <div key={i} style={{ textAlign: 'center', fontSize: 9.5, fontWeight: 700, color: '#9ca3af', paddingBottom: 2 }}>
-              {h}
-            </div>
-          ))}
-        </div>
-
-        {/* Calendar cells */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2 }}>
-          {cells.map((day, idx) => {
-            if (day === null) return <div key={`e-${idx}`} />
-            const iso = `${yearState}-${String(monthState + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
-            const isToday = iso === today
-            const count = counts[iso] ?? 0
-            return (
-              <div
-                key={iso}
-                style={{
-                  textAlign: 'center',
-                  padding: '4px 1px 5px',
-                  borderRadius: 8,
-                  background: isToday ? '#181614' : 'transparent',
-                  position: 'relative',
-                }}
-              >
-                <span style={{
-                  fontSize: 11,
-                  fontWeight: isToday ? 800 : count > 0 ? 700 : 500,
-                  color: isToday ? '#F6F3EC' : count > 0 ? '#181614' : '#9ca3af',
-                  lineHeight: 1,
-                }}>
-                  {day}
-                </span>
-                {count > 0 && !isToday && (
-                  <span style={{
-                    display: 'block',
-                    width: 4,
-                    height: 4,
-                    borderRadius: '50%',
-                    background: '#4B6358',
-                    margin: '2px auto 0',
-                  }} />
-                )}
-                {isToday && count > 0 && (
-                  <span style={{
-                    display: 'block',
-                    width: 4,
-                    height: 4,
-                    borderRadius: '50%',
-                    background: '#DCE6DE',
-                    margin: '2px auto 0',
-                  }} />
-                )}
-              </div>
-            )
-          })}
-        </div>
+        {/* the month — the calendar look used across CROS (components/calendar), Monday first */}
+        <MonthGrid year={yearState} month={monthState} compact
+          renderDay={(iso) => (counts[iso] ?? 0) > 0 ? <span className="mx-auto mt-[2px] block h-1 w-1 rounded-full" style={{ background: '#2F6FB2' }} /> : <span className="mt-[2px] block h-1" />} />
       </div>
 
       {/* ── Alerts / modules ────────────────────────────────────────── */}

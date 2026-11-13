@@ -10,6 +10,7 @@ import BackButton from '@/app/components/BackButton';
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading';
 import LettingsViewingNotifyModal from '@/app/components/LettingsViewingNotifyModal';
 import AddLetOnlyModal from '@/app/components/AddLetOnlyModal';
+import { DayHead, CAL, TONES } from '@/components/calendar/Calendar'
 
 interface Viewing {
   id: string;
@@ -296,42 +297,25 @@ export default function ViewingsDiary() {
           </div>
         )}
 
-        {/* Week view strip */}
-        <div className="mb-3xl grid grid-cols-7 gap-sm">
-          {days.map((day) => (
-            <button
-              key={day.iso}
-              onClick={() => {
-                if (day.viewingCount === 0) {
-                  openNewViewing(day.iso);
-                } else {
-                  setExpandedDay(expandedDay === day.iso ? null : day.iso);
-                }
-              }}
-              className={`p-md rounded-lg text-center transition ${
-                expandedDay === day.iso
-                  ? 'bg-neutral-900 text-white border-2 border-neutral-900'
-                  : day.viewingCount > 0
-                  ? 'bg-blue-50 border-2 border-blue-200 text-blue-900'
-                  : 'bg-neutral-50 border-2 border-dashed border-neutral-300 text-neutral-400 hover:border-neutral-400 hover:text-neutral-600'
-              }`}
-              title={day.viewingCount === 0 ? 'Click to book a viewing on this day' : undefined}
-            >
-              <p className="text-xs font-bold uppercase tracking-wide">
-                {day.date.toLocaleDateString('en-GB', { weekday: 'short' })}
-              </p>
-              <p className="text-lg font-bold mt-xs">
-                {day.date.getDate()}
-              </p>
-              {day.viewingCount > 0 ? (
-                <p className="text-xs mt-sm font-semibold">
-                  {day.viewingCount} {day.viewingCount === 1 ? 'viewing' : 'viewings'}
-                </p>
-              ) : (
-                <p className="text-xs mt-sm">+ add</p>
-              )}
-            </button>
-          ))}
+        {/* Week view strip — the calendar look used across CROS (components/calendar) */}
+        <div className="mb-3xl grid grid-cols-7 overflow-hidden rounded-xl border bg-white" style={{ borderColor: CAL.line }}>
+          {days.map((day, i) => {
+            const on = expandedDay === day.iso
+            return (
+              <button
+                key={day.iso}
+                onClick={() => { if (day.viewingCount === 0) openNewViewing(day.iso); else setExpandedDay(on ? null : day.iso) }}
+                className={`pb-sm text-center transition hover:bg-[#EEF2F7] ${i ? 'border-l' : ''} ${on ? 'ring-2 ring-inset ring-neutral-900' : ''}`}
+                style={{ borderColor: CAL.line, background: on ? '#EEF2F7' : undefined }}
+                title={day.viewingCount === 0 ? 'Book a viewing on this day' : 'Show this day’s viewings'}
+              >
+                <DayHead date={day.date} compact />
+                {day.viewingCount > 0
+                  ? <span className="mx-auto inline-block rounded-full px-xs text-[11px] font-semibold" style={{ background: TONES.viewing.tint, color: TONES.viewing.ink }}>{day.viewingCount}</span>
+                  : <span className="text-[11px]" style={{ color: CAL.muted }}>+</span>}
+              </button>
+            )
+          })}
         </div>
 
         {viewings.length === 0 ? (

@@ -16,6 +16,8 @@ import { sortPropertiesNumerically } from '@/lib/sortProperties'
 import { localISO } from '@/lib/dateUtils'
 import LineIcon from '@/components/LineIcon'
 import SidePanel from '@/app/components/SidePanel'
+import { TimeGrid, DayList, WeekNav, type CalEntry, type Tone } from '@/components/calendar/Calendar'
+import { parseTime, ymd } from '@/components/calendar/look'
 type AppointmentType = 'landlord' | 'lettings' | 'management_visit' | 'contractor' | 'cleaner' | 'delivery' | 'inspection' | 'gas_safety' | 'electrical' | 'fire_door' | 'smoke_alarm' | 'other'
 
 interface Appointment {
@@ -267,6 +269,20 @@ export default function AppointmentsPage() {
     setDraggedAppt(null)
   }
 
+  // one calendar across CROS (components/calendar): an appointment's colour says what kind of visit it is
+  const toneOf = (t: string): Tone => t === 'cleaner' ? 'clean' : ['contractor', 'electrical', 'gas_safety', 'fire_door', 'smoke_alarm'].includes(t) ? 'repair' : t === 'lettings' ? 'viewing' : 'appointment'
+  const calEntries: CalEntry[] = appointments.map(a => {
+    const t = parseTime(a.appointment_time, a.duration_minutes || 30)
+    return { key: a.id, date: a.appointment_date, ...t, title: `${(APPOINTMENT_TYPES[a.appointment_type] ?? APPOINTMENT_TYPES.other).label} — ${a.visitor_name}`, line2: String(a.property?.name ?? '').split('\n')[0], line3: a.visitor_company || '', tone: toneOf(a.appointment_type), onClick: () => setViewAppt(a), draggable: true }
+  })
+  async function moveAppt(id: string, date: string, minutes: number) {
+    const time = `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`
+    const { error } = await supabase.from('property_appointments').update({ appointment_date: date, appointment_time: time } as never).eq('id', id)
+    if (error) { setError(error.message); return }
+    setAppointments(list => list.map(a => a.id === id ? { ...a, appointment_date: date, appointment_time: time } : a))
+  }
+  const bookAt = (date: string, minutes: number) => { setAppointmentDate(date); setAppointmentTime(`${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`); setShowCreateForm(true) }
+
   if (loading) return <GenericPageSkeleton />
 
   return (
@@ -278,14 +294,7 @@ export default function AppointmentsPage() {
         {/* one toolbar, like Everything: book on the left, the week on the right */}
         <div className="mb-lg flex flex-wrap items-center gap-sm">
           <button onClick={() => setShowCreateForm(true)} className="rounded-lg bg-neutral-900 px-lg py-sm text-sm font-semibold text-white hover:bg-neutral-800">+ Book</button>
-          <div className="ml-auto flex items-center gap-xs">
-            <button onClick={() => { const d = new Date(weekStart); d.setDate(d.getDate() - 7); setWeekStart(d) }} aria-label="Previous week" className="rounded-lg border border-neutral-300 bg-white px-md py-sm text-sm font-semibold hover:bg-neutral-50">←</button>
-            {dateStr(weekStart) !== dateStr((() => { const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d })()) && (
-              <button onClick={() => { const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); setWeekStart(d) }} className="rounded-lg border border-neutral-300 bg-white px-md py-sm text-sm font-semibold hover:bg-neutral-50">This week</button>
-            )}
-            <span className="min-w-[13rem] text-center text-sm font-semibold text-neutral-900">{(() => { const e = new Date(weekStart); e.setDate(e.getDate() + 6); return `${weekStart.toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })} – ${e.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}` })()}</span>
-            <button onClick={() => { const d = new Date(weekStart); d.setDate(d.getDate() + 7); setWeekStart(d) }} aria-label="Next week" className="rounded-lg border border-neutral-300 bg-white px-md py-sm text-sm font-semibold hover:bg-neutral-50">→</button>
-          </div>
+          <div className="ml-auto"><WeekNav monday={weekStart} onChange={(d) => { const x = new Date(d); x.setHours(0, 0, 0, 0); setWeekStart(x) }} /></div>
         </div>
 
         {/* Modal overlay */}
@@ -430,124 +439,14 @@ export default function AppointmentsPage() {
           </div>
         )}
 
-        {/* Phone: the week as a list, day by day (the grid below is too narrow to read or drag on a phone) */}
-        <div className="md:hidden space-y-md">
-          {days.map((d, i) => {
-            const isToday = dateStr(d) === dateStr(new Date())
-            const dayAppts = appointments.filter(a => a.appointment_date === dateStr(d))
-            return (
-              <section key={i} className="rounded-2xl border border-neutral-200 bg-white overflow-hidden">
-                <div className={`flex items-center justify-between px-lg py-sm ${isToday ? 'bg-[#FFF1E8]' : (d.getDay() === 0 || d.getDay() === 6) ? 'bg-[#F4F2EC]' : 'bg-[#FAF9F6]'}`}>
-                  <p className={`text-sm font-bold ${isToday ? 'text-[#B5361F]' : 'text-neutral-900'}`}>
-                    {d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}{isToday && ' · Today'}
-                  </p>
-                  <button type="button"
-                    onClick={() => { setAppointmentDate(dateStr(d)); setAppointmentTime('10:00'); setShowCreateForm(true) }}
-                    className="rounded-lg border border-neutral-300 bg-white px-md py-xs text-xs font-semibold text-neutral-700 active:bg-neutral-100">
-                    + Book
-                  </button>
-                </div>
-                {dayAppts.length === 0 ? (
-                  <p className="px-lg py-sm text-xs text-neutral-400">Nothing booked</p>
-                ) : (
-                  <ul className="divide-y divide-neutral-100">
-                    {dayAppts.map(appt => {
-                      const typeInfo = APPOINTMENT_TYPES[appt.appointment_type] ?? APPOINTMENT_TYPES.other
-                      return (
-                        <li key={appt.id} className="flex gap-md px-lg py-sm cursor-pointer active:bg-neutral-50" onClick={(e) => { if ((e.target as HTMLElement).closest('a')) return; setViewAppt(appt) }}>
-                          <p className="w-12 shrink-0 text-sm font-bold tabular-nums text-neutral-900">{appt.appointment_time.slice(0, 5)}</p>
-                          <div className="min-w-0 flex-1">
-                            <p className="text-sm font-semibold text-neutral-900">{<LineIcon glyph={typeInfo.icon} />} {appt.visitor_name}</p>
-                            <p className="truncate text-xs text-neutral-500">{typeInfo.label}{appt.property ? ` · ${appt.property.name}` : ''}{appt.duration_minutes ? ` · ${appt.duration_minutes} min` : ''}</p>
-                            {appt.notes && <p className="mt-0.5 text-xs text-neutral-600 line-clamp-2">{appt.notes}</p>}
-                          </div>
-                          {appt.visitor_phone && (
-                            <a href={`tel:${appt.visitor_phone}`} aria-label={`Call ${appt.visitor_name}`}
-                              className="self-center shrink-0 rounded-full border border-neutral-200 px-sm py-xs text-xs font-semibold text-neutral-700"><LineIcon glyph="📞" /></a>
-                          )}
-                        </li>
-                      )
-                    })}
-                  </ul>
-                )}
-              </section>
-            )
-          })}
+        {/* Phone: the week as a list, day by day */}
+        <div className="md:hidden">
+          <DayList days={days} entries={calEntries} action={(d) => <button type="button" onClick={() => bookAt(d, 600)} className="rounded-lg border border-neutral-300 bg-white px-md py-xs text-xs font-semibold text-neutral-700">+ Book</button>} />
         </div>
 
-        {/* Calendar grid */}
-        <div className="hidden md:block overflow-x-auto rounded-xl border border-neutral-200 bg-white">
-          <div className="inline-block min-w-full">
-            {/* Header: day names — weekends shaded, today's date in a circle */}
-            <div className="flex border-b border-neutral-200">
-              <div className="w-16 shrink-0 bg-white sticky left-0 z-10"></div>
-              {days.map((d, i) => {
-                const isToday = dateStr(d) === dateStr(new Date())
-                const weekend = d.getDay() === 0 || d.getDay() === 6
-                return (
-                  <div key={i} className={`flex-1 border-l border-neutral-200 py-sm text-center select-none ${weekend ? 'bg-[#F4F2EC]' : 'bg-white'}`}>
-                    <div className={`text-[11px] font-semibold uppercase tracking-wider ${isToday ? 'text-[#B5361F]' : 'text-neutral-500'}`}>{d.toLocaleDateString('en-GB', { weekday: 'short' })}</div>
-                    <div className={`mx-auto mt-0.5 flex h-8 w-8 items-center justify-center rounded-full text-lg font-semibold tabular-nums ${isToday ? 'bg-[#B5361F] text-white' : 'text-neutral-900'}`}>{d.getDate()}</div>
-                  </div>
-                )
-              })}
-            </div>
-
-            {/* Time grid */}
-            {hours.map((hour, hi) => (
-              <div key={hour} className={`flex ${hi ? 'border-t border-neutral-200' : ''}`}>
-                {/* Time label — on the line, as in any calendar */}
-                <div className="relative w-16 shrink-0 bg-white sticky left-0 z-10">
-                  {hi > 0 && <span className="absolute -top-2 right-sm bg-white px-0.5 text-[11px] tabular-nums text-neutral-400">{hour === 12 ? '12pm' : hour > 12 ? `${hour - 12}pm` : `${hour}am`}</span>}
-                </div>
-
-                {/* Day columns */}
-                {days.map((d, dayIdx) => (
-                  <div
-                    key={dayIdx}
-                    className="flex-1 border-l border-neutral-200 relative cursor-pointer hover:!bg-[#EEF2F7] transition-colors"
-                    // two tones, the usual way: working hours (9–6, Mon–Fri) white, the rest off-white; a dotted half-hour line
-                    style={{ minHeight: '3.25rem', background: `linear-gradient(to bottom, transparent calc(50% - 0.5px), #F2F0EB calc(50% - 0.5px), #F2F0EB calc(50% + 0.5px), transparent calc(50% + 0.5px)) ${(d.getDay() === 0 || d.getDay() === 6 || hour < 9 || hour >= 18) ? '#F6F4EF' : '#FFFFFF'}` }}
-                    title={`Book ${d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })} at ${hour === 12 ? '12pm' : hour > 12 ? `${hour - 12}pm` : `${hour}am`}`}
-                    onDragOver={handleDragOver}
-                    onDrop={(e) => handleDrop(d, `${String(hour).padStart(2,'0')}:00`, e)}
-                    onClick={(e) => {
-                      // Only trigger if clicking the empty cell, not an appointment card
-                      if ((e.target as HTMLElement).closest('[draggable]')) return
-                      setAppointmentDate(dateStr(d))
-                      setAppointmentTime(`${String(hour).padStart(2, '0')}:00`)
-                      setShowCreateForm(true)
-                    }}
-                  >
-                    {/* Appointment for this slot */}
-                    {appointments
-                      .filter((a) => a.appointment_date === dateStr(d) && Math.floor(parseInt(a.appointment_time.split(':')[0])) === hour)
-                      .map((appt) => {
-                        const typeInfo = APPOINTMENT_TYPES[appt.appointment_type]
-                        const duration = appt.duration_minutes || 30
-                        const heightRem = (duration / 60) * 3.25
-
-                        return (
-                          <div
-                            key={appt.id}
-                            draggable
-                            onDragStart={(e) => handleDragStart(e, appt)}
-                            onClick={(e) => { e.stopPropagation(); setViewAppt(appt) }}
-                            title="Click for the details, or drag to move it"
-                            className={`absolute left-0.5 right-0.5 top-0.5 z-[1] p-1 text-xs rounded-md cursor-pointer hover:shadow-md transition ${typeInfo.bgColor} border-l-[3px] ${typeInfo.borderColor}`}
-                            style={{ height: `${Math.max(heightRem, 2.1)}rem`, lineHeight: '1.15' }}
-                          >
-                            <div className="font-bold truncate">{<LineIcon glyph={typeInfo.icon} />} {appt.visitor_name}</div>
-                            <div className="truncate text-neutral-600">{appt.appointment_time.slice(0, 5)}</div>
-                            {appt.property && <div className="truncate text-neutral-600 text-xs">{appt.property.name}</div>}
-                          </div>
-                        )
-                      })}
-                  </div>
-                ))}
-              </div>
-            ))}
-          </div>
+        {/* the week — drag an appointment to move it, click an empty slot to book */}
+        <div className="hidden md:block">
+          <TimeGrid days={days} entries={calEntries} onSlot={bookAt} onMove={moveAppt} />
         </div>
       </main>
       <SidePanel open={!!viewAppt} onClose={() => setViewAppt(null)} title={viewAppt ? `${(APPOINTMENT_TYPES[viewAppt.appointment_type] ?? APPOINTMENT_TYPES.other).label} — ${viewAppt.visitor_name}` : ''}
