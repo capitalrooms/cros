@@ -529,7 +529,8 @@ export default function ContractorDashboard() {
                     </div>
                   </div>
                   <MultiDayDiaryGrid
-                    jobs={diaryJobs}
+                    tone="repair"
+                  jobs={diaryJobs}
                     startHour={8}
                     endHour={19}
                     todayISO={today}

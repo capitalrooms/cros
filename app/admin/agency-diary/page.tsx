@@ -20,6 +20,8 @@ import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
 import SidePanel from '@/app/components/SidePanel'
 import { withContractors } from '@/lib/contractors'
 import LineIcon from '@/components/LineIcon'
+import { TimeGrid, DayList, AgendaRow, WeekNav, type CalEntry } from '@/components/calendar/Calendar'
+import { TONES, ymd, todayYmd, niceTime as nice, parseTime, mondayOf } from '@/components/calendar/look'
 
 type Kind = 'repair' | 'clean' | 'viewing' | 'appointment'
 
@@ -43,11 +45,8 @@ interface Entry {
   raw: any
 }
 
-const KIND: Record<Kind, { label: string; bar: string; tint: string; ink: string; glyph: string }> = {
-  repair:      { label: 'Repair',      bar: '#2F6FB2', tint: '#E9F1FA', ink: '#173A5E', glyph: '🔧' },
-  clean:       { label: 'Clean',       bar: '#2F855A', tint: '#E7F4EC', ink: '#1C4A33', glyph: '🧹' },
-  viewing:     { label: 'Viewing',     bar: '#7A4FB8', tint: '#F1EAFA', ink: '#40266A', glyph: '👀' },
-  appointment: { label: 'Appointment', bar: '#C0661A', tint: '#FCEFE2', ink: '#5E300A', glyph: '📋' },
+const KIND: Record<Kind, { label: string; bar: string; tint: string; ink: string }> = {
+  repair: TONES.repair, clean: TONES.clean, viewing: TONES.viewing, appointment: TONES.appointment,
 }
 
 const APPT_TYPES: Record<string, string> = {
@@ -59,25 +58,10 @@ const APPT_TYPES: Record<string, string> = {
 // contractor/cleaner rows carry first/last (and older full_name) — never .name
 const whoName = (p: any) => ([p?.salutation, p?.first_name, p?.last_name].filter(Boolean).join(' ') || p?.full_name || '')
 const firstLine = (s: string | null | undefined) => String(s ?? '').split(/\n|,/)[0].replace(/\s+[-–—]\s+.*$/, '').trim()
-const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-const todayYmd = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
-const hhmm = (m: number) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`
-const nice = (m: number) => { const h = Math.floor(m / 60), mm = m % 60, h12 = ((h + 11) % 12) + 1; return `${h12}${mm ? `:${String(mm).padStart(2, '0')}` : ''}${h < 12 ? 'am' : 'pm'}` }
 const longDate = (s: string) => new Date(`${s}T12:00:00Z`).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })
 const words = (s: string | null | undefined) => String(s ?? '').replace(/_/g, ' ').replace(/^./, c => c.toUpperCase())
 
-/** "09:30:00" → 570; "9-12" / "15-18" (repair slots) → 540–720 */
-function parseTime(t: string | null | undefined, minutes: number): { start: number | null; end: number | null } {
-  const s = String(t ?? '').trim()
-  const slot = s.match(/^(\d{1,2})\s*-\s*(\d{1,2})$/)
-  if (slot) return { start: Number(slot[1]) * 60, end: Number(slot[2]) * 60 }
-  const m = s.match(/^(\d{1,2}):(\d{2})/)
-  if (!m) return { start: null, end: null }
-  const start = Number(m[1]) * 60 + Number(m[2])
-  return { start, end: start + minutes }
-}
 
-function mondayOf(d: Date) { const x = new Date(d); x.setHours(12, 0, 0, 0); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x }
 
 export default function AgencyDiaryPage() {
   const router = useRouter()
@@ -92,10 +76,8 @@ export default function AgencyDiaryPage() {
   const [open, setOpen] = useState<Entry | null>(null)
   const [cleanOpen, setCleanOpen] = useState<any | null>(null)
   const [hidden, setHidden] = useState<Set<Kind>>(new Set())
-  const [now, setNow] = useState(() => new Date())
   const [isAdmin, setIsAdmin] = useState(false)   // repairs open in Maintenance, which lettings can't see
 
-  useEffect(() => { const t = setInterval(() => setNow(new Date()), 60_000); return () => clearInterval(t) }, [])
 
   useEffect(() => {
     let live = true
@@ -194,31 +176,14 @@ export default function AgencyDiaryPage() {
   const today = todayYmd()
   const todays = shown.filter(e => e.date === today)
 
-  // the hours shown: 8am–7pm, stretched to fit anything earlier or later
-  const timed = shown.filter(e => e.start != null)
-  const firstHour = Math.min(8, ...timed.map(e => Math.floor(e.start! / 60)))
-  const lastHour = Math.max(19, ...timed.map(e => Math.ceil((e.end ?? e.start! + 60) / 60)))
-  const hours = Array.from({ length: lastHour - firstHour }, (_, i) => firstHour + i)
-  const HOUR = 52
-  const nowMin = now.getHours() * 60 + now.getMinutes()
+
+  // the shared calendar's entries — every one opens the panel
+  const cal = (e: Entry): CalEntry => ({ key: e.key, date: e.date, start: e.start, end: e.end, title: e.title, line2: [e.place, e.room].filter(Boolean).join(', '), line3: `${KIND[e.kind].label} · ${e.who}`, tone: e.kind, onClick: () => setOpen(e) })
+  const calShown = shown.map(cal)
 
   if (loading) return <GenericPageSkeleton />
 
-  const weekLabel = `${days[0].toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })} – ${days[6].toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}`
-  const move = (n: number) => { const d = new Date(weekStart); d.setDate(d.getDate() + n * 7); setWeekStart(d) }
   const isThisWeek = ymd(weekStart) === ymd(mondayOf(new Date()))
-
-  const Row = ({ e, showDate }: { e: Entry; showDate?: boolean }) => (
-    <button type="button" onClick={() => setOpen(e)} className="group flex w-full items-stretch gap-md px-md py-sm text-left transition hover:bg-[#F7F5F0] focus-visible:bg-[#F7F5F0] focus-visible:outline-none">
-      <span className="w-1 shrink-0 rounded-full" style={{ background: KIND[e.kind].bar }} />
-      <span className="w-24 shrink-0 pt-px text-sm font-semibold tabular-nums text-neutral-900">{showDate ? new Date(`${e.date}T12:00:00Z`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', timeZone: 'UTC' }) + ' · ' : ''}{e.start == null ? '—' : nice(e.start)}</span>
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-semibold text-neutral-900">{e.title}{e.place ? <span className="font-normal text-neutral-600"> · {e.place}{e.room ? `, ${e.room}` : ''}</span> : null}</span>
-        <span className="block truncate text-xs text-neutral-500">{KIND[e.kind].label} · {e.who}{e.detail ? ` · ${e.detail.replace(/\s+/g, ' ')}` : ''}</span>
-      </span>
-      <span className="self-center text-xs font-semibold text-neutral-400 group-hover:text-neutral-900">Open →</span>
-    </button>
-  )
 
   return (
     <div className="min-h-screen bg-neutral-100">
@@ -244,12 +209,7 @@ export default function AgencyDiaryPage() {
               <LineIcon glyph="⚠️" /> {outstandingJobs.length} repair{outstandingJobs.length === 1 ? '' : 's'} to book
             </button>
           )}
-          <div className="ml-auto flex items-center gap-xs">
-            <button onClick={() => move(-1)} aria-label="Previous week" className="rounded-lg border border-neutral-300 bg-white px-md py-sm text-sm font-semibold hover:bg-neutral-50">←</button>
-            {!isThisWeek && <button onClick={() => setWeekStart(mondayOf(new Date()))} className="rounded-lg border border-neutral-300 bg-white px-md py-sm text-sm font-semibold hover:bg-neutral-50">This week</button>}
-            <span className="min-w-[13rem] text-center text-sm font-semibold text-neutral-900">{weekLabel}</span>
-            <button onClick={() => move(1)} aria-label="Next week" className="rounded-lg border border-neutral-300 bg-white px-md py-sm text-sm font-semibold hover:bg-neutral-50">→</button>
-          </div>
+          <div className="ml-auto"><WeekNav monday={weekStart} onChange={setWeekStart} /></div>
         </div>
 
         {/* filters = legend */}
@@ -290,100 +250,16 @@ export default function AgencyDiaryPage() {
               <h2 className="text-base font-bold text-neutral-900">Today <span className="font-normal text-neutral-500">· {longDate(today).replace(/ \d{4}$/, '')}</span></h2>
               <span className="text-xs text-neutral-500">{todays.length ? `${todays.length} booked` : ''}</span>
             </header>
-            {todays.length ? <div className="divide-y divide-neutral-100">{todays.map(e => <Row key={e.key} e={e} />)}</div>
+            {todays.length ? <div>{todays.map(e => <AgendaRow key={e.key} e={cal(e)} />)}</div>
               : <p className="px-md py-md text-sm text-neutral-500">Nothing booked today.</p>}
           </section>
         )}
 
-        {/* the week */}
-        <section className="hidden overflow-hidden rounded-xl border border-neutral-200 bg-white md:block">
-          <div className="grid border-b border-neutral-200" style={{ gridTemplateColumns: '56px repeat(7, minmax(0, 1fr))' }}>
-            <div />
-            {days.map(d => {
-              const s = ymd(d), isToday = s === today, weekend = d.getDay() === 0 || d.getDay() === 6
-              return (
-                <div key={s} className={`border-l border-neutral-200 px-sm py-sm text-center ${weekend ? 'bg-[#F4F2EC]' : ''}`}>
-                  <div className={`text-[11px] font-semibold uppercase tracking-wider ${isToday ? 'text-[#B5361F]' : 'text-neutral-500'}`}>{d.toLocaleDateString('en-GB', { weekday: 'short' })}</div>
-                  <div className={`mx-auto mt-0.5 flex h-8 w-8 items-center justify-center rounded-full text-lg font-semibold tabular-nums ${isToday ? 'bg-[#B5361F] text-white' : 'text-neutral-900'}`}>{d.getDate()}</div>
-                </div>
-              )
-            })}
-          </div>
-          {/* entries with no time */}
-          {shown.some(e => e.start == null) && (
-            <div className="grid border-b border-neutral-200 bg-[#FAF9F6]" style={{ gridTemplateColumns: '56px repeat(7, minmax(0, 1fr))' }}>
-              <div className="px-xs py-xs text-right text-[10px] uppercase tracking-wide text-neutral-400">Any time</div>
-              {days.map(d => (
-                <div key={ymd(d)} className="space-y-0.5 border-l border-neutral-200 p-0.5">
-                  {shown.filter(e => e.date === ymd(d) && e.start == null).map(e => (
-                    <button key={e.key} type="button" onClick={() => setOpen(e)} className="block w-full truncate rounded px-xs py-0.5 text-left text-[11px] font-semibold" style={{ background: KIND[e.kind].tint, color: KIND[e.kind].ink, borderLeft: `3px solid ${KIND[e.kind].bar}` }}>{e.title} · {e.place}</button>
-                  ))}
-                </div>
-              ))}
-            </div>
-          )}
-          <div className="relative grid" style={{ gridTemplateColumns: '56px repeat(7, minmax(0, 1fr))' }}>
-            {/* hour labels + white / off-white bands */}
-            <div>
-              {hours.map(h => <div key={h} style={{ height: HOUR }} className="relative pr-xs text-right"><span className="relative -top-2 bg-white px-0.5 text-[11px] tabular-nums text-neutral-400">{h === firstHour ? '' : nice(h * 60)}</span></div>)}
-            </div>
-            {days.map(d => {
-              const s = ymd(d), isToday = s === today, weekend = d.getDay() === 0 || d.getDay() === 6
-              const list = shown.filter(e => e.date === s && e.start != null)
-              // side by side when they overlap
-              const lanes: Entry[][] = []
-              const laneOf = new Map<string, number>()
-              for (const e of list) {
-                let i = lanes.findIndex(l => (l[l.length - 1].end ?? 0) <= e.start!)
-                if (i < 0) { lanes.push([]); i = lanes.length - 1 }
-                lanes[i].push(e); laneOf.set(e.key, i)
-              }
-              const width = 100 / Math.max(1, lanes.length)
-              return (
-                <div key={s} className="relative border-l border-neutral-200">
-                  {/* two tones, the usual way: working hours (9–6, Mon–Fri) white, the rest off-white; dotted half hours */}
-                  {hours.map((h, i) => <div key={h} style={{ height: HOUR, background: `linear-gradient(to bottom, transparent calc(50% - 0.5px), #F2F0EB calc(50% - 0.5px), #F2F0EB calc(50% + 0.5px), transparent calc(50% + 0.5px)) ${weekend || h < 9 || h >= 18 ? '#F6F4EF' : '#FFFFFF'}` }} className={i ? 'border-t border-neutral-200' : ''} />)}
-                  {isToday && nowMin >= firstHour * 60 && nowMin <= lastHour * 60 && (
-                    <div className="pointer-events-none absolute inset-x-0 z-10" style={{ top: ((nowMin - firstHour * 60) / 60) * HOUR }}>
-                      <div className="relative h-[2px] bg-[#B5361F]"><span className="absolute -left-1 -top-[3px] h-2 w-2 rounded-full bg-[#B5361F]" /></div>
-                    </div>
-                  )}
-                  {list.map(e => {
-                    const top = ((e.start! - firstHour * 60) / 60) * HOUR
-                    const h = Math.max(34, (((e.end ?? e.start! + 30) - e.start!) / 60) * HOUR - 2)
-                    const lane = laneOf.get(e.key)!
-                    const k = KIND[e.kind]
-                    return (
-                      <button key={e.key} type="button" onClick={() => setOpen(e)} title={`${e.title} — ${e.place}`}
-                        className="absolute overflow-hidden rounded-md px-xs py-0.5 text-left text-[11px] leading-tight shadow-[0_1px_0_rgba(0,0,0,0.04)] transition hover:z-20 hover:shadow-md focus-visible:z-20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-neutral-900"
-                        style={{ top: top + 1, height: h, left: `calc(${lane * width}% + 2px)`, width: `calc(${width}% - 4px)`, background: k.tint, color: k.ink, borderLeft: `3px solid ${k.bar}` }}>
-                        <span className="block font-semibold tabular-nums">{nice(e.start!)}</span>
-                        <span className="block truncate font-semibold">{e.title}</span>
-                        {h > 44 && <span className="block truncate opacity-80">{e.place}</span>}
-                        {h > 60 && <span className="block truncate opacity-70">{e.who}</span>}
-                      </button>
-                    )
-                  })}
-                </div>
-              )
-            })}
-          </div>
-        </section>
+        {/* the week — the one calendar used across CROS (components/calendar) */}
+        <div className="hidden md:block"><TimeGrid days={days} entries={calShown} /></div>
 
         {/* the week, day by day (and the whole diary on a phone) */}
-        <section className="mt-lg overflow-hidden rounded-xl border border-neutral-200 bg-white">
-          <header className="border-b border-neutral-100 px-md py-sm"><h2 className="text-base font-bold text-neutral-900">This week, day by day</h2></header>
-          {days.map((d, i) => {
-            const s = ymd(d), list = shown.filter(e => e.date === s)
-            return (
-              <div key={s} className={i % 2 ? 'bg-[#FBFAF7]' : 'bg-white'}>
-                <p className={`px-md pb-xs pt-sm text-xs font-bold uppercase tracking-wider ${s === today ? 'text-[#B5361F]' : 'text-neutral-500'}`}>{d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}{s === today ? ' · today' : ''}</p>
-                {list.length ? <div className="divide-y divide-neutral-100 pb-xs">{list.map(e => <Row key={e.key} e={e} />)}</div>
-                  : <p className="px-md pb-sm text-sm text-neutral-400">Nothing booked</p>}
-              </div>
-            )
-          })}
-        </section>
+        <div className="mt-lg"><DayList days={days} entries={calShown} title="This week, day by day" /></div>
       </main>
 
       <SidePanel open={!!open} onClose={() => setOpen(null)} eyebrow={open ? `${KIND[open.kind].label} · ${longDate(open.date)}` : ''} title={open?.title ?? ''}

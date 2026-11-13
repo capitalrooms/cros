@@ -12,6 +12,7 @@ import PageHero from '@/components/PageHero'
 import { bankTabs } from '@/lib/financeTabs'
 import BackButton from '@/app/components/BackButton'
 import { adminFetch } from '@/lib/adminFetch'
+import { CAL, todayYmd } from '@/components/calendar/look'
 
 interface Suggestion { applicantId: string; name: string; email: string | null; room: string; house: string; expected: number }
 interface Credit { id: string; amount: number; description: string; ref: string | null; status: string; matched: string | null; tenancyId: string | null; suggestions: Suggestion[]; nearDuplicate: boolean }
@@ -162,12 +163,12 @@ export default function BankCalendarPage() {
           {!days && !error && <p className="text-sm text-neutral-400">Loading…</p>}
           {days && (
             <div className="grid grid-cols-7 gap-xs text-center">
-              {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(d => <div key={d} className="pb-xs text-[11px] font-semibold uppercase text-neutral-500">{d}</div>)}
+              {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(d => <div key={d} className="pb-xs text-[11px] font-semibold uppercase tracking-wider" style={{ color: CAL.muted }}>{d}</div>)}
               {Array.from({ length: firstDow }).map((_, i) => <div key={`b${i}`} />)}
               {days.map(d => (
                 <button key={d.date} type="button" title={d.note} onClick={() => setOpen(open === d.date ? null : d.date)}
                   className={`flex aspect-square min-h-[52px] flex-col items-center justify-center rounded-lg border text-sm ${TILE[d.state]} ${open === d.date ? 'ring-2 ring-neutral-900' : ''}`}>
-                  <span className="text-[11px] opacity-70">{Number(d.date.slice(8))}</span>
+                  <span className={`flex h-5 min-w-5 items-center justify-center rounded-full px-0.5 text-[11px] ${d.date === todayYmd() ? 'font-bold text-white' : 'opacity-70'}`} style={d.date === todayYmd() ? { background: CAL.today } : undefined}>{Number(d.date.slice(8))}</span>
                   <span className="text-lg font-black leading-none">{d.state === 'future' ? '' : d.lines}</span>
                   {d.credits.some(c => c.status === 'unmatched') && <span className="mt-[2px] h-[6px] w-[6px] rounded-full bg-red-600" aria-label="unmatched" />}
                 </button>
