@@ -115,7 +115,8 @@ export function TimeGrid({ days, entries, hourHeight = 52, minHour = 8, maxHour 
         <div>
           {hours.map((h, i) => (
             <div key={h} style={{ height: hourHeight }} className="relative pr-xs text-right">
-              {i > 0 && <span className="relative -top-2 bg-white px-0.5 text-[11px] tabular-nums" style={{ color: CAL.muted }}>{hourLabel(h)}</span>}
+              {/* on the line above its hour; the first hour's label sits just inside the top so it isn't lost */}
+              <span className={`relative ${i ? '-top-2' : 'top-0.5'} bg-white px-0.5 text-[11px] tabular-nums`} style={{ color: CAL.muted }}>{hourLabel(h)}</span>
             </div>
           ))}
         </div>
