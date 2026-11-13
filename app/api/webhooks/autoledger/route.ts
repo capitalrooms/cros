@@ -207,7 +207,7 @@ async function settleTwins(sb: ReturnType<typeof serviceClient>, newId: string):
     const { data: me } = await sb.from('landlord_statements').select('id, property_id, statement_reference, statement_date, gross_rent, created_at').eq('id', newId).maybeSingle() as { data: any }
     if (!me?.statement_date) return null
     const month = String(me.statement_date).slice(0, 7)
-    const { data: same } = await sb.from('landlord_statements').select('id, statement_reference, statement_date, gross_rent, created_at, payment_run_id, sent_at').eq('property_id', me.property_id).neq('id', newId).gte('statement_date', `${month}-01`).lte('statement_date', `${month}-31`) as { data: any[] | null }
+    const { data: same } = await sb.from('landlord_statements').select('id, statement_reference, statement_date, gross_rent, created_at, payment_run_id, sent_at').eq('property_id', me.property_id).neq('id', newId).gte('statement_date', `${month}-01`).lt('statement_date', (() => { const [y, m] = String(month).split('-').map(Number); return m === 12 ? `${y + 1}-01-01` : `${y}-${String(m + 1).padStart(2, '0')}-01` })()) as { data: any[] | null }
     if (!same?.length) return null
     // the property's usual monthly rent: its last three statements before this month
     const { data: before } = await sb.from('landlord_statements').select('gross_rent').eq('property_id', me.property_id).lt('statement_date', `${month}-01`).order('statement_date', { ascending: false }).limit(3)
@@ -711,7 +711,7 @@ Respond with JSON only in this exact shape:
     try {
       const month = String(agent.date ?? periodEnd).slice(0, 7)
       const { data: same } = await supabase.from('landlord_statements').select('id, statement_date').eq('property_id', property.id).neq('id', newStmt.id)
-        .gte('statement_date', `${month}-01`).lte('statement_date', `${month}-31`).order('created_at', { ascending: false }).limit(1)
+        .gte('statement_date', `${month}-01`).lt('statement_date', (() => { const [y, m] = String(month).split('-').map(Number); return m === 12 ? `${y + 1}-01-01` : `${y}-${String(m + 1).padStart(2, '0')}-01` })()).order('created_at', { ascending: false }).limit(1)
       if (same?.length) await supabase.from('landlord_statements').update({ possible_duplicate_of: (same[0] as any).id }).eq('id', newStmt.id)
     } catch { /* before migration 284 */ }
   }
@@ -1190,6 +1190,12 @@ ${inserted > 0 ? `<a href="https://capitalrooms.co.uk/admin/expense-review" styl
   } catch (e) {
     console.warn('AutoLedger: email notify failed', e)
   }
+  }
+  // a copy whose lines were nearly all already on another statement (sent again under another number, or re-read) —
+  // what's left is a husk (13 Nov 2026: Rotherhithe LS1084 came back as VAT lines only, net −£91.18): set it aside
+  if (!existingStmt && rawItems.length >= 4 && duplicates > inserted) {
+    await setAside(supabase, stmtRow.id, `Its lines were already on another statement for this property (${duplicates} of ${rawItems.length}) — not a statement of its own`)
+    return { outcome: 'already', detail: `${property!.name || property!.address}${agent.number ? ` — ${agent.number}` : ''}: its lines are already on another statement, so it was set aside (Statements in › Removed)` }
   }
   const settled = await settleTwins(supabase, stmtRow.id)
   return { outcome: 'created', detail: `New statement for ${property!.name || property!.address}${agent.number ? ` — ${agent.number}` : ''}: ${inserted} line${inserted === 1 ? '' : 's'}${settled ? `. ${settled}` : ''}` }

@@ -86,7 +86,7 @@ export async function POST(req: NextRequest) {
     }
     const month = String(s.statement_date || s.period_end || '').slice(0, 7)
     if (/^\d{4}-\d{2}$/.test(month)) {
-      const { data: same } = await supabase.from('landlord_statements').select('id').eq('property_id', property_id).neq('id', stmt.id).gte('statement_date', `${month}-01`).lte('statement_date', `${month}-31`).limit(1)
+      const { data: same } = await supabase.from('landlord_statements').select('id').eq('property_id', property_id).neq('id', stmt.id).gte('statement_date', `${month}-01`).lt('statement_date', (() => { const [y, m] = String(month).split('-').map(Number); return m === 12 ? `${y + 1}-01-01` : `${y}-${String(m + 1).padStart(2, '0')}-01` })()).limit(1)
       if (same?.length) await supabase.from('landlord_statements').update({ possible_duplicate_of: (same[0] as any).id }).eq('id', stmt.id)
     }
   } catch { /* before migration 284 */ }
