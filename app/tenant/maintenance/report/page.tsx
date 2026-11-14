@@ -648,12 +648,14 @@ function ReportWizardContent() {
       />
 
       {/* what they're reporting — the top bar has no room for it */}
-      {step !== 'done' && <p style={{ margin: 0, padding: '14px 20px 0', fontSize: 13, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgb(var(--n-500))' }}>Report an issue · {categoryLabel}</p>}
-
-      {/* Progress bar */}
+      {/* what they're reporting, and how far along they are — given room to breathe (14 Nov 2026: it sat jammed under the
+          top bar), the progress as a rounded honey bar like the rest of the app */}
       {step !== 'done' && (
-        <div style={{ height: 3, background: 'rgb(var(--n-200))' }}>
-          <div style={{ height: '100%', width: `${progress}%`, background: 'var(--cr-ink)', transition: 'width 0.3s ease' }} />
+        <div style={{ maxWidth: 560, margin: '0 auto', padding: '22px 16px 0' }}>
+          <p style={{ margin: 0, fontSize: 12, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#4E6158' }}>Report an issue · {categoryLabel}</p>
+          <div style={{ marginTop: 10, height: 6, borderRadius: 999, background: '#DCE5DD', overflow: 'hidden' }}>
+            <div style={{ height: '100%', width: `${progress}%`, borderRadius: 999, background: 'var(--cr-gold)', transition: 'width 0.3s ease' }} />
+          </div>
         </div>
       )}
 

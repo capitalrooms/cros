@@ -55,7 +55,7 @@ export async function GET(req: NextRequest) {
     .from('maintenance_tickets')
     .select(`
       id, title, description, category, status,
-      booked_date, booked_slot, arrived_at,
+      booked_date, booked_slot, arrived_at, location,
       room_id, property_id, contractor_id,
       short_notice, short_notice_tenant_approved_at,
       short_notice_pending, fallback_date, fallback_slot,
