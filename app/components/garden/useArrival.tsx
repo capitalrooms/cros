@@ -17,11 +17,14 @@ export function useArrival() {
   const [busy, setBusy] = useState(false)
   const [ticked, setTicked] = useState(false)
   const resolver = useRef<((v: Done | null) => void) | null>(null)
+  const onDone = useRef<(() => void) | null>(null)
 
   const post = (body: unknown) => adminFetch('/api/arrive', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(async r => ({ ok: r.ok, j: await r.json().catch(() => ({})) as any }))
   const finish = (v: Done | null) => { resolver.current?.(v); resolver.current = null }
 
-  async function arrive(kind: 'job' | 'clean', id: string): Promise<Done | null> {
+  /** onDone runs when they close the code sheet (e.g. to open the job) — so the code stays up until they've seen it */
+  async function arrive(kind: 'job' | 'clean', id: string, opts: { onDone?: () => void } = {}): Promise<Done | null> {
+    onDone.current = opts.onDone ?? null
     const r = await adminFetch(`/api/arrive?kind=${kind}&id=${id}`).then(async x => ({ ok: x.ok, j: await x.json().catch(() => ({})) as any })).catch(() => null)
     if (!r?.ok && !r?.j?.state) { alert(r?.j?.error || 'Couldn’t check the visit — try again.'); return null }
     const c = r.j
@@ -74,7 +77,7 @@ export function useArrival() {
             {sheet.code
               ? <><p className="mt-2 text-sm text-[#14261F]">Key safe code — it opens the front door only:</p><p className="mt-1 text-[44px] font-extrabold tracking-[0.2em] text-[#14261F]" style={display}>{sheet.code}</p><p className="text-xs text-[#4E6158]">Scramble the dial and close the box when you leave.</p></>
               : <p className="mt-2 text-sm text-[#14261F]">Marked as arrived. There’s no key safe code on file for this property — the tenants or the office will let you in.</p>}
-            <button type="button" onClick={() => setSheet(null)} className="mt-4 h-12 w-full rounded-full text-[15px] font-bold text-[#17332B] shadow-[0_3px_0_var(--cr-honey-edge)]" style={{ background: 'var(--cr-gold)' }}>Done</button>
+            <button type="button" onClick={() => { setSheet(null); const f = onDone.current; onDone.current = null; f?.() }} className="mt-4 h-12 w-full rounded-full text-[15px] font-bold text-[#17332B] shadow-[0_3px_0_var(--cr-honey-edge)]" style={{ background: 'var(--cr-gold)' }}>Done</button>
           </>
         ) : (
           <>

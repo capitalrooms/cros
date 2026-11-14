@@ -238,10 +238,16 @@ export default function MaintenanceDashboard() {
   // Deep link from the phone Today screen: /admin/maintenance?ticket=<id> opens that job.
   const deepLinked = useRef(false);
   useEffect(() => {
-    if (deepLinked.current || !tickets.length) return;
+    if (deepLinked.current) return;
     const id = new URLSearchParams(window.location.search).get('ticket');
-    const t = id && tickets.find(x => x.id === id);
-    if (t) { deepLinked.current = true; setSelectedTicket(t); setShowDetails(true); }
+    if (!id) return;
+    deepLinked.current = true;
+    const t = tickets.find(x => x.id === id);
+    if (t) { setSelectedTicket(t); setShowDetails(true); return; }
+    // not in the list on screen (finished, cancelled or filtered out — 14 Nov 2026: a job found in search wouldn't open):
+    // fetch that one job and open it anyway, so old jobs can always be looked at
+    createClient().from('maintenance_tickets').select('*, properties(name, address), rooms(name)').eq('id', id).maybeSingle()
+      .then(({ data }) => { if (data) { setSelectedTicket(data as any); setShowDetails(true) } });
   }, [tickets]);
 
   // Load planner boards from localStorage (client-side only)

@@ -1043,11 +1043,11 @@ export default function JobDetailPage() {
                   <div>
                     <h3 className="font-bold text-neutral-900 text-center">On your way?</h3>
                     <p className="mt-xs text-sm text-neutral-500 text-center">
-                      Tap when you arrive — {"we'll"} check your location and let the tenants know.
+                      Tap when you’re at the door — we check the tenants had enough notice, let them know, and show you the key safe code.
                     </p>
                     <button onClick={handleArrive} disabled={busy === 'arrive'}
-                      className="mt-md w-full rounded-lg bg-neutral-900 text-white font-bold py-md hover:bg-neutral-800 disabled:opacity-40">
-                      {busy === 'arrive' ? 'Checking location…' : 'I\'ve arrived'}
+                      className="mt-md w-full rounded-full py-md text-[15px] font-bold text-[#17332B] shadow-[0_3px_0_var(--cr-honey-edge)] active:translate-y-[2px] disabled:opacity-40" style={{ background: 'var(--cr-gold)' }}>
+                      {busy === 'arrive' ? 'Checking location…' : 'I’ve arrived — show the key safe'}
                     </button>
                   </div>
 

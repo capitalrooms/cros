@@ -191,13 +191,13 @@ export async function POST(request: NextRequest) {
           ${ticket.description ? `<tr><td style="padding:6px 0;color:#78716c">Details</td><td style="padding:6px 0">${ticket.description}</td></tr>` : ''}
         </table>
         <p style="margin-top:20px;padding:12px;background:#fafaf9;border-radius:8px;font-size:14px;color:#78716c">
-          Please open the job to confirm you've received it and book a date to attend: <a href="${PORTAL_URL}/contractor/jobs">${PORTAL_URL}/contractor/jobs</a>
+          Please open the job to confirm you've received it and book a date to attend: <a href="${PORTAL_URL}/contractor/job/${ticketId}">Open the job</a>
         </p>`
     const firstLine = String(property?.name || property?.address || 'the property').split('\n')[0]
     const out = await tellContractor(contractor, contractor.id, {
-      text: `CAPITAL ROOMS: new job for you — ${heading}. Please open it to confirm and book a date: ${PORTAL_URL}/contractor/jobs`,
+      text: `CAPITAL ROOMS: new job for you — ${heading}. Please open it to confirm and book a date: ${PORTAL_URL}/contractor/job/${ticketId}`,
       title: 'New job from Capital Rooms', body: heading.slice(0, 120) || firstLine,
-      url: '/contractor/jobs', link: `${PORTAL_URL}/contractor/jobs`, tag: `job-${ticketId}`,
+      url: `/contractor/job/${ticketId}`, link: `${PORTAL_URL}/contractor/job/${ticketId}`, tag: `job-${ticketId}`,
       emailSubject: subject, emailBodyHtml: body,
     })
     sent.push(`contractor${out.via.length ? ` (${out.via.join(', ')})` : ` (not reached: ${out.error})`}`)

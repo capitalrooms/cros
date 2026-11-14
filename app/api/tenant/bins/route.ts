@@ -24,7 +24,9 @@ export async function GET(req: NextRequest) {
   const s = svc()
   const pid = await myProperty(s, c.personId)
   if (!pid) return NextResponse.json({ day: null, next: null })
-  const { data: p } = await s.from('properties').select('bin_collection_day, council_name, council_website').eq('id', pid).maybeSingle() as { data: any }
+  const { data: p } = await s.from('properties').select('bin_collection_day, council_name, council_website, house_info').eq('id', pid).maybeSingle() as { data: any }
+  // no bin day set, but the house guide has one ("Bin Day: Every Friday") — use that
+  if (p && !p.bin_collection_day) { const item = ((p.house_info?.items ?? []) as any[]).find(i => /bin/i.test(String(i?.label ?? ''))); if (item?.value) p.bin_collection_day = String(item.value).replace(/^every\s+/i, '') }
   const { data: b } = await s.from('properties').select('bin_schedule, bin_checked_at, bin_source').eq('id', pid).maybeSingle() as { data: any }   // migration 289
   const next = Array.isArray(b?.bin_schedule) ? (b.bin_schedule as any[]).find(d => d.date >= today()) : null
   return NextResponse.json({

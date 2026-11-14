@@ -10,6 +10,8 @@
 import { sendSms } from '@/lib/sms'
 import { sendServerPush } from '@/lib/serverPush'
 import { sendEmail } from '@/lib/sendEmail'
+import { createServiceClient } from '@/lib/supabase'
+import { insertNotifications } from '@/lib/serverNotify'
 
 const esc = (v: string) => v.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' } as Record<string, string>)[c])
 
@@ -30,6 +32,9 @@ export interface ContractorMessage {
 export async function tellContractor(p: any, personId: string, msg: ContractorMessage): Promise<{ via: string[]; error?: string }> {
   const via: string[] = []; const errs: string[] = []
   const { bySms, byPush, byEmail } = contactChoice(p)
+  // always in their app too (14 Nov 2026 — a new job left nothing in the app: no bell, no "new job" card). The inbox
+  // entry is what the contractor home shows as "New job" and the bell counts, whatever else reaches them.
+  await insertNotifications(createServiceClient() as any, [personId], { title: msg.title, body: msg.body, type: 'maintenance', link: msg.url } as any).then(() => via.push('app inbox'), () => null)
   if (bySms) {
     if (!p?.phone) errs.push('no mobile number')
     else { const r = await sendSms(p.phone, msg.text, { asName: true }); if (r.ok) via.push('text'); else errs.push(`text failed: ${r.error}`) }
@@ -43,7 +48,7 @@ export async function tellContractor(p: any, personId: string, msg: ContractorMe
       if (r.ok) via.push('email'); else errs.push(`email failed: ${r.error}`)
     }
   }
-  if (!via.length && !bySms && p?.phone) {
+  if (!via.some(v => v !== 'app inbox') && !bySms && p?.phone) {
     const r = await sendSms(p.phone, msg.text, { asName: true })
     if (r.ok) via.push('text (nothing else reached them)'); else errs.push(`text failed: ${r.error}`)
   }

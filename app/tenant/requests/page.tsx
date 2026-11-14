@@ -27,9 +27,9 @@ interface Request {
 }
 
 const STATUS_STYLES: Record<string, { badge: string; label: string }> = {
-  reported: { badge: 'bg-amber-100 text-amber-700', label: 'Awaiting review' },
-  assigned: { badge: 'bg-blue-100 text-blue-700', label: 'Approved & scheduled' },
-  in_progress: { badge: 'bg-indigo-100 text-indigo-700', label: 'Work in progress' },
+  reported: { badge: 'bg-[#FDF1D8] text-[#7A5410]', label: 'Awaiting review' },
+  assigned: { badge: 'bg-[#E3ECE5] text-[#17332B]', label: 'Approved' },
+  in_progress: { badge: 'bg-[#FDF1D8] text-[#7A5410]', label: 'Work in progress' },
   completed: { badge: 'bg-green-100 text-green-700', label: 'Completed' },
 };
 
@@ -183,21 +183,20 @@ export default function TenantRequests() {
                   key={request.id}
                   className={`rounded-2xl border-2 p-lg transition-all ${
                     isUpcoming
-                      ? 'border-neutral-900 bg-white shadow-md'
-                      : 'border-neutral-200 bg-white hover:border-neutral-300'
+                      ? 'border-transparent bg-white ring-2 ring-[color:var(--cr-gold)]'
+                      : 'border-transparent bg-white'
                   }`}
                 >
                   <div className="flex items-start justify-between gap-md">
                     <div className="flex-1">
-                      <div className="flex items-center gap-md">
-                        <h3 className="text-lg font-bold text-neutral-900">{request.title}</h3>
-                        <span className={`text-xs font-semibold px-md py-xs rounded-full ${visitPassed ? 'bg-amber-100 text-amber-800' : statusStyle.badge}`}>
-                          {visitPassed ? 'Visit date passed' : statusStyle.label}
-                        </span>
-                      </div>
+                      {/* the status on its own line, then the title (14 Nov 2026 — side by side they squashed each other) */}
+                      <span className={`inline-block rounded-full px-md py-xs text-xs font-bold ${visitPassed ? 'bg-amber-100 text-amber-800' : statusStyle.badge}`}>
+                        {visitPassed ? 'Visit date passed' : statusStyle.label}
+                      </span>
+                      <h3 className="mt-xs line-clamp-2 text-lg font-bold leading-snug text-neutral-900">{request.title}</h3>
 
                       {(() => { const stem = String(request.title ?? '').replace(/(\.\.\.|…)$/, '').trim(); const d = String(request.description ?? '');
-                        return d && !(stem && d.startsWith(stem) && d.length <= stem.length + 3) ? <p className="mt-sm text-sm text-neutral-600">{d}</p> : null })()}
+                        return d && !(stem && d.startsWith(stem) && d.length <= stem.length + 3) ? <p className="mt-sm line-clamp-3 text-sm text-neutral-600">{d}</p> : null })()}
 
                       <div className="mt-md space-y-xs text-sm text-neutral-600">
                         <p>

@@ -44,7 +44,7 @@ export default function EnableNotifications() {
   if (state === 'hidden') return null
   if (state === 'ios_install') {
     return (
-      <div className="rounded-xl border-2 border-neutral-900 bg-white px-lg py-md text-sm text-neutral-800">
+      <div className="rounded-[20px] bg-[#FDF1D8] px-lg py-md text-sm text-[#14261F]">
         <p className="font-bold">Get notifications on your iPhone</p>
         <p className="mt-xs text-xs text-neutral-600">
           Tap the Share button <span aria-hidden="true">(□↑)</span> in Safari, choose <strong>Add to Home Screen</strong>, then open
@@ -55,8 +55,8 @@ export default function EnableNotifications() {
   }
   if (state === 'denied') {
     return (
-      <p className="rounded-xl bg-neutral-100 px-lg py-md text-xs text-neutral-500">
-        Notifications are blocked — turn them on in your browser/phone settings for this app.
+      <p className="rounded-[20px] bg-white px-lg py-md text-[13px] leading-snug text-[#4E6158] ring-1 ring-[#DCE5DD]">
+        <b className="text-[#14261F]">Notifications are off for this app.</b> Turn them on in your phone’s Settings › Notifications › Capital Rooms, so new jobs and messages reach you.
       </p>
     )
   }
@@ -64,9 +64,11 @@ export default function EnableNotifications() {
     <button
       onClick={turnOn}
       disabled={state === 'busy'}
-      className="w-full rounded-xl border-2 border-neutral-900 bg-white px-lg py-md text-sm font-bold text-neutral-900 hover:bg-neutral-50 disabled:opacity-50"
+      className="flex w-full items-center gap-md rounded-[20px] px-lg py-md text-left text-sm font-bold text-[#17332B] shadow-[0_3px_0_var(--cr-honey-edge)] disabled:opacity-50"
+      style={{ background: 'var(--cr-gold, #F2B84B)' }}
     >
-      {state === 'busy' ? 'Enabling…' : 'Turn on notifications'}
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9" /><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" /></svg>
+      <span>{state === 'busy' ? 'Turning on…' : 'Turn on notifications — so nothing new gets missed'}</span>
     </button>
   )
 }

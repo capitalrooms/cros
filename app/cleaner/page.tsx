@@ -625,6 +625,7 @@ export default function CleanerDashboard() {
       {activeTab === 'today' ? (
         <CleanerTop firstName={firstName}
           today={todayCleans as any}
+          upcoming={upcomingCleans.slice(0, 1) as any}
           doneToday={doneCleans.filter((c: any) => c.clean_date && isDateToday(c.clean_date)) as any}
           properties={properties.map((p: any) => ({ id: p.id, name: p.name }))}
           onBook={() => { setError(''); setPropertyId(properties[0]?.id || ''); setShowBookCleanModal(true) }}
@@ -676,14 +677,12 @@ export default function CleanerDashboard() {
                 {/* Assigned jobs that need accepting */}
                 {assignedJobs.length > 0 && (
                   <div id="cl-assigned" className="scroll-mt-md">
-                    <h2 className="text-sm font-bold text-neutral-500 uppercase tracking-wide mb-sm">
-                      Assigned — need booking
-                    </h2>
+                    <h2 className="mb-sm px-1 text-lg font-bold text-[#14261F]">Accept and book</h2>
                     <div className="space-y-sm">
                       {assignedJobs.map(job => (
                         <div
                           key={job.id}
-                          className="rounded-2xl border border-amber-200 bg-amber-50 p-md flex items-start justify-between gap-md"
+                          className="flex items-start justify-between gap-md rounded-[20px] bg-white p-md ring-2 ring-[color:var(--cr-gold)]"
                         >
                           <div className="min-w-0 flex-1">
                             <p className="font-bold text-neutral-900 truncate">
@@ -699,13 +698,13 @@ export default function CleanerDashboard() {
                           <div className="flex flex-col gap-xs shrink-0">
                             <button
                               onClick={() => { setError(''); setAcceptJobForm({ cleanDate: new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }), cleanTime: '10:00' }); setShowAcceptJobModal(job.id) }}
-                              className="rounded-full bg-neutral-950 px-md py-sm text-xs font-bold text-white hover:bg-neutral-700 transition-colors"
+                              className="rounded-full px-md py-sm text-xs font-bold text-[#17332B] shadow-[0_2px_0_var(--cr-honey-edge)]" style={{ background: 'var(--cr-gold)' }}
                             >
                               Accept
                             </button>
                             <button
                               onClick={() => { setDeclineReason(''); setShowDeclineModal(job.id) }}
-                              className="rounded-full border border-red-300 bg-red-50 px-md py-sm text-xs font-bold text-red-700 hover:bg-red-100 transition-colors"
+                              className="rounded-full bg-white px-md py-sm text-xs font-bold text-[#8E2318] ring-1 ring-[#F3C7BE]"
                             >
                               Decline
                             </button>
@@ -719,9 +718,7 @@ export default function CleanerDashboard() {
                 {/* Overdue */}
                 {overdueCleans.length > 0 && (
                   <div id="cl-overdue" className="scroll-mt-md">
-                    <h2 className="text-sm font-bold text-red-600 uppercase tracking-wide mb-sm">
-                      Overdue
-                    </h2>
+                    <h2 className="mb-sm px-1 text-lg font-bold text-[#14261F]">To log or move</h2>
                     <div className="space-y-sm">
                       {overdueCleans.map(c => (
                         <CleanCard key={c.id} c={c} onClick={() => router.push(`/cleaner/clean/${c.id}`)} />

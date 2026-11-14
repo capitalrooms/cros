@@ -15,14 +15,15 @@ export const Spark = ({ size = 18 }: { size?: number }) => (
 )
 
 /** The pill at the top: tap to ask about the house (or the job). A bell beside it with a dot when there's something new. */
-export function AskBar({ href, prompt, bellHref, unread = 0 }: { href: string; prompt: string; bellHref?: string; unread?: number }) {
+export function AskBar({ href, prompt, bellHref, unread = 0, bell }: { href: string; prompt: string; bellHref?: string; unread?: number; bell?: ReactNode }) {
   return (
     <div className="flex items-center gap-2">
       <Link href={href} className="flex h-[50px] min-w-0 flex-1 items-center gap-2.5 rounded-full border-[1.5px] border-[#DCE5DD] bg-white pl-[7px] pr-4 text-[15px] shadow-[0_2px_0_#DCE5DD] active:translate-y-px">
         <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full" style={{ background: FOREST, color: 'var(--cr-gold)' }}><Spark /></span>
         <span className="truncate text-[#4E6158]">{prompt}</span>
       </Link>
-      {bellHref && (
+      {bell}
+      {!bell && bellHref && (
         <Link href={bellHref} aria-label={unread ? `Inbox, ${unread} new` : 'Inbox'} className="relative grid h-[50px] w-[50px] shrink-0 place-items-center rounded-full border-[1.5px] border-[#DCE5DD] bg-white text-[#14261F]">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9" /><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" /></svg>
           {unread > 0 && <span className="absolute right-[11px] top-[10px] h-[9px] w-[9px] rounded-full border-2 border-white" style={{ background: 'var(--cr-gold)' }} />}
@@ -75,26 +76,30 @@ function HeroArt({ art }: { art: Art }) {
   )
 }
 
-/** The big green card: a label, a heading, a line under it, its drawing, and optional buttons along the bottom. */
+/** The big green card: a label, a heading, a line under it, its drawing, and optional buttons along the bottom.
+ *  Laid out in normal flow (14 Nov 2026 — a long job title ran over the buttons): the words take the left side, the
+ *  drawing sits behind on the right, long headings step down a size and stop at three lines, and the card grows to fit. */
 export function Hero({ eyebrow, title, sub, art, children, faces, height = 176, href }: {
   eyebrow: string; title: string; sub?: string; art: Art; children?: ReactNode; faces?: ReactNode; height?: number; href?: string
 }) {
+  const size = title.length > 60 ? 'text-[19px]' : title.length > 32 ? 'text-[21px]' : 'text-[24px]'
   const body = (
-    <div className="relative h-full w-full overflow-hidden rounded-[26px]" style={{ background: FOREST }}>
-      {art !== 'tool' && typeof art === 'string' && <svg width="250" height="250" viewBox="0 0 250 250" aria-hidden="true" className="absolute -right-[66px] -top-[46px]"><circle cx="125" cy="125" r="115" fill={FOREST_LIFT} /></svg>}
-      {art === 'tool' && <svg width="250" height="250" viewBox="0 0 250 250" aria-hidden="true" className="absolute -right-[70px] -top-[50px]"><circle cx="125" cy="125" r="115" fill={FOREST_LIFT} /></svg>}
-      <HeroArt art={art} />
-      <div className="absolute left-5 right-[140px] top-5 text-[#F1F5EE]">
-        <p className="text-xs font-semibold" style={{ color: MIST }}>{eyebrow}</p>
-        <p className="mt-0.5 text-[24px] font-extrabold leading-[1.05]" style={display}>{title}</p>
-        {sub && <p className="mt-1 text-xs leading-snug" style={{ color: MIST }}>{sub}</p>}
+    <div className="relative flex h-full w-full flex-col overflow-hidden rounded-[26px]" style={{ background: FOREST, minHeight: height }}>
+      {typeof art === 'string' && <svg width="250" height="250" viewBox="0 0 250 250" aria-hidden="true" className={`pointer-events-none absolute ${art === 'tool' ? '-right-[70px] -top-[50px]' : '-right-[66px] -top-[46px]'}`}><circle cx="125" cy="125" r="115" fill={FOREST_LIFT} /></svg>}
+      <div className="pointer-events-none absolute inset-0"><HeroArt art={art} /></div>
+      <div className={`relative flex flex-1 flex-col px-5 pt-5 ${faces ? 'pb-7' : 'pb-[18px]'}`}>
+        <div className="max-w-[62%] text-[#F1F5EE]">
+          <p className="text-xs font-semibold" style={{ color: MIST }}>{eyebrow}</p>
+          <p className={`mt-0.5 ${size} line-clamp-3 font-extrabold leading-[1.08]`} style={display}>{title}</p>
+          {sub && <p className="mt-1 line-clamp-2 text-xs leading-snug" style={{ color: MIST }}>{sub}</p>}
+        </div>
+        {children && <div className="mt-auto flex flex-wrap gap-2 pt-4">{children}</div>}
       </div>
-      {children && <div className="absolute bottom-[18px] left-5 right-5 flex flex-wrap gap-2">{children}</div>}
     </div>
   )
   return (
-    <div className="relative shrink-0" style={{ height }}>
-      {href ? <Link href={href} className="block h-full">{body}</Link> : body}
+    <div className="relative shrink-0">
+      {href ? <Link href={href} className="block">{body}</Link> : body}
       {faces && <div className="absolute -bottom-[18px] left-[14px] flex">{faces}</div>}
     </div>
   )

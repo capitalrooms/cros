@@ -27,9 +27,9 @@ const STORAGE_KEY = 'cros-onboarded-tenant'
 
 function ScreenDashboard() {
   return (
-    <div className="flex-1 overflow-hidden" style={{ background: '#f5f5f4' }}>
+    <div className="flex-1 overflow-hidden" style={{ background: '#EEF2EC' }}>
       {/* Dark tenancy band */}
-      <div style={{ background: '#171717', padding: '10px 14px 22px' }}>
+      <div style={{ background: '#17332B', padding: '10px 14px 22px' }}>
         <p style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.14em', color: 'rgba(255,255,255,0.35)', marginBottom: 4 }}>Your tenancy</p>
         <p style={{ fontSize: 15, fontWeight: 700, color: '#fff', lineHeight: 1.15, marginBottom: 3 }}>Room 3, 14 Saltwell St</p>
         <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginBottom: 12 }}>14 Saltwell Street, Poplar, London E14</p>
@@ -63,7 +63,7 @@ function ScreenDashboard() {
             <span style={{ color: '#9ca3af', fontSize: 13 }}>›</span>
           </div>
         </div>
-        <button style={{ width: '100%', background: '#1f2937', color: '#fff', border: 'none', borderRadius: 12, padding: '11px', fontSize: 12.5, fontWeight: 700, fontFamily: 'inherit' }}>Report an issue</button>
+        <button style={{ width: '100%', background: '#17332B', color: '#fff', border: 'none', borderRadius: 12, padding: '11px', fontSize: 12.5, fontWeight: 700, fontFamily: 'inherit' }}>Report an issue</button>
         <p style={{ fontSize: 8.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.14em', color: '#9ca3af' }}>EVERYTHING ELSE</p>
         {['Messages','Guides & safety','Property info & housemates'].map(t => (
           <div key={t} style={{ background: '#fff', borderRadius: 12, padding: '10px 12px', display: 'flex', justifyContent: 'space-between', border: '1px solid #e5e7eb' }}>
@@ -78,11 +78,11 @@ function ScreenDashboard() {
 
 function ScreenMaintenance() {
   return (
-    <div className="flex-1 overflow-hidden" style={{ background: '#f5f5f4', padding: '12px 12px 0' }}>
+    <div className="flex-1 overflow-hidden" style={{ background: '#EEF2EC', padding: '12px 12px 0' }}>
       <p style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#9ca3af', marginBottom: 8 }}>My maintenance</p>
       {/* Active ticket */}
       <div style={{ background: '#fff', borderRadius: 12, overflow: 'hidden', border: '1px solid #e5e7eb', marginBottom: 7 }}>
-        <div style={{ background: '#1c1917', padding: '10px 12px' }}>
+        <div style={{ background: '#17332B', padding: '10px 12px' }}>
           <p style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'rgba(255,255,255,0.4)', marginBottom: 3 }}>In progress</p>
           <p style={{ fontSize: 13.5, fontWeight: 700, color: '#fff' }}>Leaking tap — Kitchen</p>
           <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', marginTop: 2 }}>Room 3 · raised 3 days ago</p>
@@ -127,14 +127,14 @@ function ScreenMaintenance() {
 
 function ScreenNotices() {
   return (
-    <div className="flex-1 overflow-hidden" style={{ background: '#f5f5f4', padding: '12px 12px 0' }}>
+    <div className="flex-1 overflow-hidden" style={{ background: '#EEF2EC', padding: '12px 12px 0' }}>
       <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10, padding: '9px 11px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
         <span style={{ fontSize: 11.5, fontWeight: 600, color: '#15803d' }}>Guest staying over</span>
         <span style={{ fontSize: 10, color: '#16a34a' }}>One tap →</span>
       </div>
       <div style={{ display: 'flex', gap: 5, marginBottom: 10 }}>
         {['All active','Tasks','House 1','Done'].map((p,i) => (
-          <span key={p} style={{ padding: '5px 10px', borderRadius: 999, fontSize: 10.5, fontWeight: 600, background: i===0?'#111827':'#fff', color: i===0?'#fff':'#374151', border: i===0?'none':'1px solid #e5e7eb' }}>{p}</span>
+          <span key={p} style={{ padding: '5px 10px', borderRadius: 999, fontSize: 10.5, fontWeight: 600, background: i===0?'#17332B':'#fff', color: i===0?'#fff':'#374151', border: i===0?'none':'1px solid #e5e7eb' }}>{p}</span>
         ))}
       </div>
       {[
@@ -162,9 +162,9 @@ function ScreenNotices() {
 
 function ScreenProfile() {
   return (
-    <div className="flex-1 overflow-hidden" style={{ background: '#f5f5f4', padding: '12px' }}>
+    <div className="flex-1 overflow-hidden" style={{ background: '#EEF2EC', padding: '12px' }}>
       {/* Avatar card */}
-      <div style={{ background: '#1c1917', borderRadius: 16, padding: '14px', display: 'flex', alignItems: 'center', gap: 11, marginBottom: 12 }}>
+      <div style={{ background: '#17332B', borderRadius: 16, padding: '14px', display: 'flex', alignItems: 'center', gap: 11, marginBottom: 12 }}>
         <div style={{ width: 44, height: 44, borderRadius: '50%', background: '#374151', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 700, color: '#fff', flexShrink: 0 }}>S</div>
         <div>
           <p style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>Sarah Mitchell</p>
@@ -205,7 +205,7 @@ function ScreenProfile() {
 // ── AppBar shown on all slides except brand/ready ─────────────────────────────
 function AppBar({ back }: { back?: boolean }) {
   return (
-    <div style={{ background: '#0a0a0a', height: 38, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 14px', flexShrink: 0, position: 'relative' }}>
+    <div style={{ background: '#17332B', height: 38, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 14px', flexShrink: 0, position: 'relative' }}>
       <span style={{ fontSize: 15, color: 'rgba(255,255,255,0.6)', fontWeight: 300 }}>{back ? '‹' : ''}</span>
       {/* Emblem — CSS crop of logo.png */}
       <div style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)' }}>
@@ -256,7 +256,7 @@ function PushAsk({ onNext }: { onNext: () => void }) {
   if (state === 'ios') return <p style={note}>On iPhone, first add Capital Rooms to your home screen (Share → Add to Home Screen), then open it from there and turn notifications on.</p>
   if (state === 'none') return null
   return (
-    <button onClick={turnOn} disabled={state === 'busy'} style={{ width: '100%', marginBottom: 12, background: '#c4922a', color: '#1c1917', border: 'none', borderRadius: 12, padding: 11, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', opacity: state === 'busy' ? 0.6 : 1 }}>
+    <button onClick={turnOn} disabled={state === 'busy'} style={{ width: '100%', marginBottom: 12, background: '#F2B84B', color: '#1c1917', border: 'none', borderRadius: 12, padding: 11, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', opacity: state === 'busy' ? 0.6 : 1 }}>
       {state === 'busy' ? 'Turning on…' : 'Turn on notifications'}
     </button>
   )
@@ -280,7 +280,7 @@ function Slide({ step, isLast, onNext, onSkip, slideIndex, total }: {
       width: i === slideIndex ? 16 : 5,
       height: 5,
       borderRadius: i === slideIndex ? 3 : '50%',
-      background: i === slideIndex ? '#c4922a' : 'rgba(255,255,255,0.25)',
+      background: i === slideIndex ? '#F2B84B' : 'rgba(255,255,255,0.25)',
       transition: 'all 0.2s',
     }} />
   ))
@@ -288,22 +288,22 @@ function Slide({ step, isLast, onNext, onSkip, slideIndex, total }: {
   // ── Brand slide ──
   if (isBrand) {
     return (
-      <div style={{ height: '100%', background: '#0a0a0a', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '48px 24px 80px', position: 'relative', overflow: 'hidden' }}>
+      <div style={{ height: '100%', background: '#17332B', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '48px 24px 80px', position: 'relative', overflow: 'hidden' }}>
         {/* Glow */}
-        <div style={{ position: 'absolute', width: 240, height: 240, borderRadius: '50%', background: 'radial-gradient(circle, rgba(196,146,42,0.18) 0%, transparent 70%)', top: 24, left: '50%', transform: 'translateX(-50%)' }} />
+        <div style={{ position: 'absolute', width: 240, height: 240, borderRadius: '50%', background: 'radial-gradient(circle, rgba(242,184,75,0.18) 0%, transparent 70%)', top: 24, left: '50%', transform: 'translateX(-50%)' }} />
         {/* Logo */}
         <div style={{ marginBottom: 28, position: 'relative', zIndex: 1 }}>
           <div style={{ width: 94, height: 43, overflow: 'hidden', position: 'relative' }}>
             <img src="/logo.png" alt="Capital Rooms" style={{ position: 'absolute', top: -2.1, left: -2.2, width: 99.6, height: 92.9, filter: 'invert(1)' }} />
           </div>
         </div>
-        <h2 style={{ fontFamily: 'Georgia, serif', fontSize: 24, fontWeight: 700, color: '#fff', textAlign: 'center', lineHeight: 1.2, marginBottom: 10, position: 'relative', zIndex: 1 }}>{step.title}</h2>
+        <h2 style={{ fontFamily: 'var(--font-display), var(--font-text), sans-serif', fontSize: 24, fontWeight: 700, color: '#fff', textAlign: 'center', lineHeight: 1.2, marginBottom: 10, position: 'relative', zIndex: 1 }}>{step.title}</h2>
         <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.42)', textAlign: 'center', lineHeight: 1.6, position: 'relative', zIndex: 1 }}>{step.body}</p>
         {/* Nav */}
         <div style={{ position: 'absolute', bottom: 24, left: 24, right: 24, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <button onClick={onSkip} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.35)', fontSize: 11.5, cursor: 'pointer', fontFamily: 'inherit' }}>Skip all</button>
           <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>{dots}</div>
-          <button onClick={onNext} style={{ background: '#c4922a', color: '#1c1917', border: 'none', borderRadius: 999, padding: '8px 18px', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Next</button>
+          <button onClick={onNext} style={{ background: '#F2B84B', color: '#17332B', border: 'none', borderRadius: 999, padding: '8px 18px', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Next</button>
         </div>
       </div>
     )
@@ -312,12 +312,12 @@ function Slide({ step, isLast, onNext, onSkip, slideIndex, total }: {
   // ── Ready slide ──
   if (isReady) {
     return (
-      <div style={{ height: '100%', background: '#0a0a0a', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 24px 80px', position: 'relative', overflow: 'hidden' }}>
+      <div style={{ height: '100%', background: '#17332B', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 24px 80px', position: 'relative', overflow: 'hidden' }}>
         <div style={{ position: 'absolute', width: 200, height: 200, borderRadius: '50%', background: 'radial-gradient(circle, rgba(34,197,94,0.14) 0%, transparent 70%)', top: 20, left: '50%', transform: 'translateX(-50%)' }} />
         <div style={{ width: 60, height: 60, borderRadius: '50%', background: 'rgba(34,197,94,0.14)', border: '1.5px solid rgba(34,197,94,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, marginBottom: 18, position: 'relative', zIndex: 1 }}>✓</div>
-        <h2 style={{ fontFamily: 'Georgia, serif', fontSize: 22, fontWeight: 700, color: '#fff', textAlign: 'center', lineHeight: 1.25, marginBottom: 10, position: 'relative', zIndex: 1 }}>{step.title}</h2>
+        <h2 style={{ fontFamily: 'var(--font-display), var(--font-text), sans-serif', fontSize: 22, fontWeight: 700, color: '#fff', textAlign: 'center', lineHeight: 1.25, marginBottom: 10, position: 'relative', zIndex: 1 }}>{step.title}</h2>
         <p style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.42)', textAlign: 'center', lineHeight: 1.65, position: 'relative', zIndex: 1 }}>{step.body}</p>
-        <button onClick={onNext} style={{ position: 'absolute', bottom: 24, left: 24, right: 24, background: '#22c55e', color: '#fff', border: 'none', borderRadius: 12, padding: 13, fontSize: 13.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+        <button onClick={onNext} style={{ position: 'absolute', bottom: 24, left: 24, right: 24, background: '#F2B84B', color: '#17332B', border: 'none', borderRadius: 12, padding: 13, fontSize: 13.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
           Open Capital Rooms →
         </button>
       </div>
@@ -338,16 +338,16 @@ function Slide({ step, isLast, onNext, onSkip, slideIndex, total }: {
       <AppBar back={step.screen !== 'dashboard'} />
       {screen}
       {/* Text + nav overlay */}
-      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'linear-gradient(to top, rgba(10,10,10,0.88) 0%, rgba(10,10,10,0.4) 60%, transparent 100%)', padding: '36px 18px 18px' }}>
-        <h3 style={{ fontFamily: 'Georgia, serif', fontSize: 18, fontWeight: 700, color: '#fff', marginBottom: 4 }}>{step.title}</h3>
+      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'linear-gradient(to top, rgba(15,36,29,0.88) 0%, rgba(15,36,29,0.4) 60%, transparent 100%)', padding: '36px 18px 18px' }}>
+        <h3 style={{ fontFamily: 'var(--font-display), var(--font-text), sans-serif', fontSize: 18, fontWeight: 700, color: '#fff', marginBottom: 4 }}>{step.title}</h3>
         <p style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.55)', lineHeight: 1.55, marginBottom: 14 }}>{step.body}</p>
         {/notification/i.test(step.title) && <PushAsk onNext={onNext} />}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <button onClick={onSkip} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.35)', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>Skip</button>
           <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>{dots}</div>
           {isLast
-            ? <button onClick={onNext} style={{ background: '#22c55e', color: '#fff', border: 'none', borderRadius: 999, padding: '7px 16px', fontSize: 11.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Done</button>
-            : <button onClick={onNext} style={{ background: '#c4922a', color: '#1c1917', border: 'none', borderRadius: 999, padding: '7px 16px', fontSize: 11.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Next</button>
+            ? <button onClick={onNext} style={{ background: '#F2B84B', color: '#17332B', border: 'none', borderRadius: 999, padding: '7px 16px', fontSize: 11.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Done</button>
+            : <button onClick={onNext} style={{ background: '#F2B84B', color: '#17332B', border: 'none', borderRadius: 999, padding: '7px 16px', fontSize: 11.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Next</button>
           }
         </div>
       </div>
@@ -417,7 +417,7 @@ export default function TenantOnboarding({ onComplete }: { onComplete: () => voi
         <div style={{
           width: 320, maxWidth: '92vw',
           height: 620, maxHeight: '88dvh',
-          background: '#f5f5f4',
+          background: '#EEF2EC',
           borderRadius: 44,
           overflow: 'hidden',
           boxShadow: '0 0 0 1px rgba(255,255,255,0.1), 0 32px 80px rgba(0,0,0,0.5)',
