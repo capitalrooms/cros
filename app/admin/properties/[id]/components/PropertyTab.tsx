@@ -1,5 +1,6 @@
 'use client'
 import Link from 'next/link'
+import BinDaysCard from './BinDaysCard'
 
 import { useState, useEffect } from 'react'
 import { initials as avatarInitials } from '@/lib/people'
@@ -560,6 +561,7 @@ export default function PropertyTab({ property, onUpdate }: PropertyTabProps) {
               </div>
             </div>
             <p className="text-xs text-neutral-500 -mt-sm">Set automatically by the postcode lookup above, or enter manually. Used for the tenant humidity/ventilation card.</p>
+            <BinDaysCard propertyId={property.id} />
             {/* Row 1: council tax, HMO license dates, bills */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-lg">
               <div>

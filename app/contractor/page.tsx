@@ -7,7 +7,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { getCurrentUser, signOut } from '@/lib/auth'
 import { createClient } from '@/lib/supabase'
 import { displayName } from '@/lib/people'
-import DarkHeroHeader from '@/app/components/DarkHeroHeader'
+import ContractorTop from './ContractorTop'
 import StatTile from '@/app/components/StatTile'
 import EnableNotifications from '@/app/components/EnableNotifications'
 import ViewAsBanner from '@/app/components/ViewAsBanner'
@@ -69,7 +69,7 @@ function isoToDateParts(iso: string) {
 }
 
 type Tab = 'today' | 'quotes' | 'ongoing' | 'waiting' | 'booked' | 'done'
-const JOB_TABS: Tab[] = ['today', 'ongoing', 'waiting', 'booked']   // grouped as "Jobs" on the phone tab bar
+const JOB_TABS: Tab[] = ['today', 'ongoing', 'waiting', 'booked', 'done']   // grouped as "Jobs" on the phone tab bar (Done joined 14 Nov 2026 — Ask took its place on the bar)
 
 // ── Job card ──────────────────────────────────────────────────────────────────
 function JobCard({ job, variant, asParam }: { job: Job; variant?: 'overdue' | 'waiting' | 'ongoing'; asParam?: string }) {
@@ -234,7 +234,7 @@ export default function ContractorDashboard() {
 
       const { data: jobsData } = await supabase
         .from('maintenance_tickets')
-        .select('*, properties(name, address), rooms(name)')
+        .select('*, properties(name, address, postcode), rooms(name, location_in_house)')
         .eq('contractor_id', contractorId)
         .not('status', 'in', '("completed","cancelled")')
         .order('booked_date', { ascending: true })
@@ -257,7 +257,7 @@ export default function ContractorDashboard() {
 
       const { data: doneData } = await supabase
         .from('maintenance_tickets')
-        .select('*, properties(name, address), rooms(name)')
+        .select('*, properties(name, address, postcode), rooms(name, location_in_house)')
         .eq('contractor_id', contractorId)
         .eq('status', 'completed')
         .order('completed_at', { ascending: false })
@@ -696,87 +696,28 @@ export default function ContractorDashboard() {
           onPick={k => setActiveTab(k === 'jobs' ? 'today' : k as Tab)}
           badges={{ jobs: needsAttention, quotes: pendingQuotes.length }} />
 
-        <DarkHeroHeader
-          eyebrow="Contractor"
-          heading={`Hi ${firstName}`}
-          
-        >
-          <div className="max-w-2xl mx-auto w-full">
-            {/* what needs you, in order (9 Nov 2026: one short list instead of four number boxes + a banner + tabs) */}
-            {(() => {
-              const todo = [
-                { n: toSchedule.length, text: toSchedule.length === 1 ? 'new job to book in' : 'new jobs to book in', tab: 'waiting' as Tab, hot: true },
-                { n: overdue.length, text: overdue.length === 1 ? 'visit to log or rebook' : 'visits to log or rebook', tab: 'waiting' as Tab, hot: true },
-                { n: pendingQuotes.length, text: pendingQuotes.length === 1 ? 'quote to price' : 'quotes to price', tab: 'quotes' as Tab, hot: false },
-                { n: dayJobs.length, text: dayJobs.length === 1 ? 'visit today' : 'visits today', tab: 'today' as Tab, hot: false },
-              ].filter(t => t.n > 0)
-              return (
-                <div className="mb-lg overflow-hidden rounded-2xl bg-white/10">
-                  {todo.length === 0
-                    ? <p className="px-lg py-md text-sm font-semibold text-white">You’re all caught up ✓</p>
-                    : todo.map((t, i) => (
-                      <button key={t.text} onClick={() => goToTab(t.tab)} className={`flex w-full items-center gap-md px-lg py-md text-left text-white ${i ? 'border-t border-white/10' : ''}`}>
-                        <span className={`grid h-8 min-w-8 place-items-center rounded-full px-sm text-sm font-bold ${t.hot ? 'bg-[color:var(--cr-gold)] text-neutral-900' : 'bg-white text-neutral-900'}`}>{t.n}</span>
-                        <span className="flex-1 text-[15px] font-semibold">{t.text}</span>
-                        <span aria-hidden="true" className="text-white/60">›</span>
-                      </button>
-                    ))}
-                </div>
-              )
-            })()}
-
-            <div className="mb-md"><PoppingByVisit className="w-full rounded-xl bg-white/10 border border-white/20 px-md py-sm text-sm font-bold text-white hover:bg-white/20" /></div>
-
-            {/* 7-day week strip with prev/next arrows */}
-            <div className="flex items-center gap-xs">
-              <button
-                onClick={() => setWeekOffset(o => o - 1)}
-                className="shrink-0 w-8 h-8 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-white hover:bg-white/20 transition-colors text-lg leading-none"
-                aria-label="Previous week"
-              >‹</button>
-              <div className="flex gap-xs flex-1 justify-between">
-                {diaryDays.map(iso => {
-                  const { day, date, month } = isoToDateParts(iso)
-                  const isToday    = iso === today
-                  const isSelected = iso === selectedDay
-                  const jobCount   = countByDay[iso] ?? 0
-                  return (
-                    <button
-                      key={iso}
-                      onClick={() => { setSelectedDay(iso); setActiveTab('today') }}
-                      className={`flex-1 flex flex-col items-center rounded-xl px-xs py-sm transition-colors min-w-0 ${
-                        isSelected ? 'bg-white text-neutral-900' :
-                        isToday    ? 'bg-white/15 text-white border border-white/30' :
-                        'bg-neutral-800/60 text-neutral-400 border border-neutral-700'
-                      }`}
-                    >
-                      <span className="text-[10px] font-semibold opacity-70">{day.slice(0,1)}</span>
-                      <span className="text-base font-bold leading-none my-xs">{date}</span>
-                      {jobCount > 0 ? (
-                        <span className={`text-[10px] font-bold rounded-full px-xs ${isSelected ? 'bg-neutral-900 text-white' : 'bg-white text-neutral-900'}`}>
-                          {jobCount}
-                        </span>
-                      ) : (
-                        <span className="text-[10px] opacity-40">{month}</span>
-                      )}
-                    </button>
-                  )
-                })}
-              </div>
-              <button
-                onClick={() => setWeekOffset(o => o + 1)}
-                className="shrink-0 w-8 h-8 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-white hover:bg-white/20 transition-colors text-lg leading-none"
-                aria-label="Next week"
-              >›</button>
-            </div>
+        {/* ── The top: Garden Ask (14 Nov 2026) — the next job, I'm here, directions, quotes ── */}
+        {JOB_TABS.includes(activeTab) ? (
+          <ContractorTop firstName={firstName} asId={asId}
+            booked={bookedAhead as any}
+            weekCount={bookedAhead.filter(j => j.booked_date && j.booked_date <= new Date(Date.now() + 7 * 86400000).toLocaleDateString('en-CA', { timeZone: 'Europe/London' })).length}
+            quotesWaiting={pendingQuotes.length}
+            todo={[
+              { n: toSchedule.length, text: toSchedule.length === 1 ? 'new job to book in' : 'new jobs to book in', onClick: () => goToTab('waiting') },
+              { n: overdue.length, text: overdue.length === 1 ? 'visit to log or rebook' : 'visits to log or rebook', onClick: () => goToTab('waiting') },
+            ].filter(t => t.n > 0)}
+            poppingBy={<PoppingByVisit className="w-full rounded-full border-[1.5px] border-[#17332B] bg-white px-md py-3 text-sm font-bold text-[#17332B]" />} />
+        ) : (
+          <div className="px-4 pt-[max(calc(env(safe-area-inset-top)+16px),20px)]">
+            <h1 className="text-[34px] font-extrabold leading-none tracking-[-0.03em] text-[#14261F]">{activeTab === 'quotes' ? 'Quotes' : 'Done'}</h1>
           </div>
-        </DarkHeroHeader>
+        )}
 
         {/* Mobile tab strip — only under Jobs */}
         {JOB_TABS.includes(activeTab) && <div
           ref={tabStripRef}
-          className="bg-white border-b border-neutral-200 sticky z-40 px-lg pt-md pb-0"
-          style={{ top: 'calc(env(safe-area-inset-top) + 56px)' }}
+          className="mt-md bg-[#EEF2EC] sticky z-40 px-lg pt-md pb-0"
+          style={{ top: 'env(safe-area-inset-top)' }}
         >
           <div className="flex gap-xs overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
             {/* phone: just the job views here — Quotes, Done, Invoices and Me are on the bottom tab bar */}

@@ -68,6 +68,8 @@ export async function GET(req: NextRequest) {
   if (tErr || !ticket) {
     return NextResponse.json({ error: 'Ticket not found' }, { status: 404 })
   }
+  // has the tenant said "come in any time"? (migration 289 — read apart so the page works before it runs)
+  { const { data: at } = await service.from('maintenance_tickets').select('tenant_access_any_time').eq('id', ticketId).maybeSingle(); (ticket as any).tenant_access_any_time = !!(at as any)?.tenant_access_any_time }
 
   // Fetch contractor name separately
   let contractor: { first_name: string | null; last_name: string | null } | null = null
@@ -130,4 +132,23 @@ export async function GET(req: NextRequest) {
     requests: requests || [],
     personId,
   })
+}
+
+// POST { ticketId, action: 'any_time' } — "Come in any time, I don't need 24 hours' notice" for a job in the tenant's
+// own room (14 Nov 2026, lib/access/arrival). Only the tenant living in that room can say it.
+export async function POST(req: NextRequest) {
+  const { requireSignedIn } = await import('@/lib/portalAuth')
+  const c = await requireSignedIn(req)
+  if (!c || c.role !== 'tenant' || c.viewingAsBy) return NextResponse.json({ error: 'Please sign in again.' }, { status: 401 })
+  const b = await req.json().catch(() => ({}))
+  if (b.action !== 'any_time') return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
+  const s = serviceClient()
+  const { data: t } = await s.from('maintenance_tickets').select('id, property_id, room_id').eq('id', String(b.ticketId ?? '')).maybeSingle()
+  if (!t?.room_id) return NextResponse.json({ error: 'This job isn’t in your room.' }, { status: 400 })
+  const { activeTenantIds } = await import('@/lib/serverNotify')
+  const ids = await activeTenantIds(s as any, t.property_id, t.room_id)
+  if (!ids.includes(c.personId)) return NextResponse.json({ error: 'This job isn’t in your room.' }, { status: 403 })
+  const { error } = await s.from('maintenance_tickets').update({ tenant_access_any_time: true, tenant_access_any_time_at: new Date().toISOString() }).eq('id', t.id)
+  if (error) return NextResponse.json({ error: 'That didn’t save — try again.' }, { status: 500 })
+  return NextResponse.json({ ok: true })
 }

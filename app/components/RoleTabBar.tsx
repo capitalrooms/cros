@@ -6,22 +6,26 @@
 // On the home screen `onPick` switches the tab in place; anywhere else each tab is a link back to it.
 import PhoneTabBar, { ICONS, type PhoneTab } from '@/app/components/PhoneTabBar'
 
-export type ContractorTab = 'jobs' | 'quotes' | 'done' | 'invoices' | 'me'
-export type CleanerTab = 'today' | 'upcoming' | 'done' | 'compliance' | 'me'
+// the Ask tab (14 Nov 2026, Garden Ask): contractors' Done and cleaners' Compliance moved off the phone bar — they're
+// on the home screen and in the computer's side rail
+const SPARK = <path d="M12 3l1.8 4.6L18 9.4l-4.2 1.8L12 16l-1.8-4.8L6 9.4l4.2-1.8z" />
+
+export type ContractorTab = 'jobs' | 'quotes' | 'ask' | 'done' | 'invoices' | 'me'
+export type CleanerTab = 'today' | 'upcoming' | 'ask' | 'done' | 'compliance' | 'me'
 
 const CONTRACTOR: { key: ContractorTab; label: string; icon: PhoneTab['icon']; href: string }[] = [
   { key: 'jobs', label: 'Jobs', icon: ICONS.wrench, href: '/contractor' },
   { key: 'quotes', label: 'Quotes', icon: ICONS.notes, href: '/contractor?tab=quotes' },
-  { key: 'done', label: 'Done', icon: ICONS.check, href: '/contractor?tab=done' },
+  { key: 'ask', label: 'Ask', icon: SPARK, href: '/contractor/ask' },
   { key: 'invoices', label: 'Invoices', icon: ICONS.invoice, href: '/contractor/invoices' },
-  { key: 'me', label: 'Me', icon: ICONS.me, href: '/contractor/profile' },
+  { key: 'me', label: 'You', icon: ICONS.me, href: '/contractor/profile' },
 ]
 const CLEANER: { key: CleanerTab; label: string; icon: PhoneTab['icon']; href: string }[] = [
   { key: 'today', label: 'Today', icon: ICONS.home, href: '/cleaner' },
   { key: 'upcoming', label: 'Upcoming', icon: ICONS.calendar, href: '/cleaner?tab=upcoming' },
+  { key: 'ask', label: 'Ask', icon: SPARK, href: '/cleaner/ask' },
   { key: 'done', label: 'Done', icon: ICONS.check, href: '/cleaner?tab=done' },
-  { key: 'compliance', label: 'Compliance', icon: ICONS.notes, href: '/cleaner?tab=compliance' },
-  { key: 'me', label: 'Me', icon: ICONS.me, href: '/cleaner/profile' },
+  { key: 'me', label: 'You', icon: ICONS.me, href: '/cleaner/profile' },
 ]
 
 export function RoleTabBar<T extends string>({ role, active, onPick, badges = {}, inPage = [], spacer = true }: {

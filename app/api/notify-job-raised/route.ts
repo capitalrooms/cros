@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
     .select(`
       *,
       properties(name, address),
-      rooms(name)
+      rooms(name, location_in_house)
     `)
     .eq('id', ticketId)
     .single()
@@ -75,6 +75,9 @@ export async function POST(request: NextRequest) {
 
   const property = ticket.properties as any
   const room = ticket.rooms as any
+  // where the room is in the house goes with its name everywhere this message says it (14 Nov 2026 — someone who
+  // isn't on the app can find "Room 4 (first floor, back)" without asking)
+  if (room?.name && room.location_in_house) room.name = `${room.name} (${room.location_in_house})`
   // No foreign keys from maintenance_tickets to people — look up reporter and contractor directly
   const personById = async (id: string | null | undefined) => id
     ? (await supabase.from('people').select('*').eq('id', id).maybeSingle()).data as any

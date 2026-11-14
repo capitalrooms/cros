@@ -351,6 +351,7 @@ function ReportWizardContent() {
   useEffect(() => { window.scrollTo({ top: 0 }) }, [step]);
   const [description, setDescription] = useState('');
   const [location, setLocation] = useState('My Room / Bedroom');
+  const [anyTime, setAnyTime] = useState(false);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [photos, setPhotos] = useState<PhotoFile[]>([]);
   const [labelPhoto, setLabelPhoto] = useState<PhotoFile | null>(null);
@@ -543,6 +544,7 @@ function ReportWizardContent() {
       const fd = new FormData();
       fd.append('title', title); fd.append('description', fullDescription); fd.append('category', categoryLabel);
       fd.append('location', location); fd.append('priority', priority);
+      if (anyTime && /my room|bedroom|ensuite/i.test(location)) fd.append('anyTime', 'yes');
       for (const [i, ph] of [...(labelPhoto ? [labelPhoto] : []), ...photos].entries()) {
         fd.append('photos', new File([await shrinkPhoto(ph.file)], `${ph.isLabel ? 'label-' : ''}${i}.jpg`, { type: 'image/jpeg' }));
       }
@@ -718,6 +720,13 @@ function ReportWizardContent() {
               >
                 {LOCATION_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
               </select>
+              {/* in their own room: may the contractor come in without 24 hours' notice? (14 Nov 2026) */}
+              {/my room|bedroom|ensuite/i.test(location) && (
+                <label style={{ display: 'flex', gap: 10, alignItems: 'flex-start', marginTop: 12, padding: 12, borderRadius: 12, background: '#FDF1D8', fontSize: 14, lineHeight: 1.4, color: '#14261F' }}>
+                  <input type="checkbox" checked={anyTime} onChange={e => setAnyTime(e.target.checked)} style={{ width: 20, height: 20, marginTop: 1, accentColor: '#17332B' }} />
+                  <span><b>Come in any time — I don’t need 24 hours’ notice.</b> The contractor can fix it as soon as they’re free, even if I’m out. (Leave this unticked and we’ll always give you 24 hours’ notice.)</span>
+                </label>
+              )}
             </div>
 
             <Divider />

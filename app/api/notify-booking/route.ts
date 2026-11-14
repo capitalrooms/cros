@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
 
   const { data: ticket, error } = await supabase
     .from('maintenance_tickets')
-    .select('*, properties(name, address), rooms(name)')
+    .select('*, properties(name, address), rooms(name, location_in_house)')
     .eq('id', ticketId)
     .single()
 
@@ -83,6 +83,9 @@ export async function POST(request: NextRequest) {
   const when = formatBooking(ticket.booked_date, ticket.booked_slot)
   const property = ticket.properties as any
   const room = ticket.rooms as any
+  // where the room is in the house goes with its name everywhere this message says it (14 Nov 2026 — someone who
+  // isn't on the app can find "Room 4 (first floor, back)" without asking)
+  if (room?.name && room.location_in_house) room.name = `${room.name} (${room.location_in_house})`
   const where = [property?.name, property?.address].filter(Boolean).join(', ')
 
   const ics = buildVisitICS({
