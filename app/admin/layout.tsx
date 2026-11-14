@@ -12,6 +12,7 @@ import { areasFor, canOpenPage, homeFor, isAdministrator, type AreaKey } from '@
 import MobileTabBar from './components/MobileTabBar'
 import AdminFinder, { TopSearch } from './components/AdminFinder'
 import TaskBar from '@/components/admin/TaskBar'
+import NotificationsSheet from '@/app/components/garden/NotificationsSheet'
 import TopBar from '@/app/components/TopBar'
 import Footer from '@/app/components/Footer'
 import BackButton from '@/app/components/BackButton'
@@ -179,6 +180,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           right={<TopSearch canAsk={!!access && isAdministrator(access.role)} />} />
         <AdminFinder allowed={allowed} canAsk={!!access && isAdministrator(access.role)} />
         {access && isAdministrator(access.role) && <TaskBar />}
+        {access && <NotificationsSheet role="office" />}
 
         {/* Main content — the footer closes every page on desktop */}
         {/* the page fills the screen and the footer sits at the bottom of it — a short or still-loading page no longer

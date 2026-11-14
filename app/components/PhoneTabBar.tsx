@@ -45,7 +45,9 @@ export default function PhoneTabBar({ tabs, label = 'Sections', fixed = false, c
       className={`cr-tabbar ${className} flex justify-around border-t border-neutral-200 bg-white/95 backdrop-blur ${fixed ? 'fixed inset-x-0 bottom-0 z-40' : 'flex-shrink-0'}`}
       style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 6px)' }}>
       {tabs.map(t => t.href
-        ? <Link key={t.key} href={t.href} prefetch={false} aria-current={t.active ? 'page' : undefined} className={item(t.active)}>{svg(t)}{t.label}</Link>
+        ? <Link key={t.key} href={t.href} prefetch={false} aria-current={t.active ? 'page' : undefined} className={item(t.active)}
+            // tapping the tab you're already on goes back to the top, like any phone app (14 Nov 2026)
+            onClick={e => { if (t.active && typeof window !== 'undefined' && window.location.pathname + window.location.search === t.href) { e.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }) } }}>{svg(t)}{t.label}</Link>
         : <button key={t.key} type="button" onClick={t.onClick} aria-current={t.active ? 'page' : undefined} className={item(t.active)}>{svg(t)}{t.label}</button>)}
     </nav>
   )

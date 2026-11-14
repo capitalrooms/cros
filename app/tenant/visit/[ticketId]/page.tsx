@@ -90,6 +90,21 @@ export default function VisitDetailPage() {
   const [accessToken, setAccessToken] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [respondingAccess, setRespondingAccess] = useState(false)
+  const [noteText, setNoteText] = useState('')
+  const [notePhotos, setNotePhotos] = useState<File[]>([])
+  const [noteBusy, setNoteBusy] = useState(false)
+  const [noteDone, setNoteDone] = useState(false)
+  async function sendNote() {
+    if (!ticket) return
+    setNoteBusy(true)
+    const fd = new FormData(); fd.append('ticketId', ticket.id); fd.append('note', noteText)
+    for (const f of notePhotos) fd.append('photos', f)
+    const r = await adminFetch('/api/tenant/job-note', { method: 'POST', body: fd }).catch(() => null)
+    const j = r ? await r.json().catch(() => ({})) : {}
+    setNoteBusy(false)
+    if (!r?.ok) { alert(j.error || 'That didn’t send — try again.'); return }
+    setNoteDone(true); setNoteText(''); setNotePhotos([])
+  }
   const [requestText, setRequestText] = useState('')
   const [submittingRequest, setSubmittingRequest] = useState(false)
   const [requestDone, setRequestDone] = useState(false)
@@ -383,6 +398,26 @@ export default function VisitDetailPage() {
                 </div>
               ))}
             </div>
+          </section>
+        )}
+
+        {/* ── Add a note or photo to this job (14 Nov 2026) — for any open job, booked or not ───────── */}
+        {ticket.status !== 'completed' && ticket.status !== 'cancelled' && (
+          <section className="rounded-[22px] bg-white p-lg">
+            <h2 className="font-bold text-neutral-900">Add a note or photo</h2>
+            <p className="mt-xs text-sm text-neutral-600">Anything that helps — what you’ve tried, when you’re in, a new photo. The office and your contractor see it.</p>
+            {noteDone ? <p className="mt-md rounded-xl bg-[#E3ECE5] p-md text-sm font-semibold text-[#17332B]">✓ Added — the office{(ticket as any).contractor_id ? ' and your contractor have' : ' has'} been told.</p> : (<>
+              <textarea value={noteText} onChange={e => setNoteText(e.target.value)} rows={3} maxLength={1000} placeholder="e.g. I couldn’t find a radiator key. I’m in after 5pm."
+                className="mt-md w-full resize-none rounded-xl border border-neutral-300 bg-white px-md py-sm text-[16px] text-neutral-900 placeholder:text-neutral-400" />
+              <div className="mt-sm flex flex-wrap items-center gap-sm">
+                <label className="cursor-pointer rounded-full bg-white px-md py-sm text-sm font-semibold text-neutral-900 ring-1 ring-neutral-300">
+                  {notePhotos.length ? `${notePhotos.length} photo${notePhotos.length === 1 ? '' : 's'} added` : 'Add photos'}
+                  <input type="file" accept="image/*" multiple hidden onChange={e => setNotePhotos(Array.from(e.target.files ?? []).slice(0, 4))} />
+                </label>
+                <button type="button" disabled={noteBusy || (!noteText.trim() && !notePhotos.length)} onClick={sendNote}
+                  className="ml-auto rounded-full px-lg py-sm text-sm font-bold text-[#17332B] shadow-[0_3px_0_var(--cr-honey-edge)] disabled:opacity-40" style={{ background: 'var(--cr-gold)' }}>{noteBusy ? 'Sending…' : 'Add to the job'}</button>
+              </div>
+            </>)}
           </section>
         )}
 

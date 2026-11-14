@@ -44,7 +44,7 @@ async function sendConfirmationSms(
 export async function POST(request: NextRequest) {
   // Master switch: tenant/applicant messaging is paused until go-live — it holds back only theirs (and landlords').
   // The office and contractor messages always go (25 Oct 2026: the whole route stopped, so the office never heard).
-  const tenantsOn = await getCommsLive()
+  let tenantsOn = await getCommsLive()
   // Step 1: Verify authentication
   const user = await getCurrentUser()
   if (!user) {
@@ -107,6 +107,7 @@ export async function POST(request: NextRequest) {
   const propertyName = (viewing.rooms as any)?.properties?.name || 'Capital Rooms'
   const propertyAddress = (viewing.rooms as any)?.properties?.address || ''
   const propertyId = (viewing.rooms as any)?.properties?.id
+  if (!tenantsOn) tenantsOn = await getCommsLive({ propertyId })   // a property switched on alone (lib/comms)
   const roomId = viewing.rooms?.id
 
   async function send(to: string, subject: string, html: string) {

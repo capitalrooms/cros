@@ -10,6 +10,7 @@ import { tellContractor } from '@/lib/contractorContact'
 import { emailHtml, PORTAL_URL, tableRow, ctaButton } from '@/lib/emailTemplate'
 import { getTemplate, render } from '@/lib/messageTemplate'
 import { sendServerPush } from '@/lib/serverPush'
+import { insertNotifications } from '@/lib/serverNotify'
 import { getCommsLive } from '@/lib/comms'
 import { repairTarget } from '@/lib/repairs/targets'
 import { OFFICE_ALERT_EMAIL, officeButton } from '@/lib/email/office'
@@ -122,7 +123,7 @@ export async function POST(request: NextRequest) {
 
   // Tenant — confirmation that we received their request (an automatic tenant message: paused while tenant
   // messages are off — the office and contractor alerts below still go; 21 Oct 2026 audit)
-  if (reporter?.email && (reporter.role !== 'tenant' || await getCommsLive())) {
+  if (reporter?.email && (reporter.role !== 'tenant' || await getCommsLive({ ticketId }))) {
     const subject = tplTenant ? render(tplTenant.subject_line, vars) : `Request received — ${heading}`
     const body = tplTenant ? render(tplTenant.template_text, vars) : `
         <h2 style="margin:0 0 18px;font-size:22px">We received your request</h2>
@@ -210,13 +211,20 @@ export async function POST(request: NextRequest) {
     property?.name || property?.address || '',
     room?.name || ticket.location || '',
   ].filter(Boolean).join(' — ')
-  sendServerPush({
+  // awaited (14 Nov 2026): on Vercel anything still running after the reply is cut off, so the office's phone
+  // notification could silently never go. It opens the job itself, and the office bell gets it too.
+  await sendServerPush({
     role: 'administrator',
-    title: 'New maintenance ticket',
+    title: `New repair — ${property?.name || 'a property'}`,
     body: pushBody || ticket.title || 'A new ticket has been raised',
-    url: '/admin/maintenance',
+    url: `/admin/maintenance?ticket=${ticketId}`,
     tag: `ticket-${ticketId}`,
-  })
+  }).catch(() => 0)
+  {
+    const sc = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+    const { data: office } = await sc.from('people').select('id').eq('role', 'administrator')
+    await insertNotifications(sc as any, ((office ?? []) as any[]).map(o => o.id), { title: `New repair — ${property?.name || 'a property'}`, body: pushBody || ticket.title || '', type: 'maintenance', link: `/admin/maintenance?ticket=${ticketId}` } as any).catch(() => null)
+  }
 
   return NextResponse.json({ sent })
 }

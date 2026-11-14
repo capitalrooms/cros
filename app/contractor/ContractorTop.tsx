@@ -3,7 +3,9 @@
 // job is at", the green card with the job, the room and where it is in the house, "I'm here" (the notice rules and the
 // key safe — lib/access/arrival) and directions; this week and quotes tiles; the key safe note; what needs doing; and
 // the next few visits. Its own component so its hooks sit apart from the page's.
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { adminFetch } from '@/lib/adminFetch'
 import type { ReactNode } from 'react'
 import { AskBar, Greeting, Hero, HoneyButton, GhostButton, Tile, Banner, ListCard, Row, Ico, PATHS, display } from '@/app/components/garden/kit'
 import { useArrival } from '@/app/components/garden/useArrival'
@@ -22,6 +24,12 @@ export default function ContractorTop({ firstName, booked, weekCount, quotesWait
 }) {
   const router = useRouter()
   const { arrive, sheet } = useArrival()
+  // emergencies they've been asked to attend and haven't answered (only while still open)
+  const [emergencies, setEmergencies] = useState<{ token: string; label: string; area: string; closes: string | null }[]>([])
+  useEffect(() => {
+    const load = () => adminFetch('/api/contractor/emergencies').then(r => r.ok ? r.json() : null).then(d => d && setEmergencies(d.items ?? [])).catch(() => {})
+    load(); const i = setInterval(load, 60000); return () => clearInterval(i)
+  }, [])
   const sorted = booked.slice().sort((a, b) => `${a.booked_date}${a.booked_slot}`.localeCompare(`${b.booked_date}${b.booked_slot}`))
   const next = sorted.find(j => j.booked_date && j.booked_date >= todayIso())
   const later = sorted.filter(j => j.id !== next?.id && (j.booked_date ?? '') >= todayIso()).slice(0, 3)
@@ -37,6 +45,18 @@ export default function ContractorTop({ firstName, booked, weekCount, quotesWait
   return (
     <div className="flex flex-col gap-4 px-4 pt-[max(calc(env(safe-area-inset-top)+12px),16px)]">
       <AskBar bell={<StaffNotificationBell tone="light" />} href="/contractor/ask" prompt={next ? `Is there parking at ${next.properties?.name?.split(',')[0] ?? 'the property'}?` : 'Ask about your jobs'} />
+      {emergencies.map(e => (
+        <a key={e.token} href={`/e/${e.token}`} className="flex items-center gap-3 rounded-[22px] bg-[#8E2318] p-4 text-white">
+          <span className="relative grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white text-[#8E2318]"><Ico d={PATHS.alert} size={22} /><span className="absolute -right-0.5 -top-0.5 h-3.5 w-3.5 animate-pulse rounded-full border-2 border-[#8E2318] bg-[#F2B84B]" /></span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[11px] font-extrabold uppercase tracking-widest text-white/80">Emergency · can you attend?</span>
+            <span className="block truncate text-[15px] font-bold">{e.label} near {e.area}</span>
+            {e.closes && <span className="block text-[13px] text-white/80">Answer by {new Date(e.closes).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London' })} — say when you could get there</span>}
+          </span>
+          <span aria-hidden="true">›</span>
+        </a>
+      ))}
+
       {/* new jobs sent to them and not booked in yet: the alert (14 Nov 2026) */}
       {fresh.slice(0, 3).map(j => (
         <a key={j.id} href={jobHref(j)} className="flex items-center gap-3 rounded-[22px] bg-white p-4 ring-2 ring-[color:var(--cr-gold)]">

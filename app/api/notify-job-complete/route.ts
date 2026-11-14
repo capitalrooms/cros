@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Master switch: tenant/applicant messaging is paused until go-live.
-    if (!await getCommsLive()) {
+    if (!await getCommsLive({ ticketId })) {
       return NextResponse.json({ ok: true, skipped: true, reason: 'tenant_comms_paused' })
     }
 

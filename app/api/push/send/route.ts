@@ -101,7 +101,7 @@ export async function POST(req: NextRequest) {
 
     // Master switch: while tenant comms are paused, never push to tenant devices.
     // Staff devices (contractor/cleaner/admin/lettings) are unaffected.
-    if (!await getCommsLive()) {
+    if (!await getCommsLive({ propertyId: propertyId ?? null })) {
       const before = (subs || []).length
       subs = (subs || []).filter((s: any) => s.role && s.role !== 'tenant')
       const suppressed = before - subs.length

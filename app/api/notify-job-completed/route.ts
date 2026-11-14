@@ -18,7 +18,7 @@ import { OFFICE_ALERT_EMAIL, officeButton } from '@/lib/email/office'
 export async function POST(request: NextRequest) {
   // Master switch: tenant/applicant messaging is paused until go-live — it holds back only theirs (and landlords').
   // The office and contractor messages always go (25 Oct 2026: the whole route stopped, so the office never heard).
-  const tenantsOn = await getCommsLive()
+  let tenantsOn = await getCommsLive()
   const user = await getCurrentUser()
   if (!user) {
     await logAudit({ userId: 'unknown', action: 'security_unauthorized_access', details: 'Unauthorized notify-job-completed access', ipAddress: getClientIp(request.headers) })
@@ -31,6 +31,7 @@ export async function POST(request: NextRequest) {
   }
 
   const { ticketId } = await request.json()
+  if (!tenantsOn) tenantsOn = await getCommsLive({ ticketId })   // a property switched on alone (lib/comms)
   if (!ticketId || !(await canWorkOnTicket(await requireSignedIn(request), ticketId))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   if (!ticketId || !validateUUID(ticketId)) {
     await logAudit({ userId: user.id, action: 'security_invalid_input', details: `Invalid ticketId: ${ticketId}`, ipAddress: getClientIp(request.headers) })

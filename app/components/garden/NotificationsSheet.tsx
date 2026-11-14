@@ -9,7 +9,7 @@ import EnableNotifications from '@/app/components/EnableNotifications'
 
 const KEY = 'cros-notif-ask-later'
 
-export default function NotificationsSheet({ role }: { role: 'tenant' | 'cleaner' | 'contractor' }) {
+export default function NotificationsSheet({ role }: { role: 'tenant' | 'cleaner' | 'contractor' | 'office' }) {
   const [show, setShow] = useState(false)
   useEffect(() => {
     if (typeof window === 'undefined' || !('Notification' in window) || !('serviceWorker' in navigator)) return
@@ -25,6 +25,7 @@ export default function NotificationsSheet({ role }: { role: 'tenant' | 'cleaner
   if (!show) return null
   const why = role === 'tenant' ? 'when a repair is booked, someone’s visiting, or the office messages you'
     : role === 'cleaner' ? 'when a clean is booked or moved, and when tenants ask for something'
+    : role === 'office' ? 'the moment a repair, emergency or message comes in — and tapping it opens CROS right there'
     : 'the moment a new job is sent to you, and when a tenant answers'
   return (
     <div className="fixed inset-0 z-[95] flex items-end justify-center bg-black/40 sm:items-center" role="dialog" aria-modal="true" aria-label="Turn on notifications">

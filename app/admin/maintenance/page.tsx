@@ -382,6 +382,8 @@ export default function MaintenanceDashboard() {
         })
         .eq('id', ticketId);
       if (err) throw err;
+      // tell the tenant it's approved and we're arranging someone (14 Nov 2026 — they used to hear nothing)
+      adminFetch('/api/notify-job-update', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ticketId, kind: 'approved', line: 'Approved — we’re arranging a contractor now and will let you know when they’re booked.' }) }).catch(() => {});
       fetchTickets();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to release ticket');

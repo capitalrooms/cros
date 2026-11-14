@@ -28,7 +28,28 @@ export function tenantCommsLive(): boolean {
  * Async check — reads from DB first (admin-toggleable), falls back to env var.
  * Use this in all notification API routes.
  */
-export async function getCommsLive(): Promise<boolean> {
+export async function getCommsLive(at?: { propertyId?: string | null; ticketId?: string | null }): Promise<boolean> {
+  // per property (14 Nov 2026, Harry: "can't you turn on push notifications for this house alone?"): while the master
+  // switch is off, properties on the "messages on" list (system_settings.comms_live_properties) still get everything
+  if (await masterCommsLive()) return true
+  if (!at) return false
+  let pid = at.propertyId ?? null
+  if (!pid && at.ticketId) {
+    try { const { data } = await createServiceClient().from('maintenance_tickets').select('property_id').eq('id', at.ticketId).maybeSingle(); pid = (data as any)?.property_id ?? null } catch { /* fall through */ }
+  }
+  return !!pid && (await commsLiveProperties()).includes(pid)
+}
+
+/** Properties where tenant messages are on while the master switch is off. */
+export async function commsLiveProperties(): Promise<string[]> {
+  try {
+    const { data } = await createServiceClient().from('system_settings').select('value').eq('key', 'comms_live_properties').maybeSingle()
+    const list = JSON.parse((data as any)?.value || '[]')
+    return Array.isArray(list) ? list.map(String) : []
+  } catch { return [] }
+}
+
+async function masterCommsLive(): Promise<boolean> {
   try {
     const supabase = createServiceClient()
     const { data } = await supabase

@@ -148,7 +148,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Send notification to room tenant
-  if (await getCommsLive()) {
+  if (await getCommsLive({ propertyId: ticket.property_id })) {
     const tenantIds = await activeTenantIds(service, ticket.property_id, ticket.room_id)
     if (tenantIds.length > 0) {
       const prop  = (ticket.properties as any)?.name ?? 'your property'

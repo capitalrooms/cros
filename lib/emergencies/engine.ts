@@ -52,7 +52,7 @@ export async function settings(s: S): Promise<Settings> {
   const m = new Map(((data ?? []) as any[]).map(r => [r.key, String(r.value)]))
   return {
     auto: (m.get('emergency_auto') ?? 'true') === 'true',
-    windowMin: Math.max(2, Number(m.get('emergency_window_min') ?? 10) || 10),
+    windowMin: Math.max(2, Number(m.get('emergency_window_min') ?? 30) || 30),
     costLimit: Number(m.get('emergency_cost_limit') ?? 150) || 150,
     overLimit: m.get('emergency_over_limit') === 'wait' ? 'wait' : 'send_after_15',
     followupMin: Math.max(15, Number(m.get('emergency_followup_min') ?? 60) || 60),
@@ -151,10 +151,13 @@ export async function startEmergency(s: S, opts: { ticketId: string; kind?: Emer
     await tellHouse(s, full, 'We’ve got your report', 'Thanks for making it safe. We’ll arrange someone first thing in the morning — tell us straight away if it gets worse.')
     return { id: em.id, status }
   }
-  const asked = await dispatchWave(s, full, 1)
-  if (!asked) await dispatchWave(s, full, 2)
+  // the emergency list first; its backups if no one fits; then every contractor on CROS — someone is always asked
+  let asked = await dispatchWave(s, full, 1)
+  if (!asked) asked = await dispatchWave(s, full, 2)
+  if (!asked) asked = await dispatchWave(s, full, 3)
+  if (!asked) await alertOffice(s, full, `🆘 No contractor to ask — ${firstLine(full.properties?.name)}`, 'There is no contractor on CROS who can be reached. Please call round now.', true)
   await tellHouse(s, full, 'We’re on it', `We’re sorry you’re dealing with this. We’re contacting our emergency contractors now and will let you know who is coming and when.`)
-  await alertOffice(s, full, `Emergency: ${info.label} at ${firstLine(full.properties?.name)}`, 'Contractors are being texted. CROS will confirm the soonest in a few minutes — open it to watch or step in.')
+  await alertOffice(s, full, `Emergency: ${info.label} at ${firstLine(full.properties?.name)}`, 'Contractors are being contacted. CROS confirms the soonest once answers are in — open it to watch or step in.')
   return { id: em.id, status }
 }
 
@@ -165,7 +168,13 @@ const inHours = (from: number, to: number, h: number) => (from <= to ? h >= from
 /** Text a wave of contractors. Wave 1: the trade, in their hours. Wave 2: backups, out-of-hours and general. Returns how many were asked. */
 export async function dispatchWave(s: S, em: any, wave: number): Promise<number> {
   const set = await settings(s)
-  const { data: list } = await s.from('emergency_contractors').select('*, people!person_id(*)').eq('active', true) as { data: any[] | null }
+  let { data: list } = await s.from('emergency_contractors').select('*, people!person_id(*)').eq('active', true) as { data: any[] | null }
+  // wave 3 (14 Nov 2026, Harry: "in the event I don't see the emergency report it should still be sent to contractors"):
+  // nobody on the emergency list could come — ask every contractor on CROS who can be reached, whatever their trade
+  if (wave >= 3) {
+    const { data: all } = await s.from('people').select('*').eq('role', 'contractor') as { data: any[] | null }
+    list = ((all ?? []) as any[]).filter(p => p.email || p.phone).map(p => ({ person_id: p.id, people: p, trades: ['general'], property_ids: [], backup_only: false, hours_from: 0, hours_to: 24, rank: 9 }))
+  }
   const { data: askedRows } = await s.from('emergency_responses').select('contractor_id').eq('emergency_id', em.id)
   const asked = new Set(((askedRows ?? []) as any[]).map(r => r.contractor_id))
   const h = londonHour()
@@ -174,6 +183,7 @@ export async function dispatchWave(s: S, em: any, wave: number): Promise<number>
   const pick = ((list ?? []) as any[]).filter(c => !asked.has(c.person_id) && c.people && covers(c)).filter(c => {
     const trade = (c.trades ?? []).includes(em.trade)
     if (wave === 1) return trade && !c.backup_only && inHours(c.hours_from, c.hours_to, h)
+    if (wave >= 3) return true
     return trade || (c.trades ?? []).includes('general')
   }).sort((a, b) => a.rank - b.rank)
   const windowEnds = new Date(Date.now() + set.windowMin * 60000).toISOString()
@@ -229,12 +239,13 @@ export async function decide(s: S, emId: string, reason = 'Answers closed') {
     await alertOffice(s, em, `Approve call-out — ${firstLine(em.properties?.name)}`, `${pname(best.people)} can come by ${ukWhen(best.eta_at)} for ${gbp(best.call_out_fee)} (over your £${set.costLimit} limit).${set.overLimit === 'send_after_15' ? ' Going ahead in 15 minutes unless you change it.' : ''}`, true)
     return
   }
-  // no one can come yet
-  if (em.wave < 2) {
-    const n = await dispatchWave(s, em, 2)
+  // no one can come yet — widen the net: backups, then every contractor on CROS
+  for (let w = (em.wave ?? 1) + 1; w <= 3; w++) {
+    const n = await dispatchWave(s, em, w)
     if (n) {
-      await log(s, emId, 'waiting', `${reason}: no one could come — asked the backups and general contractors too`)
-      await alertOffice(s, em, `No contractor yet — ${firstLine(em.properties?.name)}`, 'No one on the list could come. CROS has asked the backups; you may want to call round.', true)
+      const who = w >= 3 ? 'every contractor on CROS' : 'the backups and general contractors'
+      await log(s, emId, 'waiting', `${reason}: no one could come — asked ${who} too`)
+      await alertOffice(s, em, `No contractor yet — ${firstLine(em.properties?.name)}`, `No one on the list could come. CROS has asked ${who}; you may want to call round.`, true)
       return
     }
   }

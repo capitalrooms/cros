@@ -71,7 +71,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
   // the tenants who'd be visited: that room's for a room job, the whole house for a shared area
   const tenantIds = t.property_id ? await activeTenantIds(s, t.property_id, inTenantRoom({ location: t.location }) ? t.room_id : null) : []
   const tellTenants = async (title: string, body: string) => {
-    if (!tenantIds.length || !(await getCommsLive())) return   // automatic tenant messages follow the pause switch
+    if (!tenantIds.length || !(await getCommsLive({ propertyId: t.property_id }))) return   // automatic tenant messages follow the pause switch
     await insertNotifications(s, tenantIds, { title, body, type: 'maintenance', link: '/tenant/requests' }, { propertyId: t.property_id, roomId: t.room_id })
     await dispatchChannels(s, tenantIds, { title, body, link: '/tenant/requests' }, 'push_email', null)
   }
@@ -84,7 +84,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
     await s.from('maintenance_tickets').update({ booked_date: null, booked_slot: null }).eq('id', t.id)
     await tellOffice(`Can’t make it: ${who} — ${t.title} at ${house}`, `<p><b>${esc(who)}</b> can’t do ${before ? `the visit booked for <b>${esc(before)}</b>` : 'this job'}.</p>${reason ? `<p>Their reason: ${esc(reason)}</p>` : ''}<p>The job is still with them — they can book a new day with the same link — or send it to someone else.</p>`)
     // everyone who was told about it — incl. a let-only household (lib/maintenance/visitOff); automatic, so it follows the pause
-    if (before && await getCommsLive()) await tellHouseVisitOff(s as any, t as any, { jobCancelled: false })
+    if (before && await getCommsLive({ propertyId: (t as any).property_id })) await tellHouseVisitOff(s as any, t as any, { jobCancelled: false })
     return NextResponse.json({ ok: true })
   }
 

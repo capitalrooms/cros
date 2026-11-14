@@ -102,7 +102,7 @@ export default function TenantEmergencyPage() {
           <section className="rounded-2xl bg-white p-lg">
             <p className="text-lg font-bold text-neutral-900">{status === 'failed' ? 'Your report is in' : 'We’ve got it'}</p>
             <p className="mt-sm text-sm text-neutral-700">
-              {status === 'collecting' ? 'We’re contacting our emergency contractors now and will tell you who is coming and when — usually within 15 minutes. Keep following the steps below until they arrive.'
+              {status === 'collecting' ? 'We’re contacting our emergency contractors now and will tell you who is coming and when — we usually have someone booked to visit within the hour. Keep following the steps below until they arrive.'
                 : status === 'morning' ? 'Thanks for making it safe. We’ll arrange someone first thing in the morning — tell us straight away if it gets worse.'
                 : status === 'call_999' ? `${info?.callServices ?? 'Please call the emergency services.'} We’ve told the office.`
                 : 'We couldn’t start the emergency call-out automatically, but the office has your report. If it isn’t safe, call us.'}
