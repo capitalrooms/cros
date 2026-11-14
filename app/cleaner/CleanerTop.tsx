@@ -9,6 +9,7 @@ import { useRouter } from 'next/navigation'
 import { adminFetch } from '@/lib/adminFetch'
 import { AskBar, Greeting, Hero, HoneyButton, Tile, Banner, ListCard, Row, display } from '@/app/components/garden/kit'
 import { useArrival } from '@/app/components/garden/useArrival'
+import StaffNotificationBell from '@/app/components/StaffNotificationBell'
 
 type Clean = { id: string; property_id: string; clean_date: string; clean_time?: string | null; clean_type?: string | null; duration_hours?: number | null; arrived_at?: string | null; status?: string; properties?: { id?: string; name?: string } | null }
 type Req = { cleanId: string; property: string; room: string | null; location: string | null; tasks: string[]; notes: string | null }
@@ -17,8 +18,8 @@ const ITEMS = ['Bin bags', 'Toilet roll', 'Washing-up liquid', 'Cleaning spray',
 const time = (t?: string | null) => t ? String(t).slice(0, 5) : ''
 const hours = (h?: number | null) => h ? `about ${h === 1 ? 'an hour' : h % 1 ? `${Math.floor(h)}½ hours` : `${h} hours`}` : ''
 
-export default function CleanerTop({ firstName, today, doneToday, todo, onBook, onLogPast, properties }: {
-  firstName: string; today: Clean[]; doneToday: Clean[]
+export default function CleanerTop({ firstName, today, doneToday, todo, onBook, onLogPast, properties, upcoming = [] }: {
+  firstName: string; today: Clean[]; doneToday: Clean[]; upcoming?: Clean[]
   todo: { n: number; text: string; onClick: () => void }[]
   onBook: () => void; onLogPast: () => void
   properties: { id: string; name: string }[]
@@ -40,8 +41,7 @@ export default function CleanerTop({ firstName, today, doneToday, todo, onBook, 
   useEffect(() => { load() }, [route.map(c => c.id).join(','), houseIds.join(',')]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function imHere(c: Clean) {
-    const r = await arrive('clean', c.id)
-    if (r) setTimeout(() => router.push(`/cleaner/clean/${c.id}`), 50)
+    await arrive('clean', c.id, { onDone: () => router.push(`/cleaner/clean/${c.id}`) })
   }
   async function addSupply() {
     if (!supProp || !supItem.trim()) return
@@ -62,7 +62,7 @@ export default function CleanerTop({ firstName, today, doneToday, todo, onBook, 
 
   return (
     <div className="flex flex-col gap-4 px-4 pt-[max(calc(env(safe-area-inset-top)+12px),16px)]">
-      <AskBar href="/cleaner/ask" prompt={next ? `Any notes for ${next.properties?.name?.split(',')[0] ?? 'my next house'}?` : 'Ask about a house'} />
+      <AskBar bell={<StaffNotificationBell tone="light" />} href="/cleaner/ask" prompt={next ? `Any notes for ${next.properties?.name?.split(',')[0] ?? 'my next house'}?` : 'Ask about a house'} />
       <Greeting eyebrow={`${new Date().getHours() < 12 ? 'Morning' : new Date().getHours() < 18 ? 'Afternoon' : 'Evening'} ${firstName} — ${total ? 'today you have' : 'nothing booked today'}`}
         title={total ? `${total} clean${total === 1 ? '' : 's'}` : 'A free day'} />
 
@@ -82,7 +82,7 @@ export default function CleanerTop({ firstName, today, doneToday, todo, onBook, 
       )}
 
       <div className="grid grid-cols-2 gap-2.5">
-        <Tile tone="sage" label="Next up" value={after ? `${time(after.clean_time) ? `${time(after.clean_time)} · ` : ''}${after.properties?.name?.split(',')[0] ?? 'Clean'}` : next ? 'Last one today' : '—'} href={after ? `/cleaner/clean/${after.id}` : undefined} />
+        <Tile tone="sage" label="Next up" value={after ? `${time(after.clean_time) ? `${time(after.clean_time)} · ` : ''}${after.properties?.name?.split(',')[0] ?? 'Clean'}` : upcoming[0] ? `${new Date(upcoming[0].clean_date + 'T12:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })} · ${upcoming[0].properties?.name?.split(',')[0] ?? 'Clean'}` : next ? 'Last one today' : 'Nothing booked'} href={after ? `/cleaner/clean/${after.id}` : upcoming[0] ? `/cleaner/clean/${upcoming[0].id}` : undefined} />
         <Tile tone="butter" label={`Supplies${supplies.length ? ` · ${supplies.length} low` : ''}`} value={supplyTile} onClick={() => { setSupOpen(true); setSupProp(next?.property_id ?? properties[0]?.id ?? '') }} />
       </div>
 
@@ -115,8 +115,9 @@ export default function CleanerTop({ firstName, today, doneToday, todo, onBook, 
         </ListCard>
       )}
 
-      <div className="grid grid-cols-2 gap-2.5">
-        <button type="button" onClick={onBook} className="h-12 rounded-full text-sm font-bold text-[#F1F5EE]" style={{ background: '#17332B' }}>Book a clean</button>
+      {/* on a free day the green card already says "Book a clean" */}
+      <div className={`grid gap-2.5 ${next ? 'grid-cols-2' : 'grid-cols-1'}`}>
+        {next && <button type="button" onClick={onBook} className="h-12 rounded-full text-sm font-bold text-[#F1F5EE]" style={{ background: '#17332B' }}>Book a clean</button>}
         <button type="button" onClick={onLogPast} className="h-12 rounded-full border-[1.5px] border-[#17332B] bg-white text-sm font-bold text-[#17332B]">Log a past clean</button>
       </div>
 

@@ -56,7 +56,7 @@ export default function AskScreen({ role, houseName }: { role: 'tenant' | 'clean
           <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-[#17332B]" style={{ background: 'var(--cr-gold)' }}><Spark size={22} /></span>
           <div className="min-w-0">
             <h1 className="text-[26px] font-extrabold leading-none tracking-[-0.02em] text-[#F1F5EE]" style={display}>{TITLE[role]}</h1>
-            <p className="mt-1 truncate text-[13px] text-[#B9CBBF]">{role === 'tenant' ? `Answers from ${houseName ?? 'your property'}’s own details` : 'Answers from CROS — the office keeps them up to date'}</p>
+            <p className="mt-1 truncate text-[13px] text-[#B9CBBF]">{role === 'tenant' ? `Answers from ${houseName ?? 'your property'}’s own details` : 'Answers from your houses’ own details'}</p>
           </div>
         </div>
         <div className="mt-3.5 flex flex-wrap gap-1.5">

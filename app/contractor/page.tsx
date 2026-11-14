@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { slotLabel } from '@/lib/booking'
 import PoppingByVisit from '@/app/components/PoppingByVisit'
 import { useRoleRail, DeskGreeting } from '@/app/components/role/RoleShell'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -75,14 +76,15 @@ const JOB_TABS: Tab[] = ['today', 'ongoing', 'waiting', 'booked', 'done']   // g
 function JobCard({ job, variant, asParam }: { job: Job; variant?: 'overdue' | 'waiting' | 'ongoing'; asParam?: string }) {
   const category = String(job.category || 'General').replace(/-/g, ' ')
   const borderCls =
-    variant === 'overdue'  ? 'border-red-200 bg-red-50'    :
-    variant === 'waiting'  ? 'border-amber-200 bg-amber-50' :
-    variant === 'ongoing'  ? 'border-amber-200 bg-amber-50' :
-    'border-neutral-200 bg-white'
+    // Garden Ask (14 Nov 2026): white cards; a coloured edge says what needs doing
+    variant === 'overdue'  ? 'border-transparent bg-white ring-2 ring-[#F3C7BE]' :
+    variant === 'waiting'  ? 'border-transparent bg-white ring-2 ring-[color:var(--cr-gold)]' :
+    variant === 'ongoing'  ? 'border-transparent bg-[#FDF1D8]' :
+    'border-transparent bg-white'
 
   return (
     <Link href={`/contractor/job/${job.id}${asParam ? `?as=${asParam}` : ''}`}>
-      <div className={`rounded-2xl border p-md shadow-sm flex items-center justify-between gap-md hover:shadow-md transition-shadow cursor-pointer ${borderCls}`}>
+      <div className={`mb-2 flex cursor-pointer items-center justify-between gap-md rounded-[20px] border p-md ${borderCls}`}>
         <div className="min-w-0 flex-1">
           {/* what's wrong first, then where (9 Nov 2026) */}
           <p className="font-bold text-neutral-900 truncate">{job.title ? String(job.title).split(' — ').pop() : category}</p>
@@ -99,7 +101,7 @@ function JobCard({ job, variant, asParam }: { job: Job; variant?: 'overdue' | 'w
             <p className={`text-xs mt-xs font-semibold ${variant === 'overdue' ? 'text-red-600' : 'text-neutral-400'}`}>
               {variant === 'overdue' ? '' : ''}
               {formatDateUK(job.booked_date)}
-              {job.booked_slot ? ` · ${String(job.booked_slot).slice(0, 5)}` : ' · time TBC'}
+              {job.booked_slot ? ` · ${slotLabel(job.booked_slot) || String(job.booked_slot).slice(0, 5)}` : ' · time to be agreed'}
             </p>
           )}
           {variant === 'waiting' && (
@@ -327,7 +329,7 @@ export default function ContractorDashboard() {
     { key: 'today',   label: 'Today' },
     { key: 'quotes',  label: 'Quotes',   badge: pendingQuotes.length },
     { key: 'ongoing', label: 'Ongoing',  badge: ongoing.length },
-    { key: 'waiting', label: 'Overdue / to book',  badge: needsAttention },
+    { key: 'waiting', label: 'To book',  badge: needsAttention },
     { key: 'booked',  label: 'Booked' },
     { key: 'done',    label: 'Done' },
   ]
@@ -700,6 +702,7 @@ export default function ContractorDashboard() {
         {JOB_TABS.includes(activeTab) ? (
           <ContractorTop firstName={firstName} asId={asId}
             booked={bookedAhead as any}
+            fresh={toSchedule.filter(j => { const at = (j as any).approved_at || (j as any).created_at; return at && Date.now() - new Date(at).getTime() < 7 * 86400000 }).sort((a: any, b: any) => String(b.approved_at ?? b.created_at).localeCompare(String(a.approved_at ?? a.created_at))) as any}
             weekCount={bookedAhead.filter(j => j.booked_date && j.booked_date <= new Date(Date.now() + 7 * 86400000).toLocaleDateString('en-CA', { timeZone: 'Europe/London' })).length}
             quotesWaiting={pendingQuotes.length}
             todo={[
@@ -716,7 +719,7 @@ export default function ContractorDashboard() {
         {/* Mobile tab strip — only under Jobs */}
         {JOB_TABS.includes(activeTab) && <div
           ref={tabStripRef}
-          className="mt-md bg-[#EEF2EC] sticky z-40 px-lg pt-md pb-0"
+          className="mt-md bg-[#EEF2EC] sticky z-30 px-lg pt-sm pb-0"
           style={{ top: 'env(safe-area-inset-top)' }}
         >
           <div className="flex gap-xs overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
@@ -725,13 +728,13 @@ export default function ContractorDashboard() {
               <button
                 key={key}
                 onClick={() => setActiveTab(key)}
-                className={`relative px-lg py-sm rounded-full text-sm font-bold whitespace-nowrap transition-all mb-sm ${
-                  activeTab === key ? 'bg-neutral-950 text-white' : 'bg-neutral-100 text-neutral-500 hover:bg-neutral-200'
+                className={`relative mb-sm whitespace-nowrap rounded-full px-lg py-sm text-sm font-bold transition-all ${
+                  activeTab === key ? 'bg-[#17332B] text-white' : 'bg-white text-[#4E6158] ring-1 ring-[#DCE5DD]'
                 }`}
               >
                 {label}
                 {badge && badge > 0 ? (
-                  <span className="absolute -top-1 -right-1 min-w-[16px] h-4 rounded-full text-[9px] font-bold flex items-center justify-center px-xs bg-red-500 text-white">
+                  <span className="absolute -right-1 -top-1 flex h-4 min-w-[16px] items-center justify-center rounded-full px-xs text-[9px] font-bold text-[#17332B]" style={{ background: 'var(--cr-gold)' }}>
                     {badge}
                   </span>
                 ) : null}
@@ -746,7 +749,7 @@ export default function ContractorDashboard() {
           {activeTab === 'today' && (
             <div className="pt-sm space-y-sm">
               <div className="pt-sm pb-sm"><EnableNotifications /></div>
-              <a href="/planner" className="block rounded-xl border border-neutral-200 bg-white px-md py-sm text-center text-xs font-bold text-neutral-900">Notes, jobs &amp; photos with Capital Rooms</a>
+              <a href="/planner" className="block rounded-full bg-white px-md py-3 text-center text-sm font-bold text-[#17332B] ring-1 ring-[#DCE5DD]">Notes, jobs &amp; photos with Capital Rooms</a>
               {/* passed visits and jobs to book are in the "needs you" list at the top (9 Nov 2026) */}
               {dayJobs.length === 0 ? (
                 <div className="rounded-2xl border-2 border-dashed border-neutral-200 bg-white py-2xl text-center">

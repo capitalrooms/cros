@@ -28,6 +28,7 @@ const Answer = z.object({
   source: z.string().describe('Where it came from in a few words, e.g. "From the house guide" or "From the council’s bin schedule". Empty if you could not answer.'),
   actions: z.array(z.string()).describe('0–2 action keys from the allowed list that would help next.'),
   answered: z.boolean().describe('false if the details did not contain the answer'),
+  open_id: z.string().describe('If the answer is about one particular job, clean or repair listed in the details, its id (the value after "id:") so they can open it. Empty otherwise.'),
 })
 export type AskReply = { answer: string; source: string; actions: { label: string; href: string }[]; answered: boolean }
 
@@ -72,26 +73,28 @@ export async function factsFor(s: SupabaseClient, role: Role, personId: string):
       s.from('maintenance_tickets').select('title, category, booked_date, booked_slot, status, room_id').eq('property_id', ten.property_id).gte('booked_date', t).not('status', 'in', '(completed,cancelled)').order('booked_date').limit(6),
       s.from('cleans').select('clean_date, clean_time, status').eq('property_id', ten.property_id).gte('clean_date', t).not('status', 'in', '(cancelled)').order('clean_date').limit(4),
     ])
+    const { data: mine } = await s.from('maintenance_tickets').select('id, title, category, status, created_at, booked_date').eq('reporter_id', personId).order('created_at', { ascending: false }).limit(15)
     return [houseFacts(p, { secrets: true }),
       `THEIR ROOM: ${ten.rooms?.name ?? 'the whole property'}${ten.rooms?.location_in_house ? ` (${ten.rooms.location_in_house})` : ''}`,
       ten.rent_amount ? `THEIR RENT: £${ten.rent_amount} a month${ten.rent_due_day ? `, due on day ${ten.rent_due_day} of each month` : ''}` : '',
       `NOTICE: a rolling tenancy (Renters' Rights rules) — the tenant gives 2 months' notice. No fixed or minimum terms.`,
       `VISITS BOOKED: ${((jobs ?? []) as any[]).map(j => `${j.booked_date} ${j.booked_slot ?? ''} ${j.title || j.category}${j.room_id === ten.room_id ? ' (their room)' : ''}`).join('; ') || 'none'}`,
       `CLEANS BOOKED: ${((cleans ?? []) as any[]).map(c => `${c.clean_date}${c.clean_time ? ` ${String(c.clean_time).slice(0, 5)}` : ''}`).join('; ') || 'none'}`,
+      `THEIR REPAIR REQUESTS (newest first): ${((mine ?? []) as any[]).map(j => `[id:${j.id}] ${String(j.created_at).slice(0, 10)} ${j.title || j.category} — ${String(j.status).replace(/_/g, ' ')}${j.booked_date ? `, visit ${j.booked_date}` : ''}`).join('; ') || 'none'}`,
     ].filter(Boolean).join('\n')
   }
   if (role === 'cleaner') {
-    const { data: cl } = await s.from('cleans').select('property_id, clean_date, clean_time, status').eq('cleaner_id', personId).gte('clean_date', new Date(Date.now() - 60 * 86400000).toISOString().slice(0, 10)).order('clean_date')
+    const { data: cl } = await s.from('cleans').select('id, property_id, clean_date, clean_time, status').eq('cleaner_id', personId).gte('clean_date', new Date(Date.now() - 60 * 86400000).toISOString().slice(0, 10)).order('clean_date')
     const ids = [...new Set(((cl ?? []) as any[]).map(c => c.property_id).filter(Boolean))].slice(0, 12)
     const list = await props(s, ids)
     const { data: notes } = ids.length ? await s.from('property_cleaning_notes').select('property_id, note_title, note_content').in('property_id', ids).eq('is_completed', false).eq('is_deleted', false).limit(40) : { data: [] }
-    return [`THEIR CLEANS: ${((cl ?? []) as any[]).filter(c => c.clean_date >= t).slice(0, 8).map(c => `${c.clean_date} ${String(c.clean_time ?? '').slice(0, 5)} ${list.find(p => p.id === c.property_id)?.name ?? ''}`).join('; ') || 'none booked'}`,
+    return [`THEIR CLEANS (last 2 months and coming up): ${((cl ?? []) as any[]).slice(-20).map(c => `[id:${c.id}] ${c.clean_date} ${String(c.clean_time ?? '').slice(0, 5)} ${list.find(p => p.id === c.property_id)?.name ?? ''} — ${c.status}`).join('; ') || 'none booked'}`,
       ...list.map(p => [houseFacts(p, { secrets: false }), ...((notes ?? []) as any[]).filter(n => n.property_id === p.id).map(n => `Cleaning note: ${n.note_title}${n.note_content ? ` — ${n.note_content}` : ''}`)].join('\n'))].join('\n\n')
   }
-  const { data: jobs } = await s.from('maintenance_tickets').select('title, category, property_id, booked_date, booked_slot, status, rooms(name, location_in_house)').eq('contractor_id', personId).not('status', 'in', '(completed,cancelled)').order('booked_date').limit(15)
+  const { data: jobs } = await s.from('maintenance_tickets').select('id, title, description, category, property_id, booked_date, booked_slot, status, created_at, rooms(name, location_in_house)').eq('contractor_id', personId).order('created_at', { ascending: false }).limit(40)
   const ids = [...new Set(((jobs ?? []) as any[]).map(j => j.property_id).filter(Boolean))].slice(0, 10)
   const list = await props(s, ids)
-  return [`THEIR JOBS: ${((jobs ?? []) as any[]).map(j => `${j.title || j.category} at ${list.find(p => p.id === j.property_id)?.name ?? ''}${j.rooms?.name ? ` — ${j.rooms.name}${j.rooms.location_in_house ? ` (${j.rooms.location_in_house})` : ''}` : ''}${j.booked_date ? ` on ${j.booked_date} ${j.booked_slot ?? ''}` : ' (not booked yet)'}`).join('; ') || 'none'}`,
+  return [`TODAY: ${t}`, `THEIR JOBS, newest first (open and finished): ${((jobs ?? []) as any[]).map(j => `[id:${j.id}] ${j.title || j.category}${j.description && j.description !== j.title ? ` (${String(j.description).slice(0, 80)})` : ''} — ${String(j.status).replace(/_/g, ' ')} — at ${list.find(p => p.id === j.property_id)?.name ?? ''}${j.rooms?.name ? ` — ${j.rooms.name}${j.rooms.location_in_house ? ` (${j.rooms.location_in_house})` : ''}` : ''}${j.booked_date ? ` on ${j.booked_date} ${j.booked_slot ?? ''}` : ' (not booked yet)'}`).join('; ') || 'none'}`,
     ...list.map(p => houseFacts(p, { secrets: false }))].join('\n\n')
 }
 
@@ -105,6 +108,7 @@ Answer ONLY from the DETAILS below. If they don't contain the answer, say you do
 - Never give a key safe, alarm or door code. ${role === 'tenant' ? 'Tell them to tap it in House info.' : 'Say it shows when they tap "I’ve arrived" on their booked visit.'}
 - Gas smell, fire, flooding or anything dangerous: tell them to leave and call 999 (gas: 0800 111 999) first, then add the emergency action.
 - A problem with the property (something broken, not working, leaking): only suggest a check if the DETAILS describe one (e.g. a heating schedule or appliance note) — never general tips of your own. Then suggest report_repair.
+- Never show the [id:…] values in your answer; put the one you mean in open_id.
 - Say "property" or "room", never "home". British English, warm and short.
 Allowed action keys: ${allowed}.
 
@@ -119,5 +123,9 @@ ${facts}`
   const out = (res as any).parsed_output as z.infer<typeof Answer> | null
   if (!out) throw new Error('No answer came back — try again')
   const acts = ACTIONS[role] as Record<string, readonly [string, string]>
-  return { answer: out.answer, source: out.source, answered: out.answered, actions: out.actions.filter(k => acts[k]).slice(0, 2).map(k => ({ label: acts[k][0], href: acts[k][1] })) }
+  const actions = out.actions.filter(k => acts[k]).slice(0, 2).map(k => ({ label: acts[k][0], href: acts[k][1] }))
+  // the job, clean or repair it's talking about — only one actually listed for this person
+  const id = String(out.open_id ?? '').trim()
+  if (/^[0-9a-f-]{36}$/i.test(id) && facts.includes(`[id:${id}]`)) actions.unshift({ label: role === 'contractor' ? 'Open the job' : role === 'cleaner' ? 'Open the clean' : 'Open the request', href: role === 'contractor' ? `/contractor/job/${id}` : role === 'cleaner' ? `/cleaner/clean/${id}` : `/tenant/visit/${id}` })
+  return { answer: out.answer, source: out.source, answered: out.answered, actions: actions.slice(0, 2) }
 }

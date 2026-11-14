@@ -3,10 +3,11 @@
 import type { Viewport } from 'next'
 import GardenTheme from '@/app/components/GardenTheme'
 import RoleShell from '@/app/components/role/RoleShell'
+import NotificationsSheet from '@/app/components/garden/NotificationsSheet'
 import { gardenFontClasses } from '@/lib/fonts/garden'
 
 export const viewport: Viewport = { themeColor: '#17332B' }
 
 export default function ContractorLayout({ children }: { children: React.ReactNode }) {
-  return <GardenTheme fonts={gardenFontClasses}><RoleShell role="contractor">{children}</RoleShell></GardenTheme>
+  return <GardenTheme fonts={gardenFontClasses}><RoleShell role="contractor"><NotificationsSheet role="contractor" />{children}</RoleShell></GardenTheme>
 }

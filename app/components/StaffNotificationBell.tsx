@@ -17,7 +17,7 @@ function ago(iso: string) {
   return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })
 }
 
-export default function StaffNotificationBell({ className = '' }: { className?: string }) {
+export default function StaffNotificationBell({ className = '', tone = 'dark' }: { className?: string; tone?: 'dark' | 'light' }) {
   const router = useRouter()
   const pathname = usePathname()
   const inbox = pathname?.startsWith('/tenant') ? '/tenant/inbox' : null
@@ -77,13 +77,16 @@ export default function StaffNotificationBell({ className = '' }: { className?: 
         type="button"
         onClick={() => { setOpen(o => !o); if (!open) load() }}
         aria-label={unread ? `${unread} new notifications` : 'Notifications'}
-        className="relative flex items-center justify-center w-8 h-8 rounded-md text-white/80 hover:text-white hover:bg-white/10 transition-colors"
+        className={tone === 'light'
+          // beside the Ask bar on the role apps' home screens (14 Nov 2026, Garden Ask)
+          ? 'relative grid h-[50px] w-[50px] place-items-center rounded-full border-[1.5px] border-[#DCE5DD] bg-white text-[#14261F]'
+          : 'relative flex items-center justify-center w-8 h-8 rounded-md text-white/80 hover:text-white hover:bg-white/10 transition-colors'}
       >
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <svg width={tone === 'light' ? 20 : 18} height={tone === 'light' ? 20 : 18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" />
         </svg>
         {unread > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[10px] font-bold leading-4 text-center">
+          <span className={tone === 'light' ? 'absolute -right-0.5 -top-0.5 h-5 min-w-[20px] rounded-full border-2 border-white bg-[#C2410C] px-1 text-center text-[10px] font-bold leading-4 text-white' : 'absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[10px] font-bold leading-4 text-center'}>
             {unread > 9 ? '9+' : unread}
           </span>
         )}

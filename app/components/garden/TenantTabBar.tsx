@@ -20,7 +20,7 @@ export default function TenantTabBar() {
   ]
   return (
     <>
-      <div className="h-28 lg:hidden" aria-hidden="true" />
+      <div className="h-28 bg-[#EEF2EC] lg:hidden" aria-hidden="true" />
       <PhoneTabBar fixed className="lg:hidden" label="Tenant sections" tabs={tabs} />
     </>
   )

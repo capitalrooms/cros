@@ -17,6 +17,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { readKeySafe } from '@/lib/access/keySafe'
 import { activeTenantIds, insertNotifications } from '@/lib/serverNotify'
+import { sendServerPush } from '@/lib/serverPush'
+import { inTenantRoom } from '@/lib/repairs/where'
 
 export const SHARED_NOTICE_HOURS = 4
 export const ROOM_NOTICE_HOURS = 24
@@ -51,8 +53,10 @@ export async function checkArrival(s: SupabaseClient, o: { kind: 'job' | 'clean'
     if (!t.booked_date || ['completed', 'cancelled'].includes(String(t.status))) return { state: 'not_booked', message: 'Book the visit first — the tenants are told, then you can tap “I’ve arrived”.' }
     if (String(t.booked_date).slice(0, 10) !== today()) return { state: 'not_today', message: `This visit is booked for ${new Date(String(t.booked_date).slice(0, 10) + 'T12:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}. Move it to today first, so the tenants know.` }
     const { data: p } = await s.from('properties').select('name').eq('id', t.property_id).maybeSingle() as { data: any }
-    const r = await room(s, t.property_id, t.room_id)
-    const where = r ? `${roomLine(r)}, ${p?.name ?? 'the property'}` : `the shared areas at ${p?.name ?? 'the property'}`
+    // a job is in someone's room only when its location says so — a kitchen job reported by the tenant of Room 1 still
+    // carries Room 1 as the reporter's room (lib/repairs/where)
+    const r = inTenantRoom({ location: t.location }) ? await room(s, t.property_id, t.room_id) : null
+    const where = r ? `${roomLine(r)}, ${p?.name ?? 'the property'}` : `the shared areas at ${p?.name ?? 'the property'}${t.location && !inTenantRoom({ location: t.location }) ? ` (${t.location})` : ''}`
     const base = { where, room: r, propertyId: t.property_id as string }
     if (t.arrived_at && String(t.arrived_at).slice(0, 10) === today()) return { state: 'ok', keySafe: await readKeySafe(s, t.property_id), already: true, ...base }
     const h = hoursSince(t.booked_at)
@@ -114,5 +118,7 @@ export async function askTenant(s: SupabaseClient, jobId: string, personId: stri
     body: `The contractor for “${t.title || String(t.category ?? 'your repair').replace(/-/g, ' ')}” is at ${t.properties?.name ?? 'the property'} and needs to come into your room. It’s less than 24 hours’ notice, so it’s your choice — tap to say yes or no.`,
     link: `/tenant/visit/${jobId}`,
   } as any).catch(() => null)
+  // and on their phone — the contractor is waiting at the door (14 Nov 2026)
+  for (const id of ids) await sendServerPush({ personId: id, title: 'Can the contractor come in now?', body: `They’re at ${t.properties?.name ?? 'the property'} for “${t.title || 'your repair'}”. Tap to say yes or no.`, url: `/tenant/visit/${jobId}`, tag: `access-${jobId}` } as any).catch(() => 0)
   return { ok: true, told: ids.length }
 }

@@ -17,6 +17,7 @@ import Link from 'next/link'
 import GIcon from '@/app/components/garden/GIcon'
 import LineIcon from '@/components/LineIcon'
 import Face from '@/components/Face'
+import { inTenantRoom } from '@/lib/repairs/where'
 import { adminFetch } from '@/lib/adminFetch'
 import { AskBar, Greeting, Hero, Tile, Banner, Dot, DOT_FILLS, SectionHead, ListCard, Row, Ico, PATHS, display } from '@/app/components/garden/kit'
 
@@ -315,7 +316,8 @@ export default function TenantDashboard() {
           .eq('short_notice', true)
           .is('short_notice_tenant_approved_at', null)
           .not('booked_date', 'is', null)
-        setAccessRequests(reqs || [])
+        // only jobs actually in their room — a kitchen job keeps the reporter's room too (lib/repairs/where, 14 Nov 2026)
+        setAccessRequests((reqs || []).filter((r: any) => inTenantRoom({ location: r.location })))
       }
 
       const propId = (active as any).property_id

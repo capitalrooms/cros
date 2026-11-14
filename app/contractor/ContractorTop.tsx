@@ -7,15 +7,17 @@ import { useRouter } from 'next/navigation'
 import type { ReactNode } from 'react'
 import { AskBar, Greeting, Hero, HoneyButton, GhostButton, Tile, Banner, ListCard, Row, Ico, PATHS, display } from '@/app/components/garden/kit'
 import { useArrival } from '@/app/components/garden/useArrival'
+import StaffNotificationBell from '@/app/components/StaffNotificationBell'
 import { slotLabel } from '@/lib/booking'
+import { inTenantRoom } from '@/lib/repairs/where'
 
 type Job = { id: string; title?: string | null; category?: string | null; priority?: string | null; booked_date?: string | null; booked_slot?: string | null; arrived_at?: string | null; status?: string; room_id?: string | null; rooms?: { name?: string; location_in_house?: string | null } | null; properties?: { name?: string; address?: string; postcode?: string | null } | null }
 const todayIso = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
 const what = (j: Job) => j.title || String(j.category ?? 'Job').replace(/-/g, ' ').replace(/^./, s => s.toUpperCase())
 const dayName = (iso: string) => iso === todayIso() ? 'Today' : new Date(iso + 'T12:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })
 
-export default function ContractorTop({ firstName, booked, weekCount, quotesWaiting, todo, poppingBy, asId }: {
-  firstName: string; booked: Job[]; weekCount: number; quotesWaiting: number
+export default function ContractorTop({ firstName, booked, weekCount, quotesWaiting, todo, poppingBy, asId, fresh = [] }: {
+  firstName: string; booked: Job[]; weekCount: number; quotesWaiting: number; fresh?: Job[]
   todo: { n: number; text: string; onClick: () => void }[]; poppingBy: ReactNode; asId?: string
 }) {
   const router = useRouter()
@@ -25,21 +27,36 @@ export default function ContractorTop({ firstName, booked, weekCount, quotesWait
   const later = sorted.filter(j => j.id !== next?.id && (j.booked_date ?? '') >= todayIso()).slice(0, 3)
   const jobHref = (j: Job) => `/contractor/job/${j.id}${asId ? `?as=${asId}` : ''}`
   const isToday = next?.booked_date === todayIso()
-  const room = next?.rooms?.name ? `${next.rooms.name}${next.rooms.location_in_house ? ` (${next.rooms.location_in_house})` : ''}` : 'Shared areas'
+  const room = next && inTenantRoom({ location: (next as any).location }) && next.rooms?.name ? `${next.rooms.name}${next.rooms.location_in_house ? ` (${next.rooms.location_in_house})` : ''}` : (next as any)?.location ? `${(next as any).location} · shared` : 'Shared areas'
   const maps = next?.properties ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent([next.properties.address || next.properties.name, next.properties.postcode].filter(Boolean).join(', '))}` : null
 
   async function imHere(j: Job) {
-    const r = await arrive('job', j.id)
-    if (r) setTimeout(() => router.push(jobHref(j)), 50)
+    await arrive('job', j.id, { onDone: () => router.push(jobHref(j)) })
   }
 
   return (
     <div className="flex flex-col gap-4 px-4 pt-[max(calc(env(safe-area-inset-top)+12px),16px)]">
-      <AskBar href="/contractor/ask" prompt={next ? `Is there parking at ${next.properties?.name?.split(',')[0] ?? 'the property'}?` : 'Ask about your jobs'} />
+      <AskBar bell={<StaffNotificationBell tone="light" />} href="/contractor/ask" prompt={next ? `Is there parking at ${next.properties?.name?.split(',')[0] ?? 'the property'}?` : 'Ask about your jobs'} />
+      {/* new jobs sent to them and not booked in yet: the alert (14 Nov 2026) */}
+      {fresh.slice(0, 3).map(j => (
+        <a key={j.id} href={jobHref(j)} className="flex items-center gap-3 rounded-[22px] bg-white p-4 ring-2 ring-[color:var(--cr-gold)]">
+          <span className="relative grid h-11 w-11 shrink-0 place-items-center rounded-full text-[#17332B]" style={{ background: 'var(--cr-gold)' }}>
+            <Ico d={PATHS.tool} size={20} />
+            <span className="absolute -right-0.5 -top-0.5 h-3.5 w-3.5 animate-pulse rounded-full border-2 border-white bg-[#C2410C]" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[11px] font-extrabold uppercase tracking-widest text-[#7A5410]">New job · book it in</span>
+            <span className="block truncate text-[15px] font-bold text-[#14261F]">{what(j)}</span>
+            <span className="block truncate text-[13px] text-[#4E6158]">{j.properties?.name?.split(',')[0]}{j.rooms?.name ? ` · ${j.rooms.name}${j.rooms.location_in_house ? ` (${j.rooms.location_in_house})` : ''}` : ''}</span>
+          </span>
+          <span className="text-[#4E6158]" aria-hidden="true">›</span>
+        </a>
+      ))}
+
       <Greeting eyebrow={`Hi ${firstName} — ${next ? 'your next job is at' : 'nothing booked yet'}`} title={next ? (next.properties?.name?.split(',')[0] ?? 'Your next job') : 'All clear'} />
 
       {next ? (
-        <Hero art="tool" height={196} eyebrow={`${dayName(next.booked_date!)}${slotLabel(next.booked_slot) ? ` · ${slotLabel(next.booked_slot)}` : ''}`} title={what(next)}
+        <Hero art="tool" height={190} eyebrow={`${dayName(next.booked_date!)}${slotLabel(next.booked_slot) ? ` · ${slotLabel(next.booked_slot)}` : ''}`} title={what(next)}
           sub={[next.priority ? `Priority ${String(next.priority).replace(/^p/i, '')}` : '', room].filter(Boolean).join(' · ')}>
           {isToday && !next.arrived_at ? <HoneyButton onClick={() => imHere(next)}>I’m here</HoneyButton> : <HoneyButton href={jobHref(next)}>{next.arrived_at ? 'Carry on' : 'Open the job'}</HoneyButton>}
           {maps && <GhostButton href={maps}>Directions</GhostButton>}
@@ -73,7 +90,7 @@ export default function ContractorTop({ firstName, booked, weekCount, quotesWait
             const d = new Date((j.booked_date ?? todayIso()) + 'T12:00')
             return <Row key={j.id} last={i === later.length - 1} href={jobHref(j)}
               icon={<span className="flex flex-col items-center leading-none"><span className="text-[10px] font-bold text-[#4E6158]">{d.toLocaleDateString('en-GB', { weekday: 'short' }).toUpperCase()}</span><span className="text-lg font-extrabold" style={display}>{d.getDate()}</span></span>}
-              title={what(j)} sub={`${j.properties?.name?.split(',')[0] ?? ''}${j.rooms?.name ? ` · ${j.rooms.name}${j.rooms.location_in_house ? ` (${j.rooms.location_in_house})` : ''}` : ''}${slotLabel(j.booked_slot) ? ` · ${slotLabel(j.booked_slot)}` : ''}`} />
+              title={what(j)} sub={`${j.properties?.name?.split(',')[0] ?? ''}${j.rooms?.name && inTenantRoom({ location: (j as any).location }) ? ` · ${j.rooms.name}${j.rooms.location_in_house ? ` (${j.rooms.location_in_house})` : ''}` : ''}${slotLabel(j.booked_slot) ? ` · ${slotLabel(j.booked_slot)}` : ''}`} />
           })}
         </ListCard>
       )}
