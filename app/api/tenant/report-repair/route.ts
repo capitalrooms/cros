@@ -46,6 +46,9 @@ export async function POST(req: NextRequest) {
     property_id: propertyId, room_id: t?.room_id ?? me?.room_id ?? null,
   }).select('id').single()
   if (error || !ticket) return NextResponse.json({ error: 'That didn’t save. Please try again in a moment.' }, { status: 500 })
+  // "Come in any time — I don't need 24 hours' notice" (14 Nov 2026): lets the contractor go straight into the room
+  // when booked at short notice (lib/access/arrival). Kept separate so the job saves before migration 289.
+  if (form.get('anyTime') === 'yes') await s.from('maintenance_tickets').update({ tenant_access_any_time: true, tenant_access_any_time_at: new Date().toISOString() }).eq('id', ticket.id).then(() => null, () => null)
 
   // photos: checked to really be images, kept with the job
   let saved = 0, failed = 0

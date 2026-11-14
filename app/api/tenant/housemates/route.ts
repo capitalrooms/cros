@@ -34,5 +34,11 @@ export async function GET(req: NextRequest) {
     const person = ((people ?? []) as any[]).find(x => x.id === id)
     return { personId: id, isMe, name: person?.first_name || 'A housemate', roomName: rooms.get(id) ?? null, photoUrl, answers }
   }))
-  return NextResponse.json({ house: mine.properties?.name ?? null, me: c.personId, housemates })
+  // who's moving in over the next fortnight — first name, room and day only (the "Say hello to …" banner, 14 Nov 2026)
+  const soon = new Date(Date.now() + 14 * 86400000).toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
+  const { data: next } = await s.from('tenancies').select('person_id, start_date, rooms(name)').eq('property_id', mine.property_id).is('let_cancelled_at', null).gt('start_date', today).lte('start_date', soon).order('start_date')
+  const nextIds = ((next ?? []) as any[]).map(t => t.person_id).filter(Boolean)
+  const { data: nextPeople } = nextIds.length ? await s.from('people').select('id, first_name').in('id', nextIds) : { data: [] as any[] }
+  const arriving = ((next ?? []) as any[]).map(t => ({ name: ((nextPeople ?? []) as any[]).find(p => p.id === t.person_id)?.first_name || 'A new housemate', roomName: t.rooms?.name ?? null, startDate: t.start_date }))
+  return NextResponse.json({ house: mine.properties?.name ?? null, me: c.personId, housemates, arriving })
 }

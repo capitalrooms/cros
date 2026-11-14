@@ -66,8 +66,10 @@ export async function log(s: S, emergencyId: string, kind: string, note: string,
 
 async function load(s: S, id: string) {
   const { data } = await s.from('emergencies')
-    .select('*, properties(id, name, address, postcode), rooms(name), people!reporter_id(id, salutation, first_name, last_name, full_name, phone)')
+    .select('*, properties(id, name, address, postcode), rooms(name, location_in_house), people!reporter_id(id, salutation, first_name, last_name, full_name, phone)')
     .eq('id', id).maybeSingle() as { data: any }
+  // where the room is in the house, with its name (14 Nov 2026) — a contractor sent at night can find it
+  if (data?.rooms?.name && data.rooms.location_in_house && !isWholeLet(null, data.rooms.name)) data.rooms.name = `${data.rooms.name} (${data.rooms.location_in_house})`
   // the key safe code lives apart from the property record (lib/access/keySafe)
   if (data?.properties) data.properties.key_safe_code = await readKeySafe(s as any, data.property_id ?? data.properties.id)
   return data

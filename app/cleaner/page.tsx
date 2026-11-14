@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { getCurrentUser, signOut } from '@/lib/auth'
 import { createClient } from '@/lib/supabase'
 import { displayName } from '@/lib/people'
-import DarkHeroHeader from '@/app/components/DarkHeroHeader'
+import CleanerTop from './CleanerTop'
 import StatTile from '@/app/components/StatTile'
 import EnableNotifications from '@/app/components/EnableNotifications'
 import ViewAsBanner from '@/app/components/ViewAsBanner'
@@ -621,82 +621,24 @@ export default function CleanerDashboard() {
         active={activeTab} onPick={k => setActiveTab(k as Tab)}
         badges={{ today: todayCleans.length + overdueCleans.length }} />
 
-      {/* ── Dark hero ──────────────────────────────────────────────────────── */}
-      <DarkHeroHeader
-        eyebrow="Cleaner"
-        heading={`Hi ${firstName}`}
-        
-      >
-        {/* what needs you (9 Nov 2026: one short list instead of three number boxes) */}
-        {(() => {
-          const todo = [
-            { n: assignedJobs.length, text: assignedJobs.length === 1 ? 'clean to accept and book' : 'cleans to accept and book', hot: true, to: 'cl-assigned' },
-            { n: overdueCleans.length, text: overdueCleans.length === 1 ? 'clean to log or move' : 'cleans to log or move', hot: true, to: 'cl-overdue' },
-            { n: todayCleans.length, text: todayCleans.length === 1 ? 'clean today' : 'cleans today', hot: false, to: 'cl-today' },
-          ].filter(t => t.n > 0)
-          return (
-            <div className="mb-lg overflow-hidden rounded-2xl bg-white/10">
-              {todo.length === 0
-                ? <p className="px-lg py-md text-sm font-semibold text-white">You’re all caught up ✓{upcomingCleans.length ? ` · ${upcomingCleans.length} coming up` : ''}</p>
-                : todo.map((t, i) => (
-                  <button key={t.text} type="button" onClick={() => { setActiveTab('today'); setSelectedDay(todayISO()); setTimeout(() => document.getElementById(t.to)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80) }} className={`flex w-full items-center gap-md px-lg py-md text-left text-white ${i ? 'border-t border-white/10' : ''}`}>
-                    <span className={`grid h-8 min-w-8 place-items-center rounded-full px-sm text-sm font-bold ${t.hot ? 'bg-[color:var(--cr-gold)] text-neutral-900' : 'bg-white text-neutral-900'}`}>{t.n}</span>
-                    <span className="flex-1 text-[15px] font-semibold">{t.text}</span>
-                    <span aria-hidden="true" className="text-white/60">›</span>
-                  </button>
-                ))}
-            </div>
-          )
-        })()}
-
-        {/* Week tile strip */}
-        {(() => {
-          const weekDays = buildWeekDays(weekOffset)
-          return (
-            <div className="flex items-center gap-xs">
-              <button
-                onClick={() => setWeekOffset(o => o - 1)}
-                className="shrink-0 w-8 h-8 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-white hover:bg-white/20 transition-colors text-lg leading-none"
-                aria-label="Previous week"
-              >‹</button>
-              <div className="flex gap-xs flex-1 justify-between">
-                {weekDays.map(iso => {
-                  const { day, date, month } = isoToDateParts(iso)
-                  const isToday    = iso === todayISO()
-                  const isSelected = iso === selectedDay
-                  const count = scheduledCleans.filter(c => c.clean_date === iso).length
-                  return (
-                    <button
-                      key={iso}
-                      onClick={() => { setSelectedDay(iso); setActiveTab('today') }}
-                      className={`flex-1 flex flex-col items-center rounded-xl px-xs py-sm transition-colors min-w-0 ${
-                        isSelected ? 'bg-white text-neutral-900' :
-                        isToday    ? 'bg-white/15 text-white border border-white/30' :
-                        'bg-neutral-800/60 text-neutral-400 border border-neutral-700'
-                      }`}
-                    >
-                      <span className="text-[10px] font-semibold opacity-70">{day.slice(0,1)}</span>
-                      <span className="text-base font-bold leading-none my-xs">{date}</span>
-                      {count > 0 ? (
-                        <span className={`text-[10px] font-bold rounded-full px-xs ${isSelected ? 'bg-neutral-900 text-white' : 'bg-white text-neutral-900'}`}>
-                          {count}
-                        </span>
-                      ) : (
-                        <span className="text-[10px] opacity-40">{month}</span>
-                      )}
-                    </button>
-                  )
-                })}
-              </div>
-              <button
-                onClick={() => setWeekOffset(o => o + 1)}
-                className="shrink-0 w-8 h-8 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-white hover:bg-white/20 transition-colors text-lg leading-none"
-                aria-label="Next week"
-              >›</button>
-            </div>
-          )
-        })()}
-      </DarkHeroHeader>
+      {/* ── The top: Garden Ask (14 Nov 2026) — the day's route, I'm here, supplies, tenants' requests ── */}
+      {activeTab === 'today' ? (
+        <CleanerTop firstName={firstName}
+          today={todayCleans as any}
+          doneToday={doneCleans.filter((c: any) => c.clean_date && isDateToday(c.clean_date)) as any}
+          properties={properties.map((p: any) => ({ id: p.id, name: p.name }))}
+          onBook={() => { setError(''); setPropertyId(properties[0]?.id || ''); setShowBookCleanModal(true) }}
+          onLogPast={() => { setError(''); setPastCleanForm({ propertyId: properties[0]?.id || '', cleanDate: new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }), notes: '', hours: '' }); setShowLogPastCleanModal(true) }}
+          todo={[
+            { n: assignedJobs.length, text: assignedJobs.length === 1 ? 'clean to accept and book' : 'cleans to accept and book', onClick: () => document.getElementById('cl-assigned')?.scrollIntoView({ behavior: 'smooth', block: 'start' }) },
+            { n: overdueCleans.length, text: overdueCleans.length === 1 ? 'clean to log or move' : 'cleans to log or move', onClick: () => document.getElementById('cl-overdue')?.scrollIntoView({ behavior: 'smooth', block: 'start' }) },
+          ].filter(t => t.n > 0)} />
+      ) : (
+        <div className="px-4 pt-[max(calc(env(safe-area-inset-top)+16px),20px)]">
+          <h1 className="text-[34px] font-extrabold leading-none tracking-[-0.03em] text-[#14261F]">{activeTab === 'upcoming' ? 'Coming up' : activeTab === 'done' ? 'Done' : 'Compliance'}</h1>
+          {activeTab !== 'compliance' && <button type="button" onClick={() => setActiveTab('compliance')} className="mt-2 text-sm font-bold text-[#14261F] underline">Compliance checks</button>}
+        </div>
+      )}
 
       {/* ── Tab strip — exact lettings pattern ─────────────────────────────── */}
       {/* ── Global notices ─────────────────────────────────────────────────── */}
@@ -718,13 +660,6 @@ export default function CleanerDashboard() {
         {activeTab === 'today' && (
           <div className="pt-lg pb-sm">
             <EnableNotifications />
-            <div className="mt-sm grid grid-cols-2 gap-sm">
-              {/* booking and logging cleans live here now — a floating + covered the Accept/Decline buttons (25 Oct 2026) */}
-              <button type="button" onClick={() => { setError(''); setPropertyId(properties[0]?.id || ''); setShowBookCleanModal(true) }}
-                className="rounded-xl bg-neutral-950 px-md py-md text-center text-sm font-bold text-white">Book a clean</button>
-              <button type="button" onClick={() => { setError(''); setPastCleanForm({ propertyId: properties[0]?.id || '', cleanDate: new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }), notes: '', hours: '' }); setShowLogPastCleanModal(true) }}
-                className="rounded-xl border border-neutral-900 bg-white px-md py-md text-center text-sm font-bold text-neutral-900">Log a past clean</button>
-            </div>
             <div className="mt-sm flex justify-center gap-lg text-sm font-semibold text-neutral-600">
               <a href="/planner" className="underline">Notes with Capital Rooms</a>
               <a href={`/cleaner/invoices${viewingAs ? `?as=${viewingAs.id}` : ''}`} className="underline">Invoice your cleans</a>

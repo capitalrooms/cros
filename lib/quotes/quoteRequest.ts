@@ -31,7 +31,7 @@ export interface QuoteJob {
 
 export async function loadQuoteJob(s: SupabaseClient, ticketId: string): Promise<QuoteJob | null> {
   const { data: t } = await s.from('maintenance_tickets')
-    .select('id, reference, title, description, notes, category, location, priority, before_photo, properties(name, address, postcode), rooms(name)')
+    .select('id, reference, title, description, notes, category, location, priority, before_photo, properties(name, address, postcode), rooms(name, location_in_house)')
     .eq('id', ticketId).maybeSingle()
   if (!t) return null
   const { data: files } = await s.from('attachments').select('storage_url, attachment_type').eq('ticket_id', ticketId)
@@ -51,7 +51,7 @@ export async function loadQuoteJob(s: SupabaseClient, ticketId: string): Promise
     priority: t.priority || 'medium',
     propertyName: p?.name || '',
     propertyAddress: fullAddress(p?.name, p?.address, p?.postcode),
-    roomName: r?.name || '',
+    roomName: r?.name ? `${r.name}${r.location_in_house ? ` (${r.location_in_house})` : ''}` : '',   // with where it is in the house (14 Nov 2026)
     photoUrls: [...new Set(photos)].slice(0, 6),
   }
 }

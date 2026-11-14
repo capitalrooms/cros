@@ -23,6 +23,7 @@ const NAV: Record<Role, { home: Item; items: Item[]; primary?: Item; label: stri
     home: { key: 'today', label: 'Today', icon: ICONS.home, href: '/cleaner' },
     items: [
       { key: 'upcoming', label: 'Upcoming', icon: ICONS.calendar, href: '/cleaner?tab=upcoming' },
+      { key: 'ask', label: 'Ask', icon: <path d="M12 3l1.8 4.6L18 9.4l-4.2 1.8L12 16l-1.8-4.8L6 9.4l4.2-1.8z" />, href: '/cleaner/ask' },
       { key: 'done', label: 'Done', icon: ICONS.check, href: '/cleaner?tab=done' },
       { key: 'compliance', label: 'Compliance', icon: ICONS.notes, href: '/cleaner?tab=compliance' },
       { key: 'invoices', label: 'Invoices', icon: ICONS.invoice, href: '/cleaner/invoices' },
@@ -34,6 +35,7 @@ const NAV: Record<Role, { home: Item; items: Item[]; primary?: Item; label: stri
     home: { key: 'today', label: 'Today', icon: ICONS.home, href: '/contractor' },
     items: [
       { key: 'quotes', label: 'Quotes', icon: ICONS.notes, href: '/contractor?tab=quotes' },
+      { key: 'ask', label: 'Ask', icon: <path d="M12 3l1.8 4.6L18 9.4l-4.2 1.8L12 16l-1.8-4.8L6 9.4l4.2-1.8z" />, href: '/contractor/ask' },
       { key: 'ongoing', label: 'Ongoing', icon: ICONS.wrench, href: '/contractor?tab=ongoing' },
       { key: 'waiting', label: 'To book', icon: ICONS.clock, href: '/contractor?tab=waiting' },
       { key: 'booked', label: 'Booked', icon: ICONS.calendar, href: '/contractor?tab=booked' },
@@ -47,6 +49,7 @@ const NAV: Record<Role, { home: Item; items: Item[]; primary?: Item; label: stri
     home: { key: 'home', label: 'Home', icon: ICONS.home, href: '/tenant' },
     primary: { key: 'repair', label: 'Report a repair', icon: ICONS.wrench, href: '/tenant/maintenance/report' },
     items: [
+      { key: 'ask', label: 'Ask about the house', icon: <path d="M12 3l1.8 4.6L18 9.4l-4.2 1.8L12 16l-1.8-4.8L6 9.4l4.2-1.8z" />, href: '/tenant/ask' },
       { key: 'inbox', label: 'Inbox', icon: ICONS.inbox, href: '/tenant/inbox' },
       { key: 'requests', label: 'My requests', icon: ICONS.notes, href: '/tenant/requests' },
       { key: 'notices', label: 'Notice board', icon: ICONS.board, href: '/tenant/notices' },

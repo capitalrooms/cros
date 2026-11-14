@@ -8,6 +8,7 @@ import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase'
 import { adminFetch } from '@/lib/adminFetch'
+import { useArrival } from '@/app/components/garden/useArrival'
 import { TIME_SLOTS, earliestBookableDate, bookingLeadTimeNote, slotLabel } from '@/lib/booking'
 import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
@@ -85,6 +86,7 @@ export default function JobDetailPage() {
     fetch(`/api/jobs/${jobId}/photos`).then(r => r.ok ? r.json() : { photos: [] }).then(d => setJobPhotos(d.photos ?? [])).catch(() => {})
   }, [jobId])
   const [keySafe, setKeySafe] = useState<string | null>(null)
+  const arrival = useArrival()
   // who lives in the room on the visit day, first names only, worked out fresh by the server (api/contractor/occupant)
   const [occupants, setOccupants] = useState<string[] | null>(null)
   // again whenever the visit day changes (booked or moved), so it's always the person living there that day
@@ -162,7 +164,7 @@ export default function JobDetailPage() {
         .single()
       if (jobData) {
         setJob(jobData as any)
-        // the key safe code comes from the server, and only for a booked job (lib/access/keySafe)
+        // the key safe code comes from the server, and only once they've tapped "I've arrived" today (lib/access/arrival)
         adminFetch(`/api/contractor/key-safe?jobId=${jobId}`).then(r => r.ok ? r.json() : null).then(d => setKeySafe(d?.keySafe ?? null)).catch(() => {})
         setNotes((jobData as any).notes || '')
         { const jd = jobData as any; const p = jd.final_price ?? jd.quote_amount; setPrice(p != null ? Number(p).toFixed(2) : '') }
@@ -345,10 +347,14 @@ export default function JobDetailPage() {
     setBusy('arrive')
     const finish = async () => {
       try {
-        await patch({ arrived_at: new Date().toISOString() })
+        // the notice rules and the key safe (14 Nov 2026, lib/access/arrival): a short-notice warning to tick, or a
+        // tenant's room that needs their yes first — the code shows only once they're in
+        const r = await arrival.arrive('job', job.id)
+        if (!r) return
+        setKeySafe(r.keySafe)
+        setJob((j) => (j ? { ...j, arrived_at: new Date().toISOString() } : j))
         notify('/api/notify-booking')
         pushTenants('Your contractor has arrived at the property.')
-        alert('Marked as arrived.')
       } catch (err) {
         alert('Error: ' + (err instanceof Error ? err.message : 'Unknown error'))
       } finally {
@@ -1385,6 +1391,7 @@ export default function JobDetailPage() {
         )}
       </main>
       <RoleTabBar<ContractorTab> role="contractor" active={'jobs'} />
+      {arrival.sheet}
     </div>
   )
 }

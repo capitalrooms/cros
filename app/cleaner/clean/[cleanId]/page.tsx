@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useArrival } from '@/app/components/garden/useArrival'
 import { RoleTabBar, type CleanerTab } from '@/app/components/RoleTabBar'
 import { useRouter, useParams } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
@@ -56,6 +57,7 @@ export default function CleanDetailPage() {
 
   const [me, setMe] = useState<any>(null)
   const [clean, setClean] = useState<any>(null)
+  const arrival = useArrival()
   const [room, setRoom] = useState<{ name: string; location_in_house: string | null } | null>(null)
   // the office's extra jobs for this clean's week (migration 276)
   const [weekTasks, setWeekTasks] = useState<{ id: string; task: string; roomName: string | null; extraHours: number | null }[]>([])
@@ -205,9 +207,12 @@ export default function CleanDetailPage() {
     setBusy('arrive')
     const finish = async () => {
       try {
-        await patch({ arrived_at: new Date().toISOString() })
+        // the notice rules and the key safe (14 Nov 2026, lib/access/arrival): booked at short notice → a warning to
+        // tick; the code shows once they're in. Their hours are worked out from now.
+        const r = await arrival.arrive('clean', clean.id)
+        if (!r) return
+        setClean((c: any) => (c ? { ...c, arrived_at: new Date().toISOString() } : c))
         tellTenants('arrived')
-        alert('Marked as arrived. When you finish, your hours are worked out from now.')
       } catch (err) {
         alert('Error: ' + (err instanceof Error ? err.message : 'Unknown error'))
       } finally {
@@ -720,6 +725,7 @@ export default function CleanDetailPage() {
         />
       )}
       <RoleTabBar<CleanerTab> role="cleaner" active={'today'} />
+      {arrival.sheet}
     </div>
   )
 }

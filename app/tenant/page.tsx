@@ -16,7 +16,9 @@ import TenantOnboarding from '@/app/components/TenantOnboarding'
 import Link from 'next/link'
 import GIcon from '@/app/components/garden/GIcon'
 import LineIcon from '@/components/LineIcon'
-import HouseStrip from './HouseStrip'
+import Face from '@/components/Face'
+import { adminFetch } from '@/lib/adminFetch'
+import { AskBar, Greeting, Hero, Tile, Banner, Dot, DOT_FILLS, SectionHead, ListCard, Row, Ico, PATHS, display } from '@/app/components/garden/kit'
 
 interface Tenancy {
   start_date: string
@@ -212,6 +214,10 @@ export default function TenantDashboard() {
   const [tourThisVisit, setTourThisVisit]     = useState(false)
   const [houseInfoOpen, setHouseInfoOpen] = useState(false)
   const [acc, setAcc] = useState<Set<string>>(new Set())
+  // housemates for the faces on the green card, and who's moving in soon (/api/tenant/housemates)
+  const [mates, setMates] = useState<Array<{ personId: string; isMe: boolean; name: string; photoUrl: string | null; answers: Record<string, string> }> | null>(null)
+  const [binDay, setBinDay] = useState<string | null>(null)
+  const [arriving, setArriving] = useState<Array<{ name: string; roomName: string | null; startDate: string }>>([])
 
   const searchParams = useSearchParams()
 
@@ -347,7 +353,7 @@ export default function TenantDashboard() {
 
         propId ? supabase
           .from('properties')
-          .select('gas_safe_cert_expiry, electrical_cert_expiry, house_info, lat, lng, property_type, heating_schedule')
+          .select('gas_safe_cert_expiry, electrical_cert_expiry, house_info, lat, lng, property_type, heating_schedule, bin_collection_day')
           .eq('id', propId)
           .maybeSingle() : Promise.resolve({ data: null }),
 
@@ -410,6 +416,7 @@ export default function TenantDashboard() {
       const prop = (propResult as any).data
       setCompliance(prop || null)
       setHouseInfo((prop as any)?.house_info?.items || [])
+      setBinDay((prop as any)?.bin_collection_day || null)
       if ((prop as any)?.heating_schedule) setHeatingSchedule((prop as any).heating_schedule)
       // HMO = default if no property_type set; single_let explicitly opts out
       setIsHmo(!(prop?.property_type === 'single_let'))
@@ -507,6 +514,11 @@ export default function TenantDashboard() {
       .catch(() => {})
   }, [personId])
 
+  useEffect(() => {
+    if (!personId || viewingAs) return
+    adminFetch('/api/tenant/housemates').then(r => r.ok ? r.json() : null).then(d => { if (d) { setMates(d.housemates ?? []); setArriving(d.arriving ?? []) } }).catch(() => {})
+  }, [personId, viewingAs])
+
   async function markMessagesRead() {
     const unread = messages.filter((m) => !m.read).map((m) => m.id)
     if (unread.length === 0) return
@@ -538,6 +550,12 @@ export default function TenantDashboard() {
   const rentDate = nextRentDate(tenancy?.rent_due_day ?? null)
   const rentIn = daysUntil(rentDate)
   const nextVisit = upcoming[0]
+  const nextClean = upcoming.find((v: any) => String(v.id).startsWith('clean-'))
+  const houseTile = nextClean ? `Clean ${dayLabel(nextClean.booked_date) === 'Today' || dayLabel(nextClean.booked_date) === 'Tomorrow' ? dayLabel(nextClean.booked_date).toLowerCase() : `on ${new Date(nextClean.booked_date).toLocaleDateString('en-GB', { weekday: 'long' })}`}`
+    : binDay ? `Bins out ${binDay}` : 'Notice board'
+  const me = mates?.find(m => m.isMe)
+  const meProfileSet = !!me && (!!me.photoUrl || !!me.answers?.avatar || !!me.answers?.bio)
+  const askPrompt = binDay ? 'When are the bins collected?' : 'What’s the WiFi password?'
   const nextIsMyRoom = nextVisit?.room_id === roomId
   const visibleNotes = notes.filter((n) => !n.room_id || n.room_id === roomId)
 
@@ -558,130 +576,88 @@ export default function TenantDashboard() {
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       {viewingAs && <ViewAsBanner name={viewingAs.name} role={viewingAs.role} personId={viewingAs.id} />}
       {!tourThisVisit && <InstallPrompt />}
-      <AppBar />
+      {/* "Garden Ask" (14 Nov 2026): the Ask bar and bell take the place of the top bar on Home; every other tenant
+          screen keeps it. On a computer: two columns beside the side rail — this, then everything else. */}
+      <main className="mx-auto max-w-lg px-4 pb-2xl pt-[max(env(safe-area-inset-top),16px)] lg:grid lg:max-w-6xl lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)] lg:items-start lg:gap-xl lg:px-lg lg:pt-xl">
+        <div className="flex flex-col gap-4 pt-3 lg:pt-0">
+          <AskBar href="/tenant/ask" prompt={askPrompt} bellHref="/tenant/inbox" unread={unreadCount} />
+          <Greeting
+            eyebrow={`${(() => { const h = Number(new Date().toLocaleString('en-GB', { hour: 'numeric', hour12: false, timeZone: 'Europe/London' })); return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening' })()}${firstName ? `, ${firstName}` : ''}${tenancy?.properties?.name ? ' — you live at' : ''}`}
+            title={tenancy?.properties?.name ?? 'No current tenancy'} />
 
-      {/* on a computer (26 Oct 2026): two columns beside the side rail — the home card, then everything else */}
-      <main className="mx-auto max-w-lg px-lg pb-2xl lg:grid lg:max-w-6xl lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)] lg:items-start lg:gap-xl lg:pt-xl">
-
-        {/* ── Dark tenancy pill ─────────────────────────────────────────── */}
-        {/* the green header (Garden Square, 26 Oct 2026): a greeting, the home, the rent pill */}
-        <section
-          className="cr-hero -mx-lg bg-neutral-900 pb-xl text-white lg:mx-0 lg:rounded-[32px]"
-          style={{ paddingInline: '20px' }}
-        >
-          <div className="pt-lg">
-            <p className="text-[15px] text-white/70">{(() => { const h = Number(new Date().toLocaleString('en-GB', { hour: 'numeric', hour12: false, timeZone: 'Europe/London' })); return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening' })()}{firstName ? `, ${firstName}` : ''}</p>
-            <h1 className="mt-xs text-[27px] font-semibold leading-tight">
-              {tenancy?.rooms?.name ? `${tenancy.rooms.name}, ` : ''}
-              {tenancy?.properties?.name ?? 'No active tenancy'}
-            </h1>
-            <p className="text-sm text-white/70">{tenancy?.properties?.address}</p>
-            {/* the inbox bell is in the top bar (it used to be here as well — two bells, both with the count) */}
-          </div>
-
-          {tenancy && (
-            <div className="mt-lg flex items-center justify-between gap-md rounded-[20px] bg-white/10 px-lg py-md">
-              <div className="min-w-0">
-                <p className="text-xs text-white/70">Next rent · {tenancy.rent_amount != null ? `£${Number(tenancy.rent_amount).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}</p>
-                <p className="text-[17px] font-semibold" style={{ fontFamily: 'var(--font-sora), var(--font-nunito), sans-serif' }}>{rentDate ? rentDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : '—'}</p>
-              </div>
-              {rentIn != null && <span className="shrink-0 rounded-full px-md py-1.5 text-[13px] font-bold text-neutral-900" style={{ background: 'var(--cr-gold)' }}>{rentIn === 0 ? 'today' : `in ${rentIn} day${rentIn === 1 ? '' : 's'}`}</span>}
-            </div>
-          )}
-          {tenancy?.start_date && (
-            <p className="mt-sm text-xs text-white/60">Since {new Date(`${tenancy.start_date.slice(0, 10)}T12:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })} · periodic tenancy, you give 2 months’ notice</p>
-          )}
-
-          {/* Single merged next-visit line — no repeated empty states */}
-          <p className="mt-md border-t border-white/15 pt-md text-sm text-white/70">
-            {vLine ?? 'Nothing booked at your property right now.'}
-          </p>
-
-          {/* ── Short-notice access requests (loud — needs approval) ──── */}
+          {/* short-notice requests to come into your room: loud, they need an answer */}
           {accessRequests.map((req) => (
-            <Link
-              key={req.id}
-              href={`/tenant/visit/${req.id}`}
-              className="mt-lg block rounded-2xl bg-white p-lg text-neutral-900 shadow-lg hover:shadow-xl transition-shadow"
-            >
-              <p className="text-xs font-bold uppercase tracking-widest text-amber-600">Your approval needed</p>
-              <p className="mt-sm text-3xl font-bold leading-tight">{dayLabel(req.booked_date)}</p>
-              <p className="text-xl font-semibold text-neutral-700">{slotLabel(req.booked_slot)}</p>
-              <p className="mt-lg border-t border-neutral-200 pt-md text-sm">
-                Someone needs to come into <strong>your room</strong> for{' '}
-                {String(req.category ?? '').replace(/-/g, ' ')} work.
-              </p>
-              <p className="mt-xs text-sm text-neutral-500">Tap to view details and approve or decline.</p>
-              <div className="mt-md">
-                <span className="rounded-xl bg-neutral-900 px-lg py-sm text-sm font-bold text-white">View & respond →</span>
-              </div>
+            <Link key={req.id} href={`/tenant/visit/${req.id}`} className="block rounded-[22px] bg-white p-4 ring-2 ring-[color:var(--cr-gold)]">
+              <p className="text-xs font-bold uppercase tracking-widest text-[#7A5410]">Your answer needed</p>
+              <p className="mt-1 text-2xl font-extrabold leading-tight text-[#14261F]" style={display}>{dayLabel(req.booked_date)}{slotLabel(req.booked_slot) ? ` · ${slotLabel(req.booked_slot)}` : ''}</p>
+              <p className="mt-2 text-sm text-[#14261F]">Someone needs to come into <strong>your room</strong> for {String(req.category ?? '').replace(/-/g, ' ')} work, with less than 24 hours’ notice. It’s your choice.</p>
+              <span className="mt-3 inline-flex h-10 items-center rounded-full px-4 text-sm font-bold text-[#17332B] shadow-[0_3px_0_var(--cr-honey-edge)]" style={{ background: 'var(--cr-gold)' }}>Answer</span>
             </Link>
           ))}
 
-          {/* ── Normal visit — purely informational, no approval framing ── */}
-          {accessRequests.length === 0 && nextVisit && (() => {
-            const isMaintenanceTicket = !String(nextVisit.id).startsWith('clean-') &&
-              !String(nextVisit.id).startsWith('viewing-') &&
-              !String(nextVisit.id).startsWith('appt-')
-            const isClean = String(nextVisit.id).startsWith('clean-')
-            const rawCleanId = isClean ? String(nextVisit.id).replace('clean-', '') : null
-
-            const inner = (
-              <>
-                <p className="text-xs font-semibold uppercase tracking-widest text-neutral-500">
-                  {nextIsMyRoom ? 'Next visit to your room' : 'Next visit to the house'}
+          {tenancy && (
+            <>
+              <Hero eyebrow="Your room" title={tenancy.rooms?.name ?? 'The whole property'} sub={tenancy.properties?.address ?? undefined} art="door" height={176}
+                faces={mates && mates.length > 1 ? mates.slice(0, 5).map((m, i) => (
+                  m.photoUrl
+                    ? <span key={m.personId} className="-mr-2.5 rounded-full border-[3px] border-[#EEF2EC]"><Face name={m.name} photoUrl={m.photoUrl} avatar={m.answers?.avatar} size={38} /></span>
+                    : <Dot key={m.personId} label={m.name.slice(0, 1).toUpperCase()} bg={DOT_FILLS[i % DOT_FILLS.length]} />
+                )) : undefined} />
+              {mates && (
+                <p className={`text-[13px] text-[#4E6158] ${mates.length > 1 ? 'mt-2.5' : ''}`}>
+                  {mates.length > 1 ? `You and ${mates.length - 1} housemate${mates.length === 2 ? '' : 's'}` : 'Your housemates will show here'} · <Link href={meProfileSet ? '/tenant/housemates' : '/tenant/icebreaker'} className="font-bold text-[#14261F] underline">{meProfileSet ? 'see who’s who' : 'add your photo'}</Link>
                 </p>
-                <p className="mt-xs text-2xl font-bold leading-tight">{dayLabel(nextVisit.booked_date)}</p>
-                {slotLabel(nextVisit.booked_slot) && (
-                  <p className="text-base font-semibold text-neutral-600">{slotLabel(nextVisit.booked_slot)}</p>
-                )}
-                <p className="mt-md text-sm text-neutral-600">
-                  {String(nextVisit.category ?? '').replace(/-/g, ' ')}
-                  {nextVisit.rooms?.name ? ` — ${nextVisit.rooms.name}` : ''}
-                </p>
-                {liveStatus(nextVisit) && (
-                  <p className="mt-sm inline-block rounded-full bg-green-100 px-md py-xs text-sm font-bold text-green-800">{liveStatus(nextVisit)}</p>
-                )}
-                {(isMaintenanceTicket || isClean) && (
-                  <p className="mt-sm text-xs text-neutral-400">
-                    {isMaintenanceTicket ? 'Tap to add something for this visit →' : 'Tap to request cleaning extras →'}
-                  </p>
-                )}
-              </>
-            )
+              )}
 
-            const cls = 'mt-lg block rounded-2xl bg-white p-md text-neutral-900 shadow-md'
-            if (isMaintenanceTicket)
-              return <Link href={`/tenant/visit/${nextVisit.id}`} className={cls}>{inner}</Link>
-            if (isClean)
-              return <Link href={`/tenant/cleaner-extras/${rawCleanId}`} className={cls}>{inner}</Link>
-            return <div className={cls}>{inner}</div>
-          })()}
-        </section>
+              <div className="grid grid-cols-2 gap-2.5">
+                <Tile tone="butter" label={rentIn != null ? `Rent · ${rentIn === 0 ? 'today' : `in ${rentIn} day${rentIn === 1 ? '' : 's'}`}` : 'Rent'}
+                  value={tenancy.rent_amount != null && rentDate ? `£${Number(tenancy.rent_amount).toLocaleString('en-GB', { maximumFractionDigits: 2 })} on ${rentDate.getDate()} ${rentDate.toLocaleDateString('en-GB', { month: 'long' })}` : '—'} />
+                <Tile tone="sage" label="House" value={houseTile} href={nextClean ? `/tenant/cleaner-extras/${String(nextClean.id).replace('clean-', '')}` : '/tenant/notices'} />
+              </div>
+            </>
+          )}
 
-        {/* ── Below the header: the four things tenants come for, as tiles (Garden Square) ── */}
-        <div className="pt-xl space-y-md lg:pt-0">
-          <div className="grid grid-cols-2 gap-md">
-            <Link href="/tenant/maintenance"
-              className="flex h-[116px] flex-col justify-between rounded-[22px] bg-neutral-900 p-lg text-left text-white active:scale-[0.98] transition-transform">
-              <GIcon name="wrench" size={26} color="var(--cr-gold)" />
-              <span className="text-base font-semibold" style={{ fontFamily: 'var(--font-sora), sans-serif' }}>Report a repair</span>
+          {arriving[0] && (
+            <Banner badge={arriving[0].name.slice(0, 1).toUpperCase()} href="/tenant/housemates">
+              Say hello to <strong>{arriving[0].name}</strong> — moving into {arriving[0].roomName ?? 'the house'} {dayLabel(arriving[0].startDate).toLowerCase() === 'today' ? 'today' : `on ${dayLabel(arriving[0].startDate)}`}
+            </Banner>
+          )}
+
+          <div className="grid grid-cols-2 gap-2.5">
+            <Link href="/tenant/maintenance" className="flex h-[92px] flex-col justify-between rounded-[20px] bg-white p-3.5 shadow-[0_2px_0_#DCE5DD] active:translate-y-px">
+              <Ico d={PATHS.tool} size={24} stroke="#17332B" />
+              <span className="text-base font-bold text-[#14261F]" style={display}>Report a repair</span>
             </Link>
-            <Link href="/tenant/inbox" className="flex h-[116px] flex-col justify-between rounded-[22px] bg-white p-lg text-neutral-900 active:scale-[0.98] transition-transform">
-              <GIcon name="inbox" size={26} />
-              <span className="text-base font-semibold" style={{ fontFamily: 'var(--font-sora), sans-serif' }}>Inbox</span>
-            </Link>
-            <Link href="/tenant/requests" className="flex h-[116px] flex-col justify-between rounded-[22px] bg-white p-lg text-neutral-900 active:scale-[0.98] transition-transform">
-              <GIcon name="list" size={26} />
-              <span className="text-base font-semibold" style={{ fontFamily: 'var(--font-sora), sans-serif' }}>My requests</span>
-            </Link>
-            <Link href="/tenant/emergency" className="flex h-[116px] flex-col justify-between rounded-[22px] bg-red-50 p-lg text-red-800 active:scale-[0.98] transition-transform">
-              <GIcon name="alert" size={26} />
-              <span className="text-base font-semibold" style={{ fontFamily: 'var(--font-sora), sans-serif' }}>Emergency</span>
+            <Link href="/tenant/emergency" className="flex h-[92px] flex-col justify-between rounded-[20px] bg-[#FCE9E6] p-3.5 text-[#8E2318] active:translate-y-px">
+              <Ico d={PATHS.alert} size={24} />
+              <span className="text-base font-bold" style={display}>Emergency</span>
             </Link>
           </div>
 
-          {!viewingAs && <HouseStrip />}
+          {/* coming up: visits and cleans, soonest first — tap one to add something for it */}
+          {upcoming.length > 0 && (
+            <section className="flex flex-col gap-2.5">
+              <SectionHead title="Coming up" right={<Link href="/tenant/requests" className="text-[13px] font-bold text-[#14261F]">See all</Link>} />
+              <ListCard>
+                {upcoming.slice(0, 4).map((v: any, i: number, arr: any[]) => {
+                  const id = String(v.id)
+                  const isClean = id.startsWith('clean-'), isTicket = !isClean && !id.startsWith('viewing-') && !id.startsWith('appt-')
+                  const what = isClean ? 'House clean' : `${String(v.category ?? 'Visit').replace(/-/g, ' ').replace(/^./, (c: string) => c.toUpperCase())}${v.rooms?.name ? ` · ${v.room_id === roomId ? 'your room' : v.rooms.name}` : ''}`
+                  const when = `${dayLabel(v.booked_date)}${slotLabel(v.booked_slot) ? `, ${slotLabel(v.booked_slot)}` : ''}`
+                  return <Row key={id} last={i === Math.min(arr.length, 4) - 1} icon={<Ico d={isClean ? PATHS.spark : PATHS.tool} />} title={what} sub={liveStatus(v) ?? when}
+                    href={isTicket ? `/tenant/visit/${id}` : isClean ? `/tenant/cleaner-extras/${id.replace('clean-', '')}` : undefined} />
+                })}
+              </ListCard>
+            </section>
+          )}
+          {tenancy?.start_date && (
+            <p className="px-1 text-xs text-[#4E6158]">Since {new Date(`${tenancy.start_date.slice(0, 10)}T12:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })} · a rolling tenancy — you give 2 months’ notice</p>
+          )}
+        </div>
+
+        {/* ── Everything else, as before ── */}
+        <div className="space-y-md pt-xl lg:pt-0">
+
 
           <EnableNotifications />
 

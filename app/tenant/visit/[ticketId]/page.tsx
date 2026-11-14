@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { adminFetch } from '@/lib/adminFetch'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import AppBar from '@/components/AppBar'
@@ -285,6 +286,20 @@ export default function VisitDetailPage() {
             </p>
           </div>
         )}
+
+        {/* "come in any time" — the tenant waives the 24 hours' notice for this job in their room (14 Nov 2026) */}
+        {ticket.room_id && ticket.status !== 'completed' && !(ticket as any).tenant_access_any_time && !needsShortNoticeApproval && (
+          <button type="button" onClick={async () => {
+            if (!window.confirm('Let the contractor come into your room without 24 hours’ notice for this job — even if you’re out?')) return
+            const r = await adminFetch('/api/tenant/visit-ticket', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ticketId: ticket.id, action: 'any_time' }) })
+            const j = await r.json().catch(() => ({}))
+            if (!r.ok) { alert(j.error || 'That didn’t save'); return }
+            setTicket(prev => prev ? ({ ...prev, tenant_access_any_time: true } as any) : prev)
+          }} className="mb-md w-full rounded-2xl bg-[#FDF1D8] p-md text-left text-sm text-[#14261F]">
+            <b>Want it fixed sooner?</b> Tap to let the contractor come in any time — no 24 hours’ notice needed, even if you’re out.
+          </button>
+        )}
+        {(ticket as any).tenant_access_any_time && ticket.room_id && ticket.status !== 'completed' && <p className="mb-md rounded-2xl bg-[#E3ECE5] p-md text-sm text-[#14261F]">✓ You’ve said the contractor can come in any time for this job.</p>}
 
         {/* ── Visit summary card ─────────────────────────────────────────── */}
         <div className="rounded-2xl bg-white border border-neutral-200 p-lg">
