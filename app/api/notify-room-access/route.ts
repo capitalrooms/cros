@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
   if (!(await canWorkOnTicket(await requireSignedIn(req), ticketId))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   // Master kill switch
-  if (!await getCommsLive()) {
+  if (!await getCommsLive({ ticketId })) {
     return NextResponse.json({ ok: true, skipped: true, reason: 'tenant_comms_paused' })
   }
 

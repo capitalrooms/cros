@@ -24,7 +24,7 @@ export const AREAS: Area[] = [
     // (removing a property is administrators only — not in any area)
     api: ['/api/admin/property-tasks', '/api/admin/room-locations', '/api/admin/rooms', '/api/admin/house-docs', '/api/admin/house-snap', '/api/admin/walkthrough', '/api/admin/improvements', '/api/admin/appliances', '/api/admin/upkeep', '/api/admin/hmo-notice', '/api/admin/files',
       '/api/admin/ensure-storage', '/api/admin/create-property', '/api/admin/delete-photo', '/api/admin/house-info-extract', '/api/admin/property-insights', '/api/admin/property-services',
-      '/api/admin/property-policies', '/api/admin/upload-photo', '/api/admin/key-safe'],
+      '/api/admin/property-policies', '/api/admin/upload-photo', '/api/admin/key-safe', '/api/admin/comms-properties'],
     // the property page shows finance dates, compliance history, the landlord's account, notices and who lives there
     apiRead: ['/api/admin/finance-dates', '/api/admin/compliance-history', '/api/admin/landlord-bank-accounts', '/api/admin/notices', '/api/admin/quick-notify'] },
   { key: 'lettings', label: 'Lettings', hint: 'Availability, applicants, offers, let-only houses, agreements, tenancies',

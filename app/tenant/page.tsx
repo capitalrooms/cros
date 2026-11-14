@@ -218,6 +218,9 @@ export default function TenantDashboard() {
   // housemates for the faces on the green card, and who's moving in soon (/api/tenant/housemates)
   const [mates, setMates] = useState<Array<{ personId: string; isMe: boolean; name: string; photoUrl: string | null; answers: Record<string, string> }> | null>(null)
   const [binDay, setBinDay] = useState<string | null>(null)
+  // their open repair reports, with where each one is up to (14 Nov 2026: "after she's reported the issue it's very
+  // hard to see where that report has gone")
+  const [myRepairs, setMyRepairs] = useState<any[]>([])
   const [arriving, setArriving] = useState<Array<{ name: string; roomName: string | null; startDate: string }>>([])
 
   const searchParams = useSearchParams()
@@ -517,6 +520,13 @@ export default function TenantDashboard() {
   }, [personId])
 
   useEffect(() => {
+    if (!personId) return
+    createClient().from('maintenance_tickets').select('id, title, category, status, approved_at, booked_date, booked_slot, contractor_id, created_at, on_hold')
+      .eq('reporter_id', personId).not('status', 'in', '("completed","cancelled")').order('created_at', { ascending: false }).limit(6)
+      .then(({ data }) => setMyRepairs((data as any[]) ?? []))
+  }, [personId])
+
+  useEffect(() => {
     if (!personId || viewingAs) return
     adminFetch('/api/tenant/housemates').then(r => r.ok ? r.json() : null).then(d => { if (d) { setMates(d.housemates ?? []); setArriving(d.arriving ?? []) } }).catch(() => {})
   }, [personId, viewingAs])
@@ -635,6 +645,25 @@ export default function TenantDashboard() {
               <span className="text-base font-bold" style={display}>Emergency</span>
             </Link>
           </div>
+
+          {myRepairs.length > 0 && (
+            <section className="flex flex-col gap-2.5">
+              <SectionHead title="Your repairs" right={<Link href="/tenant/requests" className="text-[13px] font-bold text-[#14261F]">All</Link>} />
+              <ListCard>
+                {myRepairs.map((j: any, i: number) => {
+                  const stage = j.booked_date ? `Booked ${dayLabel(j.booked_date)}${slotLabel(j.booked_slot) ? `, ${slotLabel(j.booked_slot)}` : ''}`
+                    : j.status === 'in_progress' ? 'Being fixed' : j.on_hold ? 'Grouped with other jobs — we’ll book it soon'
+                    : j.approved_at ? 'Approved — arranging a contractor' : 'With the office — we’ll look at it today'
+                  const tone = j.booked_date ? 'bg-[#E3ECE5] text-[#17332B]' : j.approved_at ? 'bg-[#FDF1D8] text-[#7A5410]' : 'bg-white text-[#4E6158] ring-1 ring-[#DCE5DD]'
+                  return (
+                    <Row key={j.id} last={i === myRepairs.length - 1} href={`/tenant/visit/${j.id}`} icon={<Ico d={PATHS.tool} />}
+                      title={String(j.title || j.category || 'Repair').split(' — ')[0]} sub={undefined}
+                      right={<span className={`max-w-[46%] shrink-0 rounded-full px-2.5 py-1 text-right text-[11.5px] font-bold leading-tight ${tone}`}>{stage}</span>} />
+                  )
+                })}
+              </ListCard>
+            </section>
+          )}
 
           {/* coming up: visits and cleans, soonest first — tap one to add something for it */}
           {upcoming.length > 0 && (

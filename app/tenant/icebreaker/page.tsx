@@ -83,6 +83,8 @@ export default function MyProfile() {
   async function pickAvatar(v: string | null) {
     setAvatar(v); setBusy('avatar')
     await adminFetch('/api/tenant/profile', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ avatar: v }) }).catch(() => null)
+    // an avatar takes the photo's place (14 Nov 2026: "I picked an avatar after a horrid photo and it didn't replace it")
+    if (v && photoUrl) { await adminFetch('/api/tenant/profile', { method: 'DELETE' }).catch(() => null); setPhotoUrl(null) }
     setBusy('')
   }
 

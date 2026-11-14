@@ -350,6 +350,7 @@ function ReportWizardContent() {
   // each step starts at the top (it used to open scrolled to wherever the last one ended — 21 Oct 2026)
   useEffect(() => { window.scrollTo({ top: 0 }) }, [step]);
   const [description, setDescription] = useState('');
+  const [extraNote, setExtraNote] = useState('');
   const [location, setLocation] = useState('My Room / Bedroom');
   const [anyTime, setAnyTime] = useState(false);
   const [answers, setAnswers] = useState<Record<string, string>>({});
@@ -526,6 +527,7 @@ function ReportWizardContent() {
       if (labelData.make) lines.push(`Make: ${labelData.make}`);
       if (labelData.model) lines.push(`Model: ${labelData.model}`);
       if (labelData.serial) lines.push(`Serial: ${labelData.serial}`);
+      if (extraNote.trim()) lines.push('', `Tenant adds: ${extraNote.trim()}`);
       lines.push('', `Location: ${location}`);
       const fullDescription = lines.join('\n').trim();
 
@@ -1023,6 +1025,15 @@ function ReportWizardContent() {
               </>
             )}
 
+            {/* anything else to say — what they tried, what they couldn't do (14 Nov 2026: "she couldn't find a radiator
+                key — nowhere for text to be added") */}
+            <div style={{ ...section, paddingTop: 4 }}>
+              <label style={{ fontSize: 13, fontWeight: 700, color: 'var(--cr-ink)', display: 'block', marginBottom: 6 }}>Anything to add? <span style={{ fontWeight: 500, color: 'rgb(var(--n-500))' }}>(optional)</span></label>
+              <textarea value={extraNote} onChange={e => setExtraNote(e.target.value)} rows={3} maxLength={600}
+                placeholder="e.g. I tried bleeding it but couldn’t find a radiator key"
+                style={{ width: '100%', padding: '11px 12px', borderRadius: 12, border: '1.5px solid rgb(var(--n-200))', fontSize: 16, fontFamily: 'inherit', background: '#fff', boxSizing: 'border-box', resize: 'vertical' }} />
+            </div>
+
             <div style={section}>
               <button style={nextBtn} onClick={() => setStep('urgency')}>Continue →</button>
               <button type="button" onClick={() => setStep('urgency')}
@@ -1107,7 +1118,7 @@ function ReportWizardContent() {
             <div style={{ fontSize: 52, marginBottom: 16 }}><LineIcon glyph="✅" /></div>
             <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--cr-ink)', marginBottom: 8 }}>{emStatus && emStatus !== 'failed' ? 'We’re on it' : 'Report submitted'}</h2>
             <p style={{ fontSize: 14, color: 'rgb(var(--n-500))', lineHeight: 1.6, marginBottom: 32 }}>
-              {emStatus === 'collecting' ? 'We’re sorry you’re dealing with this. We’re texting our emergency contractors now and will let you know who is coming and when — usually within 15 minutes. Keep following the steps until they arrive.'
+              {emStatus === 'collecting' ? 'We’re sorry you’re dealing with this. We’re contacting our emergency contractors now and will let you know who is coming and when — we usually have someone booked to visit within the hour. Keep following the steps until they arrive.'
                 : emStatus === 'morning' ? 'Thanks for making it safe. We’ll arrange someone first thing in the morning. If it gets worse, report it again as “still happening”.'
                 : emStatus === 'call_999' ? `${emInfo?.callServices ?? 'Please call the emergency services.'} We’ve told the office.`
                 : emStatus === 'failed' ? 'Your report is in, but we couldn’t start the emergency call-out automatically — the office has your report. If it’s not safe, call us.'

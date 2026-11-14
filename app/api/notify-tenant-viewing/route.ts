@@ -20,8 +20,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  // Master switch: tenant/applicant messaging is paused until go-live.
-  if (!await getCommsLive()) {
+  // Master switch: tenant/applicant messaging is paused until go-live — unless this property is switched on alone (lib/comms)
+  const peek = await request.clone().json().catch(() => ({} as any))
+  if (!await getCommsLive({ propertyId: peek?.propertyId ?? null })) {
     return NextResponse.json({ ok: true, skipped: true, reason: 'tenant_comms_paused' })
   }
 

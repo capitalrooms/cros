@@ -1,4 +1,5 @@
 import { hasArea } from '@/lib/access/server'
+import { createServiceClient } from '@/lib/supabase'
 import { NextRequest, NextResponse } from 'next/server'
 import { deliverEmail } from '@/lib/sendEmail'
 import { hiName } from '@/lib/people'
@@ -30,8 +31,11 @@ export async function POST(request: NextRequest) {
   }
 
   // Step 2: Verify authorization (admin only)
-  // Master switch: tenant/applicant messaging is paused until go-live.
-  if (!await getCommsLive()) {
+  // Master switch: tenant/applicant messaging is paused until go-live — unless this property is switched on alone (lib/comms)
+  const peek = await request.clone().json().catch(() => ({} as any))
+  let apptProperty: string | null = null
+  if (peek?.appointmentId) { const { data: ap } = await createServiceClient().from('property_appointments').select('property_id').eq('id', String(peek.appointmentId)).maybeSingle(); apptProperty = (ap as any)?.property_id ?? null }
+  if (!await getCommsLive({ propertyId: apptProperty })) {
     return NextResponse.json({ ok: true, skipped: true, reason: 'tenant_comms_paused' })
   }
 

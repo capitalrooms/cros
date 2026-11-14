@@ -3,11 +3,11 @@
  * Fire-and-forget push helper for server-side API routes that need to notify
  * staff/admin without going through the user-auth-gated /api/push/send endpoint.
  *
- * Tenant devices only receive a push while tenant comms are live (the master kill-switch, getCommsLive);
+ * Tenant devices only receive a push while tenant comms are live (the master kill-switch, getCommsLive), or at a property switched on alone (commsLiveProperties);
  * staff devices always do. Server code must use this, not fetch('/api/push/send') — that route needs a
  * signed-in user, so server-to-server calls to it were always refused.
  */
-import { getCommsLive, getElectedCommsLive } from '@/lib/comms'
+import { getCommsLive, getElectedCommsLive, commsLiveProperties } from '@/lib/comms'
 import { createClient } from '@supabase/supabase-js'
 import webpush from 'web-push'
 
@@ -84,7 +84,18 @@ export async function sendServerPush(opts: PushOptions): Promise<number> {
     if (!subs || subs.length === 0) return sent
     // kill-switch: while tenant comms are paused only staff devices (subscriptions with a staff role) get pushes
     const live = opts.elected ? await getElectedCommsLive() : await getCommsLive()
-    const targets = live ? subs : subs.filter((x: any) => x.role && x.role !== 'tenant' && x.role !== 'applicant')
+    let allowedTenants = new Set<string>()
+    if (!live) {
+      // tenants living at a property where messages are switched on (lib/comms commsLiveProperties) still get them
+      const props = await commsLiveProperties()
+      const tenantIds = [...new Set(subs.filter((x: any) => !x.role || x.role === 'tenant').map((x: any) => x.person_id).filter(Boolean))]
+      if (props.length && tenantIds.length) {
+        const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
+        const { data: tens } = await supabase.from('tenancies').select('person_id, co_tenant_id, property_id').in('property_id', props).lte('start_date', today).or(`end_date.is.null,end_date.gte.${today}`)
+        for (const t of (tens ?? []) as any[]) for (const id of [t.person_id, t.co_tenant_id]) if (id && tenantIds.includes(id)) allowedTenants.add(id)
+      }
+    }
+    const targets = live ? subs : subs.filter((x: any) => (x.role && x.role !== 'tenant' && x.role !== 'applicant') || allowedTenants.has(x.person_id))
 
     const payload = JSON.stringify({
       title: opts.title,

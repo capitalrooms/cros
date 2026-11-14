@@ -247,12 +247,14 @@ export default function JobDetailPage() {
   }
 
   // Push every current tenant at this property.
-  function pushTenants(body: string) {
+  // tell the tenants (14 Nov 2026): their inbox, named after this job, and their phone where messages are on
+  // (lib/notify/jobUpdate) — it used to be a phone notification only, titled just "Capital Rooms"
+  function pushTenants(body: string, kind: 'booked' | 'arrived' | 'done' | 'note' = /arrived/i.test(body) ? 'arrived' : /booked|coming|visit/i.test(body) ? 'booked' : 'note') {
     if (!job) return
-    fetch('/api/push/send', {
+    adminFetch('/api/notify-job-update', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ propertyId: job.property_id, title: 'Capital Rooms', body, url: '/tenant' }),
+      body: JSON.stringify({ ticketId: job.id, kind, line: body }),
     }).catch(() => {})
   }
 
