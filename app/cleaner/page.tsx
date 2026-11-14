@@ -109,6 +109,15 @@ function CleanCard({ c, onClick }: { c: any; onClick: () => void }) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
+
+// the time to pre-fill when booking for today: now, to the next quarter hour — a cleaner who's just arrived books
+// "now" in one tap (14 Nov 2026); later than 6pm or earlier than 8am falls back to 10:00 for another day
+function nowQuarter(): string {
+  const t = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Europe/London' })
+  let [h, m] = t.split(':').map(Number); m = Math.ceil(m / 15) * 15; if (m === 60) { h += 1; m = 0 }
+  return h >= 8 && h < 19 ? `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}` : '10:00'
+}
+
 export default function CleanerDashboard() {
   const router       = useRouter()
   const searchParams = useSearchParams()
@@ -125,7 +134,7 @@ export default function CleanerDashboard() {
   // booking form state (used by modal)
   const [propertyId, setPropertyId]   = useState('')
   const [cleanDate, setCleanDate]     = useState(new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }))
-  const [cleanTime, setCleanTime]     = useState('10:00')
+  const [cleanTime, setCleanTime]     = useState(nowQuarter)
   const [booking, setBooking]         = useState(false)
   const [bookedNotice, setBookedNotice] = useState('')
 
@@ -628,7 +637,7 @@ export default function CleanerDashboard() {
           upcoming={upcomingCleans.slice(0, 1) as any}
           doneToday={doneCleans.filter((c: any) => c.clean_date && isDateToday(c.clean_date)) as any}
           properties={properties.map((p: any) => ({ id: p.id, name: p.name }))}
-          onBook={() => { setError(''); setPropertyId(properties[0]?.id || ''); setShowBookCleanModal(true) }}
+          onBook={() => { setError(''); setPropertyId(properties[0]?.id || ''); setCleanTime(nowQuarter()); setShowBookCleanModal(true) }}
           onLogPast={() => { setError(''); setPastCleanForm({ propertyId: properties[0]?.id || '', cleanDate: new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }), notes: '', hours: '' }); setShowLogPastCleanModal(true) }}
           todo={[
             { n: assignedJobs.length, text: assignedJobs.length === 1 ? 'clean to accept and book' : 'cleans to accept and book', onClick: () => document.getElementById('cl-assigned')?.scrollIntoView({ behavior: 'smooth', block: 'start' }) },
@@ -697,7 +706,7 @@ export default function CleanerDashboard() {
                           </div>
                           <div className="flex flex-col gap-xs shrink-0">
                             <button
-                              onClick={() => { setError(''); setAcceptJobForm({ cleanDate: new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }), cleanTime: '10:00' }); setShowAcceptJobModal(job.id) }}
+                              onClick={() => { setError(''); setAcceptJobForm({ cleanDate: new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }), cleanTime: nowQuarter() }); setShowAcceptJobModal(job.id) }}
                               className="rounded-full px-md py-sm text-xs font-bold text-[#17332B] shadow-[0_2px_0_var(--cr-honey-edge)]" style={{ background: 'var(--cr-gold)' }}
                             >
                               Accept

@@ -644,7 +644,7 @@ export default function TenantDashboard() {
                 {upcoming.slice(0, 4).map((v: any, i: number, arr: any[]) => {
                   const id = String(v.id)
                   const isClean = id.startsWith('clean-'), isTicket = !isClean && !id.startsWith('viewing-') && !id.startsWith('appt-')
-                  const what = isClean ? 'House clean' : `${String(v.category ?? 'Visit').replace(/-/g, ' ').replace(/^./, (c: string) => c.toUpperCase())}${v.rooms?.name ? ` · ${v.room_id === roomId ? 'your room' : v.rooms.name}` : ''}`
+                  const what = isClean ? 'House clean' : `${String(v.category ?? 'Visit').replace(/-/g, ' ').replace(/^./, (c: string) => c.toUpperCase())}${v.location && !inTenantRoom({ location: v.location }) ? ` · ${v.location}` : v.rooms?.name ? ` · ${v.room_id === roomId ? 'your room' : v.rooms.name}` : ''}`
                   const when = `${dayLabel(v.booked_date)}${slotLabel(v.booked_slot) ? `, ${slotLabel(v.booked_slot)}` : ''}`
                   return <Row key={id} last={i === Math.min(arr.length, 4) - 1} icon={<Ico d={isClean ? PATHS.spark : PATHS.tool} />} title={what} sub={liveStatus(v) ?? when}
                     href={isTicket ? `/tenant/visit/${id}` : isClean ? `/tenant/cleaner-extras/${id.replace('clean-', '')}` : undefined} />

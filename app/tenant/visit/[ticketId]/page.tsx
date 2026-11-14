@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { inTenantRoom } from '@/lib/repairs/where'
 import { adminFetch } from '@/lib/adminFetch'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
@@ -182,7 +183,9 @@ export default function VisitDetailPage() {
   }
 
   // ── Derived state ───────────────────────────────────────────────────────
-  const needsShortNoticeApproval = ticket && (
+  // only a visit to their own room needs their yes — a kitchen job keeps the reporter's room too (lib/repairs/where)
+  const inMyRoom = !!ticket && inTenantRoom({ location: (ticket as any).location })
+  const needsShortNoticeApproval = ticket && inMyRoom && (
     (ticket.short_notice && !ticket.short_notice_tenant_approved_at) ||
     (ticket.short_notice_pending && !ticket.short_notice_tenant_approved_at)
   )
@@ -288,7 +291,7 @@ export default function VisitDetailPage() {
         )}
 
         {/* "come in any time" — the tenant waives the 24 hours' notice for this job in their room (14 Nov 2026) */}
-        {ticket.room_id && ticket.status !== 'completed' && !(ticket as any).tenant_access_any_time && !needsShortNoticeApproval && (
+        {ticket.room_id && inMyRoom && ticket.status !== 'completed' && !(ticket as any).tenant_access_any_time && !needsShortNoticeApproval && (
           <button type="button" onClick={async () => {
             if (!window.confirm('Let the contractor come into your room without 24 hours’ notice for this job — even if you’re out?')) return
             const r = await adminFetch('/api/tenant/visit-ticket', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ticketId: ticket.id, action: 'any_time' }) })
@@ -304,7 +307,7 @@ export default function VisitDetailPage() {
         {/* ── Visit summary card ─────────────────────────────────────────── */}
         <div className="rounded-2xl bg-white border border-neutral-200 p-lg">
           <p className="text-xs font-bold uppercase tracking-widest text-neutral-400 mb-sm">
-            {ticket.room_id ? 'Visit to your room' : 'Visit to the house'}
+            {ticket.room_id && inMyRoom ? 'Visit to your room' : 'Visit to the house'}
           </p>
           <p className="text-2xl font-extrabold text-neutral-900 leading-tight">
             {ticket.booked_date ? fmtDate(ticket.booked_date) : 'Date TBC'}
@@ -340,7 +343,7 @@ export default function VisitDetailPage() {
               <div className="flex gap-sm items-center">
                 <span className="text-base shrink-0"><LineIcon glyph="🏠" /></span>
                 <p className="text-sm text-neutral-700">
-                  {ticket.rooms?.name ? `${ticket.rooms.name} · ` : ''}{ticket.properties.name}
+                  {inMyRoom ? (ticket.rooms?.name ? `${ticket.rooms.name} · ` : '') : (ticket as any).location ? `${(ticket as any).location} · ` : ''}{ticket.properties.name}
                 </p>
               </div>
             )}

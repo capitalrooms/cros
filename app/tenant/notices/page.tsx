@@ -692,7 +692,7 @@ export default function NoticesPage() {
       {propertyId && !composing && (
         <button
           onClick={() => { setGuestPreset(false); setComposing(true) }}
-          className="fixed bottom-8 right-6 z-40 flex h-16 w-16 items-center justify-center rounded-full bg-neutral-900 text-white shadow-2xl hover:bg-neutral-700 transition-all active:scale-95 notice-board"
+          className="fixed bottom-[112px] right-5 z-40 flex h-14 w-14 lg:bottom-8 items-center justify-center rounded-full bg-neutral-900 text-white shadow-2xl hover:bg-neutral-700 transition-all active:scale-95 notice-board"
           aria-label="Post a notice"
         >
           <span className="text-3xl font-light leading-none">+</span>

@@ -27,6 +27,7 @@ export default function PoppingByVisit({ className = '', label = 'Need to visit 
   const [to, setTo] = useState(hhmm(new Date(nextQuarter().getTime() + 3_600_000)))
   const [reason, setReason] = useState('')
   const [agreed, setAgreed] = useState(false)
+  const [ackShort, setAckShort] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [done, setDone] = useState<Result | null>(null)
@@ -58,6 +59,9 @@ export default function PoppingByVisit({ className = '', label = 'Need to visit 
   const input = 'w-full rounded-lg border border-neutral-300 bg-white px-sm py-xs text-sm text-neutral-900'
   const lab = 'block text-xs font-semibold text-neutral-700'
 
+  // how far away the visit is — under 4 hours is short notice for the tenants
+  const minsAway = Math.round((new Date(`${date}T${from || '00:00'}:00`).getTime() - Date.now()) / 60000)
+  const shortNotice = date === londonToday() && minsAway < 4 * 60
   return (
     <>
       {!hideButton && <button type="button" onClick={() => setOpen(true)} className={className || 'rounded-xl border border-neutral-300 bg-white px-md py-sm text-sm font-bold text-neutral-900 hover:bg-neutral-50'}>
@@ -109,9 +113,17 @@ export default function PoppingByVisit({ className = '', label = 'Need to visit 
                     <label className={lab}>Why are you visiting? <span className="font-normal text-neutral-500">(the tenants will see this)</span>
                       <input className={input} value={reason} maxLength={200} onChange={e => setReason(e.target.value)} placeholder={canRoom ? 'e.g. to take photos of the room' : 'e.g. to check the guttering at the back'} />
                     </label>
+                    {/* under 4 hours' notice (14 Nov 2026, the same rule as "I'm here" — lib/access/arrival): fine for something
+                        important in the shared areas, but they tick that they'll give more notice next time */}
+                    {shortNotice && (
+                      <label className="flex items-start gap-2 rounded-xl bg-[#FDF1D8] p-md text-sm text-[#14261F]">
+                        <input type="checkbox" checked={ackShort} onChange={e => setAckShort(e.target.checked)} className="mt-0.5 h-5 w-5" />
+                        <span><b>Short notice.</b> The tenants will only have {minsAway < 60 ? `${Math.max(0, minsAway)} minutes` : `about ${Math.round(minsAway / 60)} hours`}’ warning. That’s usually fine for something important in the shared areas — I’ll give more notice next time.</span>
+                      </label>
+                    )}
                     {error && <p className="rounded-lg bg-red-50 px-md py-sm text-sm text-red-700">{error}</p>}
                     <div className="flex gap-sm">
-                      <button type="button" onClick={send} disabled={busy || !propertyId || reason.trim().length < 3} className="flex-1 rounded-xl bg-neutral-900 px-md py-sm text-sm font-bold text-white disabled:opacity-40">{busy ? 'Telling the tenants…' : 'Tell the tenants'}</button>
+                      <button type="button" onClick={send} disabled={busy || !propertyId || reason.trim().length < 3 || (shortNotice && !ackShort)} className="flex-1 rounded-xl bg-neutral-900 px-md py-sm text-sm font-bold text-white disabled:opacity-40">{busy ? 'Telling the tenants…' : 'Tell the tenants'}</button>
                       <button type="button" onClick={close} className="rounded-xl border border-neutral-300 px-md py-sm text-sm font-semibold">Cancel</button>
                     </div>
                   </>

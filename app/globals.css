@@ -68,6 +68,32 @@ html.garden, html.garden body { background-color: #17332B; }
 .garden .cr-tabbar [aria-current="page"] svg { stroke-width: 2.2; }
 /* headings in the display face, tighter, like the website */
 .garden h1 { font-weight: 800; letter-spacing: -0.03em; }
+/* the top bar on the role apps' inner screens (14 Nov 2026, Harry: "still old version styling everywhere"): light, on the
+   page's own sage, ink text, the real logo in its own colours — like the renderings, not the old dark office bar */
+.garden .cr-topbar { background: #EEF2EC !important; color: #14261F !important; border-bottom: 1px solid #DCE5DD !important; }
+.garden .cr-topbar .cr-topbar-logo, .garden .cr-topbar .cr-topbar-logo * { filter: none !important; --tw-brightness: ; --tw-invert: ; }
+.garden .cr-topbar a.group, .garden .cr-topbar button.group { border-color: #DCE5DD !important; background: #FFFFFF !important; color: #14261F !important; }
+.garden .cr-topbar button[aria-label*="otification"] { color: #14261F !important; }
+.garden .cr-topbar button[aria-label*="otification"]:hover { background: #E3ECE5 !important; }
+.garden .cr-topbar .rounded-full.border-white\/15 { border-color: #DCE5DD !important; background: #FFFFFF !important; color: #14261F !important; }
+.garden .cr-topbar .bg-white\/20 { background: #17332B !important; color: #FFFFFF !important; }
+
+/* Garden Ask palette guard (14 Nov 2026): older screens in the three role apps used Tailwind blues, purples and oranges
+   for links, info boxes and badges. Inside .garden they become the app's own colours, so every screen matches. */
+.garden .bg-blue-50, .garden .bg-purple-50, .garden .bg-indigo-50, .garden .bg-sky-50 { background-color: #E3ECE5 !important; }
+.garden .bg-blue-100, .garden .bg-blue-200, .garden .bg-purple-100 { background-color: #DCE5DD !important; }
+.garden .bg-blue-400, .garden .bg-blue-500 { background-color: var(--cr-gold) !important; }
+.garden .bg-blue-600, .garden .bg-blue-700, .garden .bg-blue-800, .garden .bg-indigo-600 { background-color: #17332B !important; }
+.garden .text-blue-600, .garden .text-blue-700, .garden .text-blue-800, .garden .text-blue-900,
+.garden .text-purple-700, .garden .text-purple-800, .garden .text-purple-900, .garden .text-indigo-700 { color: #17332B !important; }
+.garden .border-blue-100, .garden .border-blue-200, .garden .border-blue-300, .garden .border-purple-100, .garden .border-purple-200, .garden .border-purple-300 { border-color: #C3D0C6 !important; }
+.garden .ring-blue-500 { --tw-ring-color: #17332B !important; }
+.garden .bg-orange-50 { background-color: #FDF1D8 !important; }
+.garden .bg-orange-400, .garden .bg-orange-500 { background-color: var(--cr-gold) !important; }
+.garden .text-orange-700 { color: #7A5410 !important; }
+.garden .from-blue-500, .garden .from-purple-500, .garden .from-orange-500 { --tw-gradient-from: #F2B84B !important; --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important; }
+.garden .to-blue-600, .garden .to-purple-600, .garden .to-orange-600 { --tw-gradient-to: #E0A43A !important; }
+
 .garden h2, .garden h3 { font-weight: 700; letter-spacing: -0.015em; }
 
 * {
