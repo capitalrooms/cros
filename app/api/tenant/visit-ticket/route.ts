@@ -81,7 +81,9 @@ export async function GET(req: NextRequest) {
       .single()
     contractor = c || null
   }
-  const ticketWithContractor = { ...ticket, contractor }
+  const { tenantCheck } = await import('@/lib/jobs/watch')
+  const { data: extra } = await service.from('maintenance_tickets').select('completed_at, priority').eq('id', ticketId).maybeSingle()
+  const ticketWithContractor = { ...ticket, contractor, check: tenantCheck({ ...(ticket as any), ...(extra as any) }) }
 
   const personId = person?.id || null
   const role = (person as any)?.role || ''
@@ -142,6 +144,19 @@ export async function POST(req: NextRequest) {
   if (!c || c.role !== 'tenant' || c.viewingAsBy) return NextResponse.json({ error: 'Please sign in again.' }, { status: 401 })
   const b = await req.json().catch(() => ({}))
   const s = serviceClient()
+  // "did the contractor come?" / "is it fixed?" (lib/jobs/watch) — anyone living there who'd be visited
+  if (['came', 'not_came', 'fixed', 'not_fixed'].includes(String(b.action))) {
+    const { data: tk } = await s.from('maintenance_tickets').select('id, property_id, room_id, location').eq('id', String(b.ticketId ?? '')).maybeSingle()
+    if (!tk) return NextResponse.json({ error: 'That job wasn’t found.' }, { status: 404 })
+    const { activeTenantIds } = await import('@/lib/serverNotify')
+    const { inTenantRoom } = await import('@/lib/repairs/where')
+    const ids = await activeTenantIds(s as any, tk.property_id, inTenantRoom({ location: (tk as any).location }) ? tk.room_id : null)
+    if (!ids.includes(c.personId)) return NextResponse.json({ error: 'This job isn’t at your home.' }, { status: 403 })
+    const { data: me } = await s.from('people').select('first_name, full_name').eq('id', c.personId).maybeSingle()
+    const { tenantAnswer } = await import('@/lib/jobs/watch')
+    const r = await tenantAnswer(s as any, tk.id, { name: (me as any)?.first_name || (me as any)?.full_name || 'The tenant' }, b.action)
+    return r.ok ? NextResponse.json(r) : NextResponse.json({ error: r.error }, { status: 400 })
+  }
   // a reply to the contractor's question (lib/jobs/tenantQuestion) — anyone living there who'd be visited
   if (b.action === 'reply') {
     const { data: tk } = await s.from('maintenance_tickets').select('id, property_id, room_id, location').eq('id', String(b.ticketId ?? '')).maybeSingle()

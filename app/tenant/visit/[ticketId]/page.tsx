@@ -116,6 +116,7 @@ export default function VisitDetailPage() {
   const [cMsg, setCMsg] = useState('')
   const [cSent, setCSent] = useState('')
   const [cBusy, setCBusy] = useState(false)
+  const [checkDone, setCheckDone] = useState('')
   const replyAsked = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('reply') === '1'
 
   const supabase = createClient()
@@ -383,6 +384,26 @@ export default function VisitDetailPage() {
               </p>
             </div>
           </div>
+
+          {/* the job watch's questions (lib/jobs/watch): did they come? is it fixed? — the answer moves the job on */}
+          {(ticket as any).check && !checkDone && (
+            <section className="mt-md space-y-sm rounded-2xl bg-white p-lg ring-2 ring-[color:var(--cr-gold)]">
+              <p className="text-[15px] font-bold text-neutral-900">{(ticket as any).check === 'came' ? `Did ${contractorFirst} come${ticket.booked_date ? ` on ${new Date(`${String(ticket.booked_date).slice(0, 10)}T12:00:00Z`).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' })}` : ''}?` : 'Is it fixed now?'}</p>
+              <div className="grid grid-cols-2 gap-sm">
+                {((ticket as any).check === 'came' ? [['came', 'Yes, they came'], ['not_came', 'No, nobody came']] : [['fixed', 'Yes, it’s fixed'], ['not_fixed', 'No, still not fixed']]).map(([k, l], i) => (
+                  <button key={k} type="button" disabled={cBusy} onClick={async () => {
+                    setCBusy(true)
+                    const r = await adminFetch('/api/tenant/visit-ticket', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: k, ticketId: ticket.id }) }).catch(() => null)
+                    const j = r ? await r.json().catch(() => ({})) : {}
+                    setCBusy(false)
+                    if (!r?.ok) { alert((j as any).error || 'That didn’t send — try again.'); return }
+                    setCheckDone((j as any).message || 'Thanks.')
+                  }} className={`h-12 rounded-full text-sm font-bold disabled:opacity-40 ${i === 0 ? 'text-[#17332B] shadow-[0_3px_0_var(--cr-honey-edge)]' : 'border-[1.5px] border-[#17332B] text-[#17332B]'}`} style={i === 0 ? { background: 'var(--cr-gold)' } : undefined}>{l}</button>
+                ))}
+              </div>
+            </section>
+          )}
+          {checkDone && <p className="mt-md rounded-2xl bg-[#E3ECE5] p-md text-sm font-semibold text-[#17332B]">{checkDone}</p>}
 
           {(ticket as any).contractor_id && !['completed', 'cancelled'].includes(ticket.status) && (
             <section className={`mt-md space-y-sm rounded-2xl bg-white p-lg ${replyAsked ? 'ring-2 ring-[color:var(--cr-gold)]' : 'border border-neutral-200'}`}>

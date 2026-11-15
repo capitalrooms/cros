@@ -214,7 +214,7 @@ export async function dispatchWave(s: S, em: any, wave: number): Promise<number>
     const t = token()
     const { error } = await s.from('emergency_responses').insert({ emergency_id: em.id, contractor_id: c.person_id, token: t, wave })
     if (error) continue
-    const body = `CAPITAL ROOMS EMERGENCY: ${KINDS[em.kind as EmergencyKind]?.label ?? em.title} near ${areaOf(em)}. Can you attend? Tap to answer: ${link(t)}`
+    const body = `🚨 Capital Rooms — EMERGENCY\n\n${KINDS[em.kind as EmergencyKind]?.label ?? em.title}\nNear ${areaOf(em)}\n\nCan you attend? Say when and your call-out fee: ${link(t)}`
     const sent = await tellContractor(c.people, c.person_id, { text: body, title: 'Emergency — can you attend?', body: `${KINDS[em.kind as EmergencyKind]?.label ?? em.title} near ${areaOf(em)}`, url: `/e/${t}`, tag: `emergency-${em.id}` })
     await s.from('emergency_responses').update({ texted: sent.via.some(v => v.startsWith('text')) }).eq('token', t)
     names.push(`${pname(c.people)}${reached(sent)}`)
@@ -320,7 +320,7 @@ export async function choose(s: S, emId: string, responseId: string, by: string,
   // the chosen contractor: full details
   const tenant = em.people
   const lines = [
-    `CAPITAL ROOMS — CONFIRMED. Please attend: ${KINDS[em.kind as EmergencyKind]?.label ?? em.title}`,
+    `🚨 Capital Rooms — CONFIRMED, please attend\n\n${KINDS[em.kind as EmergencyKind]?.label ?? em.title}`,
     `Where: ${addressOf(em)}`,
     `Expected by ${ukWhen(r.eta_at)} — tap “I’m here” when you arrive. Running late? Tell us on the link. Not there ${NO_SHOW_MIN} minutes after this time with no word, and we send someone else.`,
     tenant ? `Tenant: ${pname(tenant)}${tenant.phone ? ` ${tenant.phone}` : ''}` : '',

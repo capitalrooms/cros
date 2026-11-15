@@ -12,6 +12,10 @@
   },
   "crons": [
     {
+      "path": "/api/cron/job-watch",
+      "schedule": "5 * * * *"
+    },
+    {
       "path": "/api/cron/nudge",
       "schedule": "0 7 * * *"
     },

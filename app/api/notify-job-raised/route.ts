@@ -196,7 +196,8 @@ export async function POST(request: NextRequest) {
         </p>`
     const firstLine = String(property?.name || property?.address || 'the property').split('\n')[0]
     const out = await tellContractor(contractor, contractor.id, {
-      text: `CAPITAL ROOMS: new job for you — ${heading}. Please open it to confirm and book a date: ${PORTAL_URL}/contractor/job/${ticketId}`,
+      // three parts, easy to read on a phone (15 Nov 2026): what and where · the link · (the don't-reply line, lib/sms)
+      text: `🔧 Capital Rooms — new job for you\n\n${String(ticket.title || heading).split(' — ')[0]}\n${[String(property?.name || '').split('\n')[0], room?.name].filter(Boolean).join(', ')}\n\nBook a day: ${PORTAL_URL}/contractor/job/${ticketId}`,
       title: 'New job from Capital Rooms', body: heading.slice(0, 120) || firstLine,
       url: `/contractor/job/${ticketId}`, link: `${PORTAL_URL}/contractor/job/${ticketId}`, tag: `job-${ticketId}`,
       emailSubject: subject, emailBodyHtml: body,

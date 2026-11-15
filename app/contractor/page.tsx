@@ -83,7 +83,7 @@ function JobCard({ job, variant, asParam }: { job: Job; variant?: 'overdue' | 'w
     'border-transparent bg-white'
 
   return (
-    <Link href={`/contractor/job/${job.id}${asParam ? `?as=${asParam}` : ''}`}>
+    <Link className="block" href={`/contractor/job/${job.id}${asParam ? `?as=${asParam}` : ''}`}>
       <div className={`mb-2 flex cursor-pointer items-center justify-between gap-md rounded-[20px] border p-md ${borderCls}`}>
         <div className="min-w-0 flex-1">
           {/* what's wrong first, then where (9 Nov 2026) */}
@@ -749,7 +749,7 @@ export default function ContractorDashboard() {
         <main className="mx-auto max-w-2xl px-lg pb-[120px]">
 
           {activeTab === 'today' && (
-            <div className="pt-sm space-y-sm">
+            <div className="space-y-3 pt-sm">
               <a href="/planner" className="block rounded-full bg-white px-md py-3 text-center text-sm font-bold text-[#17332B] ring-1 ring-[#DCE5DD]">Notes, jobs &amp; photos with Capital Rooms</a>
               {/* passed visits and jobs to book are in the "needs you" list at the top (9 Nov 2026) */}
               {dayJobs.length === 0 ? (

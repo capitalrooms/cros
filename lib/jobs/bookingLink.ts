@@ -13,7 +13,22 @@ const sign = (ticketId: string, personId: string) => crypto.createHmac('sha256',
 const UUID = /^[0-9a-f-]{36}$/i
 
 export const bookingToken = (ticketId: string, personId: string) => `${ticketId}.${personId}.${sign(ticketId, personId)}`
-export const bookingLink = (ticketId: string, personId: string) => `${PORTAL_URL.replace(/\/$/, '')}/book/${bookingToken(ticketId, personId)}`
+
+// A short form for texts (15 Nov 2026 — the long link filled half the message): the two ids as raw bytes plus 16
+// characters of the same signature → capitalrooms.co.uk/j/<60 characters>. /j/[code] checks it and opens /book/<token>.
+const uuidToB64 = (u: string) => Buffer.from(u.replace(/-/g, ''), 'hex').toString('base64url')
+const b64ToUuid = (b: string) => { const h = Buffer.from(b, 'base64url').toString('hex'); return h.length === 32 ? `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}` : '' }
+export const shortCode = (ticketId: string, personId: string) => `${uuidToB64(ticketId)}${uuidToB64(personId)}${sign(ticketId, personId).slice(0, 16)}`
+/** The full token for a short code, or null if it isn't one CROS made. */
+export function fromShortCode(code: string): string | null {
+  const c = String(code ?? '')
+  if (c.length !== 60) return null
+  const ticketId = b64ToUuid(c.slice(0, 22)), personId = b64ToUuid(c.slice(22, 44))
+  if (!UUID.test(ticketId) || !UUID.test(personId)) return null
+  const want = Buffer.from(sign(ticketId, personId).slice(0, 16)), got = Buffer.from(c.slice(44))
+  return want.length === got.length && crypto.timingSafeEqual(want, got) ? bookingToken(ticketId, personId) : null
+}
+export const bookingLink = (ticketId: string, personId: string) => `${PORTAL_URL.replace(/\/$/, '')}/j/${shortCode(ticketId, personId)}`
 
 /** The job and contractor a link is for, or null if it's not one CROS made. */
 export function readBookingToken(token: string): { ticketId: string; personId: string } | null {
