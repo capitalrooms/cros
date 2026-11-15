@@ -13,7 +13,7 @@ import type { SearchHit } from '@/app/api/admin/search/route'
 type Row = { key: string; group: string; title: string; detail?: string; href: string }
 const KIND: Record<SearchHit['kind'], string> = { person: 'People', property: 'Properties', room: 'Rooms', job: 'Maintenance' }
 const EXTRA = [
-  { label: 'My profile', href: '/admin/profile', zone: 'You' }, { label: 'Office settings', href: '/admin/settings', zone: 'Office' }, { label: 'Notifications — who gets what', href: '/admin/notifications', zone: 'Office' }, { label: 'Tenant messages on/off', href: '/admin/notifications#tenants', zone: 'Office' },
+  { label: 'My profile', href: '/admin/profile', zone: 'You' }, { label: 'Office settings', href: '/admin/settings', zone: 'Office' }, { label: 'Notifications — who gets what', href: '/admin/people?tab=tenants', zone: 'Contacts' }, { label: 'Tenant messages on/off', href: '/admin/people?tab=tenants', zone: 'Contacts' },
   { label: 'Email signatures', href: '/admin/settings/signatures', zone: 'You' }, { label: 'Password & sign-in', href: '/account', zone: 'You' },
 ]
 const norm = (s: string) => s.toLowerCase().replace(/&/g, 'and').replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim()

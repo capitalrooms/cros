@@ -111,10 +111,10 @@ export default function AdminSettingsPage() {
         {/* ── Notifications now live in one place: /admin/notifications (14 Nov 2026, Harry: "we have too many places to go
             to simply control what and who gets notifications") ── */}
         <div id="messages" className="scroll-mt-lg" />
-        <a href="/admin/notifications" className="mb-lg flex items-center justify-between gap-lg rounded-2xl border border-neutral-200 bg-white px-lg py-md hover:border-neutral-900">
+        <a href="/admin/people?tab=tenants" className="mb-lg flex items-center justify-between gap-lg rounded-2xl border border-neutral-200 bg-white px-lg py-md hover:border-neutral-900">
           <span>
-            <span className="block text-base font-bold text-neutral-900">Notifications — who gets what</span>
-            <span className="mt-xs block text-xs text-neutral-500">Tenants (everyone or property by property), landlords, contractors, cleaners and the office — all in one list. Tenant automatic messages are {commsLive ? 'on for every property' : 'paused, except properties switched on'}.</span>
+            <span className="block text-base font-bold text-neutral-900">Who gets notifications — in Contacts</span>
+            <span className="mt-xs block text-xs text-neutral-500">Every contact has App · Email · Text buttons, each property has its own switch, and “See their app” shows their screen. Tenant automatic messages are {commsLive ? 'on for every property' : 'paused, except properties switched on'}.</span>
           </span>
           <span aria-hidden="true" className="text-xl text-neutral-400">→</span>
         </a>

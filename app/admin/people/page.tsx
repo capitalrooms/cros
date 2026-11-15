@@ -103,6 +103,28 @@ export default function PeopleManagement({ searchParams }: { searchParams: PageS
   const [people, setPeople] = useState<Person[]>([])
   const [properties, setProperties] = useState<Property[]>([])
   const [notifyOn, setNotifyOn] = useState<Set<string>>(new Set())
+  // who gets what, right on each contact (15 Nov 2026, Harry: "one screen for contacts … simply click buttons at the top or
+  // on the contact to allow them to get push notifications"). /api/admin/notifications — administrators; hidden for others.
+  type Prefs = { push: boolean; email: boolean; sms: boolean; onApp: boolean; landlordOn: boolean }
+  const [nt, setNt] = useState<{ tenants: { master: boolean; elected: boolean; emergencyUpdates: boolean; properties: { id: string; on: boolean }[] }; prefs: Record<string, Prefs> } | null>(null)
+  const [nBusy, setNBusy] = useState('')
+  useEffect(() => { adminFetch('/api/admin/notifications').then(r => r.ok ? r.json() : null).then(d => d && setNt(d)).catch(() => {}) }, [])
+  async function saveN(key: string, body: Record<string, unknown>, apply: (d: NonNullable<typeof nt>) => NonNullable<typeof nt>) {
+    if (!nt) return
+    const before = nt; setNBusy(key); setNt(apply(nt))
+    const r = await adminFetch('/api/admin/notifications', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).catch(() => null)
+    setNBusy('')
+    if (!r?.ok) { setNt(before); alert('That didn’t save — try again.') }
+  }
+  const propOn = (id: string) => !!nt?.tenants.properties.find(x => x.id === id)?.on
+  const setPref = (id: string, f: 'push' | 'email' | 'sms') => nt && saveN(id + f, { type: 'person', id, field: f, on: !nt.prefs[id]?.[f] },
+    d => ({ ...d, prefs: { ...d.prefs, [id]: { ...d.prefs[id], [f]: !d.prefs[id]?.[f] } } }))
+  const setLandlord = (id: string) => nt && saveN(id + 'll', { type: 'landlord', id, on: !nt.prefs[id]?.landlordOn },
+    d => ({ ...d, prefs: { ...d.prefs, [id]: { ...d.prefs[id], landlordOn: !d.prefs[id]?.landlordOn } } }))
+  const setSetting = (key: 'comms_live' | 'elected_comms_live' | 'emergency_tenant_updates', field: 'master' | 'elected' | 'emergencyUpdates') => nt && saveN(key, { type: 'setting', key, value: !nt.tenants[field] },
+    d => ({ ...d, tenants: { ...d.tenants, [field]: !d.tenants[field] } }))
+  const setProp = (id: string) => nt && saveN(id, { type: 'property', id, on: !propOn(id) },
+    d => ({ ...d, tenants: { ...d.tenants, properties: d.tenants.properties.some(x => x.id === id) ? d.tenants.properties.map(x => x.id === id ? { ...x, on: !x.on } : x) : [...d.tenants.properties, { id, on: true }] } }))
   // sign-in accounts (12 Oct 2026): status per person, invites / resets / turning sign-in off — /api/admin/accounts
   const [acct, setAcct] = useState<{ statuses: Record<string, any>; groups: Record<Tab, string[]>; me: string; access?: Record<string, { areas: string[]; custom: boolean; administrator: boolean }> } | null>(null)
   // access levels for an office person (stage 2): which parts of the office app they may use
@@ -505,7 +527,6 @@ export default function PeopleManagement({ searchParams }: { searchParams: PageS
       <span className={`relative ${menu === p.id ? 'z-30' : 'z-10'} flex items-center justify-end gap-xs`} data-row-menu>   {/* the open row sits above the rows below it */}
         {extra}
         {AccountChip(p)}
-        <span title={notifyOn.has(p.id) ? 'Notifications on' : 'Notifications off'} className={`hidden sm:inline-block h-2 w-2 rounded-full ${notifyOn.has(p.id) ? 'bg-green-500' : 'bg-neutral-300'}`} />
         <button type="button" aria-label="More" onClick={() => setMenu(menu === p.id ? null : p.id)} className="rounded-lg px-sm py-xs text-lg leading-none text-neutral-500 hover:bg-neutral-200">⋯</button>
         {menu === p.id && (
           <span className="absolute right-0 top-full z-40 mt-1 w-48 overflow-hidden rounded-xl border border-neutral-200 bg-white py-xs text-sm shadow-lg">
@@ -518,8 +539,31 @@ export default function PeopleManagement({ searchParams }: { searchParams: PageS
         )}
       </span>
       {detail && <span className="col-start-2 col-span-2 md:hidden truncate text-xs text-neutral-600">{detail}</span>}
+      {Tools(p)}
     </li>
   )
+  // the contact's own buttons: how CROS reaches them, whether their phone is set up, and their app as they see it
+  const Pill = ({ on, busy, onClick, label, title, k }: { on: boolean; busy?: boolean; onClick: () => void; label: string; title: string; k?: string }) => (
+    <button key={k ?? label} type="button" aria-pressed={on} title={title} disabled={busy} onClick={onClick}
+      className={`relative z-10 rounded-full border px-sm py-0.5 text-[11px] font-semibold transition-colors disabled:opacity-50 ${on ? 'border-emerald-600 bg-emerald-600 text-white' : 'border-neutral-300 bg-white text-neutral-400 line-through'}`}>{label}</button>
+  )
+  const Tools = (p: Person) => {
+    const pr = nt?.prefs[p.id]
+    const see = viewAs(p)
+    if (!pr && !see) return null
+    const office = ['administrator', 'admin', 'lettings'].includes(p.role)
+    return (
+      <span className="col-start-2 col-span-full flex flex-wrap items-center gap-xs pt-0.5" data-row-menu>
+        {pr && p.role === 'landlord' && Pill({ on: pr.landlordOn, busy: nBusy === p.id + 'll', onClick: () => setLandlord(p.id), label: 'Updates', title: 'Updates about their properties (they pick which kinds in their own app)' })}
+        {pr && p.role !== 'landlord' && !office && (['push', 'email', 'sms'] as const).map(f => (
+          Pill({ k: f, on: pr[f], busy: nBusy === p.id + f, onClick: () => setPref(p.id, f), label: f === 'push' ? 'App' : f === 'email' ? 'Email' : 'Text',
+            title: `${f === 'push' ? 'App notifications' : f === 'email' ? 'Emails' : 'Text messages'} — tap to turn ${pr[f] ? 'off' : 'on'}` })
+        ))}
+        {pr && <span className={`rounded-full px-sm py-0.5 text-[11px] font-semibold ${pr.onApp ? 'bg-emerald-50 text-emerald-800' : 'bg-neutral-100 text-neutral-500'}`} title={pr.onApp ? 'Their phone shows app notifications' : 'They haven’t tapped “Allow” on a phone yet'}>{pr.onApp ? 'Phone set up' : 'Phone not set up'}</span>}
+        {see && <Link href={see} className="relative z-10 rounded-full border border-neutral-300 bg-white px-sm py-0.5 text-[11px] font-semibold text-neutral-800 hover:border-neutral-900">See their app →</Link>}
+      </span>
+    )
+  }
   // sign-in status at a glance, and what can be done about it
   const AccountChip = (p: Person) => {
     const st = acct?.statuses[p.id]
@@ -577,7 +621,7 @@ export default function PeopleManagement({ searchParams }: { searchParams: PageS
       <AppBar left={<BackButton href="/admin" label="Dashboard" />} />
       <PageHero
         eyebrow="People"
-        title={LABEL[activeTab]}
+        title="Contacts"
         subtitle={activeTab === 'tenants' ? 'Everyone renting from us, by property and room. Tap anyone for their profile.' : activeTab === 'contractors' ? 'Tick “Emergency call-outs” for anyone CROS may text out of hours — set their trades, hours and fee in Emergencies.' : activeTab === 'cleaners' ? 'Your cleaners.' : activeTab === 'landlords' ? 'Landlords and the properties they own with us.' : 'The office team: administrators and lettings.'}
         stats={[
           { label: 'Tenants', value: tenants.length },
@@ -627,6 +671,21 @@ export default function PeopleManagement({ searchParams }: { searchParams: PageS
           )
         })()}
         {acctMsg && <div className={`rounded-xl border p-md text-sm ${acctMsg.ok ? 'border-green-200 bg-green-50 text-green-900' : 'border-amber-200 bg-amber-50 text-amber-900'}`}>{acctMsg.text}</div>}
+
+        {/* ── tenant messages: the main switches (Notifications page folded in here, 15 Nov 2026) ── */}
+        {activeTab === 'tenants' && nt && (
+          <div className="flex flex-wrap items-center gap-x-lg gap-y-sm rounded-xl border border-neutral-200 bg-white px-md py-sm text-sm">
+            <span className="font-semibold text-neutral-900">Tenant messages</span>
+            {([['comms_live', 'master', nt.tenants.master ? 'Automatic: on for every property' : 'Automatic: only properties switched on below'],
+               ['elected_comms_live', 'elected', 'Messages you send yourself'],
+               ['emergency_tenant_updates', 'emergencyUpdates', 'Emergency updates']] as const).map(([key, field, label]) => (
+              <label key={key} className="flex cursor-pointer items-center gap-xs text-neutral-700">
+                <input type="checkbox" className="h-4 w-4 accent-emerald-600" disabled={nBusy === key} checked={nt.tenants[field]} onChange={() => setSetting(key, field)} />{label}
+              </label>
+            ))}
+            <span className="w-full text-xs text-neutral-500">Each person’s App · Email · Text buttons are on their row — green is on. “Phone set up” means they’ve tapped Allow, so app notifications reach them.</span>
+          </div>
+        )}
 
         {/* ── add forms ── */}
         {activeTab === 'tenants' && (
@@ -1008,9 +1067,16 @@ export default function PeopleManagement({ searchParams }: { searchParams: PageS
         {activeTab === 'tenants' && (tenantGroups.length ? tenantGroups.map(g => (
           // no overflow-hidden: it cut off the ⋯ menu on a house's last row (4 Nov 2026) — the header rounds its own corners
           <section key={g.id} className="rounded-2xl border border-neutral-200 bg-white">
-            <header className="flex items-baseline justify-between gap-md rounded-t-2xl border-b border-neutral-100 bg-neutral-50 px-lg py-sm">
+            <header className="flex items-center justify-between gap-md rounded-t-2xl border-b border-neutral-100 bg-neutral-50 px-lg py-sm">
               <span className="min-w-0 flex-1"><span className="font-bold text-neutral-900">{g.name}</span><span className="block truncate text-xs text-neutral-500 sm:ml-sm sm:inline">{g.address}</span></span>
-              <span className="shrink-0 text-xs text-neutral-500">{g.rows.length} tenant{g.rows.length === 1 ? '' : 's'}</span>
+              <span className="flex shrink-0 items-center gap-md text-xs text-neutral-500">
+                {nt && g.id !== 'none' && (nt.tenants.master
+                  ? <span className="rounded-full bg-emerald-50 px-sm py-0.5 font-semibold text-emerald-800">Messages on</span>
+                  : <button type="button" aria-pressed={propOn(g.id)} disabled={nBusy === g.id} onClick={() => setProp(g.id)}
+                      className={`rounded-full border px-sm py-0.5 font-semibold disabled:opacity-50 ${propOn(g.id) ? 'border-emerald-600 bg-emerald-600 text-white' : 'border-neutral-300 bg-white text-neutral-600'}`}>
+                      {propOn(g.id) ? 'Messages on' : 'Messages off — turn on'}</button>)}
+                {g.rows.length} tenant{g.rows.length === 1 ? '' : 's'}
+              </span>
             </header>
             <ul className="divide-y divide-neutral-100">
               {g.rows.map(({ p, room, note }: any) => Row({ p, detail: <>{room || <span className="text-neutral-400">—</span>}{note && <span className="ml-sm rounded-full bg-amber-50 px-sm py-0.5 text-[11px] font-semibold text-amber-800">{note}</span>}</> }))}

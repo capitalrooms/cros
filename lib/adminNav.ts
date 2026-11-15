@@ -176,22 +176,9 @@ const ZONES_AS_WRITTEN: Zone[] = [
     ],
   },
   {
-    id: 'people',
-    emoji: '👥',
-    label: 'People',
-    routes: ['/admin/people', '/admin/person', '/admin/contacts', '/admin/landlords', '/admin/tenant', '/admin/landlord', '/admin/contractor'],
-    subnav: [
-      { emoji: '👤', label: 'Tenants',      href: '/admin/people?tab=tenants' },
-      { emoji: '👷', label: 'Contractors',  href: '/admin/people?tab=contractors' },
-      { emoji: '🧹', label: 'Cleaners',     href: '/admin/people?tab=cleaners' },
-      { emoji: '🤝', label: 'Landlords',    href: '/admin/people?tab=landlords' },
-      { emoji: '👔', label: 'Office',       href: '/admin/people?tab=office' },
-    ],
-  },
-  {
     id: 'comms',
     emoji: '💬',
-    label: 'Communications',
+    label: 'Comms & Contacts',
     home: '/admin/communications',
     routes: [
       '/admin/communications',
@@ -203,12 +190,14 @@ const ZONES_AS_WRITTEN: Zone[] = [
       '/admin/email-hub',
       '/admin/publish',
       '/admin/notifications',
+      // People lives here now (15 Nov 2026, Harry: "it can all live in comms and maybe people lives in there?")
+      '/admin/people', '/admin/person', '/admin/contacts', '/admin/landlords', '/admin/tenant', '/admin/landlord', '/admin/contractor', '/admin/view-as',
     ],
     subnav: [
+      { emoji: '👥', label: 'Contacts',           href: '/admin/people?tab=tenants' },   // everyone, tenants by property; App · Email · Text and See their app on each contact
       { emoji: '✉️', label: 'Email hub',          href: '/admin/email-hub' },   // themes for every email (lib/email/themes) — administrators
       { emoji: '📄', label: 'Letters & Invoices', href: '/admin/document-generator' },
       { emoji: '💬', label: 'Messages',           href: '/admin/communications' },   // All · Send to a house · Acknowledgments · Feedback · Templates
-      { emoji: '🔔', label: 'Notifications',      href: '/admin/notifications' },   // who gets what — tenants, landlords, contractors, cleaners, office (14 Nov 2026)
       { emoji: '📣', label: 'Publish',            href: '/admin/publish' },   // write once → email, PDF letter, text, app, website, social (13 Nov 2026)
     ],
   },

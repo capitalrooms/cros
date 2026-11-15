@@ -11,7 +11,7 @@ import { InlineFinder } from '../components/AdminFinder'
 
 // first thing on the page (15 Nov 2026, Harry couldn't find the notification switches)
 const OFFICE = [
-  { emoji: '🔔', label: 'Notifications — who gets what', href: '/admin/notifications' },
+  { emoji: '👥', label: 'Contacts & notifications', href: '/admin/people?tab=tenants' },
   { emoji: '⚙️', label: 'Office settings', href: '/admin/settings' },
 ]
 const EXTRA = [
