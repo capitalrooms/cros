@@ -8,7 +8,8 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
-import PublicShell from '@/components/public/PublicShell'
+import { display } from '@/app/components/garden/kit'
+import { RoleTabBar } from '@/app/components/RoleTabBar'
 import LandlordPlanner from '@/components/LandlordPlanner'
 
 const HOME: Record<string, string> = { cleaner: '/cleaner', contractor: '/contractor', lettings: '/lettings', landlord: '/landlord', administrator: '/admin/planner/shared', admin: '/admin/planner/shared' }
@@ -16,22 +17,26 @@ const HOME: Record<string, string> = { cleaner: '/cleaner', contractor: '/contra
 export default function MemberPlannerPage() {
   const router = useRouter()
   const [home, setHome] = useState<string | null>(null)
+  const [role, setRole] = useState('')
   useEffect(() => {
     getCurrentUser().then(u => {
       const role = u?.assignment?.role
       if (!role) { router.push('/login'); return }
       if (role === 'administrator' || role === 'admin') { router.replace('/admin/planner/shared'); return }
-      setHome(HOME[role] ?? '/')
+      setRole(role); setHome(HOME[role] ?? '/')
     })
   }, [router])
-  if (!home) return <div className="min-h-screen bg-white" />
+  if (!home) return <div className="min-h-screen bg-[#EEF2EC]" />
+  // the role apps' look, with a way back (15 Nov 2026, Harry: "a planner which you cannot come back from, also in old style")
   return (
-    <PublicShell signedIn label="Planner">
-      <div className="mx-auto max-w-6xl px-6 py-8 md:px-14 md:py-12">
-        <p className="pub-eyebrow m-0 mb-1">With Capital Rooms</p>
-        <h1 className="pub-h2 mb-6">Your planner</h1>
+    <div className="garden min-h-screen bg-[#EEF2EC]" style={{ paddingTop: 'max(calc(env(safe-area-inset-top) + 12px), 16px)' }}>
+      <div className="mx-auto max-w-6xl px-4 pb-8 lg:px-lg">
+        <a href={home} className="inline-flex h-9 items-center gap-1 rounded-full bg-white px-3 text-sm font-semibold text-[#14261F] shadow-[0_2px_0_#DCE5DD]">‹ Back</a>
+        <p className="mt-4 text-[13px] font-semibold text-[#4E6158]">With Capital Rooms</p>
+        <h1 className="mb-4 text-[28px] font-extrabold leading-tight tracking-[-0.02em] text-[#14261F]" style={display}>Notes, jobs &amp; photos</h1>
         <LandlordPlanner />
       </div>
-    </PublicShell>
+      {(role === 'contractor' || role === 'cleaner') && <RoleTabBar role={role} active={null} />}
+    </div>
   )
 }

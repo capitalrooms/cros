@@ -1,6 +1,7 @@
 // GET /api/contractor/emergencies — emergencies this contractor has been asked to attend and hasn't answered yet, while
 // they're still open — until someone is confirmed or they've answered (15 Nov 2026: awaiting_office too) (14 Nov 2026, Harry: "Alice reported an emergency … it didn't appear in my screen"). Shown at the
 // top of the contractor app. Once someone is chosen, it's stood down or closed, it drops off — nobody sees yesterday's.
+import { tickIfStale } from '@/lib/emergencies/engine'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { requireSignedIn } from '@/lib/portalAuth'

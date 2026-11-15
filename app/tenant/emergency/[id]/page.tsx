@@ -12,6 +12,7 @@ type View = {
   id: string; label: string; stage: 'finding' | 'booked' | 'on_site' | 'morning' | 'call_999' | 'closed'; status: string
   reportedAt: string; etaText: string | null; controlled: boolean; bathroomAbove: boolean
   steps: string[]; overnight: string[]; callServices: string | null; house: string
+  overdue?: boolean; othersAt?: string | null
 }
 const STAGES = [
   { key: 'reported', label: 'Reported' },
@@ -39,25 +40,30 @@ export default function TenantEmergency({ params }: { params: Promise<{ id: stri
   }).catch(() => setErr('No connection — it’ll update when you’re back online.')), [id])
   useEffect(() => { load(); const t = setInterval(load, 30000); return () => clearInterval(t) }, [load])
 
-  async function send(action: 'contained' | 'worse') {
+  async function send(action: 'contained' | 'worse' | 'arrived' | 'no_show' | 'sorted' | 'not_fixed') {
     setBusy(true)
     const r = await adminFetch('/api/tenant/emergency', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, action, note }) }).catch(() => null)
     const j = r ? await r.json().catch(() => ({})) : {}
     setBusy(false)
     if (!r?.ok) { alert(j.error || 'That didn’t send — try again, or call the office.'); return }
     setAsk(null); setNote('')
-    setDone(action === 'contained' ? 'Thanks — we’ve told the office. We’ll book someone first thing in the morning.' : 'We’ve told the office straight away and we’re contacting contractors.')
+    setDone(action === 'contained' ? 'Thanks — we’ve told the office. We’ll book someone first thing in the morning.'
+      : action === 'arrived' ? 'Thanks — glad they’re there.'
+      : action === 'sorted' ? 'Great — thanks for letting us know.'
+      : action === 'not_fixed' ? 'Sorry about that — we’re asking another contractor now and will message you when they’re booked.'
+      : action === 'no_show' ? (j.sendOthersAt ? `Thanks — we’re chasing them. If they’re not with you by ${j.sendOthersAt}, we’ll send someone else automatically.` : 'Thanks — we’re sending someone else now. We’ll message you as soon as they’re booked.')
+      : 'We’ve told the office straight away and we’re contacting contractors.')
     load()
   }
 
   const headline = !v ? '' : v.stage === 'finding' ? 'We’re finding a contractor'
-    : v.stage === 'booked' ? `A contractor is coming${v.etaText ? ` — ${v.etaText}` : ''}`
+    : v.stage === 'booked' ? (v.overdue ? 'Has the contractor arrived?' : `A contractor is booked${v.etaText ? ` — hoping to be with you by ${v.etaText}` : ''}`)
     : v.stage === 'on_site' ? 'The contractor is there now'
     : v.stage === 'morning' ? 'Made safe — we’ll book someone first thing'
     : v.stage === 'call_999' ? 'Call the emergency services'
     : 'Sorted'
   const sub = !v ? '' : v.stage === 'finding' ? 'Our emergency contractors have been asked. We usually have someone booked within the hour — we’ll message you the moment it’s confirmed.'
-    : v.stage === 'booked' ? 'We’ll message you if anything changes. Keep following the steps below until they arrive.'
+    : v.stage === 'booked' ? (v.overdue ? `They were hoping to be with you by ${v.etaText}. Tell us below — if they don’t turn up, we’ll send someone else by ${v.othersAt}.` : `Keep following the steps below until they arrive. If they’re not with you by ${v.othersAt ?? 'then'}, we’ll send someone else.`)
     : v.stage === 'on_site' ? 'They’ll tell us what they’ve done before they leave.'
     : v.stage === 'morning' ? 'Tell us straight away if it gets worse — we’ll send someone tonight.'
     : v.stage === 'call_999' ? (v.callServices ?? 'Please call 999.')
@@ -94,6 +100,22 @@ export default function TenantEmergency({ params }: { params: Promise<{ id: stri
               )
             })}
           </ol>
+        )}
+
+        {v?.stage === 'booked' && v.overdue && !done && (
+          <section className="space-y-2 rounded-2xl bg-white p-4 ring-2 ring-[color:var(--cr-gold)]">
+            <h2 className="text-[15px] font-extrabold text-[#14261F]">Has the contractor arrived?</h2>
+            <button type="button" disabled={busy} onClick={() => send('arrived')} className="h-12 w-full rounded-full text-[15px] font-bold text-[#17332B] shadow-[0_3px_0_var(--cr-honey-edge)] disabled:opacity-40" style={{ background: 'var(--cr-gold)' }}>Yes, they’re here</button>
+            <button type="button" disabled={busy} onClick={() => send('no_show')} className="h-12 w-full rounded-full border-[1.5px] border-[#17332B] text-[15px] font-bold text-[#17332B] disabled:opacity-40">No one has come yet</button>
+          </section>
+        )}
+
+        {v?.stage === 'on_site' && !done && (
+          <section className="space-y-2 rounded-2xl bg-white p-4 ring-2 ring-[color:var(--cr-gold)]">
+            <h2 className="text-[15px] font-extrabold text-[#14261F]">Once they’ve finished — is it sorted?</h2>
+            <button type="button" disabled={busy} onClick={() => send('sorted')} className="h-12 w-full rounded-full text-[15px] font-bold text-[#17332B] shadow-[0_3px_0_var(--cr-honey-edge)] disabled:opacity-40" style={{ background: 'var(--cr-gold)' }}>Yes, it’s sorted</button>
+            <button type="button" disabled={busy} onClick={() => send('not_fixed')} className="h-12 w-full rounded-full border-[1.5px] border-[#8E2318] text-[15px] font-bold text-[#8E2318] disabled:opacity-40">They’ve gone and it’s not fixed</button>
+          </section>
         )}
 
         {v?.bathroomAbove && open && (

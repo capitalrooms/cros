@@ -83,6 +83,8 @@ export default function EmergencyLink({ params }: { params: Promise<{ token: str
     setView(d.view); setSlots(d.slots ?? [])
   }
   useEffect(() => { load() }, [token])   // eslint-disable-line react-hooks/exhaustive-deps
+  // asked again (no-show, made safe, still no one): their last fee filled in — they confirm or change it
+  useEffect(() => { if (view?.stage === 'ask' && view.fee != null && !fee) setFee(String(view.fee)) }, [view])   // eslint-disable-line react-hooks/exhaustive-deps
 
   async function post(body: Record<string, unknown>) {
     setBusy(true); setErr('')
@@ -201,6 +203,7 @@ export default function EmergencyLink({ params }: { params: Promise<{ token: str
           {mode === 'late' && (
             <div className="space-y-3">
               <p className="text-base font-bold">When will you be there now?</p>
+              <p className="text-sm text-[#4E6158]">The tenants are told. If you’re not there 45 minutes after this time and we haven’t heard, we’ll send someone else.</p>
               <input type="datetime-local" className={input} value={newEta} min={localInput(new Date().toISOString())} onChange={e => setNewEta(e.target.value)} />
               <input className={input} value={note} onChange={e => setNote(e.target.value)} placeholder="Reason (optional)" />
               <button type="button" disabled={busy || !newEta} onClick={() => post({ outcome: 'running_late', newEta: new Date(newEta).toISOString(), note })} className={`${btn} ${FOREST}`}>{busy ? 'Sending…' : 'Update the time'}</button>

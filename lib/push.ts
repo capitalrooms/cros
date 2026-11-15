@@ -77,7 +77,7 @@ const ownerStore = () => { try { return window.sessionStorage } catch { return n
  * then as David on the same phone, and still got Alice's). Call it BEFORE signing out — it needs their sign-in.
  */
 export async function forgetThisDevice(): Promise<void> {
-  try { ownerStore()?.removeItem(OWNER_KEY) } catch { /* private mode */ }
+  try { ownerStore()?.removeItem(OWNER_KEY); localStorage.removeItem(OWNER_KEY) } catch { /* private mode */ }
   if (!pushSupported()) return
   try {
     const reg = await navigator.serviceWorker.getRegistration()
@@ -94,6 +94,23 @@ export async function forgetThisDevice(): Promise<void> {
 export async function claimThisDevice(personId: string): Promise<void> {
   if (!pushSupported() || pushPermission() !== 'granted') return
   try { if (ownerStore()?.getItem(OWNER_KEY) === personId) return } catch { /* private mode */ }
+  // someone else had this phone (or we don't know who): throw the old registration away and make a fresh one, so the
+  // old one stops working everywhere — not just moved (15 Nov 2026: Harry, signed in as David, still got Alice's)
+  let lastOwner: string | null = null
+  try { lastOwner = localStorage.getItem(OWNER_KEY) } catch { /* private mode */ }
+  if (lastOwner !== personId) {
+    try {
+      const reg = await navigator.serviceWorker.ready
+      const old = await reg.pushManager.getSubscription()
+      if (old) {
+        await fetch('/api/push/subscribe', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ endpoint: old.endpoint, anyOwner: true }) }).catch(() => null)
+        await old.unsubscribe().catch(() => false)
+      }
+    } catch { /* carry on and subscribe */ }
+  }
   const r = await enablePush({ id: personId }).catch(() => ({ ok: false }))
-  if (r.ok) try { ownerStore()?.setItem(OWNER_KEY, personId) } catch { /* private mode */ }
+  if (r.ok) {
+    try { ownerStore()?.setItem(OWNER_KEY, personId) } catch { /* private mode */ }
+    try { localStorage.setItem(OWNER_KEY, personId) } catch { /* private mode */ }
+  }
 }

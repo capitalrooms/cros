@@ -233,7 +233,7 @@ export default function TenantDashboard() {
     })
   }
 
-  const [emergencies, setEmergencies] = useState<{ id: string; ticketId: string | null; label: string; stage: string; etaText: string | null; bathroomAbove: boolean }[]>([])
+  const [emergencies, setEmergencies] = useState<{ id: string; ticketId: string | null; label: string; stage: string; etaText: string | null; bathroomAbove: boolean; overdue?: boolean }[]>([])
   useEffect(() => {
     const get = () => adminFetch('/api/tenant/emergency').then(r => r.ok ? r.json() : null).then(d => d && setEmergencies(d.items ?? [])).catch(() => {})
     get(); const t = setInterval(get, 60000); return () => clearInterval(t)
@@ -609,9 +609,9 @@ export default function TenantDashboard() {
             <Link key={e.id} href={`/tenant/emergency/${e.id}`} className="block rounded-[20px] bg-[#8E2318] p-4 text-white shadow-[0_3px_0_#5A1A12] active:translate-y-px">
               <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-white/75">Emergency · {e.label}</span>
               <span className="mt-1 block text-[19px] font-extrabold leading-tight" style={display}>
-                {e.stage === 'booked' ? `A contractor is coming${e.etaText ? ` — ${e.etaText}` : ''}` : e.stage === 'on_site' ? 'The contractor is there now' : e.stage === 'morning' ? 'Made safe — booking someone for the morning' : 'We’re finding a contractor'}
+                {e.stage === 'booked' ? (e.overdue ? 'Has the contractor arrived?' : `A contractor is booked${e.etaText ? ` — hoping to be there by ${e.etaText}` : ''}`) : e.stage === 'on_site' ? 'The contractor is there now' : e.stage === 'morning' ? 'Made safe — booking someone for the morning' : 'We’re finding a contractor'}
               </span>
-              <span className="mt-1 block text-sm text-white/85">{e.bathroomAbove ? 'Don’t use the bathroom above the leak. ' : ''}Tap for what to do meanwhile →</span>
+              <span className="mt-1 block text-sm text-white/85">{e.stage === 'booked' && e.overdue ? 'Tap to tell us →' : `${e.bathroomAbove ? 'Don’t use the bathroom above the leak. ' : ''}Tap for what to do meanwhile →`}</span>
             </Link>
           ))}
 
@@ -674,7 +674,7 @@ export default function TenantDashboard() {
                   if (em) return (
                     <Row key={j.id} last={i === myRepairs.length - 1} href={`/tenant/emergency/${em.id}`} icon={<Ico d={PATHS.alert} stroke="#8E2318" />}
                       title={em.label} sub={undefined}
-                      right={<span className="max-w-[46%] shrink-0 rounded-full bg-[#FCE9E6] px-2.5 py-1 text-right text-[11.5px] font-bold leading-tight text-[#8E2318]">{em.stage === 'booked' ? `Emergency — coming ${em.etaText ?? 'soon'}` : em.stage === 'on_site' ? 'Emergency — contractor there' : em.stage === 'morning' ? 'Emergency — booking for the morning' : 'Emergency — finding a contractor'}</span>} />
+                      right={<span className="max-w-[46%] shrink-0 rounded-full bg-[#FCE9E6] px-2.5 py-1 text-right text-[11.5px] font-bold leading-tight text-[#8E2318]">{em.stage === 'booked' ? `Emergency — booked for ${em.etaText ?? 'soon'}` : em.stage === 'on_site' ? 'Emergency — contractor there' : em.stage === 'morning' ? 'Emergency — booking for the morning' : 'Emergency — finding a contractor'}</span>} />
                   )
                   const stage = j.booked_date ? `Booked ${dayLabel(j.booked_date)}${slotLabel(j.booked_slot) ? `, ${slotLabel(j.booked_slot)}` : ''}`
                     : j.status === 'in_progress' ? 'Being fixed' : j.on_hold ? 'Grouped with other jobs — we’ll book it soon'

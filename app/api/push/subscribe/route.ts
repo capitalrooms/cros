@@ -67,11 +67,14 @@ export async function POST(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   const email = await getEmailFromBearer(req)
   if (!email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  const { endpoint } = await req.json().catch(() => ({}))
+  const { endpoint, anyOwner } = await req.json().catch(() => ({}))
   if (!endpoint || typeof endpoint !== 'string') return NextResponse.json({ error: 'Which device?' }, { status: 400 })
   const supabase = createSupabaseClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { persistSession: false } })
   const { data: me } = await supabase.from('people').select('id').ilike('email', email).order('created_at').limit(1).maybeSingle()
   if (!me) return NextResponse.json({ error: 'No account found for you' }, { status: 403 })
-  const { error } = await supabase.from('push_subscriptions').delete().eq('endpoint', endpoint).eq('person_id', me.id)
+  // anyOwner: the phone itself is handing over to a new sign-in — only the holder of the device knows its endpoint
+  // (a long secret URL), so removing it whoever it was saved for is safe (15 Nov 2026)
+  const q = supabase.from('push_subscriptions').delete().eq('endpoint', endpoint)
+  const { error } = anyOwner ? await q : await q.eq('person_id', me.id)
   return error ? NextResponse.json({ error: error.message }, { status: 500 }) : NextResponse.json({ ok: true })
 }
