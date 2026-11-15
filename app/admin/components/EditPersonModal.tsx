@@ -1,9 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { createClient } from '@/lib/supabase'
+import { adminFetch } from '@/lib/adminFetch'
 import { nameFields, SALUTATIONS } from '@/lib/people'
-import { withOptionalColumns } from '@/lib/optionalColumns'
 
 interface Person {
   id: string
@@ -62,21 +61,14 @@ export default function EditPersonModal({ person, isOpen, onClose, onSave }: Edi
     setSaving(true)
     setError('')
     try {
-      const supabase = createClient()
       const names = nameFields(formData.first_name, formData.last_name, formData.middle_name)
-      // bank_details arrives with migration 183 — save everything else even before it exists
-      const { error: err } = await withOptionalColumns(withNew => supabase
-        .from('people')
-        .update({
-          ...names,
-          salutation: formData.salutation || null,
-          email: formData.email,
-          phone: formData.phone_number || null,
-          ...(withNew ? { bank_details: formData.bank_details || null } : {}),
-        })
-        .eq('id', person.id))
-
-      if (err) throw err
+      // saved by the server, which says exactly what went wrong (15 Nov 2026 — it used to only say "Error saving person")
+      const r = await adminFetch('/api/admin/people/update', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+        id: person.id, salutation: formData.salutation || '', first_name: formData.first_name, middle_name: formData.middle_name, last_name: formData.last_name,
+        email: formData.email.trim(), phone: formData.phone_number, bank_details: formData.bank_details,
+      }) }).catch(() => null)
+      const j = r ? await r.json().catch(() => ({})) : {}
+      if (!r?.ok) throw new Error(j.error || (r ? `Not saved (error ${r.status}) — try again.` : 'Not saved — no connection. Try again.'))
 
       onSave({
         ...person,
@@ -85,10 +77,10 @@ export default function EditPersonModal({ person, isOpen, onClose, onSave }: Edi
         email: formData.email,
         phone: formData.phone_number || undefined,
         bank_details: formData.bank_details || undefined,
-      })
+      } as Person)
       onClose()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error saving person')
+      setError(err instanceof Error ? err.message : (err as any)?.message || 'Not saved — try again.')
     } finally {
       setSaving(false)
     }

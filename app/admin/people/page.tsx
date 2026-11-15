@@ -291,24 +291,23 @@ export default function PeopleManagement({ searchParams }: { searchParams: PageS
     }
 
     try {
-      const { data: added, error: err } = await supabase.from('people').insert([
-        {
-          email: formData.email.trim().toLowerCase(),   // a stray space or capital stopped people signing in
-          ...nameFields(formData.first_name, formData.last_name, formData.role === 'tenant' ? formData.middle_name : undefined),
-          salutation: formData.salutation || null,
-          phone: formData.phone || null,
-          date_of_birth: formData.date_of_birth || null,
-          nationality: formData.nationality || null,
-          occupation: formData.occupation || null,
-          annual_income: formData.annual_income || null,
-          role: formData.role,
-          property_id: formData.property_id || null,
-          // office staff: their job title (letters, sign-offs) and the access that job starts with
-          ...(activeTab === 'office' && jobTitle ? { job_title: jobTitle, access_areas: JOB_TITLES.find(j => j.title === jobTitle)?.areas ?? null } : {}),
-        },
-      ]).select('id').single()
-
-      if (err) throw err
+      // added by the server (15 Nov 2026 — the browser may no longer write to people: "permission denied for table people")
+      const r = await adminFetch('/api/admin/people', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+        email: formData.email.trim().toLowerCase(),   // a stray space or capital stopped people signing in
+        ...nameFields(formData.first_name, formData.last_name, formData.role === 'tenant' ? formData.middle_name : undefined),
+        salutation: formData.salutation || null,
+        phone: formData.phone || null,
+        date_of_birth: formData.date_of_birth || null,
+        nationality: formData.nationality || null,
+        occupation: formData.occupation || null,
+        annual_income: formData.annual_income || null,
+        role: formData.role,
+        property_id: formData.property_id || null,
+        // office staff: their job title (letters, sign-offs) and the access that job starts with
+        ...(activeTab === 'office' && jobTitle ? { job_title: jobTitle, access_areas: JOB_TITLES.find(j => j.title === jobTitle)?.areas ?? null } : {}),
+      }) }).catch(() => null)
+      const added = r ? await r.json().catch(() => ({})) as { id?: string; error?: string } : { error: 'No connection — try again.' }
+      if (!r?.ok) { setError(added.error || `Couldn’t add them (error ${r?.status ?? '—'}).`); return }
       const addedRole = formData.role, addedEmail = formData.email.trim().toLowerCase()
 
       setSuccess(`User ${formData.email} added successfully`)
@@ -341,8 +340,8 @@ export default function PeopleManagement({ searchParams }: { searchParams: PageS
     if (!confirm('Are you sure you want to delete this person?')) return
 
     try {
-      const { error: err } = await supabase.from('people').delete().eq('id', id)
-      if (err) throw err
+      const r = await adminFetch(`/api/admin/people?id=${id}`, { method: 'DELETE' }).catch(() => null)
+      if (!r?.ok) throw new Error((r ? (await r.json().catch(() => ({}))).error : null) || 'Not deleted — try again.')
 
       setSuccess('User deleted successfully')
       const { data } = await supabase.from('people').select('*').order('created_at', { ascending: false })
