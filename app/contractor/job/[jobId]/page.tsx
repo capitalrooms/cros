@@ -1122,9 +1122,21 @@ export default function JobDetailPage() {
             ) : (
               /* Step 3+: on site — before / after photos */
               <div className="rounded-2xl border-2 border-neutral-900 bg-white p-lg space-y-lg">
-                <p className="text-xs font-bold uppercase tracking-wide text-green-700">
-                  ✓ Arrived {new Date(job.arrived_at!).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
-                </p>
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-xs font-bold uppercase tracking-wide text-green-700">
+                    ✓ Arrived {new Date(job.arrived_at!).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London' })}
+                  </p>
+                  {/* tapped by mistake on the way there: take it back (within 20 minutes — lib/access/arrival undoArrival) */}
+                  {Date.now() - new Date(job.arrived_at!).getTime() < 20 * 60000 && (
+                    <button type="button" className="text-xs font-semibold text-neutral-500 underline" onClick={async () => {
+                      if (!confirm('Take back “I’ve arrived”? The tenants won’t be told you’re there.')) return
+                      const r = await adminFetch('/api/arrive', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'undo', kind: 'job', id: job.id }) }).catch(() => null)
+                      const d = r ? await r.json().catch(() => ({})) : {}
+                      if (!r?.ok) { alert((d as any).error || 'Couldn’t take it back — call the office.'); return }
+                      setJob(j => j ? { ...j, arrived_at: null } as any : j)
+                    }}>Not there yet?</button>
+                  )}
+                </div>
 
                 {/* Access Log - Courtesy check-in */}
                 <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-md">
