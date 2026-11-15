@@ -72,11 +72,11 @@ export async function GET(req: NextRequest) {
   { const { data: at } = await service.from('maintenance_tickets').select('tenant_access_any_time').eq('id', ticketId).maybeSingle(); (ticket as any).tenant_access_any_time = !!(at as any)?.tenant_access_any_time }
 
   // Fetch contractor name separately
-  let contractor: { first_name: string | null; last_name: string | null } | null = null
+  let contractor: { first_name: string | null } | null = null
   if ((ticket as any).contractor_id) {
     const { data: c } = await service
       .from('people')
-      .select('salutation, first_name, last_name')
+      .select('first_name')   // tenants see the first name only — not surname, number or company (15 Nov 2026)
       .eq('id', (ticket as any).contractor_id)
       .single()
     contractor = c || null
@@ -141,8 +141,22 @@ export async function POST(req: NextRequest) {
   const c = await requireSignedIn(req)
   if (!c || c.role !== 'tenant' || c.viewingAsBy) return NextResponse.json({ error: 'Please sign in again.' }, { status: 401 })
   const b = await req.json().catch(() => ({}))
-  if (b.action !== 'any_time') return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
   const s = serviceClient()
+  // a reply to the contractor's question (lib/jobs/tenantQuestion) — anyone living there who'd be visited
+  if (b.action === 'reply') {
+    const { data: tk } = await s.from('maintenance_tickets').select('id, property_id, room_id, location').eq('id', String(b.ticketId ?? '')).maybeSingle()
+    if (!tk) return NextResponse.json({ error: 'That job wasn’t found.' }, { status: 404 })
+    const { activeTenantIds } = await import('@/lib/serverNotify')
+    const { inTenantRoom } = await import('@/lib/repairs/where')
+    const ids = await activeTenantIds(s as any, tk.property_id, inTenantRoom({ location: (tk as any).location }) ? tk.room_id : null)
+    if (!ids.includes(c.personId)) return NextResponse.json({ error: 'This job isn’t at your home.' }, { status: 403 })
+    const { data: me } = await s.from('people').select('first_name, full_name').eq('id', c.personId).maybeSingle()
+    const { data: room } = tk.room_id ? await s.from('rooms').select('name').eq('id', tk.room_id).maybeSingle() : { data: null }
+    const { replyToContractor } = await import('@/lib/jobs/tenantQuestion')
+    const r = await replyToContractor(s as any, tk.id, { personId: c.personId, name: (me as any)?.first_name || (me as any)?.full_name || 'The tenant', room: (room as any)?.name ?? null }, String(b.text ?? ''))
+    return r.ok ? NextResponse.json(r) : NextResponse.json({ error: r.error }, { status: 400 })
+  }
+  if (b.action !== 'any_time') return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
   const { data: t } = await s.from('maintenance_tickets').select('id, property_id, room_id').eq('id', String(b.ticketId ?? '')).maybeSingle()
   if (!t?.room_id) return NextResponse.json({ error: 'This job isn’t in your room.' }, { status: 400 })
   const { activeTenantIds } = await import('@/lib/serverNotify')

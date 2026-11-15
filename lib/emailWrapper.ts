@@ -119,7 +119,9 @@ export function ctaButton(label: string, href: string): string {
 /** @deprecated Senders are per person now — use senderFields()/senderFor() from lib/email/sender.
  *  Kept as a safety net: a real, monitored mailbox rather than noreply@. */
 export const FROM = 'Capital Rooms <management@capitalrooms.co.uk>'
-export const PORTAL_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://capitalrooms.co.uk'
+// links people tap in texts and emails always go to the live site — never a test machine's address (15 Nov 2026:
+// a test raised from a laptop texted a 192.168… link that no phone could open)
+export const PORTAL_URL = /^https:\/\/(?!localhost|127\.|192\.168\.|10\.)/.test(process.env.NEXT_PUBLIC_APP_URL ?? '') ? process.env.NEXT_PUBLIC_APP_URL! : 'https://capitalrooms.co.uk'
 
 // ─── The house email (agreed 27 Sep 2026) ─────────────────────────────────────
 // A white top bar with the black Capital Rooms logo and a fine rule (option C, chosen 28 Sep 2026 — so it's clear

@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireSignedIn } from '@/lib/portalAuth'
 import { createServiceClient } from '@/lib/supabase'
 import { tenantView, tenantAction, tickIfStale } from '@/lib/emergencies/engine'
+import { firstNameForTenants } from '@/lib/jobs/tenantQuestion'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -16,6 +17,13 @@ async function myProperties(s: ReturnType<typeof createServiceClient>, personId:
   const { data } = await s.from('tenancies').select('property_id').or(`person_id.eq.${personId},co_tenant_id.eq.${personId}`)
     .is('let_cancelled_at', null).lte('start_date', today).or(`end_date.is.null,end_date.gte.${today}`)
   return [...new Set(((data ?? []) as any[]).map(t => t.property_id).filter(Boolean))] as string[]
+}
+// the booked contractor's first name, for the tenant ("Ricky, our emergency contractor")
+async function withContractor(s: ReturnType<typeof createServiceClient>, em: any) {
+  if (!em?.chosen_response_id) return em
+  const { data: r } = await s.from('emergency_responses').select('people!contractor_id(salutation, first_name, last_name, full_name, company)').eq('id', em.chosen_response_id).maybeSingle() as { data: any }
+  const first = firstNameForTenants(r?.people)
+  return { ...em, contractorFirst: first === 'Your contractor' ? null : first }
 }
 const SELECT = 'id, ticket_id, kind, title, details, status, controlled, eta_at, chosen_response_id, created_at, property_id, reporter_id, properties(name)'
 
@@ -29,13 +37,13 @@ export async function GET(req: NextRequest) {
   if (id) {
     const { data: em } = await s.from('emergencies').select(SELECT).eq('id', id).maybeSingle() as { data: any }
     if (!em || !(props.includes(em.property_id) || em.reporter_id === me.personId)) return NextResponse.json({ error: 'Not found' }, { status: 404 })
-    return NextResponse.json({ item: tenantView(em) })
+    return NextResponse.json({ item: tenantView(await withContractor(s, em)) })
   }
   if (!props.length) return NextResponse.json({ items: [] })
   const since = new Date(Date.now() - 3 * 86400000).toISOString()
   const { data } = await s.from('emergencies').select(SELECT).in('property_id', props).gte('created_at', since)
     .not('status', 'in', '(resolved,cancelled)').order('created_at', { ascending: false }) as { data: any[] | null }
-  return NextResponse.json({ items: (data ?? []).map(tenantView) })
+  return NextResponse.json({ items: await Promise.all((data ?? []).map(async e => tenantView(await withContractor(s, e)))) })
 }
 
 export async function POST(req: NextRequest) {

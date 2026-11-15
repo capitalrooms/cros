@@ -3,10 +3,12 @@
  *   GET  ?token=…                         → what they may see (area only until they're confirmed)
  *   POST { token, answer: 'yes'|'no', etaAt?, fee?, note? }                    first answer
  *   POST { token, outcome, note?, part?, fixCost?, returnDate?, returnSlot?, newEta? }   after the visit
+ *   POST { token, action: 'on_my_way' | 'ask', question? }   once booked: tell the house / ask the tenants (15 Nov 2026)
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase'
-import { byToken, viewFor, respond, report, tick } from '@/lib/emergencies/engine'
+import { byToken, viewFor, respond, report, tick, ticketOnMyWay } from '@/lib/emergencies/engine'
+import { askTenants } from '@/lib/jobs/tenantQuestion'
 import { TIME_SLOTS } from '@/lib/booking'
 
 export const runtime = 'nodejs'
@@ -29,7 +31,13 @@ export async function POST(req: NextRequest) {
   const s = createServiceClient()
   const t = String(b.token ?? '')
   let out: any
-  if (b.answer === 'yes' || b.answer === 'no') {
+  if (b.action === 'on_my_way' || b.action === 'ask') {
+    const got = await byToken(s, t)
+    if (!got || got.em.chosen_response_id !== got.r.id || !got.em.ticket_id) return NextResponse.json({ error: 'You’re not booked for this one' }, { status: 400 })
+    out = b.action === 'on_my_way'
+      ? (await ticketOnMyWay(s, got.em.ticket_id), { ok: true })
+      : await askTenants(s, got.em.ticket_id, got.r.contractor_id, String(b.question ?? ''))
+  } else if (b.answer === 'yes' || b.answer === 'no') {
     const eta = isoOrNull(b.etaAt)
     if (b.answer === 'yes' && eta && new Date(eta).getTime() < Date.now() - 5 * 60000) return NextResponse.json({ error: 'That time has already passed' }, { status: 400 })
     out = await respond(s, t, { answer: b.answer, etaAt: eta, fee: b.fee === '' || b.fee == null ? null : Number(b.fee), note: String(b.note ?? '') })

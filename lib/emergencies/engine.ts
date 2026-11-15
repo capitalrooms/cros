@@ -11,6 +11,7 @@
 // Status changes are conditional updates, so two ticks running at once can never both confirm someone.
 
 import { inTenantRoom } from '@/lib/repairs/where'
+import { firstNameForTenants } from '@/lib/jobs/tenantQuestion'
 import { placeLabel, isWholeLet } from '@/lib/lettings/letWording'
 import crypto from 'node:crypto'
 import { readKeySafe } from '@/lib/access/keySafe'
@@ -348,7 +349,7 @@ export async function choose(s: S, emId: string, responseId: string, by: string,
   await log(s, emId, 'confirmed', `${pname(r.people)} confirmed — due by ${ukWhen(r.eta_at)}, call-out ${gbp(r.call_out_fee)}. ${why}${sms.via.length ? ` — sent by ${sms.via.join(', ')}` : ` (couldn’t reach them: ${sms.error} — call them)`}`, by)
   // coming tomorrow: how to manage until then
   const notToday = new Date(r.eta_at).toLocaleDateString('en-CA', { timeZone: 'Europe/London' }) !== new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
-  await tellHouse(s, em, 'Help is on the way', `A contractor is booked and hoping to be with you by ${ukWhen(r.eta_at)}. If they’re not there by then, we’ll chase them — and send someone else if we need to.${notToday ? tonight(KINDS[em.kind as EmergencyKind]) : ''}`)
+  await tellHouse(s, em, 'Help is on the way', `${firstNameForTenants(r.people) === 'Your contractor' ? 'Our emergency contractor' : `${firstNameForTenants(r.people)}, our emergency contractor,`} is booked and hoping to be with you by ${ukWhen(r.eta_at)}. If they’re not there by then, we’ll chase them — and send someone else if we need to.${notToday ? tonight(KINDS[em.kind as EmergencyKind]) : ''}`)
   await alertOffice(s, em, `Emergency covered — ${firstLine(em.properties?.name)}`, `${pname(r.people)} due by ${ukWhen(r.eta_at)} for ${gbp(r.call_out_fee)}. CROS will check in at ${ukWhen(followup)}.`)
   return { ok: true }
 }
@@ -442,7 +443,7 @@ export async function report(s: S, t: string, a: {
     await s.from('emergencies').update({ status: 'on_site', followup_due_at: new Date(Date.now() + set.followupMin * 60000).toISOString(), followup_sent_at: null, followup_reminded_at: null, updated_at: now }).eq('id', em.id)
     if (em.ticket_id) await s.from('maintenance_tickets').update({ arrived_at: now }).eq('id', em.ticket_id)
     await log(s, em.id, 'on_site', `${name} is on site${note ? ` — “${note}”` : ''}`, name)
-    await tellHouse(s, em, 'The contractor has arrived', 'The contractor is at the property now.')
+    await tellHouse(s, em, 'The contractor has arrived', `${firstNameForTenants(who)} is at the property now.`.replace(/^Your contractor/, 'The contractor'))
     return { ok: true }
   }
   if (a.outcome === 'running_late') {
@@ -808,6 +809,7 @@ export function tenantView(em: any) {
     controlled: !!em.controlled, bathroomAbove: /bathroom or toilet above the leak/i.test(String(em.details ?? '')),
     steps: info?.steps ?? [], overnight: info?.overnight ?? [], callServices: info?.callServices ?? null,
     house: firstLine(em.properties?.name),
+    contractor: em.contractorFirst ?? null,   // first name only, filled in by the tenant API
   }
 }
 

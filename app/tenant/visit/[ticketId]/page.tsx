@@ -10,6 +10,7 @@ import BackButton from '@/app/components/BackButton'
 import { createClient } from '@/lib/supabase'
 import { slotLabel } from '@/lib/booking'
 import LineIcon from '@/components/LineIcon'
+import { hiName } from '@/lib/people'
 
 interface Ticket {
   id: string
@@ -111,6 +112,11 @@ export default function VisitDetailPage() {
   const [submittingRequest, setSubmittingRequest] = useState(false)
   const [requestDone, setRequestDone] = useState(false)
   const [error, setError] = useState('')
+  // a message to the contractor, or the answer to their question (lib/jobs/tenantQuestion)
+  const [cMsg, setCMsg] = useState('')
+  const [cSent, setCSent] = useState('')
+  const [cBusy, setCBusy] = useState(false)
+  const replyAsked = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('reply') === '1'
 
   const supabase = createClient()
 
@@ -209,8 +215,11 @@ export default function VisitDetailPage() {
 
   const hasFallback = ticket?.short_notice_pending && ticket.fallback_date
 
-  // tenants are never told who the contractor is (Capital Rooms' rule) — just that one is booked
-  const contractorName = ticket?.contractor ? 'A Capital Rooms contractor' : null
+  // tenants see the contractor's FIRST name only — so they know who's at the door (Harry, 15 Nov 2026: "Ricky our
+  // emergency contractor will be visiting"); never their surname, number or company
+  const first = ticket?.contractor ? hiName(ticket.contractor as any) : ''
+  const contractorName = ticket?.contractor ? (first && first !== 'there' ? `${first} — your Capital Rooms contractor` : 'Your Capital Rooms contractor') : null
+  const contractorFirst = first && first !== 'there' ? first : 'your contractor'
 
   const pendingRequest = requests.find(r => r.status === 'pending')
   const canAddRequest = !pendingRequest && ticket?.booked_date && ticket.status !== 'completed'
@@ -374,6 +383,22 @@ export default function VisitDetailPage() {
               </p>
             </div>
           </div>
+
+          {(ticket as any).contractor_id && !['completed', 'cancelled'].includes(ticket.status) && (
+            <section className={`mt-md space-y-sm rounded-2xl bg-white p-lg ${replyAsked ? 'ring-2 ring-[color:var(--cr-gold)]' : 'border border-neutral-200'}`}>
+              <p className="text-sm font-bold text-neutral-900">{replyAsked ? `Answer ${contractorFirst}’s question` : `Message ${contractorFirst}`}</p>
+              <textarea value={cMsg} onChange={e => setCMsg(e.target.value)} rows={2} placeholder="e.g. I’m out until 4 — the key is with Room 2" className="w-full rounded-xl border border-neutral-300 px-md py-sm text-[16px]" />
+              <button type="button" disabled={cBusy || !cMsg.trim()} onClick={async () => {
+                setCBusy(true)
+                const r = await adminFetch('/api/tenant/visit-ticket', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'reply', ticketId: ticket.id, text: cMsg }) }).catch(() => null)
+                const j = r ? await r.json().catch(() => ({})) : {}
+                setCBusy(false)
+                if (!r?.ok) { alert((j as any).error || 'That didn’t send — try again.'); return }
+                setCMsg(''); setCSent(`Sent to ${contractorFirst}.`)
+              }} className="h-11 w-full rounded-full bg-[#17332B] text-sm font-bold text-white disabled:opacity-40">Send</button>
+              {cSent && <p className="text-sm font-semibold text-[#17332B]">{cSent}</p>}
+            </section>
+          )}
         </div>
 
         {/* ── Other open tickets in this room ───────────────────────────── */}

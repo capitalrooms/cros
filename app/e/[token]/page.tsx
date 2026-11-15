@@ -68,13 +68,17 @@ export default function EmergencyLink({ params }: { params: Promise<{ token: str
   const [fee, setFee] = useState('')
   const [note, setNote] = useState('')
   // after the visit
-  const [mode, setMode] = useState<'' | 'late' | 'cant' | 'report'>('')
+  const [mode, setMode] = useState<'' | 'late' | 'cant' | 'report' | 'ask'>('')
   const [outcome, setOutcome] = useState<'fixed' | 'made_safe' | 'not_fixed' | ''>('')
   const [part, setPart] = useState('')
   const [fixCost, setFixCost] = useState('')
   const [returnDate, setReturnDate] = useState('')
   const [returnSlot, setReturnSlot] = useState('')
   const [newEta, setNewEta] = useState('')
+  const [question, setQuestion] = useState('')
+  const [sent, setSent] = useState('')
+  const [onWay, setOnWay] = useState(false)
+  useEffect(() => { try { setOnWay(!!localStorage.getItem(`cros-onway-e-${token}`)) } catch { /* private */ } }, [token])
 
   async function load() {
     const r = await fetch(`/api/emergencies/respond?token=${encodeURIComponent(token)}`)
@@ -193,10 +197,25 @@ export default function EmergencyLink({ params }: { params: Promise<{ token: str
         <Card>
           {!mode && (
             <div className="space-y-2">
-              {!r.onSite && <button type="button" disabled={busy} onClick={() => post({ outcome: 'on_site' })} className={`${btn} ${HONEY}`}>I’m here now</button>}
+              {/* follows the clock, like the app: On my way until 30 minutes before their time, then I'm here */}
+              {!r.onSite && !onWay && view.eta && Date.now() < new Date(view.eta).getTime() - 30 * 60000
+                ? <button type="button" disabled={busy} onClick={async () => { if (await post({ action: 'on_my_way' })) { try { localStorage.setItem(`cros-onway-e-${token}`, '1') } catch { /* private */ } setOnWay(true); setSent('The tenants know you’re on your way.') } }} className={`${btn} ${HONEY}`}>On my way</button>
+                : !r.onSite && <button type="button" disabled={busy} onClick={() => { if (confirm('Are you at the property now? The tenants will be told you’re here.')) post({ outcome: 'on_site' }) }} className={`${btn} ${HONEY}`}>I’m here now</button>}
               <button type="button" onClick={() => { setMode('report'); setOutcome('') }} className={`${btn} ${r.onSite ? HONEY : OUTLINE}`}>How did it go?</button>
               {!r.onSite && <button type="button" onClick={() => setMode('late')} className={`${btn} ${OUTLINE}`}>I’m running late</button>}
+              <button type="button" onClick={() => { setSent(''); setMode('ask') }} className={`${btn} ${OUTLINE}`}>Ask the tenants a question</button>
               {!r.onSite && <button type="button" onClick={() => setMode('cant')} className={`${btn} border-[1.5px] border-[#8E2318] bg-white text-[#8E2318]`}>I can’t make it after all</button>}
+            </div>
+          )}
+
+          {sent && !mode && <p className="mt-2 text-sm font-semibold text-[#17332B]">{sent}</p>}
+          {mode === 'ask' && (
+            <div className="space-y-3">
+              <p className="text-base font-bold">Ask the tenants</p>
+              <p className="text-sm text-[#4E6158]">They get it on their phone. Their answer is texted straight back to you.</p>
+              <textarea className={input} rows={3} value={question} onChange={e => setQuestion(e.target.value)} placeholder="e.g. Where is the stopcock? Is the water still coming through?" />
+              <button type="button" disabled={busy || !question.trim()} onClick={async () => { if (await post({ action: 'ask', question })) { setQuestion(''); setSent('Sent — their answer will come to you by text.') } }} className={`${btn} ${FOREST}`}>{busy ? 'Sending…' : 'Send question'}</button>
+              <button type="button" onClick={() => setMode('')} className="w-full text-sm text-[#4E6158]">Back</button>
             </div>
           )}
 

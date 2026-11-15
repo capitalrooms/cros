@@ -12,7 +12,7 @@ type View = {
   id: string; label: string; stage: 'finding' | 'booked' | 'on_site' | 'morning' | 'call_999' | 'closed'; status: string
   reportedAt: string; etaText: string | null; controlled: boolean; bathroomAbove: boolean
   steps: string[]; overnight: string[]; callServices: string | null; house: string
-  overdue?: boolean; othersAt?: string | null; eta?: string | null
+  overdue?: boolean; othersAt?: string | null; eta?: string | null; contractor?: string | null; ticketId?: string | null
 }
 const STAGES = [
   { key: 'reported', label: 'Reported' },
@@ -32,6 +32,19 @@ export default function TenantEmergency({ params }: { params: Promise<{ id: stri
   const [note, setNote] = useState('')
   const [busy, setBusy] = useState(false)
   const [done, setDone] = useState('')
+  // a message to the booked contractor — or the answer to their question (lib/jobs/tenantQuestion)
+  const [msg, setMsg] = useState('')
+  const [msgSent, setMsgSent] = useState('')
+  const replyAsked = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('reply') === '1'
+  async function sendMsg() {
+    if (!v?.ticketId || !msg.trim()) return
+    setBusy(true)
+    const r = await adminFetch('/api/tenant/visit-ticket', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'reply', ticketId: v.ticketId, text: msg }) }).catch(() => null)
+    const j = r ? await r.json().catch(() => ({})) : {}
+    setBusy(false)
+    if (!r?.ok) { alert((j as any).error || 'That didn’t send — try again.'); return }
+    setMsg(''); setMsgSent(`Sent to ${v.contractor ?? 'your contractor'}.`)
+  }
 
   const load = useCallback(() => adminFetch(`/api/tenant/emergency?id=${id}`).then(async r => {
     const j = await r.json().catch(() => ({}))
@@ -57,8 +70,8 @@ export default function TenantEmergency({ params }: { params: Promise<{ id: stri
   }
 
   const headline = !v ? '' : v.stage === 'finding' ? 'We’re finding a contractor'
-    : v.stage === 'booked' ? (v.overdue ? 'Has the contractor arrived?' : `A contractor is booked${v.etaText ? ` — hoping to be with you by ${v.etaText}` : ''}`)
-    : v.stage === 'on_site' ? 'The contractor is there now'
+    : v.stage === 'booked' ? (v.overdue ? `Has ${v.contractor ?? 'the contractor'} arrived?` : `${v.contractor ? `${v.contractor}, our emergency contractor,` : 'A contractor'} is booked${v.etaText ? ` — hoping to be with you by ${v.etaText}` : ''}`)
+    : v.stage === 'on_site' ? `${v.contractor ?? 'The contractor'} is there now`
     : v.stage === 'morning' ? 'Made safe — we’ll book someone first thing'
     : v.stage === 'call_999' ? 'Call the emergency services'
     : 'Sorted'
@@ -104,7 +117,7 @@ export default function TenantEmergency({ params }: { params: Promise<{ id: stri
 
         {v?.stage === 'booked' && v.overdue && !done && (
           <section className="space-y-2 rounded-2xl bg-white p-4 ring-2 ring-[color:var(--cr-gold)]">
-            <h2 className="text-[15px] font-extrabold text-[#14261F]">Has the contractor arrived?</h2>
+            <h2 className="text-[15px] font-extrabold text-[#14261F]">Has {v.contractor ?? 'the contractor'} arrived?</h2>
             <button type="button" disabled={busy} onClick={() => send('arrived')} className="h-12 w-full rounded-full text-[15px] font-bold text-[#17332B] shadow-[0_3px_0_var(--cr-honey-edge)] disabled:opacity-40" style={{ background: 'var(--cr-gold)' }}>Yes, they’re here</button>
             <button type="button" disabled={busy} onClick={() => send('no_show')} className="h-12 w-full rounded-full border-[1.5px] border-[#17332B] text-[15px] font-bold text-[#17332B] disabled:opacity-40">No one has come yet</button>
           </section>
@@ -115,6 +128,15 @@ export default function TenantEmergency({ params }: { params: Promise<{ id: stri
             <h2 className="text-[15px] font-extrabold text-[#14261F]">Once they’ve finished — is it sorted?</h2>
             <button type="button" disabled={busy} onClick={() => send('sorted')} className="h-12 w-full rounded-full text-[15px] font-bold text-[#17332B] shadow-[0_3px_0_var(--cr-honey-edge)] disabled:opacity-40" style={{ background: 'var(--cr-gold)' }}>Yes, it’s sorted</button>
             <button type="button" disabled={busy} onClick={() => send('not_fixed')} className="h-12 w-full rounded-full border-[1.5px] border-[#8E2318] text-[15px] font-bold text-[#8E2318] disabled:opacity-40">They’ve gone and it’s not fixed</button>
+          </section>
+        )}
+
+        {v && ['booked', 'on_site'].includes(v.stage) && (
+          <section className={`space-y-2 rounded-2xl bg-white p-4 shadow-[0_2px_0_#DCE5DD] ${replyAsked ? 'ring-2 ring-[color:var(--cr-gold)]' : ''}`}>
+            <h2 className="text-[15px] font-extrabold text-[#14261F]">{replyAsked ? `Answer ${v.contractor ?? 'your contractor'}’s question` : `Message ${v.contractor ?? 'your contractor'}`}</h2>
+            <textarea value={msg} onChange={e => setMsg(e.target.value)} rows={2} placeholder="e.g. the stopcock is under the stairs; ring the top bell" className="w-full rounded-xl border-[1.5px] border-[#DCE5DD] px-3 py-2 text-[16px] text-[#14261F]" />
+            <button type="button" disabled={busy || !msg.trim()} onClick={sendMsg} className="h-11 w-full rounded-full bg-[#17332B] text-[15px] font-bold text-white disabled:opacity-40">Send</button>
+            {msgSent && <p className="text-sm font-semibold text-[#17332B]">{msgSent}</p>}
           </section>
         )}
 

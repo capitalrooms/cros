@@ -12,6 +12,7 @@ import { sendServerPush } from '@/lib/serverPush'
 import { sendEmail } from '@/lib/sendEmail'
 import { createServiceClient } from '@/lib/supabase'
 import { insertNotifications } from '@/lib/serverNotify'
+import { bookingLink } from '@/lib/jobs/bookingLink'
 
 const esc = (v: string) => v.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' } as Record<string, string>)[c])
 
@@ -29,8 +30,15 @@ export interface ContractorMessage {
   emailBodyHtml?: string // inner HTML only — sendEmail adds the house style
 }
 
-export async function tellContractor(p: any, personId: string, msg: ContractorMessage): Promise<{ via: string[]; error?: string }> {
+export async function tellContractor(p: any, personId: string, raw: ContractorMessage): Promise<{ via: string[]; error?: string }> {
   const via: string[] = []; const errs: string[] = []
+  // texts and emails open their own job page — no sign-in needed (app/book/[token]: book, on my way, I'm here, running
+  // late, done, ask the tenants). A link to the app's job page only works signed in, so it's swapped here, once, for
+  // every sender (15 Nov 2026). App notifications (msg.url) still open the app.
+  const msg = { ...raw }
+  const appJob = /https?:\/\/[^\s"'<>]+\/contractor\/job\/([0-9a-f-]{36})(?:\?[^\s"'<>]*)?/gi
+  const swap = (v?: string) => v?.replace(appJob, (_m, id: string) => bookingLink(id, personId))
+  msg.text = swap(msg.text)!; msg.link = swap(msg.link)!; if (msg.emailBodyHtml) msg.emailBodyHtml = swap(msg.emailBodyHtml)
   const { bySms, byPush, byEmail } = contactChoice(p)
   // always in their app too (14 Nov 2026 — a new job left nothing in the app: no bell, no "new job" card). The inbox
   // entry is what the contractor home shows as "New job" and the bell counts, whatever else reaches them.
