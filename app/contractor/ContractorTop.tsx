@@ -10,7 +10,7 @@ import type { ReactNode } from 'react'
 import { AskBar, Greeting, Hero, HoneyButton, GhostButton, Tile, Banner, ListCard, Row, Ico, PATHS, display } from '@/app/components/garden/kit'
 import { useArrival } from '@/app/components/garden/useArrival'
 import StaffNotificationBell from '@/app/components/StaffNotificationBell'
-import { slotLabel } from '@/lib/booking'
+import { slotLabel, slotStart } from '@/lib/booking'
 import { inTenantRoom, jobWhere } from '@/lib/repairs/where'
 import EnableNotifications from '@/app/components/EnableNotifications'
 
@@ -39,8 +39,71 @@ export default function ContractorTop({ firstName, booked, weekCount, quotesWait
   const room = next && inTenantRoom({ location: (next as any).location }) && next.rooms?.name ? `${next.rooms.name}${next.rooms.location_in_house ? ` (${next.rooms.location_in_house})` : ''}` : (next as any)?.location ? `${jobWhere(next as any)} · shared area` : 'Shared areas'
   const maps = next?.properties ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent([next.properties.address || next.properties.name, next.properties.postcode].filter(Boolean).join(', '))}` : null
 
+  // "On my way": remembered on this phone for the job; the tenants are told (once, server side)
+  const wayKey = (j: Job) => `cros-onway-${j.id}`
+  const [onWay, setOnWay] = useState(false)
+  const [wayBusy, setWayBusy] = useState(false)
+  const [wayMsg, setWayMsg] = useState('')
+  useEffect(() => { if (next) try { setOnWay(!!localStorage.getItem(wayKey(next))) } catch { /* private mode */ } }, [next?.id])   // eslint-disable-line react-hooks/exhaustive-deps
+  async function onMyWay(j: Job) {
+    setWayBusy(true)
+    const r = await adminFetch('/api/arrive', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'on_my_way', id: j.id }) }).catch(() => null)
+    setWayBusy(false)
+    if (!r?.ok) { const e = await r?.json().catch(() => ({})); alert((e as any)?.error || 'That didn’t send — try again.'); return }
+    try { localStorage.setItem(wayKey(j), new Date().toISOString()) } catch { /* private mode */ }
+    setOnWay(true); setWayMsg('The tenants know you’re on your way. Tap “I’m here” when you arrive.')
+  }
+  // where they are against their time: before / due (30 minutes before, or once on their way) / late (past the end of
+  // their slot or time) / very late (45 minutes after that) / arrived. Re-worked every minute.
+  const [tickNow, setTickNow] = useState(() => Date.now())
+  useEffect(() => { const i = setInterval(() => setTickNow(Date.now()), 60000); return () => clearInterval(i) }, [])
+  const londonMin = (() => { const d = new Date(new Date(tickNow).toLocaleString('en-US', { timeZone: 'Europe/London' })); return d.getHours() * 60 + d.getMinutes() })()
+  const window_ = (j: Job) => {
+    const slot = String(j.booked_slot ?? '')
+    const st = slotStart(slot)
+    if (!st) return null
+    const [h, m] = st.split(':').map(Number)
+    const end = /^\d{1,2}-(\d{1,2})$/.exec(slot)
+    return { start: h * 60 + m, end: end ? Number(end[1]) * 60 : h * 60 + m }
+  }
+  const phaseOf = (j: Job | undefined): 'none' | 'later' | 'before' | 'due' | 'late' | 'very_late' | 'arrived' => {
+    if (!j) return 'none'
+    if (j.arrived_at) return 'arrived'
+    if (j.booked_date !== todayIso()) return 'later'
+    const w = window_(j)
+    if (!w) return onWay ? 'due' : 'before'
+    if (londonMin > w.end + 45) return 'very_late'
+    if (londonMin > w.end) return 'late'
+    return onWay || londonMin >= w.start - 30 ? 'due' : 'before'
+  }
+  const phase = phaseOf(next)
+
+  // "I'm running late": pick how late — the tenants are told; on an emergency the clock moves to the new time
+  const [lateOpen, setLateOpen] = useState(false)
+  const [lateOther, setLateOther] = useState('')
+  async function sendLate(minutes: number | null) {
+    if (!next) return
+    let eta: Date
+    if (minutes != null) eta = new Date(Date.now() + minutes * 60000)
+    else { if (!lateOther) return; const [h, m] = lateOther.split(':').map(Number); eta = new Date(); eta.setHours(h, m, 0, 0); if (eta.getTime() < Date.now()) { alert('Pick a time later today.'); return } }
+    const r = await adminFetch('/api/arrive', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'running_late', id: next.id, eta: eta.toISOString() }) }).catch(() => null)
+    const j = r ? await r.json().catch(() => ({})) : {}
+    if (!r?.ok) { alert((j as any).error || 'That didn’t send — try again.'); return }
+    setLateOpen(false); setLateOther('')
+    setWayMsg(`The tenants have been told you’ll be there by ${eta.toLocaleTimeString('en-GB', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Europe/London' }).replace(/\s/g, '')}.`)
+  }
+
+  // "I'm here" tapped by mistake — take it back (within 20 minutes)
+  async function undoHere(j: Job) {
+    if (!confirm('Take back “I’m here”? The tenants won’t be told you’ve arrived.')) return
+    const r = await adminFetch('/api/arrive', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'undo', kind: 'job', id: j.id }) }).catch(() => null)
+    const d = r ? await r.json().catch(() => ({})) : {}
+    if (!r?.ok) { alert((d as any).error || 'Couldn’t take it back — call the office.'); return }
+    window.location.reload()
+  }
+
   async function imHere(j: Job) {
-    await arrive('job', j.id, { onDone: () => router.push(jobHref(j)) })
+    await arrive('job', j.id, { onDone: () => { window.location.href = jobHref(j) } })
   }
 
   return (
@@ -79,10 +142,21 @@ export default function ContractorTop({ firstName, booked, weekCount, quotesWait
       <Greeting eyebrow={`Hi ${firstName} — ${next ? 'your next job is at' : 'nothing booked yet'}`} title={next ? (next.properties?.name?.split(',')[0] ?? 'Your next job') : 'All clear'} />
 
       {next ? (
-        <Hero art="tool" height={190} tone={String(next.priority).toLowerCase() === 'emergency' ? 'red' : undefined} eyebrow={`${String(next.priority).toLowerCase() === 'emergency' ? 'EMERGENCY · ' : ''}${dayName(next.booked_date!)}${slotLabel(next.booked_slot) ? ` · ${slotLabel(next.booked_slot)}` : ''}`} title={what(next)}
+        <Hero art="tool" height={190} tone={String(next.priority).toLowerCase() === 'emergency' ? 'red' : undefined} eyebrow={`${phase === 'late' || phase === 'very_late' ? 'You’re late — the tenants are expecting you · ' : String(next.priority).toLowerCase() === 'emergency' ? 'EMERGENCY · ' : ''}${dayName(next.booked_date!)}${slotLabel(next.booked_slot) ? ` · ${slotLabel(next.booked_slot)}` : ''}`} title={what(next)}
           sub={[String(next.priority).toLowerCase() === 'emergency' ? 'Emergency' : next.priority ? `Priority ${String(next.priority).replace(/^p/i, '')}` : '', room].filter(Boolean).join(' · ')}>
-          {isToday && !next.arrived_at ? <HoneyButton onClick={() => imHere(next)}>I’m here</HoneyButton> : <HoneyButton reload href={jobHref(next)}>{next.arrived_at ? 'Carry on' : 'Open the job'}</HoneyButton>}
+          {/* buttons that follow the clock (15 Nov 2026, Harry: "idiot proof … adjusting with the time rather than sitting
+              with old boxes"): before → On my way; due → I'm here + Running late; late → the same, said plainly; well
+              past → Rebook first. Every step can be skipped; "I'm here" asks first and can be taken back. */}
+          {(phase === 'arrived' || phase === 'later') && <HoneyButton reload href={jobHref(next)}>{phase === 'arrived' ? 'Open the job' : 'See job'}</HoneyButton>}
+          {phase === 'before' && <HoneyButton disabled={wayBusy} onClick={() => onMyWay(next)}>{wayBusy ? 'Telling them…' : 'On my way'}</HoneyButton>}
+          {(phase === 'due' || phase === 'late') && <HoneyButton onClick={() => imHere(next)}>I’m here</HoneyButton>}
+          {phase === 'very_late' && <HoneyButton reload href={`${jobHref(next)}${jobHref(next).includes('?') ? '&' : '?'}rebook=1`}>Rebook the visit</HoneyButton>}
+          {phase === 'very_late' && <GhostButton onClick={() => imHere(next)}>I’m here</GhostButton>}
+          {(phase === 'due' || phase === 'late') && <GhostButton onClick={() => setLateOpen(true)}>I’m running late</GhostButton>}
+          {phase === 'arrived' && next.arrived_at && tickNow - new Date(next.arrived_at).getTime() < 20 * 60000 && <GhostButton onClick={() => undoHere(next)}>Not there yet?</GhostButton>}
           {maps && <GhostButton href={maps}>Directions</GhostButton>}
+          {phase !== 'arrived' && phase !== 'later' && <GhostButton href={jobHref(next)}>See job</GhostButton>}
+          {wayMsg && <p className="w-full text-xs font-semibold text-[#F1F5EE]">{wayMsg}</p>}
         </Hero>
       ) : (
         <Hero art="tool" eyebrow="Nothing booked" title="Jobs to book show below" sub="Book a visit and the tenants are told" height={176} />
@@ -120,6 +194,23 @@ export default function ContractorTop({ firstName, booked, weekCount, quotesWait
 
       <div>{poppingBy}</div>
       {sheet}
+      {lateOpen && (
+        <div className="fixed inset-0 z-[90] flex items-end justify-center bg-black/40 sm:items-center" role="dialog" aria-modal="true" onMouseDown={e => { if (e.target === e.currentTarget) setLateOpen(false) }}>
+          <div className="w-full max-w-md rounded-t-[28px] bg-[#EEF2EC] p-5 sm:rounded-[28px]" style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 20px)' }}>
+            <p className="text-xs font-bold uppercase tracking-widest text-[#4E6158]">Running late</p>
+            <p className="mt-2 text-[17px] font-bold text-[#14261F]">When will you be there?</p>
+            <div className="mt-3 grid grid-cols-3 gap-2">
+              {[[15, '15 min'], [30, '30 min'], [60, '1 hour']].map(([m, l]) => <button key={l} type="button" onClick={() => sendLate(m as number)} className="h-12 rounded-full border-[1.5px] border-[#17332B] bg-white text-sm font-bold text-[#17332B]">{l}</button>)}
+            </div>
+            <div className="mt-2 flex gap-2">
+              <input type="time" value={lateOther} onChange={e => setLateOther(e.target.value)} className="h-12 flex-1 rounded-full border-[1.5px] border-[#DCE5DD] bg-white px-4 text-[16px] text-[#14261F]" aria-label="Another time" />
+              <button type="button" disabled={!lateOther} onClick={() => sendLate(null)} className="h-12 rounded-full px-5 text-sm font-bold text-[#17332B] shadow-[0_3px_0_var(--cr-honey-edge)] disabled:opacity-40" style={{ background: 'var(--cr-gold)' }}>Send</button>
+            </div>
+            <p className="mt-2 text-xs text-[#4E6158]">The tenants are told straight away. Can’t make it today? <a className="font-bold underline" href={`${jobHref(next!)}${jobHref(next!).includes('?') ? '&' : '?'}rebook=1`}>Rebook the visit</a>.</p>
+            <button type="button" onClick={() => setLateOpen(false)} className="mt-2 h-10 w-full text-sm font-semibold text-[#4E6158]">Back</button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

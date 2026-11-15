@@ -594,6 +594,47 @@ export async function noShow(s: S, emId: string, why: string, by = 'CROS', mode:
   return { ok: true }
 }
 
+/** "I'm running late" from the app on an emergency job: the same as on their link — new time, the house told, the
+ *  no-show clock restarts from it. True if it was an emergency. */
+export async function ticketRunningLate(s: S, ticketId: string, newEta: string): Promise<boolean> {
+  const { data: em } = await s.from('emergencies').select('id, status, chosen_response_id').eq('ticket_id', ticketId).maybeSingle() as { data: any }
+  if (!em || !['assigned', 'on_site'].includes(em.status) || !em.chosen_response_id) return false
+  const { data: r } = await s.from('emergency_responses').select('token').eq('id', em.chosen_response_id).maybeSingle() as { data: any }
+  if (!r) return false
+  await report(s, r.token, { outcome: 'running_late', newEta })
+  return true
+}
+
+/** "On my way" on an emergency job: the house is told on their emergency screen (once an hour). True if it was one. */
+export async function ticketOnMyWay(s: S, ticketId: string): Promise<boolean> {
+  const { data: em } = await s.from('emergencies').select('id, status').eq('ticket_id', ticketId).maybeSingle() as { data: any }
+  if (!em || em.status !== 'assigned') return false
+  if (await eventSince(s, em.id, 'on_way', new Date(Date.now() - 3600000).toISOString())) return true
+  await log(s, em.id, 'on_way', 'The contractor tapped “On my way”')
+  const full = await load(s, em.id)
+  if (full) await tellHouse(s, full, 'Your contractor is on the way', `They’re on their way now${full.eta_at ? ` and hoping to be with you by ${ukWhen(full.eta_at)}` : ''}.`)
+  return true
+}
+
+/** The contractor tapped "I'm here" (or took it back) on the job in their app — the emergency follows. */
+export async function ticketArrival(s: S, ticketId: string, here: boolean) {
+  const { data: em } = await s.from('emergencies').select('id, status, chosen_response_id').eq('ticket_id', ticketId).maybeSingle() as { data: any }
+  if (!em) return
+  const now = new Date().toISOString()
+  if (here && em.status === 'assigned') {
+    const set = await settings(s)
+    await s.from('emergencies').update({ status: 'on_site', followup_due_at: new Date(Date.now() + set.followupMin * 60000).toISOString(), followup_sent_at: null, followup_reminded_at: null, updated_at: now }).eq('id', em.id)
+    if (em.chosen_response_id) await s.from('emergency_responses').update({ on_site_at: now }).eq('id', em.chosen_response_id).is('on_site_at', null)
+    await log(s, em.id, 'on_site', 'The contractor tapped “I’m here” in the app')
+    const full = await load(s, em.id)
+    if (full) await tellHouse(s, full, 'The contractor has arrived', 'The contractor is at the property now.')
+  } else if (!here && em.status === 'on_site') {
+    await s.from('emergencies').update({ status: 'assigned', updated_at: now }).eq('id', em.id)
+    if (em.chosen_response_id) await s.from('emergency_responses').update({ on_site_at: null }).eq('id', em.chosen_response_id)
+    await log(s, em.id, 'on_site', 'The contractor took back “I’m here” — tapped by mistake; still on their way')
+  }
+}
+
 /** The clock runs every minute (pg_cron). If it has stopped, whoever opens an emergency screen runs it — so a dead
  *  scheduler can't leave an emergency stuck with nobody watching. */
 export async function tickIfStale(s: S) {

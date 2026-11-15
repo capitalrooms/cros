@@ -107,6 +107,56 @@ export async function confirmArrival(s: SupabaseClient, o: { kind: 'job' | 'clea
   return { state: 'ok' as const, keySafe: await readKeySafe(s, (c as any).propertyId), where: c.where, room: c.room, warned: c.state === 'warn' }
 }
 
+/** "On my way" (15 Nov 2026): the tenants who'll see them are told — the room's tenant for a room job, the whole house
+ *  for a shared area. Once per job every 2 hours, however many times it's tapped. */
+export async function onMyWay(s: SupabaseClient, o: { id: string; personId: string; staff?: boolean }) {
+  const { data: t } = await s.from('maintenance_tickets').select('id, title, category, location, property_id, room_id, contractor_id, booked_date, priority').eq('id', o.id).maybeSingle() as { data: any }
+  if (!t) return { ok: false, error: 'That job wasn’t found.' }
+  if (!o.staff && t.contractor_id !== o.personId) return { ok: false, error: 'This job isn’t yours.' }
+  const link = `/tenant/visit/${t.id}`
+  const { data: recent } = await s.from('notifications').select('id').eq('link', link).ilike('title', 'On the way%').gte('created_at', new Date(Date.now() - 2 * 3600000).toISOString()).limit(1)
+  if (recent?.length) return { ok: true, already: true }
+  const what = String(t.title || t.category || 'your repair').split(' — ')[0]
+  const ids = await activeTenantIds(s, t.property_id, inTenantRoom({ location: t.location }) ? t.room_id : null)
+  if (ids.length) {
+    const title = `On the way — ${what.length > 40 ? `${what.slice(0, 40)}…` : what}`
+    const body = 'Your contractor is on their way now.'
+    await insertNotifications(s, ids, { title, body, type: 'maintenance', link } as any, { propertyId: t.property_id, roomId: t.room_id }).catch(() => null)
+    for (const id of ids) await sendServerPush({ personId: id, title, body, url: link, tag: `visit-${t.id}` } as any).catch(() => 0)
+  }
+  return { ok: true, told: ids.length }
+}
+
+/** "I'm running late" (15 Nov 2026): the tenants who'll see them get the new time. */
+export async function runningLate(s: SupabaseClient, o: { id: string; personId: string; staff?: boolean; eta: string }) {
+  const { data: t } = await s.from('maintenance_tickets').select('id, title, category, location, property_id, room_id, contractor_id').eq('id', o.id).maybeSingle() as { data: any }
+  if (!t) return { ok: false, error: 'That job wasn’t found.' }
+  if (!o.staff && t.contractor_id !== o.personId) return { ok: false, error: 'This job isn’t yours.' }
+  const what = String(t.title || t.category || 'your repair').split(' — ')[0]
+  const when = new Date(o.eta).toLocaleTimeString('en-GB', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Europe/London' }).replace(/\s/g, '').replace(':00', '')
+  const ids = await activeTenantIds(s, t.property_id, inTenantRoom({ location: t.location }) ? t.room_id : null)
+  const link = `/tenant/visit/${t.id}`
+  if (ids.length) {
+    const title = `Running late — ${what.length > 40 ? `${what.slice(0, 40)}…` : what}`
+    const body = `Your contractor is running late and now hopes to be with you by ${when}. Sorry for the wait.`
+    await insertNotifications(s, ids, { title, body, type: 'maintenance', link } as any, { propertyId: t.property_id, roomId: t.room_id }).catch(() => null)
+    for (const id of ids) await sendServerPush({ personId: id, title, body, url: link, tag: `visit-${t.id}` } as any).catch(() => 0)
+  }
+  return { ok: true, told: ids.length, when }
+}
+
+/** Take back an "I've arrived" tapped by mistake — their own, within 20 minutes (15 Nov 2026). */
+export async function undoArrival(s: SupabaseClient, o: { kind: 'job' | 'clean'; id: string; personId: string; staff?: boolean }) {
+  const table = o.kind === 'job' ? 'maintenance_tickets' : 'cleans'
+  const { data: row } = await s.from(table).select('*').eq('id', o.id).maybeSingle() as { data: any }
+  if (!row) return { ok: false, error: 'That visit wasn’t found.' }
+  if (!o.staff && (o.kind === 'job' ? row.contractor_id : row.cleaner_id) !== o.personId) return { ok: false, error: 'This visit isn’t yours.' }
+  if (!row.arrived_at) return { ok: true }
+  if (Date.now() - new Date(row.arrived_at).getTime() > 20 * 60000) return { ok: false, error: 'It’s been too long to take back — call the office.' }
+  await s.from(table).update({ arrived_at: null }).eq('id', o.id)
+  return { ok: true }
+}
+
 /** Ask the tenant of the room to let the contractor in now (short notice): their app shows "Your answer needed". */
 export async function askTenant(s: SupabaseClient, jobId: string, personId: string, staff = false) {
   const { data: t } = await s.from('maintenance_tickets').select('id, property_id, room_id, contractor_id, title, category, booked_date, booked_slot, short_notice_pending, properties(name)').eq('id', jobId).maybeSingle() as { data: any }

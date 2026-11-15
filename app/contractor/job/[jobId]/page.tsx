@@ -114,6 +114,8 @@ export default function JobDetailPage() {
   const [showQuickNotify, setShowQuickNotify] = useState(false)
   // Reschedule flow (upcoming + past visits)
   const [showReschedule, setShowReschedule] = useState(false)
+  // opened from "Rebook the visit" on the home card: straight to moving it (15 Nov 2026)
+  const rebookAsked = searchParams.get('rebook') === '1'
   const [reReason, setReReason] = useState('Moving to another day')
   // Need-to-return flow
   const [showReturnFlow, setShowReturnFlow] = useState(false)
@@ -164,6 +166,7 @@ export default function JobDetailPage() {
         .single()
       if (jobData) {
         setJob(jobData as any)
+        if (rebookAsked) { setShowReschedule(true); setBookDate((jobData as any).booked_date || ''); setBookSlot((jobData as any).booked_slot || '') }
         // the key safe code comes from the server, and only once they've tapped "I've arrived" today (lib/access/arrival)
         adminFetch(`/api/contractor/key-safe?jobId=${jobId}`).then(r => r.ok ? r.json() : null).then(d => setKeySafe(d?.keySafe ?? null)).catch(() => {})
         setNotes((jobData as any).notes || '')

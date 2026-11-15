@@ -7,7 +7,7 @@ import { useRoleRail, DeskGreeting } from '@/app/components/role/RoleShell'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { getCurrentUser, signOut } from '@/lib/auth'
 import { createClient } from '@/lib/supabase'
-import { displayName } from '@/lib/people'
+import { hiName, displayName } from '@/lib/people'
 import ContractorTop from './ContractorTop'
 import StatTile from '@/app/components/StatTile'
 import EnableNotifications from '@/app/components/EnableNotifications'
@@ -168,6 +168,7 @@ export default function ContractorDashboard() {
 
   const [loading, setLoading]               = useState(true)
   const [contractorName, setContractorName] = useState('')
+  const [hi, setHi] = useState('')   // the name to greet them by — their first name (lib/people hiName), never "Mr"
   const [jobs, setJobs]                     = useState<Job[]>([])
   const [completedJobs, setCompletedJobs]   = useState<Job[]>([])
   const [selectedDay, setSelectedDay]       = useState<string>(getTodayGMT())
@@ -217,7 +218,7 @@ export default function ContractorDashboard() {
         if (!target || target.role !== 'contractor') { router.push('/admin/people'); return }
         setViewingAs({ id: asParam, name: displayName(target), role: target.role })
         contractorId = asParam
-        setContractorName(displayName(target))
+        setContractorName(displayName(target)); setHi(hiName(target))
       } else if (!data || data.assignment?.role !== 'contractor') {
         router.push('/login')
         return
@@ -229,7 +230,7 @@ export default function ContractorDashboard() {
           .select('full_name, salutation, first_name, last_name')
           .eq('id', contractorId)
           .single()
-        if (personData) setContractorName(displayName(personData))
+        if (personData) { setContractorName(displayName(personData)); setHi(hiName(personData)) }
       }
 
       const supabase = createClient()
@@ -294,7 +295,7 @@ export default function ContractorDashboard() {
   const pendingQuotes   = quoteJobs.filter(j => !j.quote_submitted_at)
   const submittedQuotes = quoteJobs.filter(j => !!j.quote_submitted_at)
   const needsAttention  = (toSchedule.length + overdue.length)
-  const firstName       = contractorName.split(' ')[0] || 'there'
+  const firstName       = hi || 'there'
   const asId            = viewingAs?.id
 
   // the side rail on a computer (RoleShell): which section is showing, switched in place, counts, and the extra buttons

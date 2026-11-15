@@ -10,7 +10,7 @@ import { adminFetch } from '@/lib/adminFetch'
 import { display } from './kit'
 
 type Done = { keySafe: string | null; where: string; warned?: boolean }
-type Sheet = { kind: 'job' | 'clean'; id: string; state: 'warn' | 'blocked' | 'code'; message: string; canAskTenant?: boolean; asked?: boolean; code?: string | null; where?: string }
+type Sheet = { kind: 'job' | 'clean'; id: string; state: 'confirm' | 'warn' | 'blocked' | 'code'; message: string; canAskTenant?: boolean; asked?: boolean; code?: string | null; where?: string }
 
 export function useArrival() {
   const [sheet, setSheet] = useState<Sheet | null>(null)
@@ -32,7 +32,8 @@ export function useArrival() {
     return new Promise<Done | null>(resolve => {
       resolver.current = resolve
       setTicked(false)
-      if (c.state === 'ok') { void go(kind, id, false); return }
+      // ask first — a tap by mistake on the way there marked them arrived (15 Nov 2026)
+      if (c.state === 'ok') { setSheet({ kind, id, state: 'confirm', message: '', where: c.where }); return }
       setSheet({ kind, id, state: c.state, message: c.message, canAskTenant: c.canAskTenant, asked: c.asked, where: c.where })
     })
   }
@@ -68,16 +69,36 @@ export function useArrival() {
   }
 
   const close = () => { setSheet(null); finish(null) }
+  // "I tapped this by mistake": takes the arrival back (only straight after, only their own)
+  async function undo() {
+    if (!sheet) return
+    setBusy(true)
+    const r = await post({ action: 'undo', kind: sheet.kind, id: sheet.id }).catch(() => null)
+    setBusy(false)
+    if (!r?.ok) { alert(r?.j?.error || 'Couldn’t take it back — call the office.'); return }
+    onDone.current = null; close()
+  }
   const node = sheet && (
     <div className="fixed inset-0 z-[90] flex items-end justify-center bg-black/40 sm:items-center" role="dialog" aria-modal="true" onMouseDown={e => { if (e.target === e.currentTarget && sheet.state !== 'code') close() }}>
       <div className="w-full max-w-md rounded-t-[28px] bg-[#EEF2EC] p-5 sm:rounded-[28px]" style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 20px)' }}>
-        {sheet.state === 'code' ? (
+        {sheet.state === 'confirm' ? (
+          <>
+            <p className="text-xs font-bold uppercase tracking-widest text-[#4E6158]">Are you there?</p>
+            <p className="mt-2 text-[17px] font-bold leading-snug text-[#14261F]">Are you at {sheet.where} now?</p>
+            <p className="mt-1 text-sm text-[#4E6158]">We’ll tell the tenants you’re here and show you the key safe code.</p>
+            <div className="mt-4 flex flex-col gap-2">
+              <button type="button" disabled={busy} onClick={() => go(sheet.kind, sheet.id, false)} className="h-12 rounded-full text-[15px] font-bold text-[#17332B] shadow-[0_3px_0_var(--cr-honey-edge)] disabled:opacity-40" style={{ background: 'var(--cr-gold)' }}>{busy ? 'One moment…' : 'Yes, I’m here'}</button>
+              <button type="button" onClick={close} className="h-12 rounded-full border-[1.5px] border-[#17332B] text-[15px] font-bold text-[#17332B]">Not yet — I’m on my way</button>
+            </div>
+          </>
+        ) : sheet.state === 'code' ? (
           <>
             <p className="text-xs font-bold uppercase tracking-widest text-[#4E6158]">You’re in · {sheet.where}</p>
             {sheet.code
               ? <><p className="mt-2 text-sm text-[#14261F]">Key safe code — it opens the front door only:</p><p className="mt-1 text-[44px] font-extrabold tracking-[0.2em] text-[#14261F]" style={display}>{sheet.code}</p><p className="text-xs text-[#4E6158]">Scramble the dial and close the box when you leave.</p></>
               : <p className="mt-2 text-sm text-[#14261F]">Marked as arrived. There’s no key safe code on file for this property — the tenants or the office will let you in.</p>}
             <button type="button" onClick={() => { setSheet(null); const f = onDone.current; onDone.current = null; f?.() }} className="mt-4 h-12 w-full rounded-full text-[15px] font-bold text-[#17332B] shadow-[0_3px_0_var(--cr-honey-edge)]" style={{ background: 'var(--cr-gold)' }}>Done</button>
+            <button type="button" disabled={busy} onClick={undo} className="mt-2 h-10 w-full text-sm font-semibold text-[#4E6158] underline">I tapped this by mistake — I’m not there yet</button>
           </>
         ) : (
           <>
