@@ -366,7 +366,8 @@ export default function CleanDetailPage() {
           {room && <p className="mt-xs text-base font-semibold">{room.name}{room.location_in_house ? <span className="block text-sm font-normal text-white/85">{room.location_in_house}</span> : null}</p>}
           {/* the house's own page: usual visit, notes shared with the office, past cleans (17 Oct 2026) */}
           <Link href={`/cleaner/house/${clean.property_id}`} className="mt-xs inline-block text-sm font-semibold underline">House notes &amp; past cleans →</Link>
-          <p className="text-sm text-white/70">{clean.properties?.address}</p>
+          {/* the address only when the house's name isn't already it (15 Nov 2026 — it showed twice) */}
+          {clean.properties?.address && !String(clean.properties.address).replace(/\s+/g, ' ').toLowerCase().includes(String(clean.properties?.name ?? '').split(/[\n,]/)[0].trim().toLowerCase()) && <p className="text-sm text-white/70">{clean.properties.address}</p>}
           <div className="mt-lg grid grid-cols-2 gap-lg">
             <div>
               <p className="text-xs text-white/60">When</p>
