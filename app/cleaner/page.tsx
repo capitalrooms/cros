@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { getCurrentUser, signOut } from '@/lib/auth'
 import { createClient } from '@/lib/supabase'
-import { displayName } from '@/lib/people'
+import { displayName, hiName } from '@/lib/people'
 import CleanerTop from './CleanerTop'
 import StatTile from '@/app/components/StatTile'
 import EnableNotifications from '@/app/components/EnableNotifications'
@@ -125,6 +125,7 @@ export default function CleanerDashboard() {
   const [me, setMe]                   = useState<any>(null)
   const [personId, setPersonId]       = useState<string>('')
   const [cleanerName, setCleanerName] = useState<string>('')
+  const [hi, setHi] = useState('')
   const [viewingAs, setViewingAs]     = useState<{ id: string; name: string; role: string } | null>(null)
   const [properties, setProperties]   = useState<any[]>([])
   const [cleans, setCleans]           = useState<any[]>([])
@@ -198,7 +199,7 @@ export default function CleanerDashboard() {
             .single()
           if (!target || target.role !== 'cleaner') { router.push('/admin/people'); return }
           setViewingAs({ id: asParam, name: displayName(target), role: target.role })
-          setCleanerName(displayName(target))
+          setCleanerName(displayName(target)); setHi(hiName(target))
           targetPersonId = asParam
         } else {
           if (!data || data.assignment?.role !== 'cleaner') { router.push(isAdmin ? '/admin/people' : '/login'); return }
@@ -211,7 +212,7 @@ export default function CleanerDashboard() {
             .single()
 
           if (!personData?.id) { router.push('/login'); return }
-          setCleanerName(displayName(personData))
+          setCleanerName(displayName(personData)); setHi(hiName(personData))
           targetPersonId = personData.id
         }
 
@@ -444,7 +445,7 @@ export default function CleanerDashboard() {
   const dayCleans   = scheduledCleans.filter(c => c.clean_date === selectedDay)
   const isViewingToday = selectedDay === todayISO()
 
-  const firstName = cleanerName.split(' ')[0] || me?.email?.split('@')[0] || 'there'
+  const firstName = hi || 'there'   // their first name (lib/people hiName) — not "Hi Mrs"
 
   // ── Desktop computed ─────────────────────────────────────────────────────
   const diaryJobs: DiaryJob[] = scheduledCleans.map((c: any) => ({

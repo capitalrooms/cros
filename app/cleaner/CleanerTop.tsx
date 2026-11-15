@@ -7,7 +7,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { adminFetch } from '@/lib/adminFetch'
-import { AskBar, Greeting, Hero, HoneyButton, Tile, Banner, ListCard, Row, display } from '@/app/components/garden/kit'
+import { AskBar, Greeting, Hero, HoneyButton, GhostButton, Tile, Banner, ListCard, Row, display } from '@/app/components/garden/kit'
 import { useArrival } from '@/app/components/garden/useArrival'
 import StaffNotificationBell from '@/app/components/StaffNotificationBell'
 
@@ -41,7 +41,14 @@ export default function CleanerTop({ firstName, today, doneToday, todo, onBook, 
   useEffect(() => { load() }, [route.map(c => c.id).join(','), houseIds.join(',')]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function imHere(c: Clean) {
-    await arrive('clean', c.id, { onDone: () => router.push(`/cleaner/clean/${c.id}`) })
+    await arrive('clean', c.id, { onDone: () => { window.location.href = `/cleaner/clean/${c.id}` } })
+  }
+  async function undoHere(c: Clean) {
+    if (!confirm('Take back “I’m here”? The tenants won’t be told you’ve arrived.')) return
+    const r = await adminFetch('/api/arrive', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'undo', kind: 'clean', id: c.id }) }).catch(() => null)
+    const d = r ? await r.json().catch(() => ({})) : {}
+    if (!r?.ok) { alert((d as any).error || 'Couldn’t take it back — call the office.'); return }
+    window.location.reload()
   }
   async function addSupply() {
     if (!supProp || !supItem.trim()) return
@@ -71,9 +78,13 @@ export default function CleanerTop({ firstName, today, doneToday, todo, onBook, 
           eyebrow={`${route.indexOf(next) === 0 ? 'First stop' : 'Next stop'}${time(next.clean_time) ? ` · ${time(next.clean_time)}` : ''}`}
           title={next.properties?.name?.split(',')[0] ?? 'Clean'}
           sub={[String(next.clean_type ?? '').replace(/_/g, ' ').replace(/^./, s => s.toUpperCase()) || 'Regular clean', hours(next.duration_hours)].filter(Boolean).join(' · ')}>
+          {/* the same buttons as the contractor app (15 Nov 2026): the clean always one tap away; "I'm here" asks first
+              and can be taken back for 20 minutes */}
           {next.arrived_at
-            ? <HoneyButton href={`/cleaner/clean/${next.id}`}>Carry on</HoneyButton>
+            ? <HoneyButton reload href={`/cleaner/clean/${next.id}`}>Open the clean</HoneyButton>
             : <HoneyButton onClick={() => imHere(next)}>I’m here</HoneyButton>}
+          {next.arrived_at && Date.now() - new Date(next.arrived_at).getTime() < 20 * 60000 && <GhostButton onClick={() => undoHere(next)}>Not there yet?</GhostButton>}
+          {!next.arrived_at && <GhostButton href={`/cleaner/clean/${next.id}`}>See clean</GhostButton>}
         </Hero>
       ) : (
         <Hero art="door" eyebrow="Nothing booked for today" title="Book a clean" sub="At one of your houses — the tenants are told you’re coming" height={176}>
