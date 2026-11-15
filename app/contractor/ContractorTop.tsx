@@ -79,7 +79,7 @@ export default function ContractorTop({ firstName, booked, weekCount, quotesWait
       <Greeting eyebrow={`Hi ${firstName} — ${next ? 'your next job is at' : 'nothing booked yet'}`} title={next ? (next.properties?.name?.split(',')[0] ?? 'Your next job') : 'All clear'} />
 
       {next ? (
-        <Hero art="tool" height={190} eyebrow={`${dayName(next.booked_date!)}${slotLabel(next.booked_slot) ? ` · ${slotLabel(next.booked_slot)}` : ''}`} title={what(next)}
+        <Hero art="tool" height={190} tone={String(next.priority).toLowerCase() === 'emergency' ? 'red' : undefined} eyebrow={`${String(next.priority).toLowerCase() === 'emergency' ? 'EMERGENCY · ' : ''}${dayName(next.booked_date!)}${slotLabel(next.booked_slot) ? ` · ${slotLabel(next.booked_slot)}` : ''}`} title={what(next)}
           sub={[String(next.priority).toLowerCase() === 'emergency' ? 'Emergency' : next.priority ? `Priority ${String(next.priority).replace(/^p/i, '')}` : '', room].filter(Boolean).join(' · ')}>
           {isToday && !next.arrived_at ? <HoneyButton onClick={() => imHere(next)}>I’m here</HoneyButton> : <HoneyButton reload href={jobHref(next)}>{next.arrived_at ? 'Carry on' : 'Open the job'}</HoneyButton>}
           {maps && <GhostButton href={maps}>Directions</GhostButton>}

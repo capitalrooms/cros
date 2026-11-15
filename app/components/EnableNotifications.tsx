@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { getCurrentUser } from '@/lib/auth'
-import { enablePush, pushPermission, pushSupported } from '@/lib/push'
+import { enablePush, pushPermission, pushSupported, deviceReady } from '@/lib/push'
+import { createClient } from '@/lib/supabase'
 
 /**
  * A small "Turn on notifications" prompt. Hides itself once granted or if the
@@ -20,8 +21,12 @@ export default function EnableNotifications() {
       return
     }
     const p = pushPermission()
-    // already allowed: PushOwner makes sure this phone's notifications go to whoever is signed in
-    if (p === 'granted') setState('hidden')
+    // allowed — but is this phone actually registered for whoever is signed in? If not (an iPhone can only register
+    // from a tap), show the button again (15 Nov 2026)
+    if (p === 'granted') {
+      setState('hidden')
+      createClient().auth.getSession().then(({ data }) => deviceReady(data.session?.user.id)).then(ok => { if (!ok) setState('prompt') }).catch(() => {})
+    }
     else if (p === 'denied') setState('denied')
     else setState('prompt')
   }, [])
@@ -36,6 +41,7 @@ export default function EnableNotifications() {
         email: a?.email ?? data?.user?.email,
         role: a?.role,
       })
+      if (res.ok) { try { const id = (await createClient().auth.getSession()).data.session?.user.id; if (id) { sessionStorage.setItem('cros-push-owner', id); localStorage.setItem('cros-push-owner', id) } } catch { /* private mode */ } }
       setState(res.ok ? 'hidden' : res.reason === 'denied' ? 'denied' : 'prompt')
     } catch {
       setState('prompt')

@@ -91,26 +91,33 @@ export async function forgetThisDevice(): Promise<void> {
  * Signed in: if this phone already allows notifications, make sure they come to THIS person — the phone moves to
  * whoever signed in last. Runs once each time the app is opened (not every page).
  */
-export async function claimThisDevice(personId: string): Promise<void> {
-  if (!pushSupported() || pushPermission() !== 'granted') return
-  try { if (ownerStore()?.getItem(OWNER_KEY) === personId) return } catch { /* private mode */ }
-  // someone else had this phone (or we don't know who): throw the old registration away and make a fresh one, so the
-  // old one stops working everywhere — not just moved (15 Nov 2026: Harry, signed in as David, still got Alice's)
-  let lastOwner: string | null = null
-  try { lastOwner = localStorage.getItem(OWNER_KEY) } catch { /* private mode */ }
-  if (lastOwner !== personId) {
-    try {
-      const reg = await navigator.serviceWorker.ready
-      const old = await reg.pushManager.getSubscription()
-      if (old) {
-        await fetch('/api/push/subscribe', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ endpoint: old.endpoint, anyOwner: true }) }).catch(() => null)
-        await old.unsubscribe().catch(() => false)
-      }
-    } catch { /* carry on and subscribe */ }
-  }
-  const r = await enablePush({ id: personId }).catch(() => ({ ok: false }))
-  if (r.ok) {
-    try { ownerStore()?.setItem(OWNER_KEY, personId) } catch { /* private mode */ }
-    try { localStorage.setItem(OWNER_KEY, personId) } catch { /* private mode */ }
-  }
+export async function claimThisDevice(personId: string): Promise<boolean> {
+  if (!pushSupported() || pushPermission() !== 'granted') return false
+  try { if (ownerStore()?.getItem(OWNER_KEY) === personId) return true } catch { /* private mode */ }
+  // Move this phone's existing registration to whoever is signed in (saving it again re-points it). Never unsubscribe
+  // here: on an iPhone a new registration can only be made from a tap, so throwing the old one away left the phone
+  // with none (15 Nov 2026). No registration → EnableNotifications shows its button and the person taps it.
+  try {
+    const reg = await navigator.serviceWorker.ready
+    const sub = await reg.pushManager.getSubscription()
+    if (!sub) return false
+    const json: any = sub.toJSON()
+    const res = await fetch('/api/push/subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ endpoint: json.endpoint, p256dh: json.keys?.p256dh, auth: json.keys?.auth }) })
+    if (!res.ok) return false
+    try { ownerStore()?.setItem(OWNER_KEY, personId); localStorage.setItem(OWNER_KEY, personId) } catch { /* private mode */ }
+    window.dispatchEvent(new Event('cros-push-ready'))
+    return true
+  } catch { return false }
+}
+
+/** Is this phone getting this person's notifications? (allowed, registered, and saved for them this session) */
+export async function deviceReady(personId?: string | null): Promise<boolean> {
+  if (!pushSupported() || pushPermission() !== 'granted') return false
+  try {
+    const reg = await navigator.serviceWorker.getRegistration()
+    const sub = await reg?.pushManager.getSubscription()
+    if (!sub) return false
+    if (!personId) return true
+    return ownerStore()?.getItem(OWNER_KEY) === personId || await claimThisDevice(personId)
+  } catch { return false }
 }

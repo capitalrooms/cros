@@ -79,19 +79,21 @@ function HeroArt({ art }: { art: Art }) {
 /** The big green card: a label, a heading, a line under it, its drawing, and optional buttons along the bottom.
  *  Laid out in normal flow (14 Nov 2026 — a long job title ran over the buttons): the words take the left side, the
  *  drawing sits behind on the right, long headings step down a size and stop at three lines, and the card grows to fit. */
-export function Hero({ eyebrow, title, sub, art, children, faces, height = 176, href }: {
+export function Hero({ eyebrow, title, sub, art, children, faces, height = 176, href, tone }: {
   eyebrow: string; title: string; sub?: string; art: Art; children?: ReactNode; faces?: ReactNode; height?: number; href?: string
+  /** 'red': an emergency (15 Nov 2026) */
+  tone?: 'red'
 }) {
   const size = title.length > 60 ? 'text-[19px]' : title.length > 32 ? 'text-[21px]' : 'text-[24px]'
   const body = (
-    <div className="relative flex h-full w-full flex-col overflow-hidden rounded-[26px]" style={{ background: FOREST, minHeight: height }}>
-      {typeof art === 'string' && <svg width="250" height="250" viewBox="0 0 250 250" aria-hidden="true" className={`pointer-events-none absolute ${art === 'tool' ? '-right-[70px] -top-[50px]' : '-right-[66px] -top-[46px]'}`}><circle cx="125" cy="125" r="115" fill={FOREST_LIFT} /></svg>}
+    <div className="relative flex h-full w-full flex-col overflow-hidden rounded-[26px]" style={{ background: tone === 'red' ? '#8E2318' : FOREST, minHeight: height }}>
+      {typeof art === 'string' && <svg width="250" height="250" viewBox="0 0 250 250" aria-hidden="true" className={`pointer-events-none absolute ${art === 'tool' ? '-right-[70px] -top-[50px]' : '-right-[66px] -top-[46px]'}`}><circle cx="125" cy="125" r="115" fill={tone === 'red' ? '#A2301F' : FOREST_LIFT} /></svg>}
       <div className="pointer-events-none absolute inset-0"><HeroArt art={art} /></div>
       <div className={`relative flex flex-1 flex-col px-5 pt-5 ${faces ? 'pb-7' : 'pb-[18px]'}`}>
         <div className="max-w-[62%] text-[#F1F5EE]">
-          <p className="text-xs font-semibold" style={{ color: MIST }}>{eyebrow}</p>
+          <p className="text-xs font-semibold" style={{ color: tone === 'red' ? '#F6D9CF' : MIST }}>{eyebrow}</p>
           <p className={`mt-0.5 ${size} line-clamp-3 font-extrabold leading-[1.08]`} style={display}>{title}</p>
-          {sub && <p className="mt-1 line-clamp-2 text-xs leading-snug" style={{ color: MIST }}>{sub}</p>}
+          {sub && <p className="mt-1 line-clamp-2 text-xs leading-snug" style={{ color: tone === 'red' ? '#F6D9CF' : MIST }}>{sub}</p>}
         </div>
         {children && <div className="mt-auto flex flex-wrap gap-2 pt-4">{children}</div>}
       </div>
