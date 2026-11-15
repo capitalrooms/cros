@@ -167,7 +167,7 @@ export default function JobDetailPage() {
         // the key safe code comes from the server, and only once they've tapped "I've arrived" today (lib/access/arrival)
         adminFetch(`/api/contractor/key-safe?jobId=${jobId}`).then(r => r.ok ? r.json() : null).then(d => setKeySafe(d?.keySafe ?? null)).catch(() => {})
         setNotes((jobData as any).notes || '')
-        { const jd = jobData as any; const p = jd.final_price ?? jd.quote_amount; setPrice(p != null ? Number(p).toFixed(2) : '') }
+        { const jd = jobData as any; const callOut = /call-out £([\d,.]+)/.exec(String(jd.admin_note ?? ''))?.[1]; const p = jd.final_price ?? jd.quote_amount ?? (callOut ? Number(callOut.replace(/,/g, '')) : null); setPrice(p != null ? Number(p).toFixed(2) : '') }
         setBookDate((jobData as any).booked_date || '')
         setBookSlot((jobData as any).booked_slot || '')
 
@@ -1045,7 +1045,7 @@ export default function JobDetailPage() {
                   <div>
                     <h3 className="font-bold text-neutral-900 text-center">On your way?</h3>
                     <p className="mt-xs text-sm text-neutral-500 text-center">
-                      Tap when you’re at the door — we check the tenants had enough notice, let them know, and show you the key safe code.
+                      {String(job.priority).toLowerCase() === 'emergency' ? 'Tap when you’re at the door — we tell the tenants you’re there and show you the key safe code.' : 'Tap when you’re at the door — we check the tenants had enough notice, let them know, and show you the key safe code.'}
                     </p>
                     <button onClick={handleArrive} disabled={busy === 'arrive'}
                       className="mt-md w-full rounded-full py-md text-[15px] font-bold text-[#17332B] shadow-[0_3px_0_var(--cr-honey-edge)] active:translate-y-[2px] disabled:opacity-40" style={{ background: 'var(--cr-gold)' }}>

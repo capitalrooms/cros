@@ -181,7 +181,7 @@ export default function InboxPage() {
                             {!n.read && (
                               <span className="h-2 w-2 rounded-full bg-blue-600 shrink-0" />
                             )}
-                            <p className="font-bold text-sm text-neutral-900 truncate">{n.title}</p>
+                            <p className="font-bold text-sm text-neutral-900 line-clamp-2">{n.title}</p>
                           </div>
                           {n.body && (
                             <p className="mt-xs text-sm text-neutral-600 leading-snug line-clamp-2">

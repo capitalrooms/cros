@@ -32,6 +32,8 @@ export default function TenantEmergencyPage() {
   const [controlled, setControlled] = useState<boolean | null>(null)
   const [details, setDetails] = useState('')
   const [above, setAbove] = useState<'yes' | 'no' | 'unsure' | null>(null)   // a leak: is there a bathroom above it?
+  // where in the house — the contractor's "Where" (15 Nov 2026: it said "Reported as an emergency")
+  const [where, setWhere] = useState<string | null>(null)
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
   const [status, setStatus] = useState<string | null>(null)
@@ -49,7 +51,7 @@ export default function TenantEmergencyPage() {
 
   const info = kind ? KINDS[kind] : null
   const phone = numberIn(info?.callServices)
-  const needsAnswer = (!!info?.trade && controlled === null) || (!!info?.askBathroomAbove && above === null)
+  const needsAnswer = (!!info?.trade && controlled === null) || (!!info?.askBathroomAbove && above === null) || (!!info?.trade && !where)
 
   async function send() {
     if (!kind || !info) return
@@ -65,7 +67,7 @@ export default function TenantEmergencyPage() {
         title: `${info.label}`,
         description: [details.trim(), above === 'yes' ? 'There’s a bathroom or toilet above the leak.' : above === 'unsure' ? 'There may be a bathroom or toilet above the leak.' : '', controlled === true ? 'Tenant says it’s under control until morning.' : controlled === false ? 'Tenant says it’s still happening / not safe.' : ''].filter(Boolean).join('\n\n') || info.label,
         category: 'Emergency',
-        location: 'Reported as an emergency',
+        location: where ?? 'Whole house',
         priority: 'emergency',
         status: 'reported',
         property_id: home.propertyId,
@@ -96,7 +98,7 @@ export default function TenantEmergencyPage() {
       <header className="bg-[#7F1D1D] px-lg pb-lg pt-lg text-white">
         <div className="mx-auto max-w-xl">
           <h1 className="text-2xl font-bold">Report an emergency</h1>
-          <p className="mt-xs text-sm text-white/80">Something that can’t wait — water pouring, no power or heating, a door that won’t lock. For anything else, use Report an issue.</p>
+          <p className="mt-xs text-sm text-white/80">Something that can’t wait — water pouring, no power or heating, a door that won’t lock. For anything else, use <a href="/tenant/maintenance" className="font-semibold underline">Report a repair</a>.</p>
         </div>
       </header>
 
@@ -153,6 +155,17 @@ export default function TenantEmergencyPage() {
                   <p className="mt-xs text-xs text-neutral-500">{controlled === false ? 'We’ll contact our emergency contractors as soon as you send this.' : controlled === true ? 'We’ll arrange someone first thing — tell us straight away if it gets worse.' : 'This tells us whether to send someone tonight.'}</p>
                 </div>
               )}
+              {info!.trade && (
+                <div>
+                  <p className="text-sm font-bold text-neutral-900">Where is it?</p>
+                  <div className="mt-sm grid grid-cols-2 gap-xs">
+                    {['My Room / Bedroom', 'Kitchen', 'Bathroom / toilet', 'Hallway / stairs', 'Living room', 'Outside / roof', 'Whole house'].map(v => (
+                      <button key={v} type="button" onClick={() => setWhere(v)}
+                        className={`rounded-xl border px-md py-sm text-left text-sm font-semibold ${where === v ? 'border-red-700 bg-red-50 text-neutral-900' : 'border-neutral-200 text-neutral-800'}`}>{v === 'My Room / Bedroom' ? 'My room' : v}</button>
+                    ))}
+                  </div>
+                </div>
+              )}
               {info!.askBathroomAbove && (
                 <div>
                   <p className="text-sm font-bold text-neutral-900">Is there a bathroom or toilet above where the water is coming from?</p>
@@ -176,6 +189,7 @@ export default function TenantEmergencyPage() {
                   className="mt-xs w-full rounded-xl border border-neutral-300 px-md py-sm text-sm font-normal text-neutral-900" />
               </label>
               {error && <p className="rounded-xl bg-red-50 px-md py-sm text-sm text-red-800">{error}</p>}
+              {needsAnswer && <p className="text-center text-xs font-semibold text-red-800">Answer the questions above to send it.</p>}
               <button type="button" onClick={send} disabled={sending || needsAnswer || !home}
                 className="w-full rounded-xl bg-red-700 py-md text-base font-bold text-white disabled:opacity-40">
                 {sending ? 'Sending…' : info!.trade ? 'Send emergency report' : 'Tell Capital Rooms'}

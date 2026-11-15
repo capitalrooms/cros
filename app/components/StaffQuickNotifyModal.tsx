@@ -53,7 +53,7 @@ export default function StaffQuickNotifyModal({
     switch (role) {
       case 'contractor':
         return {
-          title: 'Quick Notify Tenants',
+          title: 'Message the tenants',
           subtitle: 'Let tenants know about your repair visit',
           visitType: 'repair',
           visitArticle: 'your repair',
@@ -62,29 +62,29 @@ export default function StaffQuickNotifyModal({
           options: [
             {
               value: 'running_late' as NotificationType,
-              label: 'Running Late',
+              label: 'Running late',
               desc: 'Tell tenants you\'re delayed'
             },
             {
               value: 'complication' as NotificationType,
-              label: 'Complication Found',
+              label: 'Found a complication',
               desc: 'Found an issue you\'re working through'
             },
             {
               value: 'almost_done' as NotificationType,
-              label: 'Almost Done',
+              label: 'Almost done',
               desc: 'Let them know you\'re finishing up'
             },
             {
               value: 'custom' as NotificationType,
-              label: '✏️ Custom Message',
-              desc: 'Write your own message'
+              label: 'Write my own message',
+              desc: 'Anything else they should know'
             }
           ]
         }
       case 'cleaner':
         return {
-          title: 'Quick Notify Tenants',
+          title: 'Message the tenants',
           subtitle: 'Let tenants know about your clean',
           visitType: 'clean',
           visitArticle: 'your clean',
@@ -93,29 +93,29 @@ export default function StaffQuickNotifyModal({
           options: [
             {
               value: 'running_late' as NotificationType,
-              label: 'Running Late',
+              label: 'Running late',
               desc: 'Tell tenants you\'re delayed'
             },
             {
               value: 'issue_found' as NotificationType,
-              label: 'Issue Found',
+              label: 'Found an issue',
               desc: 'Notify about a maintenance problem discovered'
             },
             {
               value: 'schedule_change' as NotificationType,
-              label: 'Schedule Change',
+              label: 'Change of day',
               desc: 'Announce a reschedule'
             },
             {
               value: 'custom' as NotificationType,
-              label: '✏️ Custom Message',
-              desc: 'Write your own message'
+              label: 'Write my own message',
+              desc: 'Anything else they should know'
             }
           ]
         }
       case 'lettings':
         return {
-          title: 'Quick Notify Applicants',
+          title: 'Message the applicants',
           subtitle: 'Let applicants know about their viewing',
           visitType: 'viewing',
           visitArticle: 'your viewing',
@@ -124,18 +124,18 @@ export default function StaffQuickNotifyModal({
           options: [
             {
               value: 'running_late' as NotificationType,
-              label: 'Running Late',
+              label: 'Running late',
               desc: 'Tell applicant you\'re delayed'
             },
             {
               value: 'time_shift' as NotificationType,
-              label: 'Time Change',
+              label: 'Change of time',
               desc: 'Adjust the viewing time'
             },
             {
               value: 'custom' as NotificationType,
-              label: '✏️ Custom Message',
-              desc: 'Write your own message'
+              label: 'Write my own message',
+              desc: 'Anything else they should know'
             }
           ]
         }
@@ -153,7 +153,7 @@ export default function StaffQuickNotifyModal({
     switch (type) {
       case 'running_late':
         return {
-          subject: `Running Late — ${propertyName}`,
+          subject: `Running late — ${propertyName}`,
           message: `Hi, we're ${delayMsg}. We'll be with you shortly. Thank you for your patience.`
         }
 
@@ -165,25 +165,25 @@ export default function StaffQuickNotifyModal({
 
       case 'almost_done': // Contractor only
         return {
-          subject: `Nearly Complete — ${propertyName}`,
+          subject: `Nearly done — ${propertyName}`,
           message: `We're almost finished with your repair and should be done shortly.`
         }
 
       case 'issue_found': // Cleaner only
         return {
-          subject: `Issue Discovered — ${propertyName}`,
+          subject: `Found an issue — ${propertyName}`,
           message: `We've discovered a maintenance issue during the clean. A specialist will contact you about this shortly.`
         }
 
       case 'schedule_change': // Cleaner only
         return {
-          subject: `Schedule Update — ${propertyName}`,
+          subject: `Change of day — ${propertyName}`,
           message: `Due to scheduling changes, your clean may need to be rescheduled. We'll confirm the new time with you shortly.`
         }
 
       case 'time_shift': // Lettings only
         return {
-          subject: `Viewing Time Update — ${propertyName}`,
+          subject: `Viewing time change — ${propertyName}`,
           message: `The viewing time has been adjusted to ${lateMinutes} minutes ${lateMinutes > 0 ? 'later' : 'earlier'}. Please confirm your availability.`
         }
 
@@ -244,17 +244,17 @@ export default function StaffQuickNotifyModal({
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[1000] p-sm sm:p-lg">
-      <div className="bg-neutral-900 rounded-xl shadow-lg p-lg max-w-2xl w-full border border-neutral-700 max-h-[85dvh] sm:max-h-[90dvh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-[1000] p-sm sm:p-lg">
+      <div className="bg-[#EEF2EC] rounded-[24px] shadow-lg p-lg max-w-2xl w-full max-h-[85dvh] sm:max-h-[90dvh] overflow-y-auto">
         <div className="flex items-start justify-between mb-lg">
           <div>
-            <h3 className="text-lg font-semibold text-white">{config.title}</h3>
-            <p className="text-sm text-neutral-400 mt-sm">{propertyName}</p>
-            <p className="text-xs text-neutral-500 mt-xs">{config.subtitle}</p>
+            <h3 className="text-lg font-extrabold text-[#14261F]">{config.title}</h3>
+            <p className="text-sm text-[#4E6158] mt-xs">{propertyName}</p>
+            <p className="text-xs text-[#4E6158] mt-xs">{config.subtitle}</p>
           </div>
           <button
             onClick={onClose}
-            className="text-2xl text-neutral-400 hover:text-white"
+            className="text-2xl text-[#4E6158] hover:text-[#14261F]"
           >
             ×
           </button>
@@ -262,19 +262,19 @@ export default function StaffQuickNotifyModal({
 
         {/* Error/Success Messages */}
         {error && (
-          <div className="p-lg rounded-lg bg-red-950 border border-red-800 mb-lg">
-            <p className="text-sm font-semibold text-red-400">{error}</p>
+          <div className="p-lg rounded-lg bg-[#FCE9E6] border border-[#F3C2B8] mb-lg">
+            <p className="text-sm font-semibold text-[#8E2318]">{error}</p>
           </div>
         )}
         {success && (
-          <div className="p-lg rounded-lg bg-green-950 border border-green-800 mb-lg">
-            <p className="text-sm font-semibold text-green-400">{success}</p>
+          <div className="p-lg rounded-lg bg-green-50 border border-green-200 mb-lg">
+            <p className="text-sm font-semibold text-green-800">{success}</p>
           </div>
         )}
 
         {/* Notification Type Selection */}
-        <div className="mb-lg pb-lg border-b border-neutral-700">
-          <label className="text-sm font-semibold text-white mb-md block">What's happening?</label>
+        <div className="mb-lg pb-lg border-b border-[#DCE5DD]">
+          <label className="text-sm font-semibold text-[#14261F] mb-md block">What's happening?</label>
           <div className="space-y-sm">
             {config.options.map(option => (
               <button
@@ -282,12 +282,12 @@ export default function StaffQuickNotifyModal({
                 onClick={() => setNotificationType(option.value)}
                 className={`w-full px-md py-sm rounded-lg text-left transition border ${
                   notificationType === option.value
-                    ? 'bg-blue-900 border-blue-600'
-                    : 'border-neutral-700 text-neutral-300 hover:text-white'
+                    ? 'bg-white border-[#17332B] ring-2 ring-[color:var(--cr-gold)]'
+                    : 'bg-white border-[#DCE5DD] text-[#4E6158]'
                 }`}
               >
-                <div className="font-semibold text-white">{option.label}</div>
-                <div className="text-xs text-neutral-400">{option.desc}</div>
+                <div className="font-semibold text-[#14261F]">{option.label}</div>
+                <div className="text-xs text-[#4E6158]">{option.desc}</div>
               </button>
             ))}
           </div>
@@ -295,8 +295,8 @@ export default function StaffQuickNotifyModal({
 
         {/* Late Minutes Slider (for running_late) */}
         {notificationType === 'running_late' && (
-          <div className="mb-lg pb-lg border-b border-neutral-700">
-            <label className="text-sm font-semibold text-white mb-md block">How many minutes late?</label>
+          <div className="mb-lg pb-lg border-b border-[#DCE5DD]">
+            <label className="text-sm font-semibold text-[#14261F] mb-md block">How many minutes late?</label>
             <div className="flex items-center gap-md">
               <input
                 type="range"
@@ -307,15 +307,15 @@ export default function StaffQuickNotifyModal({
                 onChange={(e) => setLateMinutes(parseInt(e.target.value))}
                 className="flex-1"
               />
-              <div className="text-lg font-bold text-blue-400 min-w-[60px]">{lateMinutes}m</div>
+              <div className="text-lg font-bold text-[#17332B] min-w-[60px]">{lateMinutes}m</div>
             </div>
           </div>
         )}
 
         {/* Time Shift Slider (for lettings time_shift) */}
         {notificationType === 'time_shift' && role === 'lettings' && (
-          <div className="mb-lg pb-lg border-b border-neutral-700">
-            <label className="text-sm font-semibold text-white mb-md block">
+          <div className="mb-lg pb-lg border-b border-[#DCE5DD]">
+            <label className="text-sm font-semibold text-[#14261F] mb-md block">
               Shift by how many minutes?
             </label>
             <div className="flex items-center gap-md">
@@ -328,7 +328,7 @@ export default function StaffQuickNotifyModal({
                 onChange={(e) => setLateMinutes(parseInt(e.target.value))}
                 className="flex-1"
               />
-              <div className="text-lg font-bold text-blue-400 min-w-[60px]">
+              <div className="text-lg font-bold text-[#17332B] min-w-[60px]">
                 {lateMinutes > 0 ? '+' : ''}{lateMinutes}m
               </div>
             </div>
@@ -337,25 +337,25 @@ export default function StaffQuickNotifyModal({
 
         {/* Custom Message Fields */}
         {notificationType === 'custom' && (
-          <div className="mb-lg pb-lg border-b border-neutral-700 space-y-md">
+          <div className="mb-lg pb-lg border-b border-[#DCE5DD] space-y-md">
             <div>
-              <label className="text-sm font-semibold text-white mb-sm block">Subject:</label>
+              <label className="text-sm font-semibold text-[#14261F] mb-sm block">Subject:</label>
               <input
                 type="text"
                 value={customSubject}
                 onChange={(e) => setCustomSubject(e.target.value)}
                 placeholder={`e.g., Update on your ${config.visitType}`}
-                className="w-full px-md py-sm border border-neutral-700 bg-neutral-900 text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-md py-sm border border-[#DCE5DD] bg-white text-[#14261F] rounded-lg text-[16px] focus:outline-none focus:ring-2 focus:ring-[color:var(--cr-gold)]"
               />
             </div>
             <div>
-              <label className="text-sm font-semibold text-white mb-sm block">Message:</label>
+              <label className="text-sm font-semibold text-[#14261F] mb-sm block">Message:</label>
               <textarea
                 value={customMessage}
                 onChange={(e) => setCustomMessage(e.target.value)}
                 placeholder="Write your message here..."
                 rows={4}
-                className="w-full px-md py-sm border border-neutral-700 bg-neutral-900 text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-md py-sm border border-[#DCE5DD] bg-white text-[#14261F] rounded-lg text-[16px] focus:outline-none focus:ring-2 focus:ring-[color:var(--cr-gold)]"
               />
             </div>
           </div>
@@ -363,32 +363,32 @@ export default function StaffQuickNotifyModal({
 
         {/* Preview */}
         {notificationType !== 'custom' && (
-          <div className="mb-lg pb-lg border-b border-neutral-700 bg-neutral-900 p-md rounded-lg">
-            <p className="text-xs text-neutral-400 mb-sm">Preview:</p>
+          <div className="mb-lg pb-lg border-b border-[#DCE5DD] bg-white p-md rounded-lg">
+            <p className="text-xs text-[#4E6158] mb-sm">Preview:</p>
             <div className="space-y-sm">
-              <p className="text-sm font-semibold text-white">{getDefaultMessage(notificationType).subject}</p>
-              <p className="text-sm text-neutral-300">{getDefaultMessage(notificationType).message}</p>
+              <p className="text-sm font-semibold text-[#14261F]">{getDefaultMessage(notificationType).subject}</p>
+              <p className="text-sm text-[#4E6158]">{getDefaultMessage(notificationType).message}</p>
             </div>
           </div>
         )}
 
         {/* Sent receipt */}
         {sentReceipt && (
-          <div className="mt-lg p-lg rounded-xl bg-green-950 border border-green-700 space-y-sm">
-            <p className="text-sm font-bold text-green-400">✓ Sent at {sentReceipt.sentAt}</p>
-            <p className="text-sm text-green-300">Reached <strong>{sentReceipt.count}</strong> {sentReceipt.count === 1 ? 'person' : 'people'} via <strong>{sentReceipt.channels}</strong></p>
-            <button onClick={onClose} className="mt-sm w-full px-md py-sm bg-green-800 hover:bg-green-700 text-white rounded-lg text-sm font-semibold transition">Close</button>
+          <div className="mt-lg p-lg rounded-xl bg-green-50 border border-green-200 space-y-sm">
+            <p className="text-sm font-bold text-green-800">✓ Sent at {sentReceipt.sentAt}</p>
+            <p className="text-sm text-green-900">Reached <strong>{sentReceipt.count}</strong> {sentReceipt.count === 1 ? 'person' : 'people'} via <strong>{sentReceipt.channels}</strong></p>
+            <button onClick={onClose} className="mt-sm w-full px-md py-sm bg-[#17332B] text-white rounded-full text-sm font-semibold transition">Close</button>
           </div>
         )}
 
         {/* Channel picker */}
         {!sentReceipt && (
-          <div className="mb-lg pb-lg border-b border-neutral-700">
-            <label className="text-sm font-semibold text-white mb-sm block">How to deliver:</label>
+          <div className="mb-lg pb-lg border-b border-[#DCE5DD]">
+            <label className="text-sm font-semibold text-[#14261F] mb-sm block">How to deliver:</label>
             <div className="grid grid-cols-3 gap-sm">
               {([
-                { value: 'push_email', label: 'Push + Email' },
-                { value: 'push_only', label: 'Push only' },
+                { value: 'push_email', label: 'App + email' },
+                { value: 'push_only', label: 'App only' },
                 { value: 'email_only', label: 'Email only' },
               ] as const).map(opt => (
                 <button
@@ -396,8 +396,8 @@ export default function StaffQuickNotifyModal({
                   onClick={() => setChannels(opt.value)}
                   className={`px-sm py-sm rounded-lg font-semibold text-xs transition border ${
                     channels === opt.value
-                      ? 'bg-blue-600 border-blue-600 text-white'
-                      : 'border-neutral-700 text-neutral-300 hover:text-white'
+                      ? 'bg-[#17332B] border-[#17332B] text-white'
+                      : 'bg-white border-[#DCE5DD] text-[#4E6158]'
                   }`}
                 >
                   {opt.label}
@@ -412,16 +412,16 @@ export default function StaffQuickNotifyModal({
           <div className="flex gap-md">
             <button
               onClick={onClose}
-              className="flex-1 px-lg py-md border border-neutral-700 text-white rounded-lg font-semibold hover:bg-neutral-900 transition"
+              className="flex-1 px-lg py-md border border-[#DCE5DD] bg-white text-[#14261F] rounded-full font-semibold transition"
             >
               Cancel
             </button>
             <button
               onClick={sendNotification}
               disabled={sending}
-              className="flex-1 px-lg py-md bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition disabled:opacity-50"
+              className="flex-1 px-lg py-md bg-[#17332B] text-white rounded-full font-bold transition disabled:opacity-50"
             >
-              {sending ? 'Sending...' : 'Send'}
+              {sending ? 'Sending…' : 'Send'}
             </button>
           </div>
         )}

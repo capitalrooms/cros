@@ -56,7 +56,7 @@ export default function AskScreen({ role, houseName }: { role: 'tenant' | 'clean
           <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-[#17332B]" style={{ background: 'var(--cr-gold)' }}><Spark size={22} /></span>
           <div className="min-w-0">
             <h1 className="text-[26px] font-extrabold leading-none tracking-[-0.02em] text-[#F1F5EE]" style={display}>{TITLE[role]}</h1>
-            <p className="mt-1 truncate text-[13px] text-[#B9CBBF]">{role === 'tenant' ? `Answers from ${houseName ?? 'your property'}’s own details` : 'Answers from your houses’ own details'}</p>
+            <p className="mt-1 truncate text-[13px] text-[#B9CBBF]">{role === 'tenant' ? `Answers from ${houseName ?? 'your property'}’s own details` : 'Answers from what we hold on each property'}</p>
           </div>
         </div>
         <div className="mt-3.5 flex flex-wrap gap-1.5">
@@ -66,7 +66,7 @@ export default function AskScreen({ role, houseName }: { role: 'tenant' | 'clean
       </div>
 
       <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-3 px-4 pt-[18px]">
-        {!msgs.length && !bins && <p className="px-1 text-sm text-[#4E6158]">Ask anything — the WiFi, bins, heating, when someone’s coming. If it’s something broken, Ask points you to the right place.</p>}
+        {!msgs.length && !bins && <p className="px-1 text-sm text-[#4E6158]">{role === 'tenant' ? 'Ask anything — the WiFi, bins, heating, when someone’s coming. If it’s something broken, Ask points you to the right place.' : 'Ask anything about your jobs and houses — parking, which room, getting in, bins, what’s booked next.'}</p>}
 
         {bins && (
           <div className="max-w-[92%] self-start rounded-[18px] rounded-bl-md bg-white p-3.5 text-[14.5px] leading-snug shadow-[0_2px_0_#DCE5DD]">

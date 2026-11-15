@@ -566,6 +566,8 @@ export default function TenantDashboard() {
 
   const rentDate = nextRentDate(tenancy?.rent_due_day ?? null)
   const rentIn = daysUntil(rentDate)
+  // an emergency already has its own red card at the top — don't list it again under Coming up (15 Nov 2026)
+  const upcomingShown = upcoming.filter((v: any) => !emergencies.some(e => e.ticketId === String(v.id)) && v.location !== 'Reported as an emergency')
   const nextVisit = upcoming[0]
   const nextClean = upcoming.find((v: any) => String(v.id).startsWith('clean-'))
   const houseTile = nextClean ? `Clean ${dayLabel(nextClean.booked_date) === 'Today' || dayLabel(nextClean.booked_date) === 'Tomorrow' ? dayLabel(nextClean.booked_date).toLowerCase() : `on ${new Date(nextClean.booked_date).toLocaleDateString('en-GB', { weekday: 'long' })}`}`
@@ -601,6 +603,17 @@ export default function TenantDashboard() {
           <Greeting
             eyebrow={`${(() => { const h = Number(new Date().toLocaleString('en-GB', { hour: 'numeric', hour12: false, timeZone: 'Europe/London' })); return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening' })()}${firstName ? `, ${firstName}` : ''}${tenancy?.properties?.name ? ' — you live at' : ''}`}
             title={tenancy?.properties?.name ?? 'No current tenancy'} />
+
+          {/* an emergency at the house: always first, until it's sorted (15 Nov 2026) */}
+          {emergencies.map(e => (
+            <Link key={e.id} href={`/tenant/emergency/${e.id}`} className="block rounded-[20px] bg-[#8E2318] p-4 text-white shadow-[0_3px_0_#5A1A12] active:translate-y-px">
+              <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-white/75">Emergency · {e.label}</span>
+              <span className="mt-1 block text-[19px] font-extrabold leading-tight" style={display}>
+                {e.stage === 'booked' ? `A contractor is coming${e.etaText ? ` — ${e.etaText}` : ''}` : e.stage === 'on_site' ? 'The contractor is there now' : e.stage === 'morning' ? 'Made safe — booking someone for the morning' : 'We’re finding a contractor'}
+              </span>
+              <span className="mt-1 block text-sm text-white/85">{e.bathroomAbove ? 'Don’t use the bathroom above the leak. ' : ''}Tap for what to do meanwhile →</span>
+            </Link>
+          ))}
 
           {/* short-notice requests to come into your room: loud, they need an answer */}
           {accessRequests.map((req) => (
@@ -640,17 +653,6 @@ export default function TenantDashboard() {
             </Banner>
           )}
 
-          {/* an emergency at the house: always first, until it's sorted (15 Nov 2026) */}
-          {emergencies.map(e => (
-            <Link key={e.id} href={`/tenant/emergency/${e.id}`} className="block rounded-[20px] bg-[#8E2318] p-4 text-white shadow-[0_3px_0_#5A1A12] active:translate-y-px">
-              <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-white/75">Emergency · {e.label}</span>
-              <span className="mt-1 block text-[19px] font-extrabold leading-tight" style={display}>
-                {e.stage === 'booked' ? `A contractor is coming${e.etaText ? ` — ${e.etaText}` : ''}` : e.stage === 'on_site' ? 'The contractor is there now' : e.stage === 'morning' ? 'Made safe — booking someone for the morning' : 'We’re finding a contractor'}
-              </span>
-              <span className="mt-1 block text-sm text-white/85">{e.bathroomAbove ? 'Don’t use the bathroom above the leak. ' : ''}Tap for what to do meanwhile →</span>
-            </Link>
-          ))}
-
           <div className="grid grid-cols-2 gap-2.5">
             <Link href="/tenant/maintenance" className="flex h-[92px] flex-col justify-between rounded-[20px] bg-white p-3.5 shadow-[0_2px_0_#DCE5DD] active:translate-y-px">
               <Ico d={PATHS.tool} size={24} stroke="#17332B" />
@@ -689,11 +691,11 @@ export default function TenantDashboard() {
           )}
 
           {/* coming up: visits and cleans, soonest first — tap one to add something for it */}
-          {upcoming.length > 0 && (
+          {upcomingShown.length > 0 && (
             <section className="flex flex-col gap-2.5">
               <SectionHead title="Coming up" right={<Link href="/tenant/requests" className="text-[13px] font-bold text-[#14261F]">See all</Link>} />
               <ListCard>
-                {upcoming.slice(0, 4).map((v: any, i: number, arr: any[]) => {
+                {upcomingShown.slice(0, 4).map((v: any, i: number, arr: any[]) => {
                   const id = String(v.id)
                   const isClean = id.startsWith('clean-'), isTicket = !isClean && !id.startsWith('viewing-') && !id.startsWith('appt-')
                   const what = isClean ? 'House clean' : `${String(v.category ?? 'Visit').replace(/-/g, ' ').replace(/^./, (c: string) => c.toUpperCase())}${v.location && !inTenantRoom({ location: v.location }) ? ` · ${v.location}` : v.rooms?.name ? ` · ${v.room_id === roomId ? 'your room' : v.rooms.name}` : ''}`

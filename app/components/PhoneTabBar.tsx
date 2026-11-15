@@ -4,7 +4,7 @@
 // MobileTabBar), lettings, cleaners and contractors. A tab is a link (href) or a switch within the page (onClick).
 // `fixed`: pinned to the bottom of a normally-scrolling page (the role apps); admin's shell places it itself.
 import Link from 'next/link'
-import type { ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import LineIcon from '@/components/LineIcon'
 
 export interface PhoneTab { key: string; label: string; icon: ReactNode; href?: string; onClick?: () => void; active: boolean; /** a count shown as a small badge on the icon (never in the label) */ badge?: number }
@@ -40,6 +40,19 @@ export default function PhoneTabBar({ tabs, label = 'Sections', fixed = false, c
       {!!t.badge && <span className="absolute -right-2.5 -top-1.5 min-w-[17px] rounded-full bg-red-600 px-1 text-center text-[10px] font-bold leading-[17px] text-white">{t.badge > 99 ? '99+' : t.badge}</span>}
     </span>
   )
+  // while the phone keyboard is up, a bar pinned to the bottom floats up into the middle of the screen (iPhone) —
+  // hide it until typing is finished (15 Nov 2026, Harry: "bar moves into middle")
+  const [typing, setTyping] = useState(false)
+  useEffect(() => {
+    if (!fixed) return
+    const isField = (el: EventTarget | null) => el instanceof HTMLElement && (el.tagName === 'TEXTAREA' || el.isContentEditable
+      || (el.tagName === 'INPUT' && !['checkbox', 'radio', 'button', 'submit', 'range', 'file', 'color'].includes((el as HTMLInputElement).type)) || el.tagName === 'SELECT')
+    const on = (e: FocusEvent) => { if (isField(e.target)) setTyping(true) }
+    const off = () => setTimeout(() => setTyping(isField(document.activeElement)), 50)
+    document.addEventListener('focusin', on); document.addEventListener('focusout', off)
+    return () => { document.removeEventListener('focusin', on); document.removeEventListener('focusout', off) }
+  }, [fixed])
+  if (fixed && typing) return null
   return (
     <nav aria-label={label}
       className={`cr-tabbar ${className} flex justify-around border-t border-neutral-200 bg-white/95 backdrop-blur ${fixed ? 'fixed inset-x-0 bottom-0 z-40' : 'flex-shrink-0'}`}

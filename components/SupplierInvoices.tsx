@@ -62,8 +62,8 @@ export default function SupplierInvoices({ viewAs, jobId }: { viewAs?: string | 
   return (
     <div className="space-y-4">
       <div className="flex gap-1 rounded-2xl bg-white p-1 ring-1 ring-neutral-200">
-        {([['new', 'New invoice'], ['list', `My invoices${data.invoices.length ? ` · ${data.invoices.length}` : ''}`], ['details', 'My details']] as [Tab, string][]).map(([k, l]) => (
-          <button key={k} type="button" onClick={() => setTab(k)} className={`flex-1 rounded-xl px-2 py-2 text-sm font-semibold ${tab === k ? 'bg-neutral-900 text-white' : 'text-neutral-600'}`}>{l}</button>
+        {([['new', 'New invoice'], ['list', `My invoices${data.invoices.length ? ` (${data.invoices.length})` : ''}`], ['details', 'My details']] as [Tab, string][]).map(([k, l]) => (
+          <button key={k} type="button" onClick={() => setTab(k)} className={`flex-1 whitespace-nowrap rounded-xl px-1.5 py-2 text-[13px] font-semibold ${tab === k ? 'bg-neutral-900 text-white' : 'text-neutral-600'}`}>{l}</button>
         ))}
       </div>
       {!data.gate.enabled && <p className="rounded-2xl bg-amber-50 p-4 text-sm text-amber-900">{data.gate.why}</p>}

@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase';
 import { getCurrentUser } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { adminFetch } from '@/lib/adminFetch';
 import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton';
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading';
@@ -53,6 +54,11 @@ function formatTime(slot: string | null) {
 export default function TenantRequests() {
   const router = useRouter();
   const [requests, setRequests] = useState<Request[]>([]);
+  // open emergencies (ticket id → emergency id) — those cards open the emergency screen (15 Nov 2026)
+  const [emOpen, setEmOpen] = useState<Record<string, string>>({});
+  useEffect(() => { adminFetch('/api/tenant/emergency').then(r => r.ok ? r.json() : null).then(d => {
+    if (d?.items) setEmOpen(Object.fromEntries((d.items as any[]).filter(x => x.ticketId).map(x => [x.ticketId, x.id])))
+  }).catch(() => {}) }, []);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'pending' | 'scheduled' | 'completed'>('all');
   // reopening a finished repair (21 Oct 2026)
@@ -177,6 +183,18 @@ export default function TenantRequests() {
                 (request.status === 'assigned' || request.status === 'in_progress');
               // a visit date that has gone by without the job being finished isn't "scheduled" any more
               const visitPassed = !!request.booked_date && request.booked_date < todayISO() && !request.completed_at && ['assigned', 'in_progress', 'booked'].includes(request.status);
+              const isEm = String(request.priority).toLowerCase() === 'emergency';
+              const emId = emOpen[request.id];
+              if (isEm) return (
+                <div key={request.id} className={`rounded-2xl p-lg ${emId ? 'bg-[#8E2318] text-white' : 'bg-white'}`}>
+                  <span className={`inline-block rounded-full px-md py-xs text-xs font-bold ${emId ? 'bg-white/15 text-white' : request.status === 'completed' ? 'bg-green-100 text-green-800' : 'bg-[#FCE9E6] text-[#8E2318]'}`}>
+                    {emId ? 'Emergency — open' : request.status === 'completed' ? 'Emergency — sorted' : request.status === 'cancelled' ? 'Emergency — closed' : 'Emergency'}
+                  </span>
+                  <h3 className={`mt-xs text-lg font-bold leading-snug ${emId ? 'text-white' : 'text-neutral-900'}`}>{request.title}</h3>
+                  <p className={`mt-xs text-sm ${emId ? 'text-white/80' : 'text-neutral-600'}`}>Reported {formatDate(request.created_at)}{request.booked_date ? ` · contractor booked for ${formatDate(request.booked_date)}` : ''}</p>
+                  {emId && <Link href={`/tenant/emergency/${emId}`} className="mt-md inline-flex h-10 items-center rounded-full bg-white px-4 text-sm font-bold text-[#8E2318]">Where it’s up to and what to do →</Link>}
+                </div>
+              );
 
               return (
                 <div

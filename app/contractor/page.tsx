@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { slotLabel } from '@/lib/booking'
+import { slotLabel, slotStart } from '@/lib/booking'
 import PoppingByVisit from '@/app/components/PoppingByVisit'
 import { useRoleRail, DeskGreeting } from '@/app/components/role/RoleShell'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -126,14 +126,14 @@ function JobCard({ job, variant, asParam }: { job: Job; variant?: 'overdue' | 'w
 function QuoteCard({ job, asParam }: { job: Job; asParam?: string }) {
   const submitted = !!job.quote_submitted_at
   return (
-    <Link href={`/contractor/job/${job.id}${asParam ? `?as=${asParam}` : job.quote_id ? `?quote=${job.quote_id}` : ''}`}>
+    <Link className="block" href={`/contractor/job/${job.id}${asParam ? `?as=${asParam}` : job.quote_id ? `?quote=${job.quote_id}` : ''}`}>
       <div className={`rounded-2xl border p-md shadow-sm flex items-center justify-between gap-md hover:shadow-md transition-shadow cursor-pointer ${
         submitted ? 'border-green-200 bg-green-50' : 'border-blue-200 bg-blue-50'
       }`}>
         <div className="min-w-0 flex-1">
-          <p className="font-bold text-neutral-900 truncate">{job.properties?.name}</p>
+          <p className="font-bold text-neutral-900 line-clamp-2">{String((job as any).title || job.category || "Repair").split(" — ")[0]}</p>
           <p className="text-sm text-neutral-500 truncate">
-            {String(job.category || 'General').replace(/-/g, ' ')}
+            {job.properties?.name?.split(',')[0] ?? String(job.category || 'General').replace(/-/g, ' ')}
             {` · ${jobWhere(job)}`}
           </p>
           {submitted ? (
@@ -506,7 +506,7 @@ export default function ContractorDashboard() {
                 ...bookedAhead.filter(j => j.booked_date).map(j => ({
                   id: j.id,
                   date: j.booked_date!,
-                  time: j.booked_slot ? String(j.booked_slot).slice(0, 5) : null,
+                  time: slotStart(j.booked_slot),
                   label: j.properties?.name || 'Unknown',
                   sublabel: String(j.category || 'General').replace(/-/g, ' '),
                   isOverdue: false,
@@ -515,7 +515,7 @@ export default function ContractorDashboard() {
                 ...overdue.filter(j => j.booked_date).map(j => ({
                   id: j.id,
                   date: j.booked_date!,
-                  time: j.booked_slot ? String(j.booked_slot).slice(0, 5) : null,
+                  time: slotStart(j.booked_slot),
                   label: j.properties?.name || 'Unknown',
                   sublabel: String(j.category || 'General').replace(/-/g, ' '),
                   isOverdue: true,
@@ -633,11 +633,11 @@ export default function ContractorDashboard() {
                     <p className="text-sm font-medium text-neutral-400">No completed jobs yet</p>
                   </div>
                 ) : completedJobs.map(job => (
-                  <Link key={job.id} href={`/contractor/job/${job.id}`}>
+                  <Link key={job.id} href={`/contractor/job/${job.id}`} className="block">
                     <div className="rounded-2xl border border-neutral-200 bg-white p-md flex items-center justify-between gap-md hover:shadow-md transition-shadow cursor-pointer">
                       <div className="min-w-0 flex-1">
-                        <p className="font-bold text-neutral-900 truncate">{job.properties?.name}</p>
-                        <p className="text-sm text-neutral-500 truncate">{String(job.category || 'General').replace(/-/g, ' ')}</p>
+                        <p className="font-bold text-neutral-900 line-clamp-2">{String((job as any).title || job.category || "Repair").split(" — ")[0]}</p>
+                        <p className="text-sm text-neutral-500 truncate">{job.properties?.name?.split(',')[0]}{(job as any).location ? ` · ${jobWhere(job as any)}` : ''}</p>
                         {job.completed_at && (
                           <p className="text-xs text-neutral-400 mt-xs">Completed {new Date(job.completed_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
                         )}
@@ -675,7 +675,7 @@ export default function ContractorDashboard() {
                       <div style={{ background: '#FFFFFF', border: '1px solid var(--cr-line)', borderRadius: 12, padding: '10px 12px', marginBottom: 8 }}>
                         <div style={{ fontWeight: 700, fontSize: 12, color: 'var(--cr-ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{job.properties?.name}</div>
                         <div style={{ fontSize: 11, color: 'var(--cr-muted)', marginTop: 1 }}>{String(job.category || 'General').replace(/-/g, ' ')}</div>
-                        <div style={{ fontSize: 10.5, color: 'var(--cr-muted)', marginTop: 3 }}>{formatDateUK(job.booked_date!)}{job.booked_slot ? ` · ${String(job.booked_slot).slice(0,5)}` : ''}</div>
+                        <div style={{ fontSize: 10.5, color: 'var(--cr-muted)', marginTop: 3 }}>{formatDateUK(job.booked_date!)}{job.booked_slot ? ` · ${slotLabel(job.booked_slot) || String(job.booked_slot).slice(0,5)}` : ''}</div>
                       </div>
                     </Link>
                   ))}
@@ -728,13 +728,14 @@ export default function ContractorDashboard() {
               <button
                 key={key}
                 onClick={() => setActiveTab(key)}
-                className={`relative mb-sm whitespace-nowrap rounded-full px-lg py-sm text-sm font-bold transition-all ${
+                className={`mb-sm inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-lg py-sm text-sm font-bold transition-all ${
                   activeTab === key ? 'bg-[#17332B] text-white' : 'bg-white text-[#4E6158] ring-1 ring-[#DCE5DD]'
                 }`}
               >
                 {label}
                 {badge && badge > 0 ? (
-                  <span className="absolute -right-1 -top-1 flex h-4 min-w-[16px] items-center justify-center rounded-full px-xs text-[9px] font-bold text-[#17332B]" style={{ background: 'var(--cr-gold)' }}>
+                  // inside the chip, not perched on its corner — the scrolling row clipped it (15 Nov 2026)
+                  <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full px-1 text-[11px] font-extrabold text-[#17332B]" style={{ background: 'var(--cr-gold)' }}>
                     {badge}
                   </span>
                 ) : null}
@@ -748,7 +749,6 @@ export default function ContractorDashboard() {
 
           {activeTab === 'today' && (
             <div className="pt-sm space-y-sm">
-              <div className="pt-sm pb-sm"><EnableNotifications /></div>
               <a href="/planner" className="block rounded-full bg-white px-md py-3 text-center text-sm font-bold text-[#17332B] ring-1 ring-[#DCE5DD]">Notes, jobs &amp; photos with Capital Rooms</a>
               {/* passed visits and jobs to book are in the "needs you" list at the top (9 Nov 2026) */}
               {dayJobs.length === 0 ? (
@@ -847,11 +847,11 @@ export default function ContractorDashboard() {
               ) : (
                 <div className="space-y-sm">
                   {completedJobs.map(job => (
-                    <Link key={job.id} href={`/contractor/job/${job.id}`}>
+                    <Link key={job.id} href={`/contractor/job/${job.id}`} className="block">
                       <div className="rounded-2xl border border-neutral-200 bg-white p-md flex items-center justify-between gap-md hover:shadow-md transition-shadow cursor-pointer">
                         <div className="min-w-0 flex-1">
-                          <p className="font-bold text-neutral-900 truncate">{job.properties?.name}</p>
-                          <p className="text-sm text-neutral-500 truncate">{String(job.category || 'General').replace(/-/g, ' ')}</p>
+                          <p className="font-bold text-neutral-900 line-clamp-2">{String((job as any).title || job.category || "Repair").split(" — ")[0]}</p>
+                          <p className="text-sm text-neutral-500 truncate">{job.properties?.name?.split(',')[0]}{(job as any).location ? ` · ${jobWhere(job as any)}` : ''}</p>
                           {job.completed_at && (
                             <p className="text-xs text-neutral-400 mt-xs">
                               Completed {new Date(job.completed_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}

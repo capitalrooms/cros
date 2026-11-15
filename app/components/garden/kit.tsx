@@ -106,8 +106,11 @@ export function Hero({ eyebrow, title, sub, art, children, faces, height = 176, 
 }
 
 /** A honey button with a raised edge (on the green card, in cards). */
-export function HoneyButton({ children, onClick, href, disabled, className = '' }: { children: ReactNode; onClick?: () => void; href?: string; disabled?: boolean; className?: string }) {
+// `reload`: open the page with a full load (a plain link). Some screens read their address on start-up and don't run
+// after an in-app hop — the contractor's "Open the job" did nothing until the tile was tapped (15 Nov 2026).
+export function HoneyButton({ children, onClick, href, disabled, className = '', reload = false }: { children: ReactNode; onClick?: () => void; href?: string; disabled?: boolean; className?: string; reload?: boolean }) {
   const cls = `inline-flex h-10 items-center justify-center rounded-full px-4 text-sm font-bold text-[#17332B] shadow-[0_3px_0_var(--cr-honey-edge)] active:translate-y-[2px] active:shadow-[0_1px_0_var(--cr-honey-edge)] disabled:opacity-50 ${className}`
+  if (href && reload) return <a href={href} className={cls} style={{ background: 'var(--cr-gold)' }}>{children}</a>
   return href ? <Link href={href} className={cls} style={{ background: 'var(--cr-gold)' }}>{children}</Link>
     : <button type="button" onClick={onClick} disabled={disabled} className={cls} style={{ background: 'var(--cr-gold)' }}>{children}</button>
 }

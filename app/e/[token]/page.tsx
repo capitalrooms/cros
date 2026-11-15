@@ -35,7 +35,11 @@ const label = 'block text-[11px] uppercase tracking-[.14em] text-[#6F6B64] mb-1'
 function Shell({ children }: { children: React.ReactNode }) {
   return (
     <PublicShell label="Emergency call-out">
-      <div className="mx-auto max-w-xl space-y-6 px-6 pb-14 pt-8">{children}</div>
+      <div className="mx-auto max-w-xl space-y-6 px-6 pb-14 pt-8">
+        {children}
+        {/* opened from the app's notification: a way back to their jobs (15 Nov 2026) */}
+        <a href="/contractor" className="block pt-2 text-center text-sm font-semibold text-neutral-500 underline">Your jobs in the Capital Rooms app</a>
+      </div>
     </PublicShell>
   )
 }

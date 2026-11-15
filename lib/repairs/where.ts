@@ -7,7 +7,8 @@ type J = { location?: string | null; rooms?: { name?: string | null } | null }
 export const inTenantRoom = (j: J) => !j.location || /my room|bedroom/i.test(j.location)
 
 /** "Room 2" for a job in someone's room, "Kitchen" for a shared area. */
-export const jobWhere = (j: J) => inTenantRoom(j) ? (j.rooms?.name || 'Their room') : String(j.location)
+// emergencies reported before 15 Nov 2026 had no place, only "Reported as an emergency"
+export const jobWhere = (j: J) => inTenantRoom(j) ? (j.rooms?.name || 'Their room') : /reported as an emergency/i.test(String(j.location)) ? 'Whole house — see details' : String(j.location)
 
 /** What the booking notice rules (lib/access) should be given: the room for a room job, else the shared area. */
 export const jobPlace = (j: J) => inTenantRoom(j) ? (j.rooms?.name ?? j.location ?? null) : (j.location ?? null)

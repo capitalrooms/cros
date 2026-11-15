@@ -19,7 +19,13 @@ export default function MaintenanceHub() {
         <h1 className="text-xl font-bold text-neutral-900">What needs fixing?</h1>
         <p className="mt-xs text-sm text-neutral-600">Pick the closest match — you’ll describe it on the next screen.</p>
 
-        <ul className="mt-lg divide-y divide-neutral-100 overflow-hidden rounded-2xl border border-neutral-200 bg-white">
+        {/* an emergency comes first — not after nine categories (15 Nov 2026) */}
+        <Link href="/tenant/emergency" className="mt-lg flex items-center gap-md rounded-2xl bg-[#8E2318] px-lg py-md text-white active:translate-y-px">
+          <span className="min-w-0 flex-1 text-sm"><b className="block text-[15px]">Is it an emergency?</b>Water pouring, no power or heating, a door that won’t lock</span>
+          <span aria-hidden="true">›</span>
+        </Link>
+
+        <ul className="mt-md divide-y divide-neutral-100 overflow-hidden rounded-2xl border border-neutral-200 bg-white">
           {MAINTENANCE_CATEGORIES.map((category) => (
             <li key={category.id}>
               <Link href={`/tenant/maintenance/report?category=${category.id}`} className="flex items-center gap-md px-lg py-md hover:bg-neutral-50">
@@ -39,9 +45,6 @@ export default function MaintenanceHub() {
         <div className="mt-lg space-y-sm text-sm">
           <Link href="/tenant/housemate-concern" className="block rounded-xl border border-neutral-200 bg-white px-lg py-md text-neutral-800 hover:bg-neutral-50">
             <b>Not a repair?</b> Having trouble with a housemate? Tell us here
-          </Link>
-          <Link href="/tenant/emergency" className="block rounded-xl border border-red-200 bg-red-50 px-lg py-md text-red-900 hover:bg-red-100">
-            <b>Water pouring, no power or heating, a door that won’t lock?</b> Report an emergency
           </Link>
         </div>
       </main>

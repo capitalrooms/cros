@@ -11,7 +11,8 @@ import { AskBar, Greeting, Hero, HoneyButton, GhostButton, Tile, Banner, ListCar
 import { useArrival } from '@/app/components/garden/useArrival'
 import StaffNotificationBell from '@/app/components/StaffNotificationBell'
 import { slotLabel } from '@/lib/booking'
-import { inTenantRoom } from '@/lib/repairs/where'
+import { inTenantRoom, jobWhere } from '@/lib/repairs/where'
+import EnableNotifications from '@/app/components/EnableNotifications'
 
 type Job = { id: string; title?: string | null; category?: string | null; priority?: string | null; booked_date?: string | null; booked_slot?: string | null; arrived_at?: string | null; status?: string; room_id?: string | null; rooms?: { name?: string; location_in_house?: string | null } | null; properties?: { name?: string; address?: string; postcode?: string | null } | null }
 const todayIso = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
@@ -35,7 +36,7 @@ export default function ContractorTop({ firstName, booked, weekCount, quotesWait
   const later = sorted.filter(j => j.id !== next?.id && (j.booked_date ?? '') >= todayIso()).slice(0, 3)
   const jobHref = (j: Job) => `/contractor/job/${j.id}${asId ? `?as=${asId}` : ''}`
   const isToday = next?.booked_date === todayIso()
-  const room = next && inTenantRoom({ location: (next as any).location }) && next.rooms?.name ? `${next.rooms.name}${next.rooms.location_in_house ? ` (${next.rooms.location_in_house})` : ''}` : (next as any)?.location ? `${(next as any).location} · shared` : 'Shared areas'
+  const room = next && inTenantRoom({ location: (next as any).location }) && next.rooms?.name ? `${next.rooms.name}${next.rooms.location_in_house ? ` (${next.rooms.location_in_house})` : ''}` : (next as any)?.location ? `${jobWhere(next as any)} · shared area` : 'Shared areas'
   const maps = next?.properties ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent([next.properties.address || next.properties.name, next.properties.postcode].filter(Boolean).join(', '))}` : null
 
   async function imHere(j: Job) {
@@ -45,6 +46,8 @@ export default function ContractorTop({ firstName, booked, weekCount, quotesWait
   return (
     <div className="flex flex-col gap-4 px-4 pt-[max(calc(env(safe-area-inset-top)+12px),16px)]">
       <AskBar bell={<StaffNotificationBell tone="light" />} href="/contractor/ask" prompt={next ? `Is there parking at ${next.properties?.name?.split(',')[0] ?? 'the property'}?` : 'Ask about your jobs'} />
+      {/* phone notifications first: an emergency has to reach them when they're not in the app (15 Nov 2026) */}
+      <EnableNotifications />
       {emergencies.map(e => (
         <a key={e.token} href={`/e/${e.token}`} className="flex items-center gap-3 rounded-[22px] bg-[#8E2318] p-4 text-white">
           <span className="relative grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white text-[#8E2318]"><Ico d={PATHS.alert} size={22} /><span className="absolute -right-0.5 -top-0.5 h-3.5 w-3.5 animate-pulse rounded-full border-2 border-[#8E2318] bg-[#F2B84B]" /></span>
@@ -77,8 +80,8 @@ export default function ContractorTop({ firstName, booked, weekCount, quotesWait
 
       {next ? (
         <Hero art="tool" height={190} eyebrow={`${dayName(next.booked_date!)}${slotLabel(next.booked_slot) ? ` · ${slotLabel(next.booked_slot)}` : ''}`} title={what(next)}
-          sub={[next.priority ? `Priority ${String(next.priority).replace(/^p/i, '')}` : '', room].filter(Boolean).join(' · ')}>
-          {isToday && !next.arrived_at ? <HoneyButton onClick={() => imHere(next)}>I’m here</HoneyButton> : <HoneyButton href={jobHref(next)}>{next.arrived_at ? 'Carry on' : 'Open the job'}</HoneyButton>}
+          sub={[String(next.priority).toLowerCase() === 'emergency' ? 'Emergency' : next.priority ? `Priority ${String(next.priority).replace(/^p/i, '')}` : '', room].filter(Boolean).join(' · ')}>
+          {isToday && !next.arrived_at ? <HoneyButton onClick={() => imHere(next)}>I’m here</HoneyButton> : <HoneyButton reload href={jobHref(next)}>{next.arrived_at ? 'Carry on' : 'Open the job'}</HoneyButton>}
           {maps && <GhostButton href={maps}>Directions</GhostButton>}
         </Hero>
       ) : (

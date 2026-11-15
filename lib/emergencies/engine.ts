@@ -10,6 +10,7 @@
 // Each step writes to emergency_events, so the office can open it late and see exactly where it stands.
 // Status changes are conditional updates, so two ticks running at once can never both confirm someone.
 
+import { inTenantRoom } from '@/lib/repairs/where'
 import { placeLabel, isWholeLet } from '@/lib/lettings/letWording'
 import crypto from 'node:crypto'
 import { readKeySafe } from '@/lib/access/keySafe'
@@ -130,7 +131,7 @@ const tonight = (info?: { overnight?: string[] }) => info?.overnight?.length ? `
 // ── start ────────────────────────────────────────────────────────────────────
 
 export async function startEmergency(s: S, opts: { ticketId: string; kind?: EmergencyKind; controlled?: boolean; reporterId?: string | null; bathroomAbove?: 'yes' | 'no' | 'unsure' | null }) {
-  const { data: t } = await s.from('maintenance_tickets').select('id, title, description, category, property_id, room_id, reporter_id').eq('id', opts.ticketId).maybeSingle() as { data: any }
+  const { data: t } = await s.from('maintenance_tickets').select('id, title, description, category, location, property_id, room_id, reporter_id').eq('id', opts.ticketId).maybeSingle() as { data: any }
   if (!t) return { error: 'Job not found' }
   const { data: existing } = await s.from('emergencies').select('id').eq('ticket_id', t.id).maybeSingle()
   if (existing) return { id: existing.id }
@@ -140,8 +141,10 @@ export async function startEmergency(s: S, opts: { ticketId: string; kind?: Emer
   const reporterId = opts.reporterId ?? null
   const status = !info.trade ? 'call_999' : opts.controlled ? 'morning' : 'collecting'
   const { data: em, error } = await s.from('emergencies').insert({
-    ticket_id: t.id, property_id: t.property_id, room_id: t.room_id, reporter_id: reporterId,
-    kind, trade: info.trade ?? 'general', title: t.title || info.label, details: t.description, controlled: !!opts.controlled, status,
+    // the room only when it's in someone's room — a kitchen leak isn't "Room 1, 12 Saltwell Street" (15 Nov 2026)
+    ticket_id: t.id, property_id: t.property_id, room_id: inTenantRoom({ location: t.location }) ? t.room_id : null, reporter_id: reporterId,
+    kind, trade: info.trade ?? 'general', title: t.title || info.label,
+    details: [t.location && !inTenantRoom({ location: t.location }) ? `Where: ${t.location}` : '', t.description].filter(Boolean).join('\n\n'), controlled: !!opts.controlled, status,
   }).select('id').single()
   if (error) return { error: error.message }
   await s.from('maintenance_tickets').update({ priority: 'emergency', updated_at: new Date().toISOString() }).eq('id', t.id)
@@ -314,9 +317,10 @@ export async function choose(s: S, emId: string, responseId: string, by: string,
   // the job
   if (em.ticket_id) {
     const day = new Date(r.eta_at).toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
+    const hhmm = new Date(r.eta_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Europe/London' })
     const { data: tk } = await s.from('maintenance_tickets').select('admin_note').eq('id', em.ticket_id).maybeSingle() as { data: any }
     await s.from('maintenance_tickets').update({
-      contractor_id: r.contractor_id, status: 'assigned', booked_date: day, booked_slot: null, priority: 'emergency',
+      contractor_id: r.contractor_id, status: 'assigned', booked_date: day, booked_slot: `by ${hhmm}`, priority: 'emergency',
       approved_at: new Date().toISOString(),
       admin_note: [tk?.admin_note, `[${ukDay(new Date())}] Emergency: ${pname(r.people)} confirmed by ${by}, due ${ukWhen(r.eta_at)}, call-out ${gbp(r.call_out_fee)}`].filter(Boolean).join('\n'),
       updated_at: new Date().toISOString(),

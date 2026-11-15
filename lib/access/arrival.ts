@@ -60,6 +60,8 @@ export async function checkArrival(s: SupabaseClient, o: { kind: 'job' | 'clean'
     const base = { where, room: r, propertyId: t.property_id as string }
     if (t.arrived_at && String(t.arrived_at).slice(0, 10) === today()) return { state: 'ok', keySafe: await readKeySafe(s, t.property_id), already: true, ...base }
     const h = hoursSince(t.booked_at)
+    // an emergency: the tenants reported it and were told who's coming — no notice rule, straight in (15 Nov 2026)
+    if (String(t.priority).toLowerCase() === 'emergency') return { state: 'ok', keySafe: null, already: false, ...base }
     if (r?.occupied) {
       const agreed = !!t.tenant_access_any_time || !!t.short_notice_tenant_approved_at
       if (!agreed && h < ROOM_NOTICE_HOURS)

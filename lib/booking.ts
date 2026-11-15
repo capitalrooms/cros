@@ -5,7 +5,17 @@ export const TIME_SLOTS = [
 ] as const
 
 export function slotLabel(slot: string | null | undefined) {
+  // an emergency is booked for a time, not a slot: "by 08:00" (lib/emergencies/engine, 15 Nov 2026)
+  const by = /^by (\d{2}):(\d{2})$/.exec(String(slot ?? ''))
+  if (by) { const h = Number(by[1]), m = by[2]; return `by ${h % 12 || 12}${m === '00' ? '' : `:${m}`}${h < 12 ? 'am' : 'pm'}` }
   return TIME_SLOTS.find((s) => s.value === slot)?.label ?? ''
+}
+
+/** When a booking starts, as HH:MM for a diary: "9-12" → "09:00", "by 08:00" → "08:00", "14:00-15:00" → "14:00". */
+export function slotStart(slot: string | null | undefined): string | null {
+  const t = String(slot ?? '').replace(/^by /, '')
+  const m = /^(\d{1,2})(?::(\d{2}))?/.exec(t)
+  return m ? `${m[1].padStart(2, '0')}:${m[2] ?? '00'}` : null
 }
 
 /** "Thu 7 Aug, 9am – 12pm" — never show a booked status without its time. */

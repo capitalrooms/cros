@@ -20,7 +20,17 @@ export default function EnableNotifications() {
       return
     }
     const p = pushPermission()
-    if (p === 'granted') setState('hidden')
+    // already allowed on this phone: make sure CROS still has this phone on file — once a session (15 Nov 2026: a
+    // contractor had allowed notifications but no phone was saved, so emergency alerts never reached them)
+    if (p === 'granted') {
+      setState('hidden')
+      try {
+        if (!sessionStorage.getItem('cros-push-synced')) {
+          getCurrentUser().then(d => { const a = d?.assignment as any; return enablePush({ id: a?.id, email: a?.email ?? d?.user?.email, role: a?.role }) })
+            .then(r => { if (r?.ok) sessionStorage.setItem('cros-push-synced', '1') }).catch(() => {})
+        }
+      } catch { /* private mode */ }
+    }
     else if (p === 'denied') setState('denied')
     else setState('prompt')
   }, [])
@@ -55,8 +65,8 @@ export default function EnableNotifications() {
   }
   if (state === 'denied') {
     return (
-      <p className="rounded-[20px] bg-white px-lg py-md text-[13px] leading-snug text-[#4E6158] ring-1 ring-[#DCE5DD]">
-        <b className="text-[#14261F]">Notifications are off for this app.</b> Turn them on in your phone’s Settings › Notifications › Capital Rooms, so new jobs and messages reach you.
+      <p className="rounded-[20px] bg-[#FCE9E6] px-lg py-md text-[13px] leading-snug text-[#5A1A12]">
+        <b className="text-[#8E2318]">Notifications are off for this app.</b> Turn them on in your phone’s Settings › Notifications › Capital Rooms, so emergencies, new jobs and messages reach you straight away.
       </p>
     )
   }
