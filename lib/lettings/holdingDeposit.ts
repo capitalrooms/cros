@@ -8,7 +8,7 @@ import { betaZodOutputFormat } from '@anthropic-ai/sdk/helpers/beta/zod'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { oneWeekRent } from '@/lib/tenancy/deposit'
 import { displayName, dearName } from '@/lib/people'
-import { isWholeLet, oneLine, placeLabel } from '@/lib/lettings/letWording'
+import { isWholeLet, oneLine, paperworkPlace } from '@/lib/lettings/letWording'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -171,7 +171,7 @@ export interface DepositDrafts {
 
 export function landlordMessage(ctx: DepositContext, bio: string): { subject: string; message: string } {
   const a = ctx.applicant
-  const place = placeLabel(!!ctx.whole, ctx.roomName, ctx.propertyAddress)
+  const place = paperworkPlace(!!ctx.whole, ctx.roomName, ctx.propertyAddress)
   const unit = ctx.whole ? 'property' : 'room'   // a whole house or flat (lib/lettings/letWording)
   const bills = ctx.billsIncluded == null ? '' : ctx.billsIncluded ? ', inclusive of bills' : ', exclusive of bills'
   return {

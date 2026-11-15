@@ -4,7 +4,7 @@ import Link from 'next/link'
 // Letters & Invoices: write what you want in your own words and the assistant turns it into a formal letter
 // on the Capital Rooms letterhead signed by you, or an invoice in the standard layout; check, download or email it.
 
-import { placeLabel, isWholeLet } from '@/lib/lettings/letWording'
+import { paperworkPlace, isWholeLet } from '@/lib/lettings/letWording'
 import PdfView from '@/components/PdfView'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase'
@@ -237,7 +237,7 @@ export default function DocumentGenerator() {
           const tt = t as any
           const p = ((data as Person[]) || []).find(x => x.id === tt?.person_id)
           if (p) pickPerson(p)
-          setForTenancy(placeLabel(isWholeLet(null, tt?.rooms?.name), tt?.rooms?.name, String(tt?.properties?.name ?? '').split('\n')[0]))
+          setForTenancy(paperworkPlace(isWholeLet(null, tt?.rooms?.name), tt?.rooms?.name, String(tt?.properties?.name ?? '').split('\n')[0]))
           const day = (iso?: string | null) => iso ? new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }) : undefined
           const n = Number(tt?.rent_due_day) || 1
           setFacts({

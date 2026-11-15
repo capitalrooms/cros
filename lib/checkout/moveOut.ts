@@ -7,7 +7,7 @@
 // phone or computer and send back, or bring to the check-out. Server-only.
 import { PDFDocument, StandardFonts, rgb } from '@cantoo/pdf-lib'
 import { loadPDFLetterheadAssets } from '@/lib/pdfLetterhead'
-import { isWholeLet, placeLabel } from '@/lib/lettings/letWording'
+import { isWholeLet, paperworkPlace } from '@/lib/lettings/letWording'
 import { propertyPaperworkAddress } from '@/lib/properties/names'
 import { dearFromText } from '@/lib/people'
 import { getBusinessSettings } from '@/lib/emailWrapper'
@@ -166,7 +166,7 @@ export async function prepareMoveOut(s: { from: (t: string) => any }, x: {
   const biz = await getBusinessSettings().catch(() => null as any)
   return {
     whole, dear: dearFromText(x.tenantName), tenantName: String(x.tenantName ?? ''),
-    place: placeLabel(whole, roomName, prop ? propertyPaperworkAddress(prop) : String(x.propertyAddress ?? '')),
+    place: paperworkPlace(whole, roomName, prop ? propertyPaperworkAddress(prop) : String(x.propertyAddress ?? '')),
     moveOutDate: x.moveOutDate,
     lastRent: x.proRataAmount != null && Number(x.proRataAmount) > 0 ? { amount: Number(x.proRataAmount), days: x.proRataDays ? Number(x.proRataDays) : null } : null,
     deposit: t?.deposit_amount ? Number(t.deposit_amount) : null, depositProtected: !!(t?.deposit_protected_at || t?.deposit_protection_assumed),

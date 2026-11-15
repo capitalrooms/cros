@@ -13,7 +13,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { dearName, displayName, landlordFormalNames } from '@/lib/people'
 import { fullAddress } from '@/lib/quotes/quoteRequest'
-import { oneLine, placeLabel, isWholeLet } from '@/lib/lettings/letWording'
+import { oneLine, paperworkPlace, isWholeLet } from '@/lib/lettings/letWording'
 
 export interface SchemeDetails { name: string; address: string; phone: string; email: string; website: string }
 
@@ -70,7 +70,7 @@ export async function loadPI(s: SupabaseClient, tenancyId: string, biz: { addres
   const tenants = [t.people, t.co].filter(Boolean).map((p: any) => ({ name: displayName(p), dear: dearName(p), email: p.email || '', phone: p.phone || '' }))
   return {
     tenancyId, tenants,
-    property: placeLabel(isWholeLet(prop?.property_type, t.rooms?.name), t.rooms?.name, house),
+    property: paperworkPlace(isWholeLet(prop?.property_type, t.rooms?.name), t.rooms?.name, house),
     landlord: ll ? landlordFormalNames(ll) : 'The landlord',
     landlordAddress: oneLine(ll?.home_address || ''), landlordEmail: ll?.email || '', landlordPhone: ll?.phone || '',
     letOnly: prop?.letting_type === 'let_only',

@@ -10,7 +10,7 @@ import { firstRentPayment, parseTenancyDate, ukLongDate, type FirstRent } from '
 import { buildPaymentRef } from '@/lib/tenancy/paymentRef'
 import { landlordFormalNames, formalName, dearName } from '@/lib/people'
 import { fullAddress } from '@/lib/quotes/quoteRequest'
-import { oneLine, placeLabel, isWholeLet } from '@/lib/lettings/letWording'
+import { oneLine, paperworkPlace, isWholeLet } from '@/lib/lettings/letWording'
 import { generateTenancyAgreement } from '@/lib/tenancyAgreement/generate'
 import { generateSingleLetAgreement } from '@/lib/tenancyAgreement/singleLet'
 import { generateCheckInBalancePDF } from '@/lib/checkInBalance/generatePDF'
@@ -194,7 +194,7 @@ export async function loadPackContext(s: SupabaseClient, tenancyId: string, opts
     wholeLet: isWholeLet((prop as any)?.property_type, room.name),
     landlordBank,
     landlordContact: landlord ? { address: oneLine((landlord as any).home_address || ''), email: (landlord as any).email || '', phone: (landlord as any).phone || '' } : null,
-    address: placeLabel(isWholeLet(prop?.property_type, room.name), room.name, houseAddress),   // a whole home: just the address, never "Whole Property, …"
+    address: paperworkPlace(isWholeLet(prop?.property_type, room.name), room.name, houseAddress),   // a whole home: just the address, never "Whole Property, …"
     landlordName: landlord ? landlordFormalNames(landlord as any) : '',
     landlordId: (landlord as any)?.id ?? null,
     startDate: t.start_date, rentMonthly, rentDueDay, deposit, holdingDeposit,

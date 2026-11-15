@@ -4,7 +4,7 @@
 //   tenancy agreements  — the house's documents marked as a tenancy agreement
 //   invoices & letters  — what we've sent them from Letters & Invoices (not tenants' receipts)
 //   certificates        — gas, electrics, EPC, HMO licence and the fire-safety set, for managed houses
-import { placeLabel, isWholeLet } from '@/lib/lettings/letWording'
+import { paperworkPlace, isWholeLet } from '@/lib/lettings/letWording'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { displayName } from '@/lib/people'
 import type { NextRequest } from 'next/server'
@@ -44,7 +44,7 @@ export async function documentsFor(s: SupabaseClient, landlordId: string) {
 
   const statements: LandlordDoc[] = ((lets ?? []) as any[])
     .filter(t => byId.get(t.property_id)?.letting_type === 'let_only' && Number(t.rent_amount) > 0)
-    .map(t => ({ type: 'ls', id: t.id, title: `Lettings statement — ${displayName(t.people)}`, property: placeLabel(isWholeLet(byId.get(t.property_id)?.property_type, t.rooms?.name), t.rooms?.name, house(byId.get(t.property_id))), date: t.start_date, extra: 'moving in' }))
+    .map(t => ({ type: 'ls', id: t.id, title: `Lettings statement — ${displayName(t.people)}`, property: paperworkPlace(isWholeLet(byId.get(t.property_id)?.property_type, t.rooms?.name), t.rooms?.name, house(byId.get(t.property_id))), date: t.start_date, extra: 'moving in' }))
 
   const agreements: LandlordDoc[] = [], certificates: LandlordDoc[] = [], pastStatements: LandlordDoc[] = [], pastInvoices: LandlordDoc[] = []
   for (const d of (docs ?? []) as any[]) {

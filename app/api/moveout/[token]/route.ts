@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase'
 import { readMoveOutToken, MOVE_OUT_CLEAN_RATE } from '@/lib/checkout/moveOutLink'
 import { moveOutChecklist, moveOutCharges } from '@/lib/checkout/moveOut'
-import { isWholeLet, placeLabel } from '@/lib/lettings/letWording'
+import { isWholeLet, paperworkPlace } from '@/lib/lettings/letWording'
 import { logTenancyEvent } from '@/lib/lettings/incomingTenancy'
 import { deliverEmail } from '@/lib/sendEmail'
 import { buildEmail, getBusinessSettings } from '@/lib/emailWrapper'
@@ -40,7 +40,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ tok
   const biz = await getBusinessSettings()
   return NextResponse.json({
     firstName: t.people?.first_name || displayName(t.people) || '',
-    place: placeLabel(whole, t.rooms?.name, t.properties?.address || t.properties?.name),
+    place: paperworkPlace(whole, t.rooms?.name, t.properties?.address || t.properties?.name),
     whole, moveOutDate: t.end_date, deposit: t.deposit_amount != null ? Number(t.deposit_amount) : null, depositProtected: !!t.deposit_protected_at,
     rate: MOVE_OUT_CLEAN_RATE, checklist: moveOutChecklist(whole), charges: moveOutCharges({ whole, depositProtected: !!t.deposit_protected_at }),
     saved: saved ?? null, ready: !(error && missingTable(error)),
@@ -71,7 +71,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
 
   const who = displayName(t.people) || 'The tenant'
   const whole = isWholeLet(t.properties?.property_type, t.rooms?.name)
-  const place = placeLabel(whole, t.rooms?.name, t.properties?.address || t.properties?.name)
+  const place = paperworkPlace(whole, t.rooms?.name, t.properties?.address || t.properties?.name)
   await logTenancyEvent(s, t.id, 'move_out_form', `Move-out form ${before ? 'updated' : 'sent'} by ${who}${hours ? ` · cleaner booked for ${hours} hour${hours === 1 ? '' : 's'} (£${(hours * MOVE_OUT_CLEAN_RATE).toFixed(2)} from the deposit)` : ''}`, 'tenant')
   // tell the office — a staff email, not to the tenant
   try {

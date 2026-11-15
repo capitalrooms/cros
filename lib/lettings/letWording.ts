@@ -14,6 +14,16 @@ export function oneLine(s?: string | null): string {
 }
 
 /** "Room 1, 44 Claverton Street, London" — or just the address for a whole home (never "Whole Property, …"). */
+/** For PAPERWORK — agreements, move-in packs, prescribed information, offer and balance letters, move-out: the room
+ *  first, like a postal address: "Room 3, 44 Bridgeland Road, Canning Town, London, E16 3AD" (15 Nov 2026, Harry:
+ *  "Room 3 should always come at the beginning"). Adverts and updates use placeLabel (house first). A whole home: just
+ *  the address, never "Whole Property, …". */
+export function paperworkPlace(whole: boolean, roomName?: string | null, address?: string | null): string {
+  const a = oneLine(address)
+  const r = String(roomName ?? '').trim()
+  return whole || !r || a.toLowerCase().includes(r.toLowerCase()) ? a : `${r}, ${a}`
+}
+
 export function placeLabel(whole: boolean, roomName?: string | null, address?: string | null): string {
   const a = oneLine(address)
   const r = String(roomName ?? '').trim()
