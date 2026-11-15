@@ -1,5 +1,6 @@
 'use client'
 import Link from 'next/link'
+import { adminFetch } from '@/lib/adminFetch'
 
 import { useState, useEffect } from 'react'
 import { isOfficeRole } from '@/lib/access/areas'
@@ -17,6 +18,43 @@ interface Setting {
   key: string
   value: string
   updated_at: string
+}
+
+function PropertyMessages() {
+  const [rows, setRows] = useState<{ id: string; name: string; on: boolean }[] | null>(null)
+  const [busy, setBusy] = useState('')
+  const [q, setQ] = useState('')
+  useEffect(() => { adminFetch('/api/admin/comms-properties?all=1').then(r => r.ok ? r.json() : null).then(d => setRows(d?.properties ?? [])).catch(() => setRows([])) }, [])
+  async function flip(id: string, on: boolean) {
+    setBusy(id)
+    const r = await adminFetch('/api/admin/comms-properties', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ propertyId: id, on }) })
+    setBusy('')
+    if (r.ok) setRows(v => (v ?? []).map(x => x.id === id ? { ...x, on } : x)); else alert('Didn’t save — try again')
+  }
+  const shown = (rows ?? []).filter(r => !q.trim() || r.name.toLowerCase().includes(q.trim().toLowerCase()))
+  const onCount = (rows ?? []).filter(r => r.on).length
+  return (
+    <div className="border-t border-neutral-100 px-lg py-lg">
+      <div className="flex flex-wrap items-baseline justify-between gap-sm">
+        <p className="font-semibold text-neutral-900">Automatic messages, property by property</p>
+        <span className="text-xs text-neutral-500">{onCount ? `On for ${onCount}` : 'Paused everywhere'}</span>
+      </div>
+      <p className="mt-xs text-xs text-neutral-500">Switch a property on and its tenants get every automatic update — approvals, bookings, “on our way”, finished jobs — while the rest stay paused.</p>
+      {rows && rows.length > 8 && <input value={q} onChange={e => setQ(e.target.value)} placeholder="Find a property" className="mt-sm w-full rounded-lg border border-neutral-300 px-md py-sm text-sm" />}
+      {!rows && <p className="mt-sm text-xs text-neutral-400">Loading…</p>}
+      <ul className="mt-sm divide-y divide-neutral-100 rounded-xl border border-neutral-200">
+        {shown.map(r => (
+          <li key={r.id} className="flex items-center justify-between gap-md px-md py-sm">
+            <span className="min-w-0 truncate text-sm text-neutral-900">{r.name}</span>
+            <button type="button" onClick={() => flip(r.id, !r.on)} disabled={busy === r.id} aria-label={`Automatic messages for ${r.name}: ${r.on ? 'on' : 'off'}`}
+              className={`relative h-6 w-11 shrink-0 rounded-full transition-colors disabled:opacity-50 ${r.on ? 'bg-green-500' : 'bg-neutral-300'}`}>
+              <span className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${r.on ? 'translate-x-5' : ''}`} />
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
 }
 
 export default function AdminSettingsPage() {
@@ -192,6 +230,9 @@ export default function AdminSettingsPage() {
               </p>
             </div>
           </div>
+          {/* automatic messages property by property (14 Nov 2026, Harry: "it should just be living in the list — click on
+              and off for a property there") — while the main switch is paused, the properties ticked here still get them */}
+          {!commsLive && <PropertyMessages />}
         </div>
 
         {/* ── Your records: the two set-up dates (lib/finance/dates; 14 Oct 2026) ── */}

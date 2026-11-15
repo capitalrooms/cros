@@ -14,6 +14,11 @@ export const dynamic = 'force-dynamic'
 export async function GET(req: NextRequest) {
   if (!(await requireAdmin(req))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const list = await commsLiveProperties()
+  // ?all=1 — every property A–Z with its switch (the Settings list)
+  if (req.nextUrl.searchParams.get('all')) {
+    const { data: all } = await createServiceClient().from('properties').select('id, name, is_demo').order('name')
+    return NextResponse.json({ master: await getCommsLive(), properties: ((all ?? []) as any[]).filter(p => !p.is_demo).map(p => ({ id: p.id, name: p.name, on: list.includes(p.id) })).sort((a, b) => String(a.name).localeCompare(String(b.name), undefined, { numeric: true })) })
+  }
   const { data } = list.length ? await createServiceClient().from('properties').select('id, name').in('id', list) : { data: [] }
   const id = req.nextUrl.searchParams.get('propertyId')
   return NextResponse.json({ master: await getCommsLive(), on: !!id && list.includes(id), properties: data ?? [] })
