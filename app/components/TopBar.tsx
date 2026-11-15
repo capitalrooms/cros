@@ -5,6 +5,8 @@
 // the middle, and on the right whatever the screen adds (e.g. Quick Notify), the notification bell and your account.
 // Used by the admin layout, components/AppBar (every other screen) and the role home screens (DarkHeroHeader).
 import Link from 'next/link'
+import { useEffect, useState } from 'react'
+import { usePathname } from 'next/navigation'
 import type { ReactNode } from 'react'
 import Logo from '@/components/Logo'
 import AccountMenu from '@/app/components/AccountMenu'
@@ -26,6 +28,25 @@ export default function TopBar({ left, right, homeHref = '/home', position = 'st
   /** the bell and the account menu (off for public pages that pass their own) */
   account?: boolean
 }) {
+  // the "large title" pattern: while the page's own heading is on screen the bar shows just the section; the page's
+  // name slides into the bar once that heading scrolls away (and is always there on a page without a heading)
+  const [headingVisible, setHeadingVisible] = useState(false)
+  const pathname = usePathname()
+  useEffect(() => {
+    if (!title) return
+    let obs: IntersectionObserver | null = null
+    setHeadingVisible(false)
+    // pages load their data after the bar: look for the heading a few times as the page fills in
+    const attach = () => {
+      if (obs) return
+      const h = document.querySelector('main h1')
+      if (!h) return
+      obs = new IntersectionObserver(([e]) => setHeadingVisible(e.isIntersecting), { rootMargin: `-${TOP_BAR_HEIGHT}px 0px 0px 0px` })
+      obs.observe(h)
+    }
+    const timers = [300, 1200, 3000].map(ms => setTimeout(attach, ms))
+    return () => { timers.forEach(clearTimeout); obs?.disconnect() }
+  }, [title, pathname])
   const pos = position === 'fixed' ? 'fixed inset-x-0 top-0 z-50' : position === 'sticky' ? 'sticky top-0 z-50' : 'flex-shrink-0 z-40'
   return (
     <header className={`cr-topbar ${pos} border-b border-white/5 bg-[var(--cr-bar)] text-white`}
@@ -39,8 +60,8 @@ export default function TopBar({ left, right, homeHref = '/home', position = 'st
             </Link>
           )}
           <div className="min-w-0 flex-1 leading-tight">
-            {eyebrow && eyebrow !== title && <p className="cr-topbar-eyebrow truncate text-[10.5px] font-semibold uppercase tracking-[0.14em] text-white/55">{eyebrow}</p>}
-            <p className="cr-topbar-title truncate text-[16px] font-bold tracking-[-0.01em] md:text-[17px]">{title}</p>
+            {eyebrow && eyebrow !== title && <p className={`cr-topbar-eyebrow truncate font-semibold uppercase tracking-[0.14em] text-white/55 transition-all duration-200 ${headingVisible ? 'text-[12px]' : 'text-[10.5px]'}`}>{eyebrow}</p>}
+            <p className={`cr-topbar-title truncate text-[16px] font-bold tracking-[-0.01em] transition-all duration-200 md:text-[17px] ${headingVisible ? 'pointer-events-none h-0 translate-y-1 opacity-0' : 'opacity-100'}`} aria-hidden={headingVisible}>{title}</p>
           </div>
           <div className="flex shrink-0 items-center justify-end gap-1.5">
             {right}
