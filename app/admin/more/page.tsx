@@ -1,6 +1,7 @@
 'use client'
 
 // Phone "More" tab — every admin page the person may open, grouped by zone (same list the desktop nav uses).
+import { forgetThisDevice } from '@/lib/push'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ZONES } from '@/lib/adminNav'
@@ -44,6 +45,7 @@ export default function AdminMorePage() {
   const router = useRouter()
   const mine = (items: { emoji: string; label: string; href: string }[]) => items.filter(i => i.href === '/account' || allowed(i.href))
   async function signOut() {
+    await forgetThisDevice()
     await createClient().auth.signOut()
     router.push('/login')
   }

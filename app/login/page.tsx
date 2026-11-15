@@ -1,5 +1,6 @@
 'use client'
 
+import { forgetThisDevice } from '@/lib/push'
 import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { signIn, getCurrentUser } from '@/lib/auth'
@@ -174,7 +175,7 @@ function LoginForm() {
               <p className="text-sm">You’re signed in as <b>{signedInAs.email}</b> ({ROLE_NAME[signedInAs.role] ?? signedInAs.role}).</p>
               <p className="mt-xs text-xs text-white/60">The screen you tried to open is for someone else.</p>
               <a href={roleHome(signedInAs.role)} className="mt-md block rounded-xl bg-white px-md py-sm text-sm font-bold text-black">Go to my screens</a>
-              <button type="button" onClick={async () => { await createClient().auth.signOut(); setSignedInAs(null) }} className="mt-sm text-xs font-semibold text-white/70 underline">Sign in as someone else</button>
+              <button type="button" onClick={async () => { await forgetThisDevice(); await createClient().auth.signOut(); setSignedInAs(null) }} className="mt-sm text-xs font-semibold text-white/70 underline">Sign in as someone else</button>
             </div>
           )}
 

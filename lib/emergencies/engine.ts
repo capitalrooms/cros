@@ -119,6 +119,9 @@ async function tellHouse(s: S, em: any, title: string, body: string) {
   if (!set.tenantUpdates) { await log(s, em.id, 'tenants', `Not sent to the house (tenant updates are off): “${body}”`); return }
   const ids = await household(s, em)
   if (!ids.length) return
+  // which emergency, in the heading: "We’re on it — Burst pipe or water leak" (15 Nov 2026)
+  const what = KINDS[em.kind as EmergencyKind]?.label ?? em.title
+  if (what && !title.includes(what)) title = `${title} — ${what}`
   // tapping it opens their emergency screen: where it stands and what to do meanwhile (15 Nov 2026)
   await insertNotifications(s, ids, { title, body, type: 'maintenance', link: `/tenant/emergency/${em.id}` }, { propertyId: em.property_id, roomId: em.room_id })
   await sendServerPush({ personIds: ids, title, body, url: `/tenant/emergency/${em.id}`, tag: `emergency-${em.id}` })

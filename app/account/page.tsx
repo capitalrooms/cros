@@ -2,6 +2,7 @@
 // My account — for everyone who signs in (office, lettings, tenants, landlords, contractors, cleaners). 12 Oct 2026.
 // Change password, two-step sign-in (authenticator app), sign out. Nobody can look a password up — not the office, not
 // Supabase — so the page offers to let the browser/phone save it instead. ?setup=1 = arrived from an invite email.
+import { forgetThisDevice } from '@/lib/push'
 import BackButton from '@/app/components/BackButton'
 import AppBar from '@/components/AppBar'
 import { use, useEffect, useState } from 'react'
@@ -35,7 +36,7 @@ export default function AccountPage({ searchParams }: { searchParams: PageSearch
   }
   useEffect(() => { load() }, [])   // eslint-disable-line react-hooks/exhaustive-deps
 
-  async function signOut() { await sb.auth.signOut().catch(() => null); window.location.replace('/login') }
+  async function signOut() { await forgetThisDevice(); await sb.auth.signOut().catch(() => null); window.location.replace('/login') }
 
   const card = 'rounded-2xl border border-neutral-200 bg-white p-lg'
   return (

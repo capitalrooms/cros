@@ -77,6 +77,8 @@ export async function signUp(email: string, password: string) {
 export async function signOut() {
   const supabase = createClient()
   forgetCurrentUser()
+  // this phone stops getting their notifications (lib/push; loaded only in the browser — server routes import this file)
+  if (typeof window !== 'undefined') await import('@/lib/push').then(m => m.forgetThisDevice()).catch(() => {})
   await supabase.auth.signOut()
 }
 

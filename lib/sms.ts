@@ -20,7 +20,16 @@ export const smsConfigured = () => !!(process.env.TWILIO_ACCOUNT_SID && process.
 // asking for Y/N (notify-job-raised) stays on the number, which the inbound webhook reads.
 export const SENDER_NAME = (process.env.TWILIO_SENDER_NAME || 'CAPITAL RMS').slice(0, 11)
 
-export async function sendSms(to: string | null | undefined, body: string, opts: { asName?: boolean } = {}): Promise<{ ok: boolean; error?: string }> {
+/** Nobody reads replies to CROS texts (15 Nov 2026, Harry) — every text says so, and where to go instead. */
+export function withNoReply(body: string) {
+  if (/can.t reply to this text|replies .*aren.t read/i.test(body)) return body
+  return /https?:\/\//.test(body)
+    ? `${body}\n\nPlease don’t reply to this text — it isn’t read. Use the link for updates and to answer.`
+    : `${body}\n\nPlease don’t reply to this text — it isn’t read. Use the Capital Rooms app or call the office.`
+}
+
+export async function sendSms(to: string | null | undefined, rawBody: string, opts: { asName?: boolean } = {}): Promise<{ ok: boolean; error?: string }> {
+  const body = withNoReply(rawBody)
   const num = toE164(to)
   if (!num) return { ok: false, error: 'no valid mobile number' }
   // the made-up test range (07700 900xxx — Ofcom's drama numbers, used by every test account): never sent (12 Nov 2026)

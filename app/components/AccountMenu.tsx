@@ -3,6 +3,7 @@
 // The account button at the right of the top bar — the same for every user (21 Oct 2026, Harry: "one top bar for all
 // users"). Your initial and first name; your profile (the right one for your role), password & sign-in, the office's
 // settings, and sign out. Moved here from the admin layout, where it started. Nothing shows when nobody's signed in.
+import { forgetThisDevice } from '@/lib/push'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
@@ -61,6 +62,7 @@ export default function AccountMenu() {
 
   async function handleSignOut() {
     try { sessionStorage.removeItem('cros-view-as') } catch { /* noop */ }
+    await forgetThisDevice()
     await createClient().auth.signOut()
     router.push('/login')
   }

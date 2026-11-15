@@ -20,17 +20,8 @@ export default function EnableNotifications() {
       return
     }
     const p = pushPermission()
-    // already allowed on this phone: make sure CROS still has this phone on file — once a session (15 Nov 2026: a
-    // contractor had allowed notifications but no phone was saved, so emergency alerts never reached them)
-    if (p === 'granted') {
-      setState('hidden')
-      try {
-        if (!sessionStorage.getItem('cros-push-synced')) {
-          getCurrentUser().then(d => { const a = d?.assignment as any; return enablePush({ id: a?.id, email: a?.email ?? d?.user?.email, role: a?.role }) })
-            .then(r => { if (r?.ok) sessionStorage.setItem('cros-push-synced', '1') }).catch(() => {})
-        }
-      } catch { /* private mode */ }
-    }
+    // already allowed: PushOwner makes sure this phone's notifications go to whoever is signed in
+    if (p === 'granted') setState('hidden')
     else if (p === 'denied') setState('denied')
     else setState('prompt')
   }, [])

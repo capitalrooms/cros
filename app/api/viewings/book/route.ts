@@ -1,3 +1,4 @@
+import { withNoReply } from '@/lib/sms'
 import { NextRequest, NextResponse } from 'next/server'
 import { hiName } from '@/lib/people'
 import { requireStaff } from '@/lib/portalAuth'
@@ -83,13 +84,13 @@ export async function POST(req: NextRequest) {
         try {
           const msg = `Hi ${name}, we have a viewing booked for your room at ${address} on ${dateStr}${timeStr ? ` at ${timeStr}` : ''}. Please get in touch if you have any questions. -${signOff}`
           const client = twilio(sid, token)
-          await client.messages.create({ body: msg, from, to: phone })
+          await client.messages.create({ body: withNoReply(msg), from, to: phone })
           smsSent = true
           // the joint tenant on the same tenancy gets the same text
           const co = occ?.co
           if (co?.phone && co.phone !== phone) {
             const coName = hiName(co)
-            await client.messages.create({ body: msg.replace(`Hi ${name},`, `Hi ${coName},`), from, to: co.phone }).catch(() => null)
+            await client.messages.create({ body: withNoReply(msg.replace(`Hi ${name},`, `Hi ${coName},`)), from, to: co.phone }).catch(() => null)
           }
         } catch (e: any) {
           smsError = e?.message || 'SMS failed'

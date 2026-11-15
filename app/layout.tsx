@@ -7,6 +7,7 @@ import './globals.css'
 import './globals-fonts.css'
 import ServiceWorkerRegister from './components/ServiceWorkerRegister'
 import AuthFetchBridge from './components/AuthFetchBridge'
+import PushOwner from './components/PushOwner'
 import ReinstallNotice from './components/ReinstallNotice'
 import FileViewer from './components/FileViewer'
 import Footer from './components/Footer'
@@ -65,6 +66,7 @@ export default async function RootLayout({
     <html lang="en" className={baloo2.variable}>
       <body className="flex flex-col min-h-screen">
         <AuthFetchBridge />
+        <PushOwner />
         <ReinstallNotice />
         <Suspense fallback={null}><NavTrail /></Suspense>
         <div className="flex-1">

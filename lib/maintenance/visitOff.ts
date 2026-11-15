@@ -17,13 +17,20 @@ const full = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString('e
 
 export interface VisitTicket { id: string; title: string; contractor_id: string | null; property_id: string | null; room_id: string | null; location?: string | null; booked_date?: string | null; booked_slot?: string | null }
 
+/** The job in a few words for a heading: "Washing Machine — TEST REPORT…" → "Washing Machine"; no "[Add-on]" (15 Nov 2026,
+ *  Harry: "surely there is enough space on subject line to also say the job") */
+export const jobShort = (title: string | null | undefined) => {
+  const t = String(title ?? '').replace(/^\[[^\]]*\]\s*/, '').split(/\s+—\s+/)[0].trim() || 'your repair'
+  return t.length > 42 ? `${t.slice(0, 40).trimEnd()}…` : t
+}
+
 /** "Tuesday 18 November, 10am – 1pm" — or null when no visit was booked */
 export const visitWhen = (t: VisitTicket) => t.booked_date ? `${full(String(t.booked_date).slice(0, 10))}${t.booked_slot ? `, ${slotLabel(t.booked_slot)}` : ''}` : null
 
 export async function tellContractorVisitOff(s: SupabaseClient, t: VisitTicket, o: { jobCancelled: boolean; reason?: string }): Promise<boolean> {
   if (!t.contractor_id) return false
   const when = visitWhen(t)
-  const title = o.jobCancelled ? 'Job cancelled' : 'Visit cancelled'
+  const title = `${o.jobCancelled ? 'Job cancelled' : 'Visit cancelled'} — ${jobShort(t.title)}`
   const body = o.jobCancelled
     ? `“${t.title}” has been cancelled — no need to attend${when ? ` on ${when}` : ''}.${o.reason ? ` Reason: ${o.reason}` : ''}`
     : `The visit for “${t.title}”${when ? ` on ${when}` : ''} is off. The job is still yours — we’ll be in touch about a new day.${o.reason ? ` Reason: ${o.reason}` : ''}`
@@ -38,8 +45,8 @@ export async function tellContractorVisitOff(s: SupabaseClient, t: VisitTicket, 
 export async function tellHouseVisitOff(s: SupabaseClient, t: VisitTicket, o: { jobCancelled: boolean; req?: Request | null }): Promise<number> {
   const when = visitWhen(t)
   if (!when || !t.property_id) return 0
-  const title = 'Repair visit cancelled'
-  const body = o.jobCancelled ? `The repair visit on ${when} (“${t.title}”) is cancelled, so nobody will be coming.` : `The repair visit on ${when} (“${t.title}”) won’t go ahead. We’ll let you know the new day.`
+  const title = `Repair visit cancelled — ${jobShort(t.title)}`
+  const body = o.jobCancelled ? `The visit on ${when} is cancelled, so nobody will be coming.` : `The visit on ${when} won’t go ahead. We’ll let you know the new day.`
   const { data: house } = await s.from('properties').select('letting_type').eq('id', t.property_id).maybeSingle() as { data: any }
   if (house?.letting_type === 'let_only') {
     let n = 0

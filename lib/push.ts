@@ -66,3 +66,32 @@ export async function enablePush(person: {
   if (!res.ok) return { ok: false, reason: 'save failed' }
   return { ok: true }
 }
+
+/** Whose phone this is, as far as notifications go (the person id it was last saved for). */
+const OWNER_KEY = 'cros-push-owner'
+
+/**
+ * Signing out: stop this phone getting the signed-out person's notifications (15 Nov 2026 — Harry signed in as Alice,
+ * then as David on the same phone, and still got Alice's). Call it BEFORE signing out — it needs their sign-in.
+ */
+export async function forgetThisDevice(): Promise<void> {
+  try { localStorage.removeItem(OWNER_KEY) } catch { /* private mode */ }
+  if (!pushSupported()) return
+  try {
+    const reg = await navigator.serviceWorker.getRegistration()
+    const sub = await reg?.pushManager.getSubscription()
+    if (!sub) return
+    await fetch('/api/push/subscribe', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ endpoint: sub.endpoint }) })
+  } catch { /* offline — the next sign-in takes the phone over anyway */ }
+}
+
+/**
+ * Signed in: if this phone already allows notifications, make sure they come to THIS person — the phone moves to
+ * whoever signed in last. Runs once per person per phone (not every page).
+ */
+export async function claimThisDevice(personId: string): Promise<void> {
+  if (!pushSupported() || pushPermission() !== 'granted') return
+  try { if (localStorage.getItem(OWNER_KEY) === personId) return } catch { /* private mode */ }
+  const r = await enablePush({ id: personId }).catch(() => ({ ok: false }))
+  if (r.ok) try { localStorage.setItem(OWNER_KEY, personId) } catch { /* private mode */ }
+}

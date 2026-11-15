@@ -1,3 +1,4 @@
+import { withNoReply } from '@/lib/sms'
 import { NextRequest, NextResponse } from 'next/server'
 import { deliverEmail } from '@/lib/sendEmail'
 import { hiName, personFromText } from '@/lib/people'
@@ -28,7 +29,7 @@ async function sendConfirmationSms(
   if (!sid || !token || !from) return
   try {
     const client = twilio(sid, token)
-    await client.messages.create({ to: phone, from, body: smsBody })
+    await client.messages.create({ to: phone, from, body: withNoReply(smsBody) })
     // Log so the inbound webhook can match the reply
     await supabase.from('sms_confirmations').insert({
       phone,
