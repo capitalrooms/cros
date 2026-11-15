@@ -129,7 +129,7 @@ async function tellHouse(s: S, em: any, title: string, body: string) {
 }
 
 /** " Until tomorrow: …" — how to manage overnight if no one can come tonight */
-const tonight = (info?: { overnight?: string[] }) => info?.overnight?.length ? ` Until then: ${info.overnight.join(' ')}` : ''
+const tonight = (info?: { overnight?: string[] }) => info?.overnight?.length ? ` Overnight: ${info.overnight.join(' ')}` : ''
 
 // ── start ────────────────────────────────────────────────────────────────────
 

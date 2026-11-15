@@ -141,7 +141,7 @@ export default function InboxPage() {
 
         {/* Quick action tiles */}
         <div className="grid grid-cols-4 gap-sm mb-xl">
-          <ActionTile emoji="🔧" label="Report issue" href="/tenant/maintenance" />
+          <ActionTile emoji="🔧" label="Report a repair" href="/tenant/maintenance" />
           <ActionTile emoji="📋" label="Notice board" href="/tenant/notices" />
           <ActionTile emoji="🏠" label="House info" href="/tenant/property-info" />
           <ActionTile emoji="📄" label="My tenancy" href="/tenant" />

@@ -787,7 +787,7 @@ export default function TenantDashboard() {
                 <div className="flex-1 min-w-0">
                   <p className="flex items-center gap-sm font-bold text-neutral-900"><GIcon name="home" size={18} />House info</p>
                   <p className="text-sm text-neutral-500 mt-xs truncate">
-                    {houseInfo.slice(0, 3).map(i => `${i.icon} ${i.label}`).join(' · ')}
+                    {houseInfo.slice(0, 3).map(i => i.label).join(' · ')}
                     {houseInfo.length > 3 ? ` · +${houseInfo.length - 3} more` : ''}
                   </p>
                 </div>
@@ -878,7 +878,7 @@ export default function TenantDashboard() {
                           <p className="text-sm font-bold text-neutral-900">{m.title}</p>
                           {!m.read && <span className="mt-1 h-2 w-2 shrink-0 rounded-full" style={{ background: 'var(--cr-gold)' }} />}
                         </div>
-                        {m.body && <p className="mt-xs text-sm text-neutral-700 whitespace-pre-wrap">{m.body}</p>}
+                        {m.body && <p className="mt-xs line-clamp-2 text-sm text-neutral-700">{m.body}</p>}
                         <p className="mt-sm text-xs text-neutral-400">
                           {new Date(m.created_at).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/London' })} at {new Date(m.created_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London' })}
                         </p>

@@ -77,6 +77,8 @@ const statusLabel: Record<string, string> = {
   assigned: 'Booked',
   in_progress: 'Underway',
   completed: 'Done',
+  cancelled: 'Cancelled — nobody is coming for this one',
+  awaiting_review: 'With the office',
 }
 
 export default function VisitDetailPage() {
@@ -207,9 +209,8 @@ export default function VisitDetailPage() {
 
   const hasFallback = ticket?.short_notice_pending && ticket.fallback_date
 
-  const contractorName = ticket?.contractor
-    ? [ticket.contractor.salutation, ticket.contractor.first_name, ticket.contractor.last_name].filter(Boolean).join(' ') || 'Your contractor'
-    : null
+  // tenants are never told who the contractor is (Capital Rooms' rule) — just that one is booked
+  const contractorName = ticket?.contractor ? 'A Capital Rooms contractor' : null
 
   const pendingRequest = requests.find(r => r.status === 'pending')
   const canAddRequest = !pendingRequest && ticket?.booked_date && ticket.status !== 'completed'
@@ -306,7 +307,7 @@ export default function VisitDetailPage() {
         )}
 
         {/* "come in any time" — the tenant waives the 24 hours' notice for this job in their room (14 Nov 2026) */}
-        {ticket.room_id && inMyRoom && ticket.status !== 'completed' && !(ticket as any).tenant_access_any_time && !needsShortNoticeApproval && (
+        {ticket.room_id && inMyRoom && ticket.status !== 'completed' && ticket.status !== 'cancelled' && !(ticket as any).tenant_access_any_time && !needsShortNoticeApproval && (
           <button type="button" onClick={async () => {
             if (!window.confirm('Let the contractor come into your room without 24 hours’ notice for this job — even if you’re out?')) return
             const r = await adminFetch('/api/tenant/visit-ticket', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ticketId: ticket.id, action: 'any_time' }) })
@@ -322,7 +323,7 @@ export default function VisitDetailPage() {
         {/* ── Visit summary card ─────────────────────────────────────────── */}
         <div className="rounded-2xl bg-white border border-neutral-200 p-lg">
           <p className="text-xs font-bold uppercase tracking-widest text-neutral-400 mb-sm">
-            {ticket.room_id && inMyRoom ? 'Visit to your room' : 'Visit to the house'}
+            {ticket.status === 'cancelled' ? 'Cancelled visit' : ticket.room_id && inMyRoom ? 'Visit to your room' : 'Visit to the house'}
           </p>
           <p className="text-2xl font-extrabold text-neutral-900 leading-tight">
             {ticket.booked_date ? fmtDate(ticket.booked_date) : 'Date TBC'}

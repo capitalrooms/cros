@@ -12,7 +12,7 @@ type View = {
   id: string; label: string; stage: 'finding' | 'booked' | 'on_site' | 'morning' | 'call_999' | 'closed'; status: string
   reportedAt: string; etaText: string | null; controlled: boolean; bathroomAbove: boolean
   steps: string[]; overnight: string[]; callServices: string | null; house: string
-  overdue?: boolean; othersAt?: string | null
+  overdue?: boolean; othersAt?: string | null; eta?: string | null
 }
 const STAGES = [
   { key: 'reported', label: 'Reported' },
@@ -132,7 +132,8 @@ export default function TenantEmergency({ params }: { params: Promise<{ id: stri
           </section>
         )}
 
-        {v && open && !!v.overnight.length && (
+        {/* overnight tips only while it may wait until tomorrow — not once someone is booked for today */}
+        {v && open && !!v.overnight.length && !(['booked', 'on_site'].includes(v.stage) && v.eta && new Date(v.eta).toLocaleDateString('en-CA', { timeZone: 'Europe/London' }) === new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })) && (
           <section className="rounded-2xl bg-white p-4 shadow-[0_2px_0_#DCE5DD]">
             <h2 className="text-xs font-bold uppercase tracking-[0.12em] text-[#4E6158]">If no one can come until tomorrow</h2>
             <ul className="mt-2 list-disc space-y-1.5 pl-5 text-[15px] leading-snug text-[#14261F]">{v.overnight.map(x => <li key={x}>{x}</li>)}</ul>
