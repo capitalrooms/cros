@@ -11,7 +11,26 @@ export interface KindInfo {
   callServices?: string        // shown first when it's a 999 / gas-line matter
   steps: string[]              // what to do now, until a professional arrives
   canWait?: boolean            // usually safe until morning once the steps are done
+  overnight?: string[]         // if no one can come until tomorrow: how to manage in the meantime (15 Nov 2026, Harry)
+  askBathroomAbove?: boolean   // a leak: ask whether it's coming from a bathroom or toilet above
 }
+
+/** 15 Nov 2026, Harry: "If it's a leak involving a room above, you need to inform them straight away to not use their
+ *  bathroom until a contractor has visited." Sent to the whole house the moment the tenant says yes or not sure. */
+export const BATHROOM_ABOVE_RULE = 'Please don’t use the bathroom above the leak — no showers, baths, sinks or flushing the toilet there — until our contractor has been and says it’s OK. Use another bathroom or toilet in the house if there is one.'
+
+const OVERNIGHT: Partial<Record<EmergencyKind, string[]>> = {
+  flooding: ['Keep the water off at the stopcock overnight. You can turn it on for a minute to fill a kettle, bottles and a bucket, then turn it off again.', 'To flush a toilet with the water off, pour a bucket of water into the bowl.', 'Keep plug-in heaters and electrics away from anything wet, and leave wet rooms open with a window ajar to dry.'],
+  ceiling_water: ['Keep that light and its circuit off overnight — use a lamp plugged in somewhere dry.', 'Empty the bucket before bed and keep a towel under it.', 'If it’s dripping into a bedroom, sleep in another room tonight.'],
+  power: ['Keep the fridge and freezer shut — food stays cold for about 4 hours in the fridge and a day or more in the freezer.', 'Use torches, not candles, and charge phones in a car or at work.'],
+  electrical: ['Leave that circuit off overnight, even if other things on it stop working.', 'Don’t use extension leads to get round it.'],
+  heating: ['Close curtains and inside doors to keep the heat in, and heat just the room you’re using.', 'Use a plug-in heater if you have one (never a gas or paraffin heater indoors), extra layers and a hot water bottle.', 'Boil the kettle for washing if there’s no hot water.'],
+  security: ['Keep the bolt or chain on overnight and don’t leave the door on the latch.', 'Keep your own room locked and valuables with you.'],
+  window: ['Keep that room’s door shut overnight to keep the heat in the rest of the house.', 'Don’t sleep next to the broken glass.'],
+  toilet: ['Use another toilet in the house overnight and don’t flush the blocked one.', 'If it’s the only toilet, keep the valve off and use a bucket of water to flush once it clears.'],
+  appliance_leak: ['Leave the appliance switched off and unplugged until it’s been checked.'],
+}
+
 
 export const KINDS: Record<EmergencyKind, KindInfo> = {
   gas: {
@@ -29,10 +48,10 @@ export const KINDS: Record<EmergencyKind, KindInfo> = {
   flooding: {
     label: 'Burst pipe or water leak', trade: 'plumbing',
     steps: ['Turn off the water at the stopcock (usually under the kitchen sink, or where the pipe comes into the house).', 'If water is near sockets or lights, switch the electricity off at the fuse board — only if you can reach it without standing in water.', 'Put towels and buckets down and move belongings out of the way.', 'Open taps on the lowest floor to drain the pipes.', 'Take photos for us.'],
-    canWait: true,
+    canWait: true, askBathroomAbove: true,
   },
   ceiling_water: {
-    label: 'Water coming through a ceiling or light', trade: 'plumbing',
+    label: 'Water coming through a ceiling or light', trade: 'plumbing', askBathroomAbove: true,
     steps: ['Switch the lighting circuit off at the fuse board, and don’t touch the light or switch.', 'Turn the water off at the stopcock.', 'If the ceiling is bulging, put a bucket underneath and keep everyone out of that room.', 'Take photos for us.'],
   },
   power: {
@@ -104,3 +123,6 @@ export function kindFrom(description: string, category = ''): EmergencyKind {
 export const TRADE_LABEL: Record<string, string> = {
   plumbing: 'Plumbing', electrical: 'Electrical', heating: 'Heating / gas', locksmith: 'Locksmith', glazing: 'Glazing / boarding', roofing: 'Roofing', general: 'General / handyman',
 }
+
+// "what to do until tomorrow" for each kind
+for (const k of Object.keys(OVERNIGHT) as EmergencyKind[]) KINDS[k].overnight = OVERNIGHT[k]

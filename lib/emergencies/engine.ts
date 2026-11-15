@@ -20,7 +20,7 @@ const NAME = { asName: true }
 import { insertNotifications } from '@/lib/serverNotify'
 import { sendServerPush } from '@/lib/serverPush'
 import { tellContractor as tellPerson } from '@/lib/contractorContact'
-import { KINDS, type EmergencyKind } from './guide'
+import { KINDS, BATHROOM_ABOVE_RULE, type EmergencyKind } from './guide'
 
 type S = SupabaseClient
 // links in texts and emails always point at the live site (15 Nov 2026: a test raised from a local copy texted Gary a
@@ -118,14 +118,18 @@ async function tellHouse(s: S, em: any, title: string, body: string) {
   if (!set.tenantUpdates) { await log(s, em.id, 'tenants', `Not sent to the house (tenant updates are off): “${body}”`); return }
   const ids = await household(s, em)
   if (!ids.length) return
-  await insertNotifications(s, ids, { title, body, type: 'maintenance', link: '/tenant' }, { propertyId: em.property_id, roomId: em.room_id })
-  await sendServerPush({ personIds: ids, title, body, url: '/tenant', tag: `emergency-${em.id}` })
+  // tapping it opens their emergency screen: where it stands and what to do meanwhile (15 Nov 2026)
+  await insertNotifications(s, ids, { title, body, type: 'maintenance', link: `/tenant/emergency/${em.id}` }, { propertyId: em.property_id, roomId: em.room_id })
+  await sendServerPush({ personIds: ids, title, body, url: `/tenant/emergency/${em.id}`, tag: `emergency-${em.id}` })
   await log(s, em.id, 'tenants', `Told the house: “${body}”`)
 }
 
+/** " Until tomorrow: …" — how to manage overnight if no one can come tonight */
+const tonight = (info?: { overnight?: string[] }) => info?.overnight?.length ? ` Until then: ${info.overnight.join(' ')}` : ''
+
 // ── start ────────────────────────────────────────────────────────────────────
 
-export async function startEmergency(s: S, opts: { ticketId: string; kind?: EmergencyKind; controlled?: boolean; reporterId?: string | null }) {
+export async function startEmergency(s: S, opts: { ticketId: string; kind?: EmergencyKind; controlled?: boolean; reporterId?: string | null; bathroomAbove?: 'yes' | 'no' | 'unsure' | null }) {
   const { data: t } = await s.from('maintenance_tickets').select('id, title, description, category, property_id, room_id, reporter_id').eq('id', opts.ticketId).maybeSingle() as { data: any }
   if (!t) return { error: 'Job not found' }
   const { data: existing } = await s.from('emergencies').select('id').eq('ticket_id', t.id).maybeSingle()
@@ -143,6 +147,11 @@ export async function startEmergency(s: S, opts: { ticketId: string; kind?: Emer
   await s.from('maintenance_tickets').update({ priority: 'emergency', updated_at: new Date().toISOString() }).eq('id', t.id)
   const full = await load(s, em.id)
   await log(s, em.id, 'reported', `Reported by the tenant: ${info.label}${opts.controlled ? ' — they say it’s under control until morning' : ''}`, 'Tenant')
+  // a leak that may come from a bathroom above: everyone in the house is told straight away not to use it (Harry, 15 Nov 2026)
+  if (info.askBathroomAbove && (opts.bathroomAbove === 'yes' || opts.bathroomAbove === 'unsure')) {
+    await tellHouse(s, full, 'Don’t use the bathroom above the leak', BATHROOM_ABOVE_RULE)
+    await log(s, em.id, 'tenants', `The tenant says ${opts.bathroomAbove === 'yes' ? 'there’s a bathroom above' : 'there may be a bathroom above'} — the house was told not to use it until the contractor has been`)
+  }
 
   if (status === 'call_999') {
     await alertOffice(s, full, `${info.label} at ${firstLine(full.properties?.name)}`, `The tenant has been told: ${info.callServices} No contractor sent — check in with them.`, true)
@@ -150,7 +159,7 @@ export async function startEmergency(s: S, opts: { ticketId: string; kind?: Emer
   }
   if (status === 'morning') {
     await alertOffice(s, full, `${info.label} (contained) at ${firstLine(full.properties?.name)}`, 'The tenant says it’s under control until morning — book someone first thing.')
-    await tellHouse(s, full, 'We’ve got your report', 'Thanks for making it safe. We’ll arrange someone first thing in the morning — tell us straight away if it gets worse.')
+    await tellHouse(s, full, 'We’ve got your report', `Thanks for making it safe. We’ll arrange someone first thing in the morning — tell us straight away if it gets worse.${tonight(info)}`)
     return { id: em.id, status }
   }
   // the emergency list first; its backups if no one fits; then every contractor on CROS — someone is always asked
@@ -158,7 +167,7 @@ export async function startEmergency(s: S, opts: { ticketId: string; kind?: Emer
   if (!asked) asked = await dispatchWave(s, full, 2)
   if (!asked) asked = await dispatchWave(s, full, 3)
   if (!asked) await alertOffice(s, full, `🆘 No contractor to ask — ${firstLine(full.properties?.name)}`, 'There is no contractor on CROS who can be reached. Please call round now.', true)
-  await tellHouse(s, full, 'We’re on it', `We’re sorry you’re dealing with this. We’re contacting our emergency contractors now and will let you know who is coming and when.`)
+  await tellHouse(s, full, 'We’re on it', `We’re sorry you’re dealing with this. We’re contacting our emergency contractors now and will let you know who is coming and when. Until they arrive: ${info.steps.slice(0, 3).join(' ')}`)
   await alertOffice(s, full, `Emergency: ${info.label} at ${firstLine(full.properties?.name)}`, 'Contractors are being contacted. CROS confirms the soonest once answers are in — open it to watch or step in.')
   return { id: em.id, status }
 }
@@ -256,7 +265,7 @@ export async function decide(s: S, emId: string, reason = 'Answers closed') {
   await log(s, emId, 'waiting', `${reason}: no contractor available — handed to the office`)
   await alertOffice(s, em, `🆘 No contractor available — ${firstLine(em.properties?.name)}`, 'Nobody on the emergency list can come. Please call round; the tenant has the overnight steps.', true)
   const steps = KINDS[em.kind as EmergencyKind]?.steps ?? []
-  await tellHouse(s, em, 'Still arranging someone', `We’re still trying to get someone to you and haven’t forgotten. Until then: ${steps.slice(0, 3).join(' ')}`)
+  await tellHouse(s, em, 'Still arranging someone', `We’re still trying to get someone to you and haven’t forgotten. Until then: ${steps.slice(0, 3).join(' ')}${tonight(KINDS[em.kind as EmergencyKind])}`)
 }
 
 /** Confirm one contractor: they get the full address and access; everyone else is stood down; the job and the house are updated. */
@@ -314,7 +323,9 @@ export async function choose(s: S, emId: string, responseId: string, by: string,
     }).eq('id', em.ticket_id)
   }
   await log(s, emId, 'confirmed', `${pname(r.people)} confirmed — due by ${ukWhen(r.eta_at)}, call-out ${gbp(r.call_out_fee)}. ${why}${sms.via.length ? ` — sent by ${sms.via.join(', ')}` : ` (couldn’t reach them: ${sms.error} — call them)`}`, by)
-  await tellHouse(s, em, 'Help is on the way', `A contractor is on the way and expected around ${ukWhen(r.eta_at)}. We’re sorry for the trouble — we’ll keep you posted.`)
+  // coming tomorrow: how to manage until then
+  const notToday = new Date(r.eta_at).toLocaleDateString('en-CA', { timeZone: 'Europe/London' }) !== new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
+  await tellHouse(s, em, 'Help is on the way', `A contractor is ${notToday ? 'booked' : 'on the way'} and expected around ${ukWhen(r.eta_at)}. We’re sorry for the trouble — we’ll keep you posted.${notToday ? tonight(KINDS[em.kind as EmergencyKind]) : ''}`)
   await alertOffice(s, em, `Emergency covered — ${firstLine(em.properties?.name)}`, `${pname(r.people)} due by ${ukWhen(r.eta_at)} for ${gbp(r.call_out_fee)}. CROS will check in at ${ukWhen(followup)}.`)
   return { ok: true }
 }
@@ -559,4 +570,61 @@ export async function officeAction(s: S, emId: string, by: string, a: { action: 
       return { ok: true }
   }
   return { error: 'Unknown action' }
+}
+
+// ── the tenant's own screen (15 Nov 2026, Harry: "she can also say whether they have managed to find a solution for it
+// until morning") ─────────────────────────────────────────────────────────────
+
+/** What a tenant at the house sees: never the contractor's name or number, just what's happening and what to do. */
+export function tenantView(em: any) {
+  const info = KINDS[em.kind as EmergencyKind]
+  const stage = ['resolved', 'cancelled'].includes(em.status) ? 'closed'
+    : em.status === 'on_site' ? 'on_site'
+    : ['assigned', 'needs_return'].includes(em.status) ? 'booked'
+    : em.status === 'morning' ? 'morning'
+    : em.status === 'call_999' ? 'call_999'
+    : 'finding'
+  return {
+    id: em.id, ticketId: em.ticket_id ?? null, kind: em.kind, label: info?.label ?? em.title, stage, status: em.status,
+    reportedAt: em.created_at, eta: em.eta_at ?? null, etaText: em.eta_at ? ukWhen(em.eta_at) : null,
+    controlled: !!em.controlled, bathroomAbove: /bathroom or toilet above the leak/i.test(String(em.details ?? '')),
+    steps: info?.steps ?? [], overnight: info?.overnight ?? [], callServices: info?.callServices ?? null,
+    house: firstLine(em.properties?.name),
+  }
+}
+
+export async function tenantAction(s: S, emId: string, by: { personId: string; name: string }, action: 'contained' | 'worse', note?: string) {
+  const em = await load(s, emId)
+  if (!em) return { error: 'Not found' }
+  if (['resolved', 'cancelled'].includes(em.status)) return { error: 'This emergency is closed — report a new one if something’s wrong.' }
+  const now = new Date().toISOString()
+  const extra = note?.trim() ? ` — “${note.trim().slice(0, 300)}”` : ''
+  if (action === 'contained') {
+    await log(s, emId, 'tenants', `${by.name}: made safe until morning${extra}`, by.name)
+    if (['collecting', 'awaiting_office'].includes(em.status)) {
+      // nobody confirmed yet: stand the contractors down and book someone first thing
+      await s.from('emergencies').update({ status: 'morning', controlled: true, updated_at: now }).eq('id', emId)
+      const { data: live } = await s.from('emergency_responses').select('id, token, contractor_id, people!contractor_id(*)').eq('emergency_id', emId).is('stood_down_at', null) as { data: any[] | null }
+      for (const o of live ?? []) {
+        await s.from('emergency_responses').update({ stood_down_at: now }).eq('id', o.id)
+        await tellContractor(o.people, o.contractor_id, { text: `CAPITAL ROOMS: the tenant has made the problem near ${areaOf(em)} safe until morning — no need to attend tonight. Thank you.`, title: 'Made safe — no need to attend tonight', body: `The tenant has made it safe until morning.`, url: `/e/${o.token}`, tag: `emergency-${emId}` })
+      }
+      await alertOffice(s, em, `Made safe until morning — ${firstLine(em.properties?.name)}`, `${by.name} says it’s safe until morning${extra}. Contractors stood down — book someone first thing.`)
+      await tellHouse(s, em, 'Thanks — made safe until morning', `Thanks for sorting it for now. We’ll arrange someone first thing in the morning — tell us straight away if it gets worse.${tonight(KINDS[em.kind as EmergencyKind])}`)
+    } else {
+      await alertOffice(s, em, `Tenant says it’s safe until morning — ${firstLine(em.properties?.name)}`, `${by.name} says it’s safe until morning${extra}. A contractor is still booked — call them if you’d rather move the visit.`)
+    }
+    return { ok: true }
+  }
+  // worse
+  await log(s, emId, 'tenants', `${by.name}: it’s got worse${extra}`, by.name)
+  await alertOffice(s, em, `⚠️ Getting worse — ${firstLine(em.properties?.name)}`, `${by.name} says it’s got worse${extra}.`, true)
+  if (em.status === 'morning') {
+    await s.from('emergencies').update({ controlled: false, updated_at: now }).eq('id', emId)
+    let asked = await dispatchWave(s, { ...em, status: 'morning' }, 1)
+    if (!asked) asked = await dispatchWave(s, em, 2)
+    if (!asked) asked = await dispatchWave(s, em, 3)
+    await tellHouse(s, em, 'We’re on it', `Sorry it’s got worse. We’re contacting our emergency contractors now. Until they arrive: ${(KINDS[em.kind as EmergencyKind]?.steps ?? []).slice(0, 3).join(' ')}`)
+  }
+  return { ok: true }
 }

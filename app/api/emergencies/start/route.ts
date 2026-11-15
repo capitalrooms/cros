@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
   if (!office && !lives?.length && t.reporter_id !== caller.userId && t.reporter_id !== caller.personId) return NextResponse.json({ error: 'Not your property' }, { status: 403 })
   const kind: EmergencyKind = KINDS[b.kind as EmergencyKind] ? b.kind : kindFrom(String(t.description ?? ''), String(t.category ?? ''))
   try {
-    const out = await startEmergency(s, { ticketId: t.id, kind, controlled: !!b.controlled, reporterId: caller.personId })
+    const out = await startEmergency(s, { ticketId: t.id, kind, controlled: !!b.controlled, reporterId: caller.personId, bathroomAbove: ['yes', 'no', 'unsure'].includes(b.bathroomAbove) ? b.bathroomAbove : null })
     if ('error' in out && out.error) return NextResponse.json(out, { status: 400 })
     return NextResponse.json(out)
   } catch (e) {

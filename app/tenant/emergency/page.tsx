@@ -31,6 +31,7 @@ export default function TenantEmergencyPage() {
   const [kind, setKind] = useState<EmergencyKind | null>(null)
   const [controlled, setControlled] = useState<boolean | null>(null)
   const [details, setDetails] = useState('')
+  const [above, setAbove] = useState<'yes' | 'no' | 'unsure' | null>(null)   // a leak: is there a bathroom above it?
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
   const [status, setStatus] = useState<string | null>(null)
@@ -48,7 +49,7 @@ export default function TenantEmergencyPage() {
 
   const info = kind ? KINDS[kind] : null
   const phone = numberIn(info?.callServices)
-  const needsAnswer = !!info?.trade && controlled === null
+  const needsAnswer = (!!info?.trade && controlled === null) || (!!info?.askBathroomAbove && above === null)
 
   async function send() {
     if (!kind || !info) return
@@ -62,7 +63,7 @@ export default function TenantEmergencyPage() {
       const { data: t, error: tErr } = await sb.from('maintenance_tickets').insert([{
         reporter_id: u.assignment?.id ?? u.user.id,
         title: `${info.label}`,
-        description: [details.trim(), controlled === true ? 'Tenant says it’s under control until morning.' : controlled === false ? 'Tenant says it’s still happening / not safe.' : ''].filter(Boolean).join('\n\n') || info.label,
+        description: [details.trim(), above === 'yes' ? 'There’s a bathroom or toilet above the leak.' : above === 'unsure' ? 'There may be a bathroom or toilet above the leak.' : '', controlled === true ? 'Tenant says it’s under control until morning.' : controlled === false ? 'Tenant says it’s still happening / not safe.' : ''].filter(Boolean).join('\n\n') || info.label,
         category: 'Emergency',
         location: 'Reported as an emergency',
         priority: 'emergency',
@@ -74,12 +75,14 @@ export default function TenantEmergencyPage() {
       const r = await fetch('/api/emergencies/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.session.access_token}` },
-        body: JSON.stringify({ ticketId: t.id, kind, controlled: !!controlled }),
+        body: JSON.stringify({ ticketId: t.id, kind, controlled: !!controlled, bathroomAbove: above }),
       })
       const d = await r.json().catch(() => ({}))
-      setStatus(r.ok ? (d.status ?? 'collecting') : 'failed')
       // the office's usual new-job alert as well
       fetch('/api/notify-job-raised', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ticketId: t.id }) }).catch(() => {})
+      // straight on to their emergency screen: where it stands and what to do meanwhile (15 Nov 2026)
+      if (r.ok && d.id) { router.replace(`/tenant/emergency/${d.id}`); return }
+      setStatus(r.ok ? (d.status ?? 'collecting') : 'failed')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not send your report — please call the office.')
     } finally {
@@ -149,6 +152,24 @@ export default function TenantEmergencyPage() {
                   </div>
                   <p className="mt-xs text-xs text-neutral-500">{controlled === false ? 'We’ll contact our emergency contractors as soon as you send this.' : controlled === true ? 'We’ll arrange someone first thing — tell us straight away if it gets worse.' : 'This tells us whether to send someone tonight.'}</p>
                 </div>
+              )}
+              {info!.askBathroomAbove && (
+                <div>
+                  <p className="text-sm font-bold text-neutral-900">Is there a bathroom or toilet above where the water is coming from?</p>
+                  <div className="mt-sm grid grid-cols-3 gap-xs">
+                    {([['yes', 'Yes'], ['no', 'No'], ['unsure', 'Not sure']] as const).map(([v, l]) => (
+                      <button key={v} type="button" onClick={() => setAbove(v)}
+                        className={`rounded-xl border px-md py-sm text-sm font-semibold ${above === v ? 'border-red-700 bg-red-50 text-neutral-900' : 'border-neutral-200 text-neutral-800'}`}>{l}</button>
+                    ))}
+                  </div>
+                  {(above === 'yes' || above === 'unsure') && <p className="mt-xs rounded-xl bg-red-50 px-md py-sm text-sm font-semibold text-red-900">Don’t use that bathroom — no showers, baths, sinks or flushing — until our contractor has been. We’ll tell everyone in the house.</p>}
+                </div>
+              )}
+              {info!.overnight && (
+                <details className="rounded-xl bg-neutral-50 px-md py-sm text-sm text-neutral-800">
+                  <summary className="cursor-pointer font-semibold">If no one can come until tomorrow</summary>
+                  <ul className="mt-xs list-disc space-y-xs pl-lg">{info!.overnight.map(x => <li key={x}>{x}</li>)}</ul>
+                </details>
               )}
               <label className="block text-sm font-semibold text-neutral-900">Anything we should know? <span className="font-normal text-neutral-500">(optional)</span>
                 <textarea value={details} onChange={e => setDetails(e.target.value)} rows={3} placeholder="e.g. water coming through the kitchen ceiling, stopcock is off"
