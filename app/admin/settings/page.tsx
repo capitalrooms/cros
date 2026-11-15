@@ -20,42 +20,6 @@ interface Setting {
   updated_at: string
 }
 
-function PropertyMessages() {
-  const [rows, setRows] = useState<{ id: string; name: string; on: boolean }[] | null>(null)
-  const [busy, setBusy] = useState('')
-  const [q, setQ] = useState('')
-  useEffect(() => { adminFetch('/api/admin/comms-properties?all=1').then(r => r.ok ? r.json() : null).then(d => setRows(d?.properties ?? [])).catch(() => setRows([])) }, [])
-  async function flip(id: string, on: boolean) {
-    setBusy(id)
-    const r = await adminFetch('/api/admin/comms-properties', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ propertyId: id, on }) })
-    setBusy('')
-    if (r.ok) setRows(v => (v ?? []).map(x => x.id === id ? { ...x, on } : x)); else alert('Didn’t save — try again')
-  }
-  const shown = (rows ?? []).filter(r => !q.trim() || r.name.toLowerCase().includes(q.trim().toLowerCase()))
-  const onCount = (rows ?? []).filter(r => r.on).length
-  return (
-    <div className="border-t border-neutral-100 px-lg py-lg">
-      <div className="flex flex-wrap items-baseline justify-between gap-sm">
-        <p className="font-semibold text-neutral-900">Automatic messages, property by property</p>
-        <span className="text-xs text-neutral-500">{onCount ? `On for ${onCount}` : 'Paused everywhere'}</span>
-      </div>
-      <p className="mt-xs text-xs text-neutral-500">Switch a property on and its tenants get every automatic update — approvals, bookings, “on our way”, finished jobs — while the rest stay paused.</p>
-      {rows && rows.length > 8 && <input value={q} onChange={e => setQ(e.target.value)} placeholder="Find a property" className="mt-sm w-full rounded-lg border border-neutral-300 px-md py-sm text-sm" />}
-      {!rows && <p className="mt-sm text-xs text-neutral-400">Loading…</p>}
-      <ul className="mt-sm divide-y divide-neutral-100 rounded-xl border border-neutral-200">
-        {shown.map(r => (
-          <li key={r.id} className="flex items-center justify-between gap-md px-md py-sm">
-            <span className="min-w-0 truncate text-sm text-neutral-900">{r.name}</span>
-            <button type="button" onClick={() => flip(r.id, !r.on)} disabled={busy === r.id} aria-label={`Automatic messages for ${r.name}: ${r.on ? 'on' : 'off'}`}
-              className={`relative h-6 w-11 shrink-0 rounded-full transition-colors disabled:opacity-50 ${r.on ? 'bg-green-500' : 'bg-neutral-300'}`}>
-              <span className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${r.on ? 'translate-x-5' : ''}`} />
-            </button>
-          </li>
-        ))}
-      </ul>
-    </div>
-  )
-}
 
 export default function AdminSettingsPage() {
   const router = useRouter()
@@ -114,48 +78,16 @@ export default function AdminSettingsPage() {
     } finally { setSaving(null) }
   }
 
-  async function toggle(key: string, currentValue: string) {
-    const newValue = currentValue === 'true' ? 'false' : 'true'
-    setSaving(key)
-    setBanner(null)
-    try {
-      const res = await fetch('/api/admin/settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key, value: newValue }),
-      })
-      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Failed to save')
-      setSettings(prev => ({ ...prev, [key]: newValue }))
-      setBanner({
-        type: 'ok',
-        text: key === 'comms_live'
-          ? newValue === 'true'
-            ? 'Notifications are now LIVE — tenants and landlords will receive messages.'
-            : 'Notifications paused — no messages will be sent to tenants or landlords.'
-          : key === 'elected_comms_live'
-            ? newValue === 'true'
-              ? 'Messages you send yourself can go out again.'
-              : 'Messages you send yourself are switched off too.'
-            : `${key} set to ${newValue}`
-      })
-    } catch (e: any) {
-      setBanner({ type: 'err', text: e.message })
-    } finally {
-      setSaving(null)
-    }
-  }
-
   if (loading) return <GenericPageSkeleton />
 
   const commsLive = settings['comms_live'] === 'true'
-  const electedLive = settings['elected_comms_live'] !== 'false'   // on unless switched off (lib/comms getElectedCommsLive)
   const grace = settings['rent_grace_days'] ?? '5'
   const ledgerStart = settings['client_ledger_start']
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar />
-      <PageHero eyebrow="Settings" title="System Settings" subtitle="Global controls for Capital Rooms. Changes take effect immediately — no redeploy needed." />
+      <PageHero eyebrow="Office" title="Office settings" subtitle="Settings for the whole of Capital Rooms — they apply to everyone, straight away. Your own details are under your name, top right." />
       <main className="mx-auto max-w-6xl px-lg py-xl">
         <BackButton href="/admin" label="Dashboard" />
 
@@ -169,73 +101,26 @@ export default function AdminSettingsPage() {
           </div>
         )}
 
-        {/* ── Notifications kill switch ── */}
-        <div className="bg-white rounded-2xl border border-neutral-200 overflow-hidden mb-lg">
-          <div className="px-lg py-md border-b border-neutral-100">
-            <h2 className="font-bold text-neutral-900 text-base">Notifications</h2>
-            <p className="text-xs text-neutral-500 mt-xs">Controls all outbound tenant and landlord messaging — push, email, and SMS.</p>
-          </div>
+        {/* the sections on this page, so each is one tap away (14 Nov 2026 tidy) */}
+        <nav aria-label="On this page" className="mb-lg flex flex-wrap gap-xs">
+          {[['messages', 'Tenant messages'], ['rent', 'Rent & records'], ['lettings', 'Lettings'], ['emails', 'Emails'], ['privacy', 'Data protection'], ['elsewhere', 'Other office settings']].map(([id, label]) => (
+            <a key={id} href={`#${id}`} className="rounded-full bg-white px-md py-xs text-sm font-semibold text-neutral-800 ring-1 ring-neutral-200 hover:ring-neutral-900">{label}</a>
+          ))}
+        </nav>
 
-          <div className="px-lg py-lg flex items-start gap-lg">
-            <button
-              onClick={() => toggle('comms_live', settings['comms_live'] ?? 'false')}
-              disabled={saving === 'comms_live'}
-              className={`shrink-0 relative w-14 h-7 rounded-full transition-colors duration-200 focus:outline-none disabled:opacity-50 ${
-                commsLive ? 'bg-green-500' : 'bg-neutral-300'
-              }`}
-              aria-label="Toggle tenant notifications"
-            >
-              <span className={`absolute top-0.5 left-0.5 w-6 h-6 bg-white rounded-full shadow transition-transform duration-200 ${
-                commsLive ? 'translate-x-7' : 'translate-x-0'
-              }`} />
-            </button>
-
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-sm">
-                <p className="font-semibold text-neutral-900">
-                  {commsLive ? 'Notifications live' : 'Notifications paused'}
-                </p>
-                {saving === 'comms_live' && <span className="text-xs text-neutral-400">Saving…</span>}
-              </div>
-              {commsLive ? (
-                <p className="text-xs text-neutral-500 mt-xs">
-                  Tenants and landlords will receive push notifications, emails, and SMS as normal.
-                </p>
-              ) : (
-                <p className="text-xs text-amber-700 mt-xs">
-                  <strong>Safe mode:</strong> nothing goes to tenants automatically (bookings, job updates, reminders). Staff notifications unaffected.
-                </p>
-              )}
-            </div>
-          </div>
-
-          <div className="px-lg py-lg flex items-start gap-lg border-t border-neutral-100">
-            <button
-              onClick={() => toggle('elected_comms_live', electedLive ? 'true' : 'false')}
-              disabled={saving === 'elected_comms_live'}
-              className={`shrink-0 relative w-14 h-7 rounded-full transition-colors duration-200 focus:outline-none disabled:opacity-50 ${electedLive ? 'bg-green-500' : 'bg-neutral-300'}`}
-              aria-label="Toggle messages you send yourself"
-            >
-              <span className={`absolute top-0.5 left-0.5 w-6 h-6 bg-white rounded-full shadow transition-transform duration-200 ${electedLive ? 'translate-x-7' : 'translate-x-0'}`} />
-            </button>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-sm">
-                <p className="font-semibold text-neutral-900">{electedLive ? 'Messages you send yourself: on' : 'Messages you send yourself: off'}</p>
-                {saving === 'elected_comms_live' && <span className="text-xs text-neutral-400">Saving…</span>}
-              </div>
-              <p className="text-xs text-neutral-500 mt-xs">
-                Sent only when you press send, after choosing who gets them: certificates to a house or the yearly round, the HMO licence notice,
-                Quick Notify, a viewing tour notice, and the tenant / housemate / let-only occupant notices you tick when booking a viewing.
-                {!commsLive && electedLive ? ' These still go out while automatic messages are paused.' : ''}
-              </p>
-            </div>
-          </div>
-          {/* automatic messages property by property (14 Nov 2026, Harry: "it should just be living in the list — click on
-              and off for a property there") — while the main switch is paused, the properties ticked here still get them */}
-          {!commsLive && <PropertyMessages />}
-        </div>
+        {/* ── Notifications now live in one place: /admin/notifications (14 Nov 2026, Harry: "we have too many places to go
+            to simply control what and who gets notifications") ── */}
+        <div id="messages" className="scroll-mt-lg" />
+        <a href="/admin/notifications" className="mb-lg flex items-center justify-between gap-lg rounded-2xl border border-neutral-200 bg-white px-lg py-md hover:border-neutral-900">
+          <span>
+            <span className="block text-base font-bold text-neutral-900">Notifications — who gets what</span>
+            <span className="mt-xs block text-xs text-neutral-500">Tenants (everyone or property by property), landlords, contractors, cleaners and the office — all in one list. Tenant automatic messages are {commsLive ? 'on for every property' : 'paused, except properties switched on'}.</span>
+          </span>
+          <span aria-hidden="true" className="text-xl text-neutral-400">→</span>
+        </a>
 
         {/* ── Your records: the two set-up dates (lib/finance/dates; 14 Oct 2026) ── */}
+        <div id="rent" className="scroll-mt-lg" />
         <RecordsDates onSaved={(text) => { setBanner({ type: 'ok', text }); loadSettings() }} onError={(text) => setBanner({ type: 'err', text })} />
 
         {/* ── Rent ── */}
@@ -262,6 +147,7 @@ export default function AdminSettingsPage() {
         </div>
 
         {/* ── Room requests on the application form ── */}
+        <div id="lettings" className="scroll-mt-lg" />
         <div className="bg-white rounded-2xl border border-neutral-200 overflow-hidden mb-lg">
           <div className="px-lg py-md border-b border-neutral-100">
             <h2 className="font-bold text-neutral-900 text-base">Room requests</h2>
@@ -281,9 +167,11 @@ export default function AdminSettingsPage() {
           </div>
         </div>
 
+        <div id="privacy" className="scroll-mt-lg" />
         <DataProtection />
 
-        {/* ── Email signatures ── */}
+        {/* ── Emails ── */}
+        <div id="emails" className="scroll-mt-lg" />
         <div className="bg-white rounded-2xl border border-neutral-200 overflow-hidden mb-lg">
           <div className="px-lg py-md border-b border-neutral-100">
             <h2 className="font-bold text-neutral-900 text-base">Email Signatures</h2>
@@ -324,6 +212,26 @@ export default function AdminSettingsPage() {
           </div>
         </div>
 
+        {/* ── Other office settings — kept with the things they control ── */}
+        <div id="elsewhere" className="scroll-mt-lg bg-white rounded-2xl border border-neutral-200 overflow-hidden mb-lg">
+          <div className="px-lg py-md border-b border-neutral-100">
+            <h2 className="font-bold text-neutral-900 text-base">Other office settings</h2>
+            <p className="text-xs text-neutral-500 mt-xs">Set where you use them.</p>
+          </div>
+          <ul className="divide-y divide-neutral-100">
+            {[
+              ['/admin/emergencies', 'Emergencies', 'Who’s on the emergency list, how long contractors have to answer, the call-out cost limit'],
+              ['/admin/email-hub', 'Email looks', 'The theme every email goes out in — for all, on set dates, or per email'],
+              ['/admin/people?tab=office', 'Staff and access', 'Who’s in the office team and what each person can open'],
+              ['/admin/message-templates', 'Message templates', 'The wording of automatic messages, branding and contact details'],
+            ].map(([href, title, note]) => (
+              <li key={href}><Link href={href} className="flex items-center justify-between gap-md px-lg py-md hover:bg-neutral-50">
+                <span><span className="block text-sm font-semibold text-neutral-900">{title}</span><span className="block text-xs text-neutral-500">{note}</span></span>
+                <span className="text-neutral-400" aria-hidden="true">›</span>
+              </Link></li>
+            ))}
+          </ul>
+        </div>
       </main>
     </div>
   )

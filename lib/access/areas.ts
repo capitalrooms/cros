@@ -87,8 +87,8 @@ export const AREAS: Area[] = [
   // Still administrators only, whatever is ticked: staff accounts and access (or anyone could tick themselves more) and
   // View as (seeing the apps as a real tenant, landlord or contractor).
   { key: 'settings', label: 'Settings', hint: 'Company details and logo, message switches, finance dates, removing a property',
-    pages: ['/admin/settings'],
-    api: ['/api/admin/settings', '/api/admin/business-settings', '/api/admin/upload-brand-logo', '/api/admin/finance-dates', '/api/admin/property-remove'] },
+    pages: ['/admin/settings', '/admin/notifications'],
+    api: ['/api/admin/settings', '/api/admin/notifications', '/api/admin/business-settings', '/api/admin/upload-brand-logo', '/api/admin/finance-dates', '/api/admin/property-remove'] },
 ]
 
 export const ALL_AREAS = AREAS.map(a => a.key)

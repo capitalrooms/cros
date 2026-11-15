@@ -202,11 +202,13 @@ const ZONES_AS_WRITTEN: Zone[] = [
       '/admin/feedback',
       '/admin/email-hub',
       '/admin/publish',
+      '/admin/notifications',
     ],
     subnav: [
-      { emoji: '💬', label: 'Messages',           href: '/admin/communications' },   // All · Send to a house · Acknowledgments · Feedback · Templates
-      { emoji: '📄', label: 'Letters & Invoices', href: '/admin/document-generator' },
       { emoji: '✉️', label: 'Email hub',          href: '/admin/email-hub' },   // themes for every email (lib/email/themes) — administrators
+      { emoji: '📄', label: 'Letters & Invoices', href: '/admin/document-generator' },
+      { emoji: '💬', label: 'Messages',           href: '/admin/communications' },   // All · Send to a house · Acknowledgments · Feedback · Templates
+      { emoji: '🔔', label: 'Notifications',      href: '/admin/notifications' },   // who gets what — tenants, landlords, contractors, cleaners, office (14 Nov 2026)
       { emoji: '📣', label: 'Publish',            href: '/admin/publish' },   // write once → email, PDF letter, text, app, website, social (13 Nov 2026)
     ],
   },
