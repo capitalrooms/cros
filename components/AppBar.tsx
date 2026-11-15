@@ -26,5 +26,6 @@ export default function AppBar({
   const isAdmin = useIsAdmin()
   if (isAdmin) return null
   // the one top bar for every user (app/components/TopBar, 21 Oct 2026) — the admin bar's look, bell and account menu
-  return <TopBar position="sticky" right={right} left={left ?? (title && <p className="truncate text-sm font-medium text-white/70">{title}</p>)} />
+  // the page's name goes in the bar's title spot (15 Nov 2026) — beside the back button, not instead of it
+  return <TopBar position="sticky" right={right} left={left} title={title || null} />
 }

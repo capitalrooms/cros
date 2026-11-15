@@ -25,6 +25,21 @@ function getActiveZone(pathname: string): Zone | null {
   return ZONES.find(z => z.id !== 'dash' && z.routes.some(r => pathname === r || pathname.startsWith(r + '/'))) ?? null
 }
 
+/** The page's name for the top bar: the menu item it sits under (longest match), and its section above it. */
+function pageTitle(pathname: string, zone: Zone | null): { title: string; eyebrow: string | null } {
+  if (pathname === '/admin') return { title: 'Dashboard', eyebrow: null }
+  let best: { label: string; len: number } | null = null
+  for (const z of ZONES) for (const it of z.subnav) {
+    const href = it.href.split('?')[0]
+    if ((pathname === href || pathname.startsWith(href + '/')) && (!best || href.length > best.len)) best = { label: it.label, len: href.length }
+  }
+  if (best) return { title: best.label, eyebrow: zone?.label ?? null }
+  if (zone) return { title: zone.label, eyebrow: null }
+  // pages outside the menu: their address, in words ("/admin/view-as" → "View as")
+  const last = pathname.split('/').filter(Boolean).filter(x => !/^[0-9a-f-]{20,}$/i.test(x)).pop() ?? 'Admin'
+  return { title: last.replace(/-/g, ' ').replace(/^./, c => c.toUpperCase()), eyebrow: null }
+}
+
 function isPropertyHub(pathname: string): boolean {
   // /admin/properties/[id] — but NOT /admin/properties/new (handled in portfolio)
   return /^\/admin\/properties\/[^/]+($|\/)/.test(pathname) && !pathname.includes('/new')
@@ -175,7 +190,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
       <div className="flex min-w-0 flex-1 flex-col">
         {/* ── Top bar — the one top bar every user has (app/components/TopBar) ── */}
-        <TopBar homeHref="/admin"
+        <TopBar homeHref="/admin" {...pageTitle(pathname, onPropHub ? (ZONES.find(z => z.id === 'portfolio') ?? activeZone) : activeZone)}
           left={!isPhoneTabRoot(pathname) && <BackButton optional={!backFallback} href={backFallback?.href} label={backFallback?.label} />}
           right={<TopSearch canAsk={!!access && isAdministrator(access.role)} />} />
         <AdminFinder allowed={allowed} canAsk={!!access && isAdministrator(access.role)} />

@@ -71,6 +71,8 @@ html.garden, html.garden body { background-color: #17332B; }
 /* the top bar on the role apps' inner screens (14 Nov 2026, Harry: "still old version styling everywhere"): light, on the
    page's own sage, ink text, the real logo in its own colours — like the renderings, not the old dark office bar */
 .garden .cr-topbar { background: #EEF2EC !important; color: #14261F !important; border-bottom: 1px solid #DCE5DD !important; }
+.garden .cr-topbar .cr-topbar-eyebrow { color: #4E6158 !important; }
+.garden .cr-topbar .cr-topbar-title { color: #14261F !important; }
 .garden .cr-topbar .cr-topbar-logo, .garden .cr-topbar .cr-topbar-logo * { filter: none !important; --tw-brightness: ; --tw-invert: ; }
 .garden .cr-topbar a.group, .garden .cr-topbar button.group { border-color: #DCE5DD !important; background: #FFFFFF !important; color: #14261F !important; }
 .garden .cr-topbar button[aria-label*="otification"] { color: #14261F !important; }
