@@ -79,7 +79,8 @@ export default function AccountMenu() {
         <div className="absolute right-0 top-10 z-50 w-52 overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-lg">
           <Link href={profile} onClick={() => setOpen(false)} className={item}>My profile</Link>
           <Link href="/account" onClick={() => setOpen(false)} className={item}>Password &amp; sign-in</Link>
-          {(isAdministrator(role) || (OFFICE.includes(role) && inOffice && allowed('/admin/settings'))) && <Link href="/admin/settings" onClick={() => setOpen(false)} className={`${item} border-t border-neutral-100`}>Settings</Link>}
+          {(isAdministrator(role) || (OFFICE.includes(role) && inOffice && allowed('/admin/notifications'))) && <Link href="/admin/notifications" onClick={() => setOpen(false)} className={`${item} border-t border-neutral-100`}>Notifications — who gets what</Link>}
+          {(isAdministrator(role) || (OFFICE.includes(role) && inOffice && allowed('/admin/settings'))) && <Link href="/admin/settings" onClick={() => setOpen(false)} className={item}>Office settings</Link>}
           {OFFICE.includes(role) && <Link href="/admin/settings/signatures" onClick={() => setOpen(false)} className={item}>Email signatures</Link>}
           <button onClick={handleSignOut} className="flex w-full items-center gap-2 border-t border-neutral-100 px-3 py-2.5 text-xs text-red-600 hover:bg-red-50">Sign out</button>
         </div>

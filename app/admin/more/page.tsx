@@ -9,11 +9,15 @@ import { createClient } from '@/lib/supabase'
 import LineIcon from '@/components/LineIcon'
 import { InlineFinder } from '../components/AdminFinder'
 
+// first thing on the page (15 Nov 2026, Harry couldn't find the notification switches)
+const OFFICE = [
+  { emoji: '🔔', label: 'Notifications — who gets what', href: '/admin/notifications' },
+  { emoji: '⚙️', label: 'Office settings', href: '/admin/settings' },
+]
 const EXTRA = [
+  { emoji: '✍️', label: 'Email signatures', href: '/admin/settings/signatures' },
   { emoji: '👤', label: 'My profile', href: '/admin/profile' },
   { emoji: '🔑', label: 'Password & sign-in', href: '/account' },
-  { emoji: '⚙️', label: 'Settings', href: '/admin/settings' },
-  { emoji: '✍️', label: 'Email signatures', href: '/admin/settings/signatures' },
 ]
 
 function Group({ title, items }: { title: string; items: { emoji: string; label: string; href: string }[] }) {
@@ -48,6 +52,7 @@ export default function AdminMorePage() {
       <div className="mx-auto max-w-6xl px-lg py-xl space-y-5">
         <h1 className="text-[26px] leading-tight font-bold text-neutral-950">More</h1>
         <InlineFinder allowed={allowed} />
+        {mine(OFFICE).length > 0 && <Group title="Office" items={mine(OFFICE)} />}
         {ZONES.map(z => ({ ...z, subnav: mine(z.subnav) })).filter(z => z.subnav.length).map(z => <Group key={z.id} title={z.label} items={z.subnav} />)}
         <Group title="You" items={mine(EXTRA)} />
         <button type="button" onClick={signOut}
