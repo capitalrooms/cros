@@ -226,6 +226,19 @@ export async function dispatchWave(s: S, em: any, wave: number): Promise<number>
 
 const soonest = (rs: any[]) => [...rs].sort((a, b) => String(a.eta_at).localeCompare(String(b.eta_at)) || (a.rank ?? 5) - (b.rank ?? 5) || (Number(a.call_out_fee ?? 0) - Number(b.call_out_fee ?? 0)))
 
+// Choosing between offers (15 Nov 2026, Harry: "if two could visit in 3 hours … but one is cheaper"): the soonest wins,
+// unless another can come at much the same time for less — then the cheaper. "Much the same" is 30 minutes while it's
+// still happening, 60 once it's under control.
+export const GOOD_ETA_MIN = 120      // a yes this soon (and within the cost limit) shortens the wait…
+export const GRACE_MIN = 3           // …to this many more minutes, for a better one to come in
+const similarMin = (em: any) => em?.controlled ? 60 : 30
+function best(rs: any[], em: any) {
+  const first = soonest(rs)[0]
+  if (!first) return first
+  const near = rs.filter(r => new Date(r.eta_at).getTime() - new Date(first.eta_at).getTime() <= similarMin(em) * 60000)
+  return [...near].sort((a, b) => Number(a.call_out_fee ?? 0) - Number(b.call_out_fee ?? 0) || String(a.eta_at).localeCompare(String(b.eta_at)) || (a.rank ?? 5) - (b.rank ?? 5))[0]
+}
+
 async function yesAnswers(s: S, emId: string) {
   const { data } = await s.from('emergency_responses').select('*, people!contractor_id(*)')
     .eq('emergency_id', emId).eq('answer', 'yes').is('stood_down_at', null) as { data: any[] | null }
@@ -247,7 +260,10 @@ export async function decide(s: S, emId: string, reason = 'Answers closed') {
     await alertOffice(s, em, `Choose a contractor — ${firstLine(em.properties?.name)}`, `${yes.length} can attend. Open it to pick one.`, true)
     return
   }
-  if (within.length) return choose(s, emId, soonest(within)[0].id, 'CROS', `${reason}: the soonest within the £${set.costLimit} limit`)
+  if (within.length) {
+    const pick = best(within, em), fastest = soonest(within)[0]
+    return choose(s, emId, pick.id, 'CROS', `${reason}: ${pick.id === fastest.id ? 'the soonest' : `${gbp(pick.call_out_fee)} at much the same time as the soonest (${gbp(fastest.call_out_fee)}) — the cheaper`} within the £${set.costLimit} limit`)
+  }
   if (yes.length) {
     const best = soonest(yes)[0]
     const moved = await s.from('emergencies').update({ status: 'awaiting_office', updated_at: new Date().toISOString() }).eq('id', emId).eq('status', 'collecting').select('id')
@@ -388,6 +404,18 @@ export async function respond(s: S, t: string, a: { answer: 'yes' | 'no'; etaAt?
       await alertOffice(s, em, `New answer — ${firstLine(em.properties?.name)}`, `${pname(who)} can come by ${ukWhen(a.etaAt!)} for ${gbp(a.fee)}.`)
     }
     return { ok: true }
+  }
+  // a good answer (within the limit, here within 2 hours): don't keep everyone waiting the whole window — a few more
+  // minutes for a better one, then choose
+  if (em.status === 'collecting' && a.answer === 'yes') {
+    const set = await settings(s)
+    const soon = new Date(a.etaAt!).getTime() - Date.now() <= GOOD_ETA_MIN * 60000
+    const cheapEnough = a.fee == null || a.fee <= set.costLimit
+    const grace = new Date(Date.now() + GRACE_MIN * 60000)
+    if (set.auto && soon && cheapEnough && (!em.window_ends_at || new Date(em.window_ends_at) > grace)) {
+      await s.from('emergencies').update({ window_ends_at: grace.toISOString() }).eq('id', em.id).eq('status', 'collecting')
+      await log(s, em.id, 'answer', `A good answer is in — confirming at ${ukTime(grace)} unless a better one comes`)
+    }
   }
   // everyone asked has answered: no need to wait for the window
   const { data: pending } = await s.from('emergency_responses').select('id').eq('emergency_id', em.id).is('answer', null).is('stood_down_at', null).limit(1)

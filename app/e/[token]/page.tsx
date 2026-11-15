@@ -117,7 +117,7 @@ export default function EmergencyLink({ params }: { params: Promise<{ token: str
         {head}
         <Card>
           <p className="text-base font-bold text-[#14261F]">Can you attend?</p>
-          <p className="mt-1 text-sm text-[#4E6158]">Others have been asked too. We confirm the soonest in a few minutes — you’ll get a text either way, and the full address once you’re confirmed.</p>
+          <p className="mt-1 text-sm text-[#4E6158]">Others have been asked too. We confirm within a few minutes — the soonest, or the cheaper if times are close. You’ll get a text either way, and the full address once you’re confirmed.</p>
           <p className={`${label} mt-4`}>When can you be there?</p>
           <div className="grid grid-cols-2 gap-2">
             {[['Within 30 min', inMinutes(30)], ['Within 1 hour', inMinutes(60)], ['Within 90 min', inMinutes(90)], ['Within 2 hours', inMinutes(120)], ['Tomorrow 8am', tomorrowAt(8)]].map(([l, v]) => (
@@ -145,7 +145,7 @@ export default function EmergencyLink({ params }: { params: Promise<{ token: str
       {head}
       <Card>
         {view.answer === 'yes'
-          ? <><p className="text-base font-bold text-[#14261F]">Thanks — you said you can be there by {when(view.eta!)}{view.fee != null ? ` (£${view.fee} call-out)` : ''}.</p><p className="mt-1 text-sm text-[#4E6158]">We’ll text you in a few minutes to confirm, or to say it’s covered. Please don’t set off until we confirm.</p></>
+          ? <><p className="text-base font-bold text-[#14261F]">Thanks — you said you can be there by {when(view.eta!)}{view.fee != null ? ` (£${view.fee} call-out)` : ''}.</p><p className="mt-1 text-sm text-[#4E6158]">We’ll text you within a few minutes to confirm, or to say it’s covered. Please don’t set off until we confirm.</p></>
           : <p className="text-base font-bold text-[#14261F]">Thanks for letting us know you can’t make this one.</p>}
         <button type="button" onClick={() => { setChanging(true); setEta(null) }} className="mt-3 text-sm font-semibold text-[#17332B] underline">Change my answer</button>
       </Card>
