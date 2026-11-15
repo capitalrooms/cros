@@ -3,11 +3,11 @@
 // A contractor's emergency link (texted to them). No sign-in. First: can you attend, when, call-out fee.
 // Once confirmed: the full address and access, then "on site", "running late", "can't make it", and how it went —
 // fixed / made safe / not fixed, with the part needed, the cost of a proper fix and when they can come back.
-// Look: the shared public frame (components/public/PublicShell, design "C"), kept plain and high-contrast — it's used
-// at speed, on a phone.
+// Look: the contractor app's (garden kit — 15 Nov 2026, Harry: "styled separately to the rest of their app"), kept
+// high-contrast — it's used at speed, on a phone. Still works without signing in.
 
 import { use, useEffect, useState } from 'react'
-import PublicShell from '@/components/public/PublicShell'
+import { display } from '@/app/components/garden/kit'
 
 interface View {
   kind: string; title: string; details: string | null; area: string; address: string | null
@@ -16,6 +16,7 @@ interface View {
   answer: 'yes' | 'no' | null; eta: string | null; fee: number | null; note: string | null
   report: { onSite: string | null; outcome: string | null; part: string | null; fixCost: number | null; returnDate: string | null; returnSlot: string | null; at: string | null }
   emStatus: string
+  why?: 'covered' | 'made_safe' | 'cancelled'
 }
 
 const time = (iso: string) => new Date(iso).toLocaleTimeString('en-GB', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Europe/London' }).replace(/\s/g, '')
@@ -28,23 +29,30 @@ const inMinutes = (m: number) => new Date(Date.now() + m * 60000).toISOString()
 const tomorrowAt = (h: number) => { const d = new Date(); d.setDate(d.getDate() + 1); d.setHours(h, 0, 0, 0); return d.toISOString() }
 const localInput = (iso: string) => { const d = new Date(iso); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 16) }
 
-const btn = 'w-full min-h-[52px] rounded-full py-3 text-base font-semibold disabled:opacity-40'
-const input = 'pub-input'
-const label = 'block text-[11px] uppercase tracking-[.14em] text-[#6F6B64] mb-1'
+const btn = 'w-full min-h-[52px] rounded-full py-3 text-base font-bold disabled:opacity-40 active:translate-y-px'
+const input = 'w-full rounded-xl border-[1.5px] border-[#DCE5DD] bg-white px-3 py-3 text-[16px] text-[#14261F]'
+const label = 'block text-[11px] font-bold uppercase tracking-[.14em] text-[#4E6158] mb-1'
+// the app's buttons: honey for the main thing, forest for the next, outline for the rest
+const HONEY = 'text-[#17332B] shadow-[0_3px_0_var(--cr-honey-edge)] [background:var(--cr-gold)]'
+const FOREST = 'bg-[#17332B] text-white'
+const OUTLINE = 'border-[1.5px] border-[#17332B] bg-white text-[#17332B]'
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
-    <PublicShell label="Emergency call-out">
-      <div className="mx-auto max-w-xl space-y-6 px-6 pb-14 pt-8">
+    <div className="garden min-h-screen bg-[#EEF2EC]" style={{ paddingTop: 'max(calc(env(safe-area-inset-top) + 10px), 16px)' }}>
+      <div className="mx-auto max-w-xl space-y-3 px-4 pb-14">
+        <div className="flex items-center justify-between pb-1">
+          <a href="/contractor" className="inline-flex h-9 items-center gap-1 rounded-full bg-white px-3 text-sm font-semibold text-[#14261F] shadow-[0_2px_0_#DCE5DD]">‹ Your jobs</a>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/brand/lockup-ink.png" alt="Capital Rooms" style={{ height: 26, width: 'auto' }} />
+        </div>
         {children}
-        {/* opened from the app's notification: a way back to their jobs (15 Nov 2026) */}
-        <a href="/contractor" className="block pt-2 text-center text-sm font-semibold text-neutral-500 underline">Your jobs in the Capital Rooms app</a>
       </div>
-    </PublicShell>
+    </div>
   )
 }
 const Card = ({ children, tone }: { children: React.ReactNode; tone?: 'red' | 'green' }) =>
-  <section className="px-5 py-5" style={tone === 'red' ? { background: '#FBF1EE', borderLeft: '3px solid #9B2C1F' } : tone === 'green' ? { background: '#EEF5EF', borderLeft: '3px solid #2E6B3F' } : { borderTop: '1px solid #111' }}>{children}</section>
+  <section className={`rounded-[22px] p-5 ${tone === 'red' ? 'bg-[#8E2318] text-white' : tone === 'green' ? 'bg-[#17332B] text-white' : 'bg-white text-[#14261F] shadow-[0_2px_0_#DCE5DD]'}`}>{children}</section>
 
 export default function EmergencyLink({ params }: { params: Promise<{ token: string }> }) {
   const { token } = use(params)
@@ -87,15 +95,15 @@ export default function EmergencyLink({ params }: { params: Promise<{ token: str
     return true
   }
 
-  if (err && !view) return <Shell><Card tone="red"><p className="text-sm text-red-800">{err}</p></Card></Shell>
-  if (!view) return <Shell><p className="text-center text-sm text-neutral-500">Loading…</p></Shell>
+  if (err && !view) return <Shell><Card tone="red"><p className="text-sm">{err}</p></Card></Shell>
+  if (!view) return <Shell><p className="text-center text-sm text-[#4E6158]">Loading…</p></Shell>
 
   const head = (
     <Card tone={view.stage === 'chosen' ? 'green' : 'red'}>
-      <p className="m-0 text-[11px] font-semibold uppercase tracking-[.18em]" style={{ color: view.stage === 'chosen' ? '#2E6B3F' : '#9B2C1F' }}>{view.stage === 'chosen' ? 'Confirmed — you’re booked' : 'Emergency call-out'}</p>
-      <h1 className="pub-serif m-0 mt-1 text-[clamp(2.2rem,9vw,3.2rem)] leading-[1.02]">{view.kind}</h1>
-      <p className="text-sm text-neutral-700">{view.address ?? `Near ${view.area}`}</p>
-      {view.title && view.title !== view.kind && <p className="mt-2 text-sm text-neutral-700">“{view.title}”</p>}
+      <p className="m-0 text-[11px] font-bold uppercase tracking-[.16em] text-white/75">{view.stage === 'chosen' ? 'Confirmed — you’re booked' : 'Emergency call-out'}</p>
+      <h1 className="m-0 mt-1 text-[28px] font-extrabold leading-[1.05] tracking-[-0.02em]" style={display}>{view.kind}</h1>
+      <p className="mt-1 text-sm text-white/85">{view.address ?? `Near ${view.area}`}</p>
+      {view.title && view.title !== view.kind && <p className="mt-2 text-sm text-white/85">“{view.title}”</p>}
     </Card>
   )
 
@@ -106,24 +114,24 @@ export default function EmergencyLink({ params }: { params: Promise<{ token: str
       <Shell>
         {head}
         <Card>
-          <p className="text-base font-bold text-neutral-900">Can you attend?</p>
-          <p className="mt-1 text-sm text-neutral-600">Others have been asked too. We confirm the soonest in a few minutes — you’ll get a text either way, and the full address once you’re confirmed.</p>
+          <p className="text-base font-bold text-[#14261F]">Can you attend?</p>
+          <p className="mt-1 text-sm text-[#4E6158]">Others have been asked too. We confirm the soonest in a few minutes — you’ll get a text either way, and the full address once you’re confirmed.</p>
           <p className={`${label} mt-4`}>When can you be there?</p>
           <div className="grid grid-cols-2 gap-2">
             {[['Within 30 min', inMinutes(30)], ['Within 1 hour', inMinutes(60)], ['Within 90 min', inMinutes(90)], ['Within 2 hours', inMinutes(120)], ['Tomorrow 8am', tomorrowAt(8)]].map(([l, v]) => (
               <button key={l} type="button" onClick={() => setEta(v)}
-                className={`min-h-[46px] rounded-full border px-3 py-2.5 text-sm font-semibold ${eta && eta !== 'custom' && Math.abs(new Date(eta).getTime() - new Date(v).getTime()) < 120000 ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-900 bg-white text-neutral-900'}`}>{l}</button>
+                className={`min-h-[46px] rounded-full border-[1.5px] px-3 py-2.5 text-sm font-semibold ${eta && eta !== 'custom' && Math.abs(new Date(eta).getTime() - new Date(v).getTime()) < 120000 ? 'border-[#17332B] bg-[#17332B] text-white' : 'border-[#DCE5DD] bg-white text-[#14261F]'}`}>{l}</button>
             ))}
-            <button type="button" onClick={() => setEta('custom')} className={`min-h-[46px] rounded-full border px-3 py-2.5 text-sm font-semibold ${eta === 'custom' ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-900 bg-white text-neutral-900'}`}>Another time</button>
+            <button type="button" onClick={() => setEta('custom')} className={`min-h-[46px] rounded-full border-[1.5px] px-3 py-2.5 text-sm font-semibold ${eta === 'custom' ? 'border-[#17332B] bg-[#17332B] text-white' : 'border-[#DCE5DD] bg-white text-[#14261F]'}`}>Another time</button>
           </div>
           {eta === 'custom' && <input type="datetime-local" className={`${input} mt-2`} value={customEta} min={localInput(new Date().toISOString())} onChange={e => setCustomEta(e.target.value)} />}
           <label className={`${label} mt-4`}>Your call-out fee (£)</label>
           <input inputMode="decimal" className={input} value={fee} onChange={e => setFee(e.target.value.replace(/[^\d.]/g, ''))} placeholder="e.g. 120" />
           <label className={`${label} mt-4`}>Anything we should know? (optional)</label>
           <input className={input} value={note} onChange={e => setNote(e.target.value)} placeholder="e.g. coming from Stratford" />
-          {err && <p className="mt-2 text-sm text-red-700">{err}</p>}
-          <button type="button" disabled={busy || !chosenEta} onClick={() => post({ answer: 'yes', etaAt: chosenEta, fee, note })} className={`${btn} mt-4 bg-neutral-900 text-white`}>{busy ? 'Sending…' : 'Yes, I can attend'}</button>
-          <button type="button" disabled={busy} onClick={() => post({ answer: 'no', note })} className={`${btn} mt-2 border border-neutral-900 bg-white text-neutral-700`}>Sorry, I can’t</button>
+          {err && <p className="mt-2 text-sm font-semibold text-[#8E2318]">{err}</p>}
+          <button type="button" disabled={busy || !chosenEta} onClick={() => post({ answer: 'yes', etaAt: chosenEta, fee, note })} className={`${btn} mt-4 ${HONEY}`}>{busy ? 'Sending…' : 'Yes, I can attend'}</button>
+          <button type="button" disabled={busy} onClick={() => post({ answer: 'no', note })} className={`${btn} mt-2 ${OUTLINE}`}>Sorry, I can’t</button>
         </Card>
       </Shell>
     )
@@ -135,16 +143,22 @@ export default function EmergencyLink({ params }: { params: Promise<{ token: str
       {head}
       <Card>
         {view.answer === 'yes'
-          ? <><p className="text-base font-bold text-neutral-900">Thanks — you said you can be there by {when(view.eta!)}{view.fee != null ? ` (£${view.fee} call-out)` : ''}.</p><p className="mt-1 text-sm text-neutral-600">We’ll text you in a few minutes to confirm, or to say it’s covered. Please don’t set off until we confirm.</p></>
-          : <p className="text-base font-bold text-neutral-900">Thanks for letting us know you can’t make this one.</p>}
-        <button type="button" onClick={() => { setChanging(true); setEta(null) }} className="mt-3 text-sm font-semibold text-blue-700 underline">Change my answer</button>
+          ? <><p className="text-base font-bold text-[#14261F]">Thanks — you said you can be there by {when(view.eta!)}{view.fee != null ? ` (£${view.fee} call-out)` : ''}.</p><p className="mt-1 text-sm text-[#4E6158]">We’ll text you in a few minutes to confirm, or to say it’s covered. Please don’t set off until we confirm.</p></>
+          : <p className="text-base font-bold text-[#14261F]">Thanks for letting us know you can’t make this one.</p>}
+        <button type="button" onClick={() => { setChanging(true); setEta(null) }} className="mt-3 text-sm font-semibold text-[#17332B] underline">Change my answer</button>
       </Card>
     </Shell>
   )
 
   // ── 3. covered by someone else ──
   if (view.stage === 'covered') return (
-    <Shell>{head}<Card><p className="text-base font-bold text-neutral-900">Thanks — this one is covered.</p><p className="mt-1 text-sm text-neutral-600">No need to attend. We appreciate you answering.</p></Card></Shell>
+    <Shell>{head}<Card>
+      {view.why === 'made_safe'
+        ? <><p className="text-base font-bold">The tenant has made it safe until morning.</p><p className="mt-1 text-sm text-[#4E6158]">No need to attend tonight. If it gets worse we’ll text you again straight away — the same link will ask you.</p></>
+        : view.why === 'cancelled'
+          ? <><p className="text-base font-bold">This call-out has been called off.</p><p className="mt-1 text-sm text-[#4E6158]">No need to attend. Thank you.</p></>
+          : <><p className="text-base font-bold">Thanks — someone else is going.</p><p className="mt-1 text-sm text-[#4E6158]">No need to attend. We appreciate you answering.</p></>}
+    </Card></Shell>
   )
 
   // ── 4. confirmed (and after) ──
@@ -155,32 +169,32 @@ export default function EmergencyLink({ params }: { params: Promise<{ token: str
       {head}
       <Card>
         <dl className="space-y-2 text-sm">
-          <div><dt className={label}>Address</dt><dd className="text-base font-semibold text-neutral-900">{view.address}</dd>
-            <a className="text-sm font-semibold text-blue-700 underline" href={`https://maps.google.com/?q=${encodeURIComponent(view.address ?? '')}`} target="_blank" rel="noreferrer">Open in Maps</a></div>
+          <div><dt className={label}>Address</dt><dd className="text-base font-semibold text-[#14261F]">{view.address}</dd>
+            <a className="text-sm font-semibold text-[#17332B] underline" href={`https://maps.google.com/?q=${encodeURIComponent(view.address ?? '')}`} target="_blank" rel="noreferrer">Open in Maps</a></div>
           {view.eta && <div><dt className={label}>Expected by</dt><dd className="font-semibold">{when(view.eta)}</dd></div>}
-          {view.tenant && <div><dt className={label}>Tenant</dt><dd>{view.tenant.name}{view.tenant.phone && <> · <a className="font-semibold text-blue-700 underline" href={`tel:${view.tenant.phone}`}>{view.tenant.phone}</a></>}</dd></div>}
+          {view.tenant && <div><dt className={label}>Tenant</dt><dd>{view.tenant.name}{view.tenant.phone && <> · <a className="font-semibold text-[#17332B] underline" href={`tel:${view.tenant.phone}`}>{view.tenant.phone}</a></>}</dd></div>}
           {view.keySafe && <div><dt className={label}>Front door key safe</dt><dd className="font-mono text-base font-bold">{view.keySafe}</dd></div>}
-          {view.details && <div><dt className={label}>What they told us</dt><dd className="whitespace-pre-wrap text-neutral-700">{view.details}</dd></div>}
+          {view.details && <div><dt className={label}>What they told us</dt><dd className="whitespace-pre-wrap text-[#4E6158]">{view.details}</dd></div>}
         </dl>
       </Card>
 
       {view.stage === 'closed' || reported ? (
         <Card tone="green">
-          <p className="text-base font-bold text-neutral-900">Thanks — we’ve got your update.</p>
-          <p className="mt-1 text-sm text-neutral-700">
+          <p className="text-base font-bold">Thanks — we’ve got your update.</p>
+          <p className="mt-1 text-sm text-white/85">
             {r.outcome === 'fixed' ? 'Marked as fixed.' : r.outcome === 'made_safe' ? 'Made safe for now.' : r.outcome === 'not_fixed' ? 'Not fixed yet.' : 'Closed.'}
             {r.part ? ` Part: ${r.part}.` : ''}{r.fixCost != null ? ` Proper fix £${r.fixCost}.` : ''}{r.returnDate ? ` Back ${new Date(`${r.returnDate}T12:00:00Z`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'long' })}${r.returnSlot ? ` ${slots.find(x => x.value === r.returnSlot)?.label ?? ''}` : ''}.` : ''}
           </p>
-          <p className="mt-2 text-sm text-neutral-600">Add photos, the price and your invoice on the job in the CROS app as usual.</p>
+          <p className="mt-2 text-sm text-white/75">Add photos, the price and your invoice on the job in the CROS app as usual.</p>
         </Card>
       ) : (
         <Card>
           {!mode && (
             <div className="space-y-2">
-              {!r.onSite && <button type="button" disabled={busy} onClick={() => post({ outcome: 'on_site' })} className={`${btn} bg-neutral-900 text-white`}>I’m here now</button>}
-              <button type="button" onClick={() => { setMode('report'); setOutcome('') }} className={`${btn} ${r.onSite ? 'bg-neutral-900 text-white' : 'border border-neutral-900 bg-white text-neutral-900'}`}>How did it go?</button>
-              {!r.onSite && <button type="button" onClick={() => setMode('late')} className={`${btn} border border-neutral-900 bg-white text-neutral-700`}>I’m running late</button>}
-              {!r.onSite && <button type="button" onClick={() => setMode('cant')} className={`${btn} border border-red-200 bg-white text-red-700`}>I can’t make it after all</button>}
+              {!r.onSite && <button type="button" disabled={busy} onClick={() => post({ outcome: 'on_site' })} className={`${btn} ${HONEY}`}>I’m here now</button>}
+              <button type="button" onClick={() => { setMode('report'); setOutcome('') }} className={`${btn} ${r.onSite ? HONEY : OUTLINE}`}>How did it go?</button>
+              {!r.onSite && <button type="button" onClick={() => setMode('late')} className={`${btn} ${OUTLINE}`}>I’m running late</button>}
+              {!r.onSite && <button type="button" onClick={() => setMode('cant')} className={`${btn} border-[1.5px] border-[#8E2318] bg-white text-[#8E2318]`}>I can’t make it after all</button>}
             </div>
           )}
 
@@ -189,18 +203,18 @@ export default function EmergencyLink({ params }: { params: Promise<{ token: str
               <p className="text-base font-bold">When will you be there now?</p>
               <input type="datetime-local" className={input} value={newEta} min={localInput(new Date().toISOString())} onChange={e => setNewEta(e.target.value)} />
               <input className={input} value={note} onChange={e => setNote(e.target.value)} placeholder="Reason (optional)" />
-              <button type="button" disabled={busy || !newEta} onClick={() => post({ outcome: 'running_late', newEta: new Date(newEta).toISOString(), note })} className={`${btn} bg-neutral-900 text-white`}>{busy ? 'Sending…' : 'Update the time'}</button>
-              <button type="button" onClick={() => setMode('')} className="w-full text-sm text-neutral-500">Back</button>
+              <button type="button" disabled={busy || !newEta} onClick={() => post({ outcome: 'running_late', newEta: new Date(newEta).toISOString(), note })} className={`${btn} ${FOREST}`}>{busy ? 'Sending…' : 'Update the time'}</button>
+              <button type="button" onClick={() => setMode('')} className="w-full text-sm text-[#4E6158]">Back</button>
             </div>
           )}
 
           {mode === 'cant' && (
             <div className="space-y-3">
               <p className="text-base font-bold">Can’t make it?</p>
-              <p className="text-sm text-neutral-600">We’ll send someone else straight away.</p>
+              <p className="text-sm text-[#4E6158]">We’ll send someone else straight away.</p>
               <input className={input} value={note} onChange={e => setNote(e.target.value)} placeholder="What happened? (optional)" />
-              <button type="button" disabled={busy} onClick={() => post({ outcome: 'cant_attend', note })} className={`${btn} bg-red-700 text-white`}>{busy ? 'Sending…' : 'I can’t attend'}</button>
-              <button type="button" onClick={() => setMode('')} className="w-full text-sm text-neutral-500">Back</button>
+              <button type="button" disabled={busy} onClick={() => post({ outcome: 'cant_attend', note })} className={`${btn} bg-[#8E2318] text-white`}>{busy ? 'Sending…' : 'I can’t attend'}</button>
+              <button type="button" onClick={() => setMode('')} className="w-full text-sm text-[#4E6158]">Back</button>
             </div>
           )}
 
@@ -209,7 +223,7 @@ export default function EmergencyLink({ params }: { params: Promise<{ token: str
               <p className="text-base font-bold">How did it go?</p>
               <div className="grid gap-2">
                 {([['fixed', 'Fixed — all done'], ['made_safe', 'Made safe — needs a proper fix'], ['not_fixed', 'Not fixed yet']] as const).map(([k, l]) => (
-                  <button key={k} type="button" onClick={() => setOutcome(k)} className={`min-h-[52px] rounded-full border px-5 py-3 text-left text-base font-semibold ${outcome === k ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-300 bg-white text-neutral-900'}`}>{l}</button>
+                  <button key={k} type="button" onClick={() => setOutcome(k)} className={`min-h-[52px] rounded-full border px-5 py-3 text-left text-base font-semibold ${outcome === k ? 'border-[#17332B] bg-[#17332B] text-white' : 'border-[#DCE5DD] bg-white text-[#14261F]'}`}>{l}</button>
                 ))}
               </div>
               {outcome && outcome !== 'fixed' && (
@@ -224,9 +238,9 @@ export default function EmergencyLink({ params }: { params: Promise<{ token: str
                 </>
               )}
               {outcome === 'fixed' && <div><label className={label}>Anything to note? (optional)</label><input className={input} value={note} onChange={e => setNote(e.target.value)} /></div>}
-              {err && <p className="text-sm text-red-700">{err}</p>}
-              <button type="button" disabled={busy || !outcome} onClick={() => post({ outcome, note, part, fixCost, returnDate, returnSlot })} className={`${btn} bg-neutral-900 text-white`}>{busy ? 'Sending…' : 'Send update'}</button>
-              <button type="button" onClick={() => setMode('')} className="w-full text-sm text-neutral-500">Back</button>
+              {err && <p className="text-sm font-semibold text-[#8E2318]">{err}</p>}
+              <button type="button" disabled={busy || !outcome} onClick={() => post({ outcome, note, part, fixCost, returnDate, returnSlot })} className={`${btn} ${FOREST}`}>{busy ? 'Sending…' : 'Send update'}</button>
+              <button type="button" onClick={() => setMode('')} className="w-full text-sm text-[#4E6158]">Back</button>
             </div>
           )}
         </Card>

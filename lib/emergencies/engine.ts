@@ -359,6 +359,8 @@ export function viewFor(r: any, em: any) {
     answer: r.answer, eta: r.eta_at, fee: r.call_out_fee, note: r.note,
     report: { onSite: r.on_site_at, outcome: r.outcome, part: r.part_needed, fixCost: r.fix_cost, returnDate: r.return_date, returnSlot: r.return_slot, at: r.reported_at },
     emStatus: em.status,
+    // why there's no need to attend: someone else is going, the tenant made it safe till morning, or it was called off
+    why: em.status === 'morning' ? 'made_safe' : em.status === 'cancelled' ? 'cancelled' : 'covered',
   }
 }
 
@@ -600,6 +602,30 @@ export function tenantView(em: any) {
   }
 }
 
+/** It got worse after being made safe: ask again the contractors who were stood down (not anyone who said no). Same
+ *  link as before — their answer page opens fresh. Returns how many were asked. */
+async function reaskStoodDown(s: S, em: any): Promise<number> {
+  const { data: rows } = await s.from('emergency_responses').select('id, token, answer, contractor_id, people!contractor_id(*)')
+    .eq('emergency_id', em.id).not('stood_down_at', 'is', null) as { data: any[] | null }
+  const again = ((rows ?? []) as any[]).filter(r => r.answer !== 'no' && r.people)
+  if (!again.length) return 0
+  const set = await settings(s)
+  const windowEnds = new Date(Date.now() + set.windowMin * 60000).toISOString()
+  if (['morning', 'collecting'].includes(em.status)) await s.from('emergencies').update({ status: 'collecting', window_ends_at: windowEnds, updated_at: new Date().toISOString() }).eq('id', em.id)
+  const what = KINDS[em.kind as EmergencyKind]?.label ?? em.title
+  const names: string[] = []
+  for (const r of again) {
+    await s.from('emergency_responses').update({ stood_down_at: null, answer: null, answered_at: null, eta_at: null, call_out_fee: null }).eq('id', r.id)
+    const sent = await tellContractor(r.people, r.contractor_id, {
+      text: `CAPITAL ROOMS EMERGENCY — needed again: the ${what.toLowerCase()} near ${areaOf(em)} has got worse after all. Can you attend? Tap to answer: ${link(r.token)}`,
+      title: 'Needed again — can you attend?', body: `${what} near ${areaOf(em)} has got worse`, url: `/e/${r.token}`, tag: `emergency-${em.id}`,
+    })
+    names.push(`${pname(r.people)}${reached(sent)}`)
+  }
+  await log(s, em.id, 'dispatch', `Got worse — asked again: ${names.join(', ')} — answers close at ${ukTime(windowEnds)}`)
+  return names.length
+}
+
 export async function tenantAction(s: S, emId: string, by: { personId: string; name: string }, action: 'contained' | 'worse', note?: string) {
   const em = await load(s, emId)
   if (!em) return { error: 'Not found' }
@@ -626,9 +652,14 @@ export async function tenantAction(s: S, emId: string, by: { personId: string; n
   // worse
   await log(s, emId, 'tenants', `${by.name}: it’s got worse${extra}`, by.name)
   await alertOffice(s, em, `⚠️ Getting worse — ${firstLine(em.properties?.name)}`, `${by.name} says it’s got worse${extra}.`, true)
+  // still finding someone, but the ones stood down when it was made safe haven't heard it's got worse — ask them again
+  if (['collecting', 'awaiting_office'].includes(em.status)) await reaskStoodDown(s, em)
   if (em.status === 'morning') {
     await s.from('emergencies').update({ controlled: false, updated_at: now }).eq('id', emId)
-    let asked = await dispatchWave(s, { ...em, status: 'morning' }, 1)
+    // first, the contractors we stood down when it was made safe — they're still the right people (15 Nov 2026: they were
+    // skipped as "already asked", so nobody on the emergency list heard it had got worse)
+    let asked = await reaskStoodDown(s, em)
+    if (!asked) asked = await dispatchWave(s, { ...em, status: 'morning' }, 1)
     if (!asked) asked = await dispatchWave(s, em, 2)
     if (!asked) asked = await dispatchWave(s, em, 3)
     await tellHouse(s, em, 'We’re on it', `Sorry it’s got worse. We’re contacting our emergency contractors now. Until they arrive: ${(KINDS[em.kind as EmergencyKind]?.steps ?? []).slice(0, 3).join(' ')}`)
