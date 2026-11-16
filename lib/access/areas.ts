@@ -81,8 +81,8 @@ export const AREAS: Area[] = [
   { key: 'website', label: 'Website', hint: 'Advice posts, which rooms the website shows, footer documents',
     pages: ['/admin/website'], api: ['/api/admin/website'] },
   { key: 'newbusiness', label: 'New business', hint: 'Agreements, introductions, onboarding & AML, valuations',
-    pages: ['/admin/new-business', '/admin/valuations'],
-    api: ['/api/admin/new-business', '/api/admin/valuations', '/api/admin/management-agreements', '/api/admin/generate-management-agreement', '/api/landlord-onboarding', '/api/aml-report', '/api/landlord-aml-refresh', '/api/landlord-acquisition'] },
+    pages: ['/admin/new-business', '/admin/valuations', '/admin/property-check'],
+    api: ['/api/admin/new-business', '/api/admin/property-check', '/api/admin/valuations', '/api/admin/management-agreements', '/api/admin/generate-management-agreement', '/api/landlord-onboarding', '/api/aml-report', '/api/landlord-aml-refresh', '/api/landlord-acquisition'] },
   // 23 Oct 2026 (Harry: "all parts of the admin screen should be tickable"): what used to be administrators only.
   // Still administrators only, whatever is ticked: staff accounts and access (or anyone could tick themselves more) and
   // View as (seeing the apps as a real tenant, landlord or contractor).

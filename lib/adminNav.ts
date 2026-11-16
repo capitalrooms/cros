@@ -215,9 +215,10 @@ const ZONES_AS_WRITTEN: Zone[] = [
     id: 'biz',
     emoji: '📈',
     label: 'New Business',
-    routes: ['/admin/new-business', '/admin/valuations'],
+    routes: ['/admin/new-business', '/admin/valuations', '/admin/property-check'],
     subnav: [
       { emoji: '📈', label: 'Pipeline',           href: '/admin/new-business' },   // Overview · Introduction · Valuations · Instruction · Onboarding & AML · Agreements
+      { emoji: '🔎', label: 'Property check',     href: '/admin/property-check' },  // any address: EPC, planning, licensing, sales, rents, yield, verdict
     ],
   },
 ]
