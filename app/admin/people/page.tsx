@@ -1,5 +1,6 @@
 'use client'
 
+import { addPerson } from '@/lib/peopleWrite'
 import { use, useState, useEffect } from 'react'
 import { isOfficeRole } from '@/lib/access/areas'
 import { createClient } from '@/lib/supabase'
@@ -380,11 +381,7 @@ export default function PeopleManagement({ searchParams }: { searchParams: PageS
         insert.joint_email = landlord2Form.email.trim() || null
       }
 
-      const { data: landlord, error } = await supabase
-        .from('people')
-        .insert(insert)
-        .select()
-        .single()
+      const { data: landlord, error } = await addPerson(insert)
 
       if (error) {
         if (/joint_/.test(error.message)) {

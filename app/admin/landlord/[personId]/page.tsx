@@ -1,4 +1,5 @@
 'use client'
+import { savePerson, removePerson } from '@/lib/peopleWrite'
 import PortalDocs from '@/app/admin/properties/[id]/components/PortalDocs'
 import Link from 'next/link'
 
@@ -281,7 +282,7 @@ export default function LandlordProfilePage({ params, searchParams }: { params: 
     if (!person) return
     setTogglingComms(true)
     const next = !person.landlord_comms_enabled
-    await supabase.from('people').update({ landlord_comms_enabled: next }).eq('id', personId)
+    await savePerson(personId, { landlord_comms_enabled: next })
     setPerson((p: any) => ({ ...p, landlord_comms_enabled: next }))
     setCardData(prev => prev ? { ...prev, commsEnabled: next } : prev)
     setTogglingComms(false)
@@ -313,7 +314,7 @@ export default function LandlordProfilePage({ params, searchParams }: { params: 
     await supabase.from('properties').update({ landlord_id: null }).eq('landlord_id', personId)
     await supabase.from('landlord_bank_accounts').delete().eq('landlord_id', personId)
     await supabase.from('landlord_notification_prefs').delete().eq('person_id', personId)
-    const { error } = await supabase.from('people').delete().eq('id', personId)
+    const { error } = await removePerson(personId)
     setDeleting(false)
     if (error) {
       const table = error.message.match(/on table "([^"]+)"/)?.[1]
@@ -346,7 +347,7 @@ export default function LandlordProfilePage({ params, searchParams }: { params: 
     setSavingContact(true)
     const full_name = [contactForm.first_name, contactForm.last_name].filter(Boolean).join(' ')
     // nrl_approval_ref arrives with migration 189 — until then save without it
-    const { error } = await withOptionalColumns((withNew) => supabase.from('people').update({
+    const { error } = await withOptionalColumns((withNew) => savePerson(personId, {
       ...(withNew ? { nrl_approval_ref: contactForm.is_nrl ? (contactForm.nrl_approval_ref || null) : null } : {}),
       salutation: contactForm.salutation || null,
       first_name: contactForm.first_name || null,
@@ -362,7 +363,7 @@ export default function LandlordProfilePage({ params, searchParams }: { params: 
       is_nrl: contactForm.is_nrl,
       utr_number: contactForm.utr_number || null,
       ...jointUpdate,
-    }).eq('id', personId))
+    }))
     if (!error) {
       setPerson((p: any) => ({ ...p, ...contactForm, full_name }))
       setEditingContact(false)
@@ -376,7 +377,7 @@ export default function LandlordProfilePage({ params, searchParams }: { params: 
   /* ── Save agreement ── */
   async function saveAgreement() {
     setSavingAgreement(true)
-    const { error } = await supabase.from('people').update({
+    const { error } = await savePerson(personId, {
       management_type: agreementForm.management_type || null,
       management_start_date: agreementForm.management_start_date || null,
       management_fee_notes: agreementForm.management_fee_notes || null,
@@ -385,7 +386,7 @@ export default function LandlordProfilePage({ params, searchParams }: { params: 
       letting_fee_flat: agreementForm.letting_fee_flat !== '' ? Number(agreementForm.letting_fee_flat) : null,
       // who holds their deposits (migration 265) — saved only when chosen, so the page still saves before the migration
       ...(agreementForm.deposit_held_by_default ? { deposit_held_by_default: agreementForm.deposit_held_by_default } : person?.deposit_held_by_default ? { deposit_held_by_default: null } : {}),
-    }).eq('id', personId)
+    })
     if (!error) {
       setPerson((p: any) => ({ ...p, ...agreementForm }))
       setEditingAgreement(false)
@@ -398,7 +399,7 @@ export default function LandlordProfilePage({ params, searchParams }: { params: 
   /* ── Save notes ── */
   async function saveNotes() {
     setSavingNotes(true)
-    await supabase.from('people').update({ landlord_notes: notes || null }).eq('id', personId)
+    await savePerson(personId, { landlord_notes: notes || null })
     setNotesDirty(false)
     setSavingNotes(false)
   }
@@ -480,7 +481,7 @@ export default function LandlordProfilePage({ params, searchParams }: { params: 
       onboarded_at: new Date().toISOString(),
     }).select().single()
     if (!error && data) {
-      await supabase.from('people').update({ aml_risk_level: newAml.risk_level, aml_risk_notes: newAml.risk_reason || null }).eq('id', personId)
+      await savePerson(personId, { aml_risk_level: newAml.risk_level, aml_risk_notes: newAml.risk_reason || null })
       setPerson((p: any) => ({ ...p, aml_risk_level: newAml.risk_level, aml_risk_notes: newAml.risk_reason }))
       setAmlRecords(prev => [data, ...prev])
       setExpandedAml(data.id)

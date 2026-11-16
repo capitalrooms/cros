@@ -1,5 +1,6 @@
 'use client';
 
+import { addPerson, removePerson } from '@/lib/peopleWrite'
 import { useState, useEffect } from 'react';
 import { isOfficeRole } from '@/lib/access/areas'
 import { createClient } from '@/lib/supabase';
@@ -79,7 +80,7 @@ export default function ContactsPage() {
     }
 
     const supabase = createClient();
-    const { error } = await supabase.from('people').insert({
+    const { error } = await addPerson({
       email: formData.email,
       full_name: formData.name || null,
       first_name: (formData.name || '').trim().split(/\s+/)[0] || null,
@@ -112,7 +113,7 @@ export default function ContactsPage() {
     if (!confirm('Delete this contact?')) return;
 
     const supabase = createClient();
-    await supabase.from('people').delete().eq('id', id);
+    await removePerson(id);
 
     setContacts(contacts.filter((c) => c.id !== id));
   }

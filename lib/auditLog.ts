@@ -13,7 +13,7 @@
  * })
  */
 
-import { createClient } from '@/lib/supabase'
+import { createServiceClient } from '@/lib/supabase'
 
 export interface AuditLogEvent {
   userId: string
@@ -34,19 +34,26 @@ export interface AuditLogEvent {
  */
 export async function logAudit(event: AuditLogEvent): Promise<boolean> {
   try {
-    const supabase = createClient()
-
-    const { error } = await supabase
-      .from('audit_logs')
-      .insert({
-        user_id: event.userId,
-        action: event.action,
-        table_name: event.table || null,
-        record_id: event.recordId || null,
-        details: event.details || null,
-        ip_address: event.ipAddress || null,
-        user_agent: event.userAgent || null,
-      })
+    // the server writes the log (16 Nov 2026): it used the browser key, which the table refuses since the privacy
+    // lock-down — so nothing had been recorded. Every caller is server-side.
+    const supabase = createServiceClient()
+    const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+    // forwarded-for can be a list ("a, b"); the column takes one address
+    const ip = String(event.ipAddress ?? '').split(',')[0].trim()
+    const row = {
+      user_id: uuid.test(String(event.userId ?? '')) ? event.userId : null,
+      action: String(event.action ?? 'event').slice(0, 50),
+      table_name: event.table ? String(event.table).slice(0, 100) : null,
+      record_id: event.recordId ? String(event.recordId).slice(0, 255) : null,
+      details: event.details || null,
+      ip_address: /^[0-9a-f:.]{3,45}$/i.test(ip) ? ip : null,
+      user_agent: event.userAgent || null,
+    }
+    let { error } = await supabase.from('audit_logs').insert(row)
+    // the id isn't a person (a sign-in id, or "unknown"): keep it in the details instead
+    if (error && /foreign key|violates/i.test(error.message) && row.user_id) {
+      ({ error } = await supabase.from('audit_logs').insert({ ...row, user_id: null, details: `[by ${row.user_id}] ${row.details ?? ''}`.trim() }))
+    }
 
     if (error) {
       console.error('Failed to log audit event:', error)

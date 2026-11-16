@@ -1,4 +1,5 @@
 'use client'
+import { savePerson, addPerson } from '@/lib/peopleWrite'
 import AdvertStudio from '@/components/AdvertStudio'
 import ImprovementsPanel from '@/components/ImprovementsPanel'
 import PhotoReimagine from '@/components/PhotoReimagine'
@@ -564,23 +565,19 @@ export default function RoomDashboardPage({
 
       if (existing) {
         personId = existing.id
-        await supabase.from('people').update({
+        await savePerson(personId, {
           salutation: newTenant.salutation || null,
           ...nameFields(newTenant.first_name, newTenant.last_name, newTenant.middle_name ?? ''),
           phone: newTenantPhone.trim() || null,
-        }).eq('id', personId)
+        })
       } else {
-        const { data: newPerson, error: pe } = await supabase
-          .from('people')
-          .insert({
+        const { data: newPerson, error: pe } = await addPerson({
             salutation: newTenant.salutation || null,
             ...nameFields(newTenant.first_name, newTenant.last_name, newTenant.middle_name ?? ''),
             email: newTenantEmail.trim().toLowerCase(),
             phone: newTenantPhone.trim() || null,
             role: 'tenant',
           })
-          .select('id')
-          .single()
         if (pe) throw pe
         personId = newPerson.id
       }
@@ -595,23 +592,19 @@ export default function RoomDashboardPage({
           .maybeSingle()
         if (existingCt) {
           coTenantId = existingCt.id
-          await supabase.from('people').update({
+          await savePerson(coTenantId, {
             salutation: coTenant.salutation || null,
             ...nameFields(coTenant.first_name, coTenant.last_name, coTenant.middle_name ?? ''),
             phone: coTenantPhone.trim() || null,
-          }).eq('id', coTenantId)
+          })
         } else {
-          const { data: newCt, error: cte } = await supabase
-            .from('people')
-            .insert({
+          const { data: newCt, error: cte } = await addPerson({
               salutation: coTenant.salutation || null,
               ...nameFields(coTenant.first_name, coTenant.last_name, coTenant.middle_name ?? ''),
               email: coTenantEmail.trim().toLowerCase(),
               phone: coTenantPhone.trim() || null,
               role: 'tenant',
             })
-            .select('id')
-            .single()
           if (cte) throw cte
           coTenantId = newCt.id
         }

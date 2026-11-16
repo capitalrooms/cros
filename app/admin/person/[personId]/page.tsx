@@ -1,5 +1,6 @@
 'use client'
 
+import { savePerson } from '@/lib/peopleWrite'
 import { useState, useEffect, use } from 'react'
 import { adminFetch } from '@/lib/adminFetch'
 import { isOfficeRole } from '@/lib/access/areas'
@@ -209,7 +210,7 @@ export default function PersonPage({ params }: { params: Promise<{ personId: str
         company: editCompany.trim() || null,
         ...(office ? { salutation: editTitle.trim() || null, job_title: editJob.trim() || null, direct_phone: editDirect.trim() || null } : {}),
       }
-      const { error } = await supabase.from('people').update(fields).eq('id', personId)
+      const { error } = await savePerson(personId, fields)
       if (error) { setSaveBanner('Error: ' + error.message); return }
       setPerson({ ...person, ...(fields as any), email })
       setEditing(false)

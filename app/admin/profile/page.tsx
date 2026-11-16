@@ -1,5 +1,6 @@
 'use client'
 
+import { saveMyProfile } from '@/lib/peopleWrite'
 import { useEffect, useState } from 'react'
 import { initials as avatarInitials } from '@/lib/people'
 import { useRouter } from 'next/navigation'
@@ -135,9 +136,7 @@ export default function AdminProfilePage() {
 
       const firstTrimmed = firstName.trim()
       const lastTrimmed  = lastName.trim()
-      const { error: dbErr } = await supabase
-        .from('people')
-        .update({
+      const { error: dbErr } = await saveMyProfile({
           first_name:     firstTrimmed || null,
           last_name:      lastTrimmed  || null,
           full_name:      [firstTrimmed, lastTrimmed].filter(Boolean).join(' ') || firstTrimmed,
@@ -147,14 +146,11 @@ export default function AdminProfilePage() {
           direct_phone:   directPhone.trim() || null,
           updated_at:     new Date().toISOString(),
         })
-        .eq('email', email)
 
       if (dbErr) {
         // preferred_name column may not exist yet — retry without it
         if (dbErr.message?.includes('preferred_name')) {
-          const { error: dbErr2 } = await supabase
-            .from('people')
-            .update({
+          const { error: dbErr2 } = await saveMyProfile({
               first_name:   firstTrimmed || null,
               last_name:    lastTrimmed  || null,
               full_name:    [firstTrimmed, lastTrimmed].filter(Boolean).join(' ') || firstTrimmed,
@@ -163,7 +159,6 @@ export default function AdminProfilePage() {
               direct_phone: directPhone.trim() || null,
               updated_at:   new Date().toISOString(),
             })
-            .eq('email', email)
           if (dbErr2) throw new Error(dbErr2.message || 'Save failed')
         } else {
           throw new Error(dbErr.message || 'Save failed')

@@ -1,4 +1,5 @@
 'use client'
+import { savePerson } from '@/lib/peopleWrite'
 import Link from 'next/link'
 
 import { useState, useEffect, use, useMemo } from 'react'
@@ -849,7 +850,7 @@ export function TenantProfileView({ personId, embedded = false }: { personId: st
       if (uploadErr) throw uploadErr
 
       const { data: { publicUrl } } = supabase.storage.from('property-documents').getPublicUrl(path)   // an address to sign, not a public link
-      await supabase.from('people').update({ id_photo_url: publicUrl }).eq('id', personId)
+      await savePerson(personId, { id_photo_url: publicUrl })
       setTenant(prev => prev ? { ...prev, id_photo_url: publicUrl } : prev)
     } catch (e) {
       console.error('Failed to accept ID photo', e)

@@ -1,4 +1,5 @@
 'use client'
+import { savePerson } from '@/lib/peopleWrite'
 import Link from 'next/link'
 
 import { useState, useEffect, use } from 'react'
@@ -178,7 +179,7 @@ export default function ContractorProfilePage({ params, searchParams }: { params
   async function saveContact() {
     setSavingContact(true)
     const full_name = [contactForm.first_name, contactForm.last_name].filter(Boolean).join(' ')
-    const { error } = await supabase.from('people').update({
+    const { error } = await savePerson(personId, {
       salutation: contactForm.salutation || null,
       first_name: contactForm.first_name || null,
       last_name:  contactForm.last_name || null,
@@ -190,7 +191,7 @@ export default function ContractorProfilePage({ params, searchParams }: { params
       emergency_contact_name:  contactForm.emergency_contact_name || null,
       emergency_contact_phone: contactForm.emergency_contact_phone || null,
       service_area_notes: contactForm.service_area_notes || null,
-    }).eq('id', personId)
+    })
     if (!error) { setPerson((p: any) => ({ ...p, ...contactForm, full_name })); setEditingContact(false) }
     else alert(error.message)
     setSavingContact(false)
@@ -199,7 +200,7 @@ export default function ContractorProfilePage({ params, searchParams }: { params
   /* ── Save qualifications ── */
   async function saveQual() {
     setSavingQual(true)
-    const { error } = await supabase.from('people').update({
+    const { error } = await savePerson(personId, {
       trade_types:             qualForm.trade_types.length > 0 ? qualForm.trade_types : null,
       insurance_company:       qualForm.insurance_company || null,
       insurance_policy_number: qualForm.insurance_policy_number || null,
@@ -212,7 +213,7 @@ export default function ContractorProfilePage({ params, searchParams }: { params
       gas_safe_expiry:         qualForm.gas_safe_expiry || null,
       electrical_cert_number:  qualForm.electrical_cert_number || null,
       electrical_cert_expiry:  qualForm.electrical_cert_expiry || null,
-    }).eq('id', personId)
+    })
     if (!error) { setPerson((p: any) => ({ ...p, ...qualForm })); setEditingQual(false) }
     else alert(error.message)
     setSavingQual(false)
@@ -221,11 +222,11 @@ export default function ContractorProfilePage({ params, searchParams }: { params
   /* ── Save rates ── */
   async function saveRates() {
     setSavingRates(true)
-    const { error } = await supabase.from('people').update({
+    const { error } = await savePerson(personId, {
       hourly_rate: ratesForm.hourly_rate ? Number(ratesForm.hourly_rate) : null,
       callout_fee: ratesForm.callout_fee ? Number(ratesForm.callout_fee) : null,
       day_rate:    ratesForm.day_rate    ? Number(ratesForm.day_rate)    : null,
-    }).eq('id', personId)
+    })
     if (!error) { setPerson((p: any) => ({ ...p, ...ratesForm })); setEditingRates(false) }
     else alert(error.message)
     setSavingRates(false)
@@ -234,7 +235,7 @@ export default function ContractorProfilePage({ params, searchParams }: { params
   /* ── Save notes ── */
   async function saveNotes() {
     setSavingNotes(true)
-    await supabase.from('people').update({ contractor_notes: notes || null }).eq('id', personId)
+    await savePerson(personId, { contractor_notes: notes || null })
     setNotesDirty(false)
     setSavingNotes(false)
   }
@@ -351,7 +352,7 @@ export default function ContractorProfilePage({ params, searchParams }: { params
                           <input type="checkbox" checked={on} onChange={async e => {
                             const next = { notify_by_sms: person.notify_by_sms !== false, notify_by_push: person.notify_by_push !== false, notify_by_email: person.notify_by_email !== false, [k]: e.target.checked }
                             if (!next.notify_by_sms && !next.notify_by_push && !next.notify_by_email) { alert('Keep at least one way to reach them'); return }
-                            const { error } = await supabase.from('people').update({ [k]: e.target.checked }).eq('id', personId)
+                            const { error } = await savePerson(personId, { [k]: e.target.checked })
                             if (error) alert(/notify_by_(sms|push)/.test(error.message) ? 'Run migration 219 first' : error.message)
                             else setPerson((p: any) => ({ ...p, [k]: e.target.checked }))
                           }} /> {label}

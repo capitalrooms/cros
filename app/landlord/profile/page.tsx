@@ -8,6 +8,7 @@
  * change request in the notifications table for admin review before applying.
  */
 
+import { saveMyProfile } from '@/lib/peopleWrite'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
@@ -88,7 +89,7 @@ export default function LandlordProfilePage() {
 
     // Apply safe fields immediately
     if (hasSafe) {
-      await supabase.from('people').update({ ...safe, updated_at: new Date().toISOString() }).eq('id', person.id)
+      await saveMyProfile({ ...safe, updated_at: new Date().toISOString() })
       setPerson((prev: any) => ({ ...prev, ...safe }))
     }
 

@@ -1,5 +1,6 @@
 'use client'
 
+import { addPerson } from '@/lib/peopleWrite'
 import NameInput from '@/app/components/NameInput'
 import { buildPaymentRef } from '@/lib/tenancy/paymentRef'
 import { useState, useEffect } from 'react'
@@ -118,9 +119,7 @@ export default function NewPropertyPage() {
     setNewLLError(null)
     try {
       const supabase = createClient()
-      const { data: ll, error: e } = await supabase
-        .from('people')
-        .insert({
+      const { data: ll, error: e } = await addPerson({
           salutation: newLLSalutation || null,
           first_name: newLLFirstName.trim(),
           last_name: newLLLastName.trim() || null,
@@ -131,8 +130,6 @@ export default function NewPropertyPage() {
           role: 'landlord',
           landlord_comms_enabled: false,
         })
-        .select('id, salutation, first_name, last_name, full_name, company, email, phone')
-        .single()
       if (e) throw e
       setAllLandlords(prev => [...prev, ll])
       setSelectedLandlord(ll)

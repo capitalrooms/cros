@@ -1,5 +1,6 @@
 'use client'
 
+import { savePerson } from '@/lib/peopleWrite'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { adminFetch } from '@/lib/adminFetch'
@@ -585,7 +586,7 @@ export default function DocReview({
         if (fields.occupation)       update.occupation        = fields.occupation
         if (fields.annual_income)    update.annual_income     = fields.annual_income
         if (fields.previous_address) update.previous_address  = fields.previous_address
-        const { error: e } = await supabase.from('people').update(update).eq('id', targetPerson)
+        const { error: e } = await savePerson(targetPerson, update)
         if (e) throw e
         onApplied(`Saved to ${(() => { const p = people.find((x) => x.id === targetPerson) as any; return p ? ([p.salutation, p.first_name, p.last_name].filter(Boolean).join(' ') || p.full_name) : 'the tenant' })()}.`)
         return

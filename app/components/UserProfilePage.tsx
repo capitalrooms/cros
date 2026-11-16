@@ -5,6 +5,7 @@
  * Used by contractor, cleaner, lettings, and (in a wrapper) landlord.
  */
 
+import { saveMyProfile } from '@/lib/peopleWrite'
 import NameInput from '@/app/components/NameInput'
 import { nameFields } from '@/lib/people'
 import { useState, useEffect } from 'react'
@@ -182,9 +183,7 @@ export default function UserProfilePage({ allowedRoles, backHref, roleName, extr
   async function handleSave() {
     if (!person) return
     setSaving(true); setError(null); setSaved(false)
-    const { error: err } = await supabase
-      .from('people')
-      .update({
+    const { error: err } = await saveMyProfile({
         salutation: form.salutation || null,
         ...nameFields(form.first_name, form.last_name, userRole === 'tenant' ? form.middle_name : undefined),
         phone:      form.phone.trim() || null,
@@ -192,7 +191,6 @@ export default function UserProfilePage({ allowedRoles, backHref, roleName, extr
         ...(isStaff ? { job_title: form.job_title.trim() || null, direct_phone: form.direct_phone.trim() || null } : {}),
         updated_at: new Date().toISOString(),
       })
-      .eq('id', person.id)
     setSaving(false)
     if (err) { setError(err.message); return }
     setSaved(true)

@@ -1,4 +1,5 @@
 'use client';
+import { savePerson, addPerson } from '@/lib/peopleWrite'
 import Link from 'next/link';
 
 import { useState, useEffect, useRef } from 'react';
@@ -175,14 +176,14 @@ export default function TenanciesManagementPage() {
           .select('id').eq('email', email.trim().toLowerCase()).maybeSingle();
         if (existing) {
           personId = existing.id;
-          await supabase.from('people').update({
+          await savePerson(personId, {
             salutation: salutation || null, ...nameFields(firstName, lastName, middleName), phone,
-          }).eq('id', personId);
+          });
         } else {
-          const { data: newP, error: pErr } = await supabase.from('people').insert([{
+          const { data: newP, error: pErr } = await addPerson({
             salutation: salutation || null, ...nameFields(firstName, lastName, middleName), email: email.trim().toLowerCase(),
             phone, role: 'tenant',
-          }]).select().single();
+          });
           if (pErr) throw pErr;
           personId = newP.id;
         }

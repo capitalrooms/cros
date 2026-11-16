@@ -1,5 +1,6 @@
 'use client'
 
+import { savePerson } from '@/lib/peopleWrite'
 import { useState, useEffect, use } from 'react'
 import { isOfficeRole } from '@/lib/access/areas'
 import { useRouter } from 'next/navigation'
@@ -115,7 +116,7 @@ export default function ViewAsPage({ params }: { params: Promise<{ personId: str
     setTogglingApp(true)
     const supabase = createClient()
     const newVal = !person.using_app
-    await supabase.from('people').update({ using_app: newVal }).eq('id', personId)
+    await savePerson(personId, { using_app: newVal })
     setPerson(prev => prev ? { ...prev, using_app: newVal } : prev)
     setTogglingApp(false)
   }
