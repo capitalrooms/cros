@@ -15,6 +15,13 @@ import { canCallApi, isPublicApi } from '@/lib/access/areas'
 const SITE = 'capitalrooms.co.uk'
 const OLD_APP_HOSTS = new Set(['cros-sigma.vercel.app', 'cros-capital-rooms.vercel.app'])
 // the website's own pages (everything else on the domain is the app)
+const OLD_SITE_PATHS: [RegExp, string][] = [
+  [/^\/blog\/howtobethebesthousemate\/?$/i, '/blogs/how-to-be-the-best-housemate-ever'],
+  [/^\/blog(\/.*)?$/i, '/blogs'],
+  [/^\/page\/\d+-tenant-affordability-calculator\/?$/i, '/page/9-guarantor-affordability-calculator'],
+  [/^\/notice(\.php)?\/?$/i, '/shared-accommodation'],
+]
+
 const SITE_PAGES = /^\/$|^\/(landlords|tenants|about-us|contact|maintenance-services|instant_valuation|testimonial|blogs|residential-lettings|shared-accommodation|privacy_policy|user_blog|areas)(\/|$)|^\/page\/[\w-]+$|^\/l\/[\w-]+\/[\w-]+$/
 
 // browsers only ever use https for the website, for two years (the app's headers in next.config cover the rest)
@@ -39,6 +46,10 @@ export async function proxy(request: NextRequest) {
   }
 
   if (host === SITE) {
+    // the old website's addresses that Google still has (Search Console, 16 Nov 2026): sent on for good to the
+    // nearest new page, so they pass their ranking on instead of showing "not found"
+    const old = OLD_SITE_PATHS.find(([re]) => re.test(path))
+    if (old) return NextResponse.redirect(`https://${SITE}${old[1]}`, 308)
     if (path === '/site' || path.startsWith('/site/')) return new NextResponse('Not found', { status: 404 })
     if (SITE_PAGES.test(path)) {
       const to = url.clone(); to.pathname = path === '/' ? '/site' : `/site${path}`
