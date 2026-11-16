@@ -54,6 +54,16 @@
 .site .hero .pill{align-self:flex-start;padding:7px 16px;border-radius:999px;background:rgba(251,248,241,.16);font-size:14px;font-weight:600}
 .site .page-hero{padding:72px 0 24px;display:flex;flex-direction:column;gap:18px}
 @media (max-width:700px){.site .hero .copy{padding:32px 24px 40px}.site .hero{margin:0 8px;border-radius:28px}}
+/* phones: the photo is a landscape band at the top (the skyline and Canary Wharf), the words underneath on the green —
+   not one tall picture behind everything (16 Nov 2026, Harry: "that huge long photo looks a little weird on phone") */
+@media (max-width:700px){
+  .site .hero{display:block;min-height:0;background:#14261F}
+  .site .hero .ph{position:relative;inset:auto;height:clamp(200px,58vw,280px)}
+  .site .hero .ph img{object-position:58% 22%}
+  .site .hero .shade{inset:auto;top:0;left:0;right:0;height:clamp(200px,58vw,280px);background:linear-gradient(180deg,rgba(20,38,31,0) 55%,rgba(20,38,31,.9) 100%)}
+  .site .hero .copy{padding:4px 22px 32px;gap:18px}
+  .site .hero-ph{animation:none}
+}
 
 /* sections */
 .site section.block{padding:110px 0 0}
