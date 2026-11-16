@@ -44,7 +44,11 @@
 /* hero */
 .site .hero{position:relative;margin:0 16px;border-radius:36px;overflow:hidden;color:var(--cream);min-height:min(700px,86vh);display:flex;align-items:flex-end}
 .site .hero .ph{position:absolute;inset:0}
-.site .hero .shade{position:absolute;inset:0;background:linear-gradient(90deg,rgba(19,34,25,.75) 0%,rgba(19,34,25,.3) 60%,rgba(19,34,25,.05) 100%)}
+/* dark only behind the words, the skyline left bright — the whole-photo wash made a sunset look like a grey day (16 Nov 2026) */
+.site .hero .shade{position:absolute;inset:0;background:linear-gradient(90deg,rgba(19,34,25,.82) 0%,rgba(19,34,25,.55) 34%,rgba(19,34,25,.12) 62%,rgba(19,34,25,0) 80%)}
+.site .hero .ph.tint img{filter:saturate(1.08) contrast(1.04)}
+.site .hero .ph.tint::after{background:linear-gradient(180deg,rgba(13,36,27,0) 55%,rgba(13,36,27,.22))}
+@media (max-width:700px){.site .hero .shade{background:linear-gradient(180deg,rgba(19,34,25,.15) 0%,rgba(19,34,25,.55) 45%,rgba(19,34,25,.82) 100%)}}
 .site .hero .copy{position:relative;padding:56px 56px 72px;max-width:900px;display:flex;flex-direction:column;gap:22px}
 .site .hero .copy .lead{color:#E4EBE3}
 .site .hero .pill{align-self:flex-start;padding:7px 16px;border-radius:999px;background:rgba(251,248,241,.16);font-size:14px;font-weight:600}
