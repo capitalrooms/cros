@@ -54,9 +54,12 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    return NextResponse.json({
-      jobs: data || [],
-    })
+    // a move-out clean whose date went by more than a week ago isn't the cleaner's to book any more — it waits on the
+    // office's list (Admin › Cleaning) instead of sitting in "Accept and book" for months (16 Nov 2026, Harry: "these
+    // must be fixed — how will we expect people to use this app")
+    const cutoff = new Date(Date.now() - 7 * 86_400_000).toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
+    const jobs = (data || []).filter((j: any) => !j.due_date || String(j.due_date).slice(0, 10) >= cutoff)
+    return NextResponse.json({ jobs })
   } catch (error) {
     console.error('Error:', error)
     return NextResponse.json(

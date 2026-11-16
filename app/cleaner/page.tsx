@@ -701,9 +701,8 @@ export default function CleanerDashboard() {
                             {/* dates as people write them ("2026-11-28" → "28 November 2026") */}
                             {job.notes && <p className="text-sm text-neutral-600 mt-xs">{String(job.notes).replace(/\b(\d{4})-(\d{2})-(\d{2})\b/g, (_: string, y: string, m: string, d: string) => new Date(`${y}-${m}-${d}T12:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }))}</p>}
                             {job.due_date && job.due_date < new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }) && <p className="text-xs font-semibold text-red-700 mt-xs">The move-out date has passed — please book this in or let the office know</p>}
-                            <p className="text-xs text-amber-700 font-semibold mt-xs">
-                              {job.task_type === 'asap' ? 'ASAP' : job.task_type === 'urgent' ? 'Urgent' : 'Normal'}
-                            </p>
+                            {/* only when it's pressing — "Normal" on every card was noise (16 Nov 2026) */}
+                            {(job.task_type === 'asap' || job.task_type === 'urgent') && <p className="text-xs text-amber-700 font-semibold mt-xs">{job.task_type === 'asap' ? 'ASAP' : 'Urgent'}</p>}
                           </div>
                           <div className="flex flex-col gap-xs shrink-0">
                             <button
@@ -782,9 +781,26 @@ export default function CleanerDashboard() {
         {/* ── UPCOMING ───────────────────────────────────────────────────── */}
         {activeTab === 'upcoming' && (
           <div className="pt-lg">
+            {/* cleans waiting for their yes belong under "Coming up" too — the tab said "nothing scheduled" while three
+                waited on the Today tab (16 Nov 2026) */}
+            {assignedJobs.length > 0 && (
+              <div className="mb-md space-y-sm">
+                <h2 className="px-1 text-lg font-bold text-[#14261F]">Waiting for you to accept</h2>
+                {assignedJobs.map(job => (
+                  <button key={job.id} type="button" onClick={() => { setActiveTab('today'); setTimeout(() => document.getElementById('cl-assigned')?.scrollIntoView({ behavior: 'smooth' }), 150) }}
+                    className="flex w-full items-center justify-between gap-md rounded-[20px] bg-white p-md text-left ring-2 ring-[color:var(--cr-gold)]">
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-bold text-neutral-900">{job.properties?.name?.split('\n')[0]}{job.rooms?.name ? ` · ${job.rooms.name}` : ''}</span>
+                      <span className="block truncate text-sm text-neutral-500">{String(job.notes || 'Clean').split(' — ')[0]}{job.due_date ? ` · by ${formatDateUK(job.due_date)}` : ''}</span>
+                    </span>
+                    <span className="shrink-0 rounded-full px-3 py-1 text-xs font-bold text-[#17332B]" style={{ background: 'var(--cr-gold)' }}>Accept</span>
+                  </button>
+                ))}
+              </div>
+            )}
             {upcomingCleans.length === 0 ? (
               <div className="rounded-2xl border-2 border-dashed border-neutral-200 bg-white py-2xl text-center">
-                <p className="text-sm font-medium text-neutral-400">No cleans scheduled yet</p>
+                <p className="text-sm font-medium text-neutral-400">{assignedJobs.length ? 'Nothing booked yet — accept the cleans above to book them in' : 'No cleans scheduled yet'}</p>
                 <button
                   onClick={() => { setError(''); setShowBookCleanModal(true) }}
                   className="mt-md inline-flex items-center gap-xs rounded-full bg-neutral-950 px-lg py-sm text-sm font-bold text-white hover:bg-neutral-700 transition-colors"

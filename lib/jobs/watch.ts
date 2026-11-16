@@ -65,16 +65,16 @@ async function tellTenants(s: SupabaseClient, j: any, step: string, title: strin
   await dispatchChannels(s, ids, { title, body, link } as any, 'push_email', null).catch(() => null)
   return true
 }
-async function tellOffice(s: SupabaseClient, j: any, step: string, subject: string, html: string, every = 0) {
+async function tellOffice(s: SupabaseClient, j: any, step: string, subject: string, html: string, every = 0, page = `/admin/maintenance?ticket=${j.id}`) {
   if (isTestEmail(j.people?.email)) return false   // made-up contractors aren't the office's business
   const { data: office } = await s.from('people').select('id').in('role', ['administrator', 'admin'])
   const ids = ((office ?? []) as any[]).map(o => o.id)
   if (!ids.length) return false
-  const link = `/admin/maintenance?ticket=${j.id}&w=${step}`
+  const link = `${page}${page.includes('?') ? '&' : '?'}w=${step}`
   if (every ? Date.now() - await lastSent(s, ids[0], link) < every : await sent(s, ids[0], link)) return false
   await insertNotifications(s, ids, { title: subject, body: html.replace(/<[^>]+>/g, '').slice(0, 160), type: 'maintenance', link } as any, { propertyId: j.property_id, roomId: j.room_id })
-  await sendServerPush({ personIds: ids, title: subject, body: html.replace(/<[^>]+>/g, '').slice(0, 120), url: `/admin/maintenance?ticket=${j.id}`, tag: `watch-${j.id}` } as any).catch(() => 0)
-  await deliverEmail({ to: [OFFICE_ALERT_EMAIL], subject, html: await buildEmail(`${html}${officeButton(`/admin/maintenance?ticket=${j.id}`, 'Open this job')}`, { kind: 'office-repairs', signature: false }) }).catch(() => null)
+  await sendServerPush({ personIds: ids, title: subject, body: html.replace(/<[^>]+>/g, '').slice(0, 120), url: page, tag: `watch-${j.id}` } as any).catch(() => 0)
+  await deliverEmail({ to: [OFFICE_ALERT_EMAIL], subject, html: await buildEmail(`${html}${officeButton(page, 'Open it')}`, { kind: 'office-repairs', signature: false }) }).catch(() => null)
   return true
 }
 
@@ -132,6 +132,17 @@ export async function watchJobs(s: SupabaseClient) {
       if (since > 3 * DAY && await tellTenants(s, j, `fixed-${String(j.arrived_at).slice(0, 10)}`, `Is it fixed? — ${what}`, 'The contractor came — is it fixed now? Tap to tell us.')) done.push(`tenants asked fixed ${j.id}`)
       if (since > 4 * DAY && await tellOffice(s, j, key, `Not finished — ${what}, ${where}`, `<p>${hiName(j.people)} arrived for <b>${what}</b> at ${where} ${Math.floor(since / DAY)} days ago and hasn’t marked it done or booked a return.</p>`)) done.push(`office open ${j.id}`)
     }
+  }
+  // move-out cleans offered to a cleaner, never accepted, the date a week gone: off the cleaner's list
+  // (app/api/jobs/assigned) and onto the office's — said once per clean
+  const weekAgo = new Date(now - 7 * DAY).toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
+  const { data: stale } = await s.from('assigned_jobs').select('id, task_type, due_date, cleaner_id, property_id, room_id, properties(name), rooms(name), people!cleaner_id(first_name, email)')
+    .eq('status', 'pending').lt('due_date', weekAgo).gte('due_date', new Date(now - 120 * DAY).toISOString().slice(0, 10)) as { data: any[] | null }
+  for (const a of stale ?? []) {
+    if (isTestEmail(a.people?.email)) continue
+    const where = `${String(a.properties?.name ?? '').split('\n')[0]}${a.rooms?.name ? `, ${a.rooms.name}` : ''}`
+    const fake = { id: a.id, property_id: a.property_id, room_id: a.room_id, people: a.people }
+    if (await tellOffice(s, fake, 'stale-clean', `Move-out clean never booked — ${where}`, `<p>The ${String(a.task_type ?? 'clean').replace(/_/g, ' ')} at <b>${where}</b> was due ${fullDay(String(a.due_date))} and ${a.people?.first_name ?? 'the cleaner'} never accepted it. It’s been taken off their list — book it with someone, or cancel it if it was done another way.</p>`, 0, `/admin/cleaner-jobs?job=${a.id}`)) done.push(`stale clean ${a.id}`)
   }
   return done
 }
