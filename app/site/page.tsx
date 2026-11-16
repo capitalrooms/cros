@@ -38,10 +38,10 @@ export default async function Home() {
         <div className="shade" />
         <div className="copy">
           <p className="pill load">Independent London lettings &amp; management</p>
-          <h1 className="h1 load2">The personal service<br />big agencies can’t give.</h1>
+          <h1 className="h1 load2">The personal service<br className="hide-xs" /> big agencies can’t give.</h1>
           <p className="lead load3">A real team who answer, backed by our own app: live repairs, monthly statements and every certificate tracked for you.</p>
-          <div className="load3" style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-            <Link className="gold" href={`${b}/instant_valuation`}>Get a free valuation</Link>
+          <div className="load3 hero-ctas" style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+            <Link className="gold" href={`${b}/instant_valuation`}>Get a free valuation</Link>{' '}
             <Link className="ghost" href={`${b}/residential-lettings`}>Find a home</Link>
           </div>
         </div>
@@ -142,7 +142,7 @@ export default async function Home() {
           <div className="copy rise">
             <h2 className="h2">Thinking of letting?</h2>
             <p style={{ fontSize: 19, color: '#E4EBE3', maxWidth: 520 }}>Find out what your property should let for, and how much less work it could be.</p>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, justifyContent: 'center' }}><Link className="gold" href={`${b}/instant_valuation`}>Get a free valuation</Link><a className="ghost" href="tel:+442071129163">Call 0207 112 9163</a></div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, justifyContent: 'center' }}><Link className="gold" href={`${b}/instant_valuation`}>Get a free valuation</Link>{" "}<a className="ghost" href="tel:+442071129163">Call 0207 112 9163</a></div>
           </div>
         </div>
       </section>

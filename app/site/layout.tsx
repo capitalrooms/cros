@@ -13,7 +13,7 @@ const figtree = Figtree({ subsets: ['latin'], weight: ['400', '500', '600'], var
 export const metadata: Metadata = {
   metadataBase: new URL('https://capitalrooms.co.uk'),
   title: { default: 'London Letting Agent & HMO Property Management | Capital Rooms', template: '%s | Capital Rooms' },
-  description: 'Independent London letting agent in Shoreditch. Let only 5%, single let 8%, HMO management 12% (+VAT), with your own landlord app. Rooms and flats to rent across London.',
+  description: 'Independent London letting agent and HMO specialists, rated 4.9 by 101 clients. Let only 5%, single let 8%, HMO management 12% (+VAT), with live repairs and monthly statements in your own app. Call 0207 112 9163.',
   openGraph: { siteName: 'Capital Rooms', locale: 'en_GB', type: 'website', images: [{ url: '/og-capital-rooms.jpg', width: 1200, height: 630, alt: 'Capital Rooms: London lettings and property management' }] },
   twitter: { card: 'summary_large_image', images: ['/og-capital-rooms.jpg'] },
   // the round picture beside us in Google: the logo's circle on forest green, at sizes Google accepts (multiples of 48)

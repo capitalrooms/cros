@@ -54,15 +54,24 @@
 .site .hero .pill{align-self:flex-start;padding:7px 16px;border-radius:999px;background:rgba(251,248,241,.16);font-size:14px;font-weight:600}
 .site .page-hero{padding:72px 0 24px;display:flex;flex-direction:column;gap:18px}
 @media (max-width:700px){.site .hero .copy{padding:32px 24px 40px}.site .hero{margin:0 8px;border-radius:28px}}
-/* phones: the photo is a landscape band at the top (the skyline and Canary Wharf), the words underneath on the green —
-   not one tall picture behind everything (16 Nov 2026, Harry: "that huge long photo looks a little weird on phone") */
+/* phones (16 Nov 2026, Harry: "doesn't look exceptional"): the photo at full brightness as a landscape band — the
+   skyline, Canary Wharf, the river — fading into the green; a slim label, a headline that wraps on its own, two equal
+   buttons side by side */
 @media (max-width:700px){
   .site .hero{display:block;min-height:0;background:#14261F}
-  .site .hero .ph{position:relative;inset:auto;height:clamp(200px,58vw,280px)}
-  .site .hero .ph img{object-position:58% 22%}
-  .site .hero .shade{inset:auto;top:0;left:0;right:0;height:clamp(200px,58vw,280px);background:linear-gradient(180deg,rgba(20,38,31,0) 55%,rgba(20,38,31,.9) 100%)}
-  .site .hero .copy{padding:4px 22px 32px;gap:18px}
+  .site .hero .ph{position:relative;inset:auto;height:clamp(240px,68vw,320px)}
+  .site .hero .ph img{object-position:58% 20%}
+  .site .hero .ph.tint img{filter:saturate(1.12) contrast(1.06) brightness(1.04)}
+  .site .hero .ph.tint::after{display:none}
+  .site .hero .shade{inset:auto;top:0;left:0;right:0;height:clamp(240px,68vw,320px);background:linear-gradient(180deg,rgba(20,38,31,0) 62%,#14261F 100%)}
+  .site .hero .copy{padding:6px 22px 30px;gap:16px}
+  .site .hero .pill{padding:5px 12px;font-size:12.5px;font-weight:600;letter-spacing:.01em;background:transparent;border:1px solid rgba(251,248,241,.28);color:#DCE5DD}
+  .site .hero .h1{font-size:clamp(34px,10.4vw,44px);line-height:1.02;letter-spacing:-.03em;text-wrap:balance}
+  .site .hero .copy .lead{font-size:16.5px;line-height:1.5;color:#C5D3C9}
+  .site .hero .hero-ctas{display:grid !important;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px}
+  .site .hero .hero-ctas a{display:flex;align-items:center;justify-content:center;text-align:center;min-height:52px;padding:0 10px;font-size:15px;white-space:nowrap}
   .site .hero-ph{animation:none}
+  .site .hero .hide-xs{display:none}
 }
 
 /* sections */

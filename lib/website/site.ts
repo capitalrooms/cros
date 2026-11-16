@@ -8,7 +8,7 @@ export const PHOTOS: Record<string, string> = {
 
 // where each photo should stay in view when it's cropped to a wide band (CSS object-position); centre if not listed
 // hero: crop from near the top so the sunset sky and Canary Wharf — our main area — stay in view (16 Nov 2026)
-export const PHOTO_FOCUS: Record<string, string> = { maintenance: '50% 12%', hero: '58% 14%' }
+export const PHOTO_FOCUS: Record<string, string> = { maintenance: '50% 12%', hero: '58% 42%' }
 
 // the usual order on London letting agents' sites (9 Nov 2026, Harry): what people come for first, the company last
 export const NAV: [string, string][] = [
