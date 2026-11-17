@@ -124,6 +124,7 @@ export default function LandlordPlanner({ previewBoardId, officeBoardId }: { pre
   const boardParam = previewBoardId || officeBoardId
   const [boardId, setBoardId] = useState<string | null>(null)
   const [boardTitle, setBoardTitle] = useState('')
+  const [brief, setBrief] = useState<{ notes: string; photos: Photo[] } | null>(null)
   const [entries, setEntries] = useState<Entry[] | null>(null)
   const [props, setProps] = useState<{ id: string; name: string }[]>([])
   const [open, setOpen] = useState<string | null>(null)
@@ -139,7 +140,7 @@ export default function LandlordPlanner({ previewBoardId, officeBoardId }: { pre
     const r = await plannerFetch(`/api/planner/shared${boardParam ? `?board=${boardParam}` : ''}`)
     const d = await r.json().catch(() => ({}))
     if (!r.ok) { setError(d.error ?? 'Your planner didn’t load. Pull down to refresh.'); return }
-    setBoardId(d.board?.id ?? null); setBoardTitle(d.board?.title ?? ''); setEntries(d.entries ?? []); if (!previewBoardId) setProps(d.properties ?? [])
+    setBoardId(d.board?.id ?? null); setBoardTitle(d.board?.title ?? ''); setBrief(d.board?.brief ?? null); setEntries(d.entries ?? []); if (!previewBoardId) setProps(d.properties ?? [])
   }, [previewBoardId, boardParam])
   useEffect(() => { load() }, [load])
 
@@ -179,6 +180,14 @@ export default function LandlordPlanner({ previewBoardId, officeBoardId }: { pre
         </div>
       </div>
 
+      {/* the list's header: what it's for, with the subject photos (migration 294) */}
+      {brief && (
+        <section className="flex flex-col gap-3 rounded-2xl p-4" style={{ background: '#F6F4EF' }}>
+          {boardTitle && !/& Capital Rooms$/.test(boardTitle) && <p className="pub-eyebrow m-0">{boardTitle}</p>}
+          {brief.notes && <p className="m-0 whitespace-pre-wrap text-[15px] leading-relaxed"><Linkified text={brief.notes} /></p>}
+          {brief.photos.length > 0 && <Attachments links={[]} photos={brief.photos} big={brief.photos.length > 1} />}
+        </section>
+      )}
       {adding && boardId && <Composer boardId={boardId} properties={props} onCancel={() => setAdding(false)}
         onSend={async v => { await post({ action: 'entry', boardId, ...v }); setAdding(false); await load() }} />}
 

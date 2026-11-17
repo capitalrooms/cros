@@ -4,6 +4,7 @@
 //   PUT { boards } → saves
 import { NextRequest, NextResponse, after } from 'next/server'
 import { syncLinkedBoards } from '@/lib/planner/importBoard'
+import { fixImg } from '@/lib/planner/img'
 import { createClient } from '@supabase/supabase-js'
 import { requireAdmin } from '@/lib/adminAuth'
 
@@ -17,7 +18,8 @@ export async function GET(req: NextRequest) {
   const { data, error } = await svc().storage.from(BUCKET).download(PATH)
   if (error || !data) return NextResponse.json({ boards: null, savedAt: null })
   try {
-    const j = JSON.parse(await data.text())
+    // photos saved the old way (a public link into a private folder never loaded) → links that open
+    const j = JSON.parse((await data.text()).replace(/https:\/\/[^"\\]+\/storage\/v1\/object\/public\/(?:planner-files|property-documents)\/[^"\\]+/g, m => fixImg(m)))
     return NextResponse.json({ boards: j.boards ?? null, savedAt: j.savedAt ?? null })
   } catch {
     return NextResponse.json({ boards: null, savedAt: null })

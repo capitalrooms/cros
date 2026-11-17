@@ -101,6 +101,13 @@ async function tell(s: S, caller: Caller, board: any, title: string, body: strin
   await sendServerPush({ personIds: ids, title, body, url: link, tag: `planner-${board.id}` })
 }
 
+// the board's header (migration 294): notes and photos, with links to open them
+async function briefView(s: S, board: any) {
+  const b = board.brief; if (!b || (!b.notes && !b.photos?.length)) return null
+  const urls = await signed(s, (b.photos ?? []).map((p: any) => p.path))
+  return { notes: b.notes ?? '', photos: (b.photos ?? []).map((p: any) => ({ path: p.path, url: urls.get(p.path) ?? null })) }
+}
+
 // who's on a board, each with their own no-sign-in link (migration 293)
 async function onBoardList(s: S, board: any) {
   const ids = await boardPeople(s, board).catch(() => [board.member_person_id])
@@ -127,7 +134,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       office: true,
       boards: (boards ?? []).map(b => ({ id: b.id, title: b.title, kind: b.kind, member: name(b.people) || b.people?.email || 'No name on file', role: b.people?.role, personId: b.member_person_id, open: ((open ?? []) as any[]).filter(o => o.board_id === b.id).length })),
-      board: board ? { id: board.id, title: board.title, member: name(board.people) || board.people?.email || 'No name on file', role: board.people?.role, onBoard: await onBoardList(s, board) } : null,
+      board: board ? { id: board.id, title: board.title, member: name(board.people) || board.people?.email || 'No name on file', role: board.people?.role, onBoard: await onBoardList(s, board), brief: await briefView(s, board) } : null,
       entries: board ? await loadBoard(s, board) : [],
       // staff first (cleaners, contractors, lettings), then landlords; properties in address order
       people: ((people ?? []) as any[]).map(p => ({ id: p.id, name: name(p) || p.email || 'No name', role: p.role, email: /capitalrooms\.invalid$/.test(p.email ?? '') ? '' : (p.email ?? '') }))
@@ -149,7 +156,7 @@ export async function GET(req: NextRequest) {
     ? await s.from('properties').select('id, name, address').eq('landlord_id', caller.personId)
     : await s.from('properties').select('id, name, address').or('is_demo.is.null,is_demo.eq.false')
   return NextResponse.json({
-    office: false, board: board ? { id: board.id, title: board.title } : null, entries: board ? await loadBoard(s, board) : [],
+    office: false, board: board ? { id: board.id, title: board.title, brief: await briefView(s, board) } : null, entries: board ? await loadBoard(s, board) : [],
     properties: sortPropertiesNumerically((mine ?? []) as any[]).map((p: any) => ({ id: p.id, name: shortAddress(p.name || p.address) })),
   })
 }

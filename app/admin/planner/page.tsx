@@ -42,6 +42,8 @@ interface PlannerBoard {
   items: PlannerItem[]
   /** headings added before they have any items */
   extraGroups?: { name: string; color: string }[]
+  /** the list's header: what it's for, with photos (17 Nov 2026) — shown at the top of a shared board too */
+  brief?: { notes: string; images: string[] }
 }
 
 // ── Saving: the planner lives in CROS (shared by phone and computer), with this browser's copy as a fallback ──
@@ -68,20 +70,27 @@ function mergeBoards(primary: PlannerBoard[], other: PlannerBoard[]): PlannerBoa
 }
 /** Photos are stored as files, not packed into the notes — keeps the planner small enough to sync. */
 async function uploadPhoto(dataUrl: string): Promise<string> {
+  // kept for good in planner-files, shrunk to a sharp 2000px JPEG first (17 Nov 2026: photos failed — "no bucket")
   try {
-    const blob = await (await fetch(dataUrl)).blob()
-    const ext = (blob.type.split('/')[1] || 'jpg').replace('jpeg', 'jpg')
-    const pres = await fetch('/api/storage/presign-upload', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ fileName: `planner.${ext}`, mimeType: blob.type }) })
-    if (!pres.ok) return dataUrl
-    const { token, path, publicUrl } = await pres.json()
-    const { createClient } = await import('@/lib/supabase')
-    const { error } = await createClient().storage.from('property-documents').uploadToSignedUrl(path, token, blob, { contentType: blob.type })
-    return error ? dataUrl : publicUrl
+    let blob = await (await fetch(dataUrl)).blob()
+    try {
+      const bmp = await createImageBitmap(blob)
+      const k = Math.min(1, 2000 / Math.max(bmp.width, bmp.height))
+      if (k < 1 || blob.size > 1_500_000) {
+        const c = document.createElement('canvas'); c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k)
+        c.getContext('2d')!.drawImage(bmp, 0, 0, c.width, c.height)
+        blob = (await new Promise<Blob | null>(r => c.toBlob(r, 'image/jpeg', 0.85))) ?? blob
+      }
+    } catch { /* keep the original */ }
+    const fd = new FormData(); fd.append('file', new File([blob], `planner.${blob.type.includes('png') ? 'png' : 'jpg'}`, { type: blob.type || 'image/jpeg' }))
+    const r = await fetch('/api/admin/planner/photo', { method: 'POST', body: fd })
+    if (!r.ok) return dataUrl
+    return (await r.json()).url ?? dataUrl
   } catch { return dataUrl }
 }
 async function withUploadedPhotos(boards: PlannerBoard[]): Promise<PlannerBoard[]> {
   const out: PlannerBoard[] = []
-  for (const b of boards) {
+  for (let b of boards) {
     const items: PlannerItem[] = []
     for (const i of b.items) {
       const updates: Update[] = []
@@ -91,6 +100,7 @@ async function withUploadedPhotos(boards: PlannerBoard[]): Promise<PlannerBoard[
       }
       items.push({ ...i, updates })
     }
+    if (b.brief?.images?.some(x => x.startsWith('data:'))) b = { ...b, brief: { ...b.brief, images: await Promise.all(b.brief.images.map(x => x.startsWith('data:') ? uploadPhoto(x) : Promise.resolve(x))) } }
     out.push({ ...b, items })
   }
   return out
@@ -624,6 +634,7 @@ export default function PlannerPage() {
                 </div>
               </div>
 
+              <BoardBrief key={activeBoard.id} brief={activeBoard.brief} onChange={brief => save(boards.map(b => b.id === activeBoard.id ? { ...b, brief } : b))} />
               <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
                 {/* Table */}
                 <div style={{ flex: 1, overflowY: 'auto' }}>
@@ -1129,6 +1140,48 @@ export default function PlannerPage() {
               </div>
             </div>
           </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+
+// The list's header (17 Nov 2026, Harry: "the header for a list can have notes and photos … to summarise the project or
+// purpose"): a short brief and the subject photos, at the top of the board — and of the shared board, for everyone on it.
+function BoardBrief({ brief, onChange }: { brief?: { notes: string; images: string[] }; onChange: (b: { notes: string; images: string[] }) => void }) {
+  const [open, setOpen] = useState(!!(brief?.notes || brief?.images?.length))
+  const [notes, setNotes] = useState(brief?.notes ?? '')
+  const [big, setBig] = useState<string | null>(null)
+  const imgs = brief?.images ?? []
+  const add = (files: FileList | null) => Array.from(files ?? []).slice(0, 8).forEach(f => { const r = new FileReader(); r.onload = () => onChange({ notes, images: [...(brief?.images ?? []), String(r.result)] }); r.readAsDataURL(f) })
+  if (!open) return (
+    <button onClick={() => setOpen(true)} style={{ textAlign: 'left', fontSize: 12, color: '#78716c', background: '#fbfaf8', border: 'none', borderBottom: '1px solid #e5e2db', padding: '8px 16px', cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>
+      + Add a brief — what this list is for, with photos (everyone it’s shared with sees it at the top)
+    </button>
+  )
+  return (
+    <div style={{ background: '#fbfaf8', borderBottom: '1px solid #e5e2db', padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 8, flexShrink: 0, maxHeight: 340, overflowY: 'auto' }}>
+      <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.07em', color: '#a8a29e', margin: 0 }}>Brief</p>
+      <textarea value={notes} onChange={e => setNotes(e.target.value)} onBlur={() => { if (notes !== (brief?.notes ?? '')) onChange({ notes, images: imgs }) }} rows={3}
+        placeholder="What this list is for — e.g. Ground floor bathroom refit at 71 Alloa Road: black fittings, white metro tiles, budget about £4,000, done by March."
+        style={{ width: '100%', fontSize: 13, lineHeight: 1.5, border: '1px solid #e5e2db', borderRadius: 8, padding: '8px 10px', fontFamily: 'inherit', resize: 'vertical', background: '#fff' }} />
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+        {imgs.map((src, i) => (
+          <div key={i} style={{ position: 'relative' }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={src} alt="" onClick={() => setBig(src)} style={{ width: 96, height: 72, objectFit: 'cover', borderRadius: 8, border: '1px solid #e5e2db', cursor: 'zoom-in' }} />
+            <button onClick={() => onChange({ notes, images: imgs.filter((_, j) => j !== i) })} title="Remove" style={{ position: 'absolute', top: -6, right: -6, width: 20, height: 20, borderRadius: 10, border: 'none', background: '#1c1917', color: '#fff', fontSize: 11, cursor: 'pointer' }}>✕</button>
+          </div>
+        ))}
+        <label style={{ fontSize: 12, color: '#57534e', border: '1px dashed #d6d3cb', borderRadius: 8, padding: '8px 12px', cursor: 'pointer' }}>
+          + Add photos<input type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={e => { add(e.target.files); e.target.value = '' }} />
+        </label>
+      </div>
+      {big && (
+        <div onClick={() => setBig(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.88)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, cursor: 'zoom-out' }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={big} alt="" style={{ maxWidth: '100%', maxHeight: '100%', borderRadius: 8 }} />
         </div>
       )}
     </div>

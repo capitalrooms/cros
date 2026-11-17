@@ -8,13 +8,14 @@
 // The private board is left exactly as it was. Only the items ticked on the screen come across.
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { oneLine } from '@/lib/lettings/letWording'
+import { readImg } from '@/lib/planner/img'
 
 const STATUS: Record<string, string> = { discuss: 'To discuss', discussed: 'Discussed', progress: 'In progress', done: 'Done', parked: 'Parked' }
 const STAGE_KEY: Record<string, string> = { discuss: 'discuss', discussed: 'discussed', progress: 'progress', parked: 'parked' }
 const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']
 
 export interface PrivateItem { id: string; groupName: string; title: string; status: string; responsible?: string; date?: string; updates?: { id: string; author?: string; when?: string; body?: string; links?: string[]; images?: string[] }[] }
-export interface PrivateBoard { id: string; title: string; subtitle?: string; items: PrivateItem[] }
+export interface PrivateBoard { id: string; title: string; subtitle?: string; items: PrivateItem[]; brief?: { notes: string; images: string[] } }
 
 export async function loadPrivateBoards(s: SupabaseClient): Promise<PrivateBoard[]> {
   const { data } = await s.storage.from('landlord-docs').download('planner/boards.json')
@@ -49,6 +50,11 @@ async function copyPhoto(s: SupabaseClient, boardId: string, src: string): Promi
     if (src.startsWith('data:')) {
       const m = src.match(/^data:([^;]+);base64,(.*)$/); if (!m) return null
       type = m[1]; bytes = Buffer.from(m[2], 'base64').buffer as ArrayBuffer
+    } else if (readImg(src)) {
+      const ref = readImg(src)!
+      const { data } = await s.storage.from(ref.bucket).download(ref.path)
+      if (!data) return null
+      type = data.type || type; bytes = await data.arrayBuffer()
     } else {
       const path = src.match(/\/storage\/v1\/object\/(?:public|sign)\/property-documents\/([^?]+)/)?.[1]
       if (path) {
@@ -148,6 +154,15 @@ export async function syncLinkedBoards(s: SupabaseClient, boards: PrivateBoard[]
     }
     if (!src) continue
     if (!sb.source_board_id) await s.from('planner_shared_boards').update({ source_board_id: src.id }).eq('id', sb.id)
+    // the list's header follows too: notes as written, photos copied once (kept by the original link in `from`)
+    if (src.brief) {
+      const { data: cur } = await s.from('planner_shared_boards').select('brief').eq('id', sb.id).maybeSingle() as { data: any }
+      const had: { from: string; path: string }[] = cur?.brief?.photos ?? []
+      const photos: { from: string; path: string }[] = []
+      for (const img of src.brief.images ?? []) { if (img.startsWith('data:')) continue; const h = had.find(x => x.from === img); if (h) { photos.push(h); continue }; const p = await copyPhoto(s, sb.id, img); if (p) photos.push({ from: img, path: p }) }
+      const next = { notes: String(src.brief.notes ?? '').slice(0, 4000), photos }
+      if (JSON.stringify(next) !== JSON.stringify(cur?.brief ?? null)) { await s.from('planner_shared_boards').update({ brief: next }).eq('id', sb.id); changed++ }
+    }
     const { data: ents } = await s.from('planner_shared_entries').select('id, title, property_id, source_item_id, created_by').eq('board_id', sb.id)
     const list = (ents ?? []) as any[]
     const author = authorId ?? list[0]?.created_by ?? null
