@@ -161,17 +161,18 @@ export default function SharedPlanner({ mode, initialBoard }: { mode: 'office' |
           ))}
           <div className="rounded-xl border border-dashed border-neutral-300 p-md space-y-sm">
             <p className="text-xs font-bold uppercase tracking-wide text-neutral-500">Start a board with</p>
+            <p className="text-[11px] text-neutral-500">Anyone — staff, a landlord, a contractor or a friend. They get a link that opens just their board, no sign-in.</p>
             <select className={input} value={startWith} onChange={e => setStartWith(e.target.value)}>
               <option value="">Choose a person…</option>
+              <option value="__new">＋ Someone not in CROS yet…</option>
               {(data.people ?? []).filter(p => !(data.boards ?? []).some(b => b.member === p.name)).map(p => <option key={p.id} value={p.id}>{p.name} · {ROLE[p.role] ?? p.role}</option>)}
             </select>
-            <button type="button" disabled={!startWith} className="w-full rounded-xl bg-neutral-900 py-sm text-sm font-bold text-white disabled:opacity-40"
+            {startWith === '__new' ? <NewPersonBoard post={post} startOpen onMade={id => { setStartWith(''); setBoardId(id) }} /> : <button type="button" disabled={!startWith} className="w-full rounded-xl bg-neutral-900 py-sm text-sm font-bold text-white disabled:opacity-40"
               onClick={async () => { try { const d = await post({ action: 'create_board', personId: startWith }); setStartWith(''); setBoardId(d.boardId) } catch (e) { setError(e instanceof Error ? e.message : 'Not created') } }}>
               Start board
-            </button>
+            </button>}
             <p className="text-[11px] text-neutral-500">Landlord boards are for chosen project landlords only.</p>
           </div>
-          <NewPersonBoard post={post} onMade={id => setBoardId(id)} />
           <button type="button" onClick={() => setImporting(true)}
             className="w-full rounded-xl border border-neutral-300 bg-white px-md py-sm text-left text-sm font-semibold text-neutral-800 hover:bg-neutral-50">
             ⇪ Bring in a board from your planner
@@ -295,8 +296,8 @@ const PSTATUS: Record<string, string> = { discuss: 'To discuss', discussed: 'Dis
 
 // A planner for anyone — a contractor we rarely use, a friend with a property — by name and email or mobile; the link is
 // copied to send them (17 Nov 2026)
-function NewPersonBoard({ post, onMade }: { post: (b: Record<string, unknown>) => Promise<any>; onMade: (id: string) => void }) {
-  const [open, setOpen] = useState(false)
+function NewPersonBoard({ post, onMade, startOpen = false }: { post: (b: Record<string, unknown>) => Promise<any>; onMade: (id: string) => void; startOpen?: boolean }) {
+  const [open, setOpen] = useState(startOpen)
   const [f, setF] = useState({ name: '', email: '', phone: '', kind: 'contractor' })
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
