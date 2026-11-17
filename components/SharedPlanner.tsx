@@ -348,8 +348,8 @@ export function EmailBoard({ boardId, member, post }: { boardId: string; member:
   const elsewhere = !!to.trim() && to.trim().toLowerCase() !== onFile.toLowerCase()
   async function send(test: boolean) {
     if (!test && !confirm(elsewhere
-      ? `Send ${member}'s planner to ${to.trim()}?\n\nIts button signs in as ${member}, so only send it to an address that belongs to them.`
-      : `Email ${member} their planner at ${to.trim() || onFile}, with a button that signs them straight in?`)) return
+      ? `Send ${member}'s planner to ${to.trim()}?\n\nAnyone with the email can open this planner, so only send it to the right person.`
+      : `Email ${member} their planner at ${to.trim() || onFile}, with a button that opens it (no sign-in)?`)) return
     setBusy(test ? 'test' : 'send'); setMsg(null)
     try { const d = await post({ action: 'email_board', boardId, message, test, to: elsewhere ? to.trim() : undefined }); setMsg({ ok: true, text: test ? `Test sent to ${d.to} — exactly what ${member} will get.` : `Sent to ${member} (${d.to}).` }) }
     catch (e) { setMsg({ ok: false, text: e instanceof Error ? e.message : 'Not sent' }) }
@@ -357,7 +357,7 @@ export function EmailBoard({ boardId, member, post }: { boardId: string; member:
   }
   if (!open) return (
     <div className="flex flex-wrap items-center justify-between gap-sm rounded-2xl border border-neutral-200 bg-white px-lg py-sm">
-      <p className="text-sm text-neutral-700">Let {member} know it’s there — an email with a button that signs them straight into their planner.</p>
+      <p className="text-sm text-neutral-700">Let {member} know it’s there — an email with a button that opens their planner. No sign-in, no account.</p>
       <div className="flex flex-wrap gap-sm">
         {/* a link that opens just this planner, no sign-in — to text or email to anyone, e.g. a contractor we rarely use (17 Nov 2026) */}
         <button type="button" onClick={async () => {
@@ -378,7 +378,7 @@ export function EmailBoard({ boardId, member, post }: { boardId: string; member:
       <label className="block text-xs font-bold uppercase tracking-wide text-neutral-500">To
         <input type="email" className={`${input} mt-1 normal-case tracking-normal`} value={to} onChange={e => setTo(e.target.value)} placeholder={onFile || 'their email address'} />
       </label>
-      {elsewhere && <p className="text-xs font-semibold text-amber-800">Not the address on their profile ({onFile || 'none'}). The button signs in as {member}, so only use an address that belongs to them.</p>}
+      {elsewhere && <p className="text-xs font-semibold text-amber-800">Not the address on their profile ({onFile || 'none'}). Anyone with the email can open this planner.</p>}
       <textarea rows={4} className={input} value={message} onChange={e => setMessage(e.target.value)} placeholder="A line from you (optional) — otherwise it says we’ve set up a shared planner for the two of you." />
       <p className="text-xs text-neutral-500">It shows the board’s name and what’s open on it, and a button that signs them straight in (no password needed). Send yourself a test first to see exactly what they’ll get — your copy’s button opens the board as you see it.</p>
       <div className="flex flex-wrap gap-sm">

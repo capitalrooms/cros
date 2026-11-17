@@ -175,15 +175,9 @@ export async function POST(req: NextRequest) {
     // show: the email exactly as they'd get it, on screen — nothing sent, and no sign-in link made (4 Nov 2026)
     const show = b.show === true
     let link: string | null
-    if (show) link = `${PORTAL_URL}/planner`
+    if (show) link = plannerLink(board.id)
     else if (test) link = `${PORTAL_URL}/admin/planner/shared?board=${board.id}`
-    else {
-      const users = await authUsersByEmail(s as any)
-      const u = users.get(String(p.email).toLowerCase())
-      if (u && statusOf(u).off) return NextResponse.json({ error: 'Their sign-in is turned off — turn it back on (People › their profile) first' }, { status: 400 })
-      link = await authLink(s as any, p.email, u ? 'magiclink' : 'invite', '/planner')
-      if (!link) return NextResponse.json({ error: 'Couldn’t make their sign-in link — try again' }, { status: 502 })
-    }
+    else link = plannerLink(board.id)   // 17 Nov: the guest link — opens just this board, no sign-in, works every time
     const entries = await loadBoard(s, board)
     const open = entries.filter((e: any) => e.status !== 'done')
     const message = String(b.message ?? '').trim().slice(0, 3000)
@@ -193,7 +187,7 @@ export async function POST(req: NextRequest) {
       hero({ eyebrow: 'Your shared planner', title: board.title, sub: `${open.length} open item${open.length === 1 ? '' : 's'}` }),
       open.length ? card('On it now', open.slice(0, 6).map((e: any) => `<p style="margin:0 0 8px;font-size:14px;line-height:1.5"><strong>${esc(e.title)}</strong>${e.property ? ` <span style="color:#5C6B62">· ${esc(e.property)}</span>` : ''}</p>`).join('') + (open.length > 6 ? `<p style="margin:0;font-size:13px;color:#5C6B62">…and ${open.length - 6} more</p>` : ''), 'mint') : '',
       button(link!, 'Open my planner'),
-      note(test && !show ? `<strong>Test copy for you.</strong> ${esc(name(p))}’s button signs them straight into their planner; yours opens the board as you see it.` : 'The button signs you straight in — no password needed. It works once; next time, sign in at ' + esc(PORTAL_URL) + ' or ask us for a new link.'),
+      note(test && !show ? `<strong>Test copy for you.</strong> ${esc(name(p))}’s button opens their planner with no sign-in; yours opens the board as you see it.` : 'No account or password needed — the button opens your planner every time. Keep this email, or bookmark the page.'),
     ].join('')
     const to = test ? caller.email : (other || p.email)
     if (show) return NextResponse.json({ to, subject: 'Your shared planner with Capital Rooms', html: await buildEmail(body, { kind: 'planner-shared', req }) })
