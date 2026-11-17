@@ -137,7 +137,15 @@ export async function syncLinkedBoards(s: SupabaseClient, boards: PrivateBoard[]
   let changed = 0
   for (const sb of (shared ?? []) as any[]) {
     // linked, or (boards shared before the link existed) named the same as an office board
-    const src = boards.find(b => b.id === sb.source_board_id) ?? (!sb.source_board_id ? boards.find(b => b.title && b.title.trim() === String(sb.title ?? '').trim()) : undefined)
+    // linked by the board's id, so either board can be renamed freely. Boards shared before the link existed: the office
+    // board whose items match most of what's on it (by item name — never by board name, which people change)
+    let src = boards.find(b => b.id === sb.source_board_id)
+    if (!src && !sb.source_board_id) {
+      const { data: es } = await s.from('planner_shared_entries').select('title').eq('board_id', sb.id)
+      const names = new Set(((es ?? []) as any[]).map(e => String(e.title).toLowerCase().split(' — ').pop()!.trim()))
+      const scored = boards.map(b => ({ b, n: b.items.filter(i => names.has(i.title.toLowerCase().trim())).length })).filter(x => x.n >= 2 && x.n >= names.size / 2).sort((a, b) => b.n - a.n)
+      if (scored.length && (scored.length === 1 || scored[0].n > scored[1].n)) src = scored[0].b
+    }
     if (!src) continue
     if (!sb.source_board_id) await s.from('planner_shared_boards').update({ source_board_id: src.id }).eq('id', sb.id)
     const { data: ents } = await s.from('planner_shared_entries').select('id, title, property_id, source_item_id, created_by').eq('board_id', sb.id)
