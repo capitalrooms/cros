@@ -1152,6 +1152,7 @@ export default function PlannerPage() {
 function BoardBrief({ brief, onChange }: { brief?: { notes: string; images: string[] }; onChange: (b: { notes: string; images: string[] }) => void }) {
   const [open, setOpen] = useState(!!(brief?.notes || brief?.images?.length))
   const [notes, setNotes] = useState(brief?.notes ?? '')
+  const [editing, setEditing] = useState(!brief?.notes)
   const [big, setBig] = useState<string | null>(null)
   const imgs = brief?.images ?? []
   const dirty = notes !== (brief?.notes ?? '')
@@ -1168,13 +1169,21 @@ function BoardBrief({ brief, onChange }: { brief?: { notes: string; images: stri
   return (
     <div style={{ background: '#fbfaf8', borderBottom: '1px solid #e5e2db', padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 8, flexShrink: 0, maxHeight: 340, overflowY: 'auto' }}>
       <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.07em', color: '#a8a29e', margin: 0 }}>Brief</p>
-      <textarea value={notes} onChange={e => setNotes(e.target.value)} onBlur={commit} rows={3}
+      {!editing ? (
+        <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+          <p style={{ flex: 1, fontSize: 14, lineHeight: 1.55, color: '#1c1917', margin: 0, whiteSpace: 'pre-wrap' }}>{notes}</p>
+          <button onClick={() => setEditing(true)} style={{ fontSize: 12, fontWeight: 600, color: '#57534e', background: '#fff', border: '1px solid #d6d3cb', borderRadius: 8, padding: '5px 12px', cursor: 'pointer', fontFamily: 'inherit' }}>Edit</button>
+        </div>
+      ) : <>
+      <textarea autoFocus={!!brief?.notes} value={notes} onChange={e => setNotes(e.target.value)} onBlur={() => { commit(); if (notes.trim()) setEditing(false) }} rows={3}
         placeholder="What this list is for — e.g. Ground floor bathroom refit at 71 Alloa Road: black fittings, white metro tiles, budget about £4,000, done by March."
         style={{ width: '100%', fontSize: 13, lineHeight: 1.5, border: '1px solid #e5e2db', borderRadius: 8, padding: '8px 10px', fontFamily: 'inherit', resize: 'vertical', background: '#fff' }} />
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <button onClick={commit} disabled={!dirty} style={{ fontSize: 13, fontWeight: 600, background: dirty ? '#1c1917' : '#e7e5e4', color: dirty ? '#fff' : '#a8a29e', border: 'none', borderRadius: 8, padding: '7px 16px', cursor: dirty ? 'pointer' : 'default', fontFamily: 'inherit' }}>Save</button>
+        <button onClick={() => { commit(); if (notes.trim()) setEditing(false) }} disabled={!dirty && !notes.trim()} style={{ fontSize: 13, fontWeight: 600, background: dirty || notes.trim() ? '#1c1917' : '#e7e5e4', color: dirty || notes.trim() ? '#fff' : '#a8a29e', border: 'none', borderRadius: 8, padding: '7px 16px', cursor: dirty ? 'pointer' : 'default', fontFamily: 'inherit' }}>{dirty ? 'Save' : 'Done'}</button>
         <span style={{ fontSize: 12, color: '#78716c' }}>{dirty ? 'Saving in a moment…' : saved ? 'Saved ✓ — shared boards update too' : ''}</span>
       </div>
+      </>}
+      {!editing && saved && <span style={{ fontSize: 12, color: '#57534e' }}>Saved ✓ — shared boards update too</span>}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
         {imgs.map((src, i) => (
           <div key={i} style={{ position: 'relative' }}>
