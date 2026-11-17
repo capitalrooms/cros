@@ -122,7 +122,6 @@ export default function SharedPlanner({ mode, initialBoard }: { mode: 'office' |
   const [boardId, setBoardId] = useState<string | undefined>(initialBoard)
   const [error, setError] = useState('')
   const [showDone, setShowDone] = useState(false)
-  const [startWith, setStartWith] = useState('')
   const [importing, setImporting] = useState(false)
 
   const load = useCallback(async (id?: string) => {
@@ -152,27 +151,34 @@ export default function SharedPlanner({ mode, initialBoard }: { mode: 'office' |
     <div className={mode === 'office' ? 'grid grid-cols-1 gap-lg lg:grid-cols-[260px_minmax(0,1fr)]' : ''}>
       {mode === 'office' && (
         <aside className="space-y-sm">
-          {(data.boards ?? []).map(b => (
-            <button key={b.id} type="button" onClick={() => setBoardId(b.id)}
-              className={`w-full rounded-xl border px-md py-sm text-left ${board?.id === b.id ? 'border-neutral-900 bg-white' : 'border-neutral-200 bg-white/60 hover:bg-white'}`}>
-              <span className="block text-sm font-bold text-neutral-900">{b.member}</span>
-              <span className="block text-xs text-neutral-500">{ROLE[b.role] ?? b.role}{b.open ? ` · ${b.open} open` : ''}</span>
-            </button>
-          ))}
-          <div className="rounded-xl border border-dashed border-neutral-300 p-md space-y-sm">
-            <p className="text-xs font-bold uppercase tracking-wide text-neutral-500">Start a board with</p>
-            <p className="text-[11px] text-neutral-500">Anyone — staff, a landlord, a contractor or a friend. They get a link that opens just their board, no sign-in.</p>
-            <select className={input} value={startWith} onChange={e => setStartWith(e.target.value)}>
-              <option value="">Choose a person…</option>
-              <option value="__new">＋ Someone not in CROS yet…</option>
-              {(data.people ?? []).filter(p => !(data.boards ?? []).some(b => b.member === p.name)).map(p => <option key={p.id} value={p.id}>{p.name} · {ROLE[p.role] ?? p.role}</option>)}
-            </select>
-            {startWith === '__new' ? <NewPersonBoard post={post} startOpen onMade={id => { setStartWith(''); setBoardId(id) }} /> : <button type="button" disabled={!startWith} className="w-full rounded-xl bg-neutral-900 py-sm text-sm font-bold text-white disabled:opacity-40"
-              onClick={async () => { try { const d = await post({ action: 'create_board', personId: startWith }); setStartWith(''); setBoardId(d.boardId) } catch (e) { setError(e instanceof Error ? e.message : 'Not created') } }}>
-              Start board
-            </button>}
-            <p className="text-[11px] text-neutral-500">Landlord boards are for chosen project landlords only.</p>
+          {/* share: type who — opens their board if there is one, starts one if not (17 Nov: no permanent list to wade through) */}
+          <div className="rounded-xl border border-neutral-300 bg-white p-md space-y-sm">
+            <p className="text-sm font-bold text-neutral-900">Share with…</p>
+            <PersonSearch people={data.people ?? []} value="" post={post} onPick={async pid => {
+              const had = (data.boards ?? []).find(b => b.personId === pid)
+              if (had) { setBoardId(had.id); return }
+              try { const d = await post({ action: 'create_board', personId: pid }); setBoardId(d.boardId); await load(d.boardId) } catch (e) { setError(e instanceof Error ? e.message : 'Not created') }
+            }} />
+            <p className="text-[11px] text-neutral-500">Type a name or email — anyone, including a friend not in CROS. They get a link to just their board, no sign-in.</p>
           </div>
+          {(() => {
+            const bs = [...(data.boards ?? [])].sort((x, y) => y.open - x.open)
+            const active = bs.filter(b => b.open > 0 || b.id === board?.id), quiet = bs.filter(b => !(b.open > 0 || b.id === board?.id))
+            const row = (b: typeof bs[number]) => (
+              <button key={b.id} type="button" onClick={() => setBoardId(b.id)}
+                className={`w-full rounded-lg px-md py-xs text-left ${board?.id === b.id ? 'bg-white ring-1 ring-neutral-900' : 'hover:bg-white'}`}>
+                <span className="block truncate text-sm font-semibold text-neutral-900">{b.member}</span>
+                <span className="block text-xs text-neutral-500">{ROLE[b.role] ?? b.role}{b.open ? ` · ${b.open} open` : ' · nothing open'}</span>
+              </button>
+            )
+            return bs.length > 0 && (
+              <div className="space-y-xs">
+                {active.length > 0 && <p className="px-md text-[11px] font-bold uppercase tracking-wide text-neutral-500">Open boards</p>}
+                {active.map(row)}
+                {quiet.length > 0 && <details><summary className="cursor-pointer px-md py-xs text-xs font-semibold text-neutral-500">Nothing open · {quiet.length}</summary>{quiet.map(row)}</details>}
+              </div>
+            )
+          })()}
           <button type="button" onClick={() => setImporting(true)}
             className="w-full rounded-xl border border-neutral-300 bg-white px-md py-sm text-left text-sm font-semibold text-neutral-800 hover:bg-neutral-50">
             ⇪ Bring in a board from your planner
@@ -221,7 +227,7 @@ export default function SharedPlanner({ mode, initialBoard }: { mode: 'office' |
           </div>
         ) : !board ? (
           <p className="rounded-2xl border border-neutral-200 bg-white p-lg text-sm text-neutral-600">
-            {mode === 'office' ? 'Start a board with someone to share notes, jobs and photo ideas with them.' : 'Nothing shared with you yet — when the office adds something it appears here.'}
+            {mode === 'office' ? 'Type who you want to share with on the left — or pick an open board. Notes, jobs, photo ideas and links, and they reply in their app.' : 'Nothing shared with you yet — when the office adds something it appears here.'}
           </p>
         ) : (
           <>
