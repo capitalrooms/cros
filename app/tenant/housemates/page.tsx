@@ -1,6 +1,7 @@
 'use client'
 // Meet your housemates (9 Nov 2026 rebuild): everyone living in the house now, with their photo or avatar, bio and the
 // answers they chose to share. From /api/tenant/housemates (first names and rooms only, never contact details or rent).
+import TenantFirePlan from '@/app/components/garden/TenantFirePlan'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -67,6 +68,8 @@ export default function Housemates() {
           <span><span className="block text-[15px] font-bold text-[#14261F]">Notice board</span><span className="block text-[13px] text-[#4E6158]">Shared updates and house tasks</span></span>
           <span className="text-[#4E6158]" aria-hidden="true">›</span>
         </Link>
+
+        <TenantFirePlan />
 
         {data && others.length === 0 && <p className="rounded-2xl border border-dashed border-[#C3D0C6] bg-white p-xl text-center text-sm text-[#4E6158]">You’re the first one here. Your housemates will appear as they move in.</p>}
         {others.length > 0 && <h2 className="px-1 pt-2 text-lg font-bold text-[#14261F]">More about them</h2>}

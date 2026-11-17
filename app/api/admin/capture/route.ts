@@ -318,10 +318,16 @@ export async function POST(req: NextRequest) {
       if (up0.error) return NextResponse.json({ error: up0.error.message }, { status: 500 })
       const { data: pub0 } = s.storage.from('property-documents').getPublicUrl(path0)
       const { data: orig } = await s.from('property_documents').insert({ property_id: propertyId, document_type: 'evacuation_plan', file_name: item.file_name, storage_url: pub0.publicUrl, file_size: o.bytes.length, description: `${title} (original)`.slice(0, 1000), uploaded_by: admin.personId, visible_to_tenants: false }).select('id').single()
-      const { remakeFirePlan } = await import('@/lib/firePlan')
-      const made = await remakeFirePlan(s as any, { propertyId, bytes: o.bytes, mime: o.mime, byPersonId: admin.personId }).catch((e: unknown) => ({ error: e instanceof Error ? e.message : 'not remade' }))
+      // its text fills the house's fire plan (Property › Fire evacuation plan) if it hasn't one yet
+      const { readFirePlan } = await import('@/lib/firePlan')
+      const made = await readFirePlan(o.bytes, o.mime, firstLine(prop.name)).then(async plan => {
+        const { data: cur } = await s.from('properties').select('fire_plan').eq('id', propertyId).maybeSingle() as { data: any }
+        if (cur?.fire_plan) return { id: 'kept', note: ' — the house already has a written plan, so it wasn’t changed' }
+        const { error } = await s.from('properties').update({ fire_plan: plan, fire_plan_updated_at: new Date().toISOString() }).eq('id', propertyId)
+        return error ? { error: error.message } : { id: 'filled', note: ' — and its text is now the house’s fire plan (check it under Property)' }
+      }).catch((e: unknown) => ({ error: e instanceof Error ? e.message : 'not read' }))
       await done(kind, `property_documents:${(orig as any)?.id ?? ''}`, { property_id: propertyId })
-      return NextResponse.json({ ok: true, filedTo: `${firstLine(prop.name)} › Documents${'id' in made ? ' — and remade in our layout' : ` (couldn’t remake it: ${made.error})`}` })
+      return NextResponse.json({ ok: true, filedTo: `${firstLine(prop.name)} › Documents${'id' in made ? (made as any).note : ` (couldn’t read its text: ${(made as any).error})`}` })
     }
 
     // a document on the property: letter, bill, receipt, sheet, other

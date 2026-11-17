@@ -113,3 +113,59 @@ export async function remakeFirePlan(s: SupabaseClient, o: { propertyId: string;
   if (error) return { error: error.message }
   return { id: (data as any).id as string, plan }
 }
+
+export const EMPTY_PLAN: FirePlan = { address: null, onDiscovery: [], escapeRoutes: [], callForHelp: [], evacuate: [], assemblyPoint: null, doNot: [], other: [] }
+
+/** The printable version (17 Nov 2026): A4 landscape, the logo, the steps in columns, the assembly point boxed — and the
+ *  house's own floor-plan drawing beside them when we have one as an image (it can't be redrawn, so it's used as it is). */
+export async function renderFirePlanLandscape(plan: FirePlan, house: string, drawing?: Buffer | null): Promise<Buffer> {
+  const PDFDocument = (await import('pdfkit')).default
+  const a = loadPDFLetterheadAssets()
+  const W = 841.89, H = 595.28, M = 36
+  const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margins: { top: M, left: M, right: M, bottom: M } })
+  const chunks: Buffer[] = []
+  doc.on('data', (c: Buffer) => chunks.push(c))
+  const finished = new Promise<Buffer>(r => doc.on('end', () => r(Buffer.concat(chunks))))
+  doc.registerFont('reg', a.fontReg); doc.registerFont('bold', a.fontBold); doc.registerFont('display', a.fontDisplay)
+
+  // header band
+  doc.save().rect(0, 0, W, 78).fill(PDF.forest).restore()
+  doc.font('bold').fontSize(9).fillColor(PDF.gold).text('FIRE EVACUATION PLAN', M, 18, { characterSpacing: 1.6 })
+  doc.font('display').fontSize(24).fillColor(PDF.white).text('In the event of fire', M, 31)
+  doc.font('reg').fontSize(10).fillColor('#C9D6CC').text(plan.address || house, M, 58, { width: W - 2 * M - 120 })
+  if (a.logoImg.length) { doc.save().roundedRect(W - M - 64, 9, 64, 60, 6).fill(PDF.white).restore(); doc.image(a.logoImg, W - M - 58, 13, { width: 52 }) }
+
+  const top = 96, bottom = H - 30
+  const hasDrawing = !!drawing?.length
+  const colsW = hasDrawing ? (W - 2 * M) * 0.58 : W - 2 * M
+  const colW = (colsW - 16) / 2
+  const sections: [string, string[], boolean][] = [
+    ['If you discover a fire or hear the alarm', plan.onDiscovery, true], ['Escape routes', plan.escapeRoutes, true],
+    ['Call for help', plan.callForHelp, true], ['Evacuate the building', plan.evacuate, true], ['Do not', plan.doNot, false], ['Also', plan.other, false],
+  ].filter(([, xs]) => (xs as string[]).length) as [string, string[], boolean][]
+  let col = 0, y = top
+  const x = () => M + col * (colW + 16)
+  for (const [title, items, numbered] of sections) {
+    const need = 22 + items.reduce((acc, it) => acc + doc.font('reg').fontSize(10).heightOfString(it, { width: colW - 18 }) + 4, 0)
+    if (y + need > bottom - (col === 1 && plan.assemblyPoint ? 0 : 0) && y > top) { col = Math.min(col + 1, 1); y = top }
+    doc.font('bold').fontSize(11.5).fillColor(PDF.forest).text(title, x(), y, { width: colW }); y = doc.y + 4
+    items.forEach((it, i) => {
+      doc.font('bold').fontSize(10).fillColor(PDF.gold).text(numbered ? `${i + 1}` : '•', x(), y, { width: 14 })
+      doc.font('reg').fontSize(10).fillColor(PDF.ink).text(it, x() + 18, y, { width: colW - 18, lineGap: 1.5 }); y = doc.y + 4
+    })
+    y += 10
+  }
+  if (plan.assemblyPoint) {
+    const bx = hasDrawing ? M : M + colW + 16, bw = hasDrawing ? colsW : colW, by = Math.min(Math.max(y, top), bottom - 58)
+    doc.save().roundedRect(bx, by, bw, 52, 8).fill(PDF.tint).restore()
+    doc.font('bold').fontSize(9).fillColor(PDF.gold).text('ASSEMBLY POINT', bx + 14, by + 10, { characterSpacing: 1.2 })
+    doc.font('bold').fontSize(13).fillColor(PDF.forest).text(plan.assemblyPoint, bx + 14, by + 24, { width: bw - 28 })
+  }
+  if (hasDrawing) {
+    const dx = M + colsW + 18, dw = W - M - dx
+    try { doc.image(drawing!, dx, top, { fit: [dw, bottom - top], align: 'center', valign: 'top' }) } catch { /* not an image pdfkit can read */ }
+  }
+  doc.font('reg').fontSize(8).fillColor(PDF.muted).text('Capital Rooms · Emergency line 0207 112 9163 · In any emergency call 999 first', M, H - 22, { width: W - 2 * M, align: 'center' })
+  doc.end()
+  return finished
+}
