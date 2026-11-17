@@ -111,7 +111,7 @@ export async function GET(req: NextRequest) {
     const want = req.nextUrl.searchParams.get('board')
     const board = (boards ?? []).find(b => b.id === want) ?? (boards ?? [])[0] ?? null
     const [{ data: people }, { data: properties }] = await Promise.all([
-      s.from('people').select('id, salutation, first_name, last_name, full_name, company, role').in('role', ['cleaner', 'contractor', 'lettings', 'landlord', 'tenant']).order('first_name'),
+      s.from('people').select('id, salutation, first_name, last_name, full_name, company, role, email').in('role', ['cleaner', 'contractor', 'lettings', 'landlord', 'tenant']).order('first_name'),
       s.from('properties').select('id, name, address, property_code'),
     ])
     return NextResponse.json({
@@ -120,7 +120,7 @@ export async function GET(req: NextRequest) {
       board: board ? { id: board.id, title: board.title, member: name(board.people), role: board.people?.role } : null,
       entries: board ? await loadBoard(s, board) : [],
       // staff first (cleaners, contractors, lettings), then landlords; properties in address order
-      people: ((people ?? []) as any[]).map(p => ({ id: p.id, name: name(p), role: p.role }))
+      people: ((people ?? []) as any[]).map(p => ({ id: p.id, name: name(p) || p.email || 'No name', role: p.role, email: /capitalrooms\.invalid$/.test(p.email ?? '') ? '' : (p.email ?? '') }))
         .sort((a, b) => (a.role === 'landlord' ? 1 : 0) - (b.role === 'landlord' ? 1 : 0) || a.name.localeCompare(b.name)),
       properties: sortPropertiesNumerically((properties ?? []) as any[]).map((p: any) => ({ id: p.id, name: shortAddress(p.name) })),
     })
@@ -249,7 +249,7 @@ export async function POST(req: NextRequest) {
       if (made.error) return NextResponse.json({ error: made.error.message }, { status: 400 })
       board = made.data
     }
-    return NextResponse.json({ boardId: board.id, link: plannerLink(board.id) })
+    return NextResponse.json({ boardId: board.id, personId: person.id, link: plannerLink(board.id) })
   }
 
   if (b.action === 'create_board' || b.action === 'archive_board') {

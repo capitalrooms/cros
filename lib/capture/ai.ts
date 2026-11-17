@@ -12,6 +12,7 @@ export const CAPTURE_KINDS = {
   bill: 'Bill or invoice',
   certificate: 'Certificate or safety report',
   safety_sheet: 'Handwritten safety checks (smoke alarms / fire doors)',
+  fire_plan: 'Fire escape plan',
   receipt: 'Receipt',
   company_post: 'Company post (not about one property)',
   other: 'Something else',
@@ -59,6 +60,7 @@ kind — one of:
 - bill: a bill or supplier invoice (energy, water, broadband, council tax, a trade invoice)
 - certificate: a gas, electrical, fire, EPC, PAT or other safety certificate or inspection report
 - safety_sheet: a handwritten or ticked sheet of smoke alarm / fire door checks
+- fire_plan: a fire escape / evacuation plan or fire action notice (escape routes, what to do, assembly point)
 - receipt: a till receipt
 - company_post: post for the company itself (HMRC, bank, insurance for the business, Companies House)
 - other

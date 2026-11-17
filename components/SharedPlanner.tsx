@@ -392,6 +392,39 @@ export function EmailBoard({ boardId, member, post }: { boardId: string; member:
   )
 }
 
+// Share with: type a name or an email (17 Nov 2026, Harry: "just want to be able to type in harry.bu@hotmail.com"). An
+// email that isn't in CROS yet adds them as a friend/owner and uses them.
+function PersonSearch({ people, value, onPick, post }: { people: { id: string; name: string; role: string; email?: string }[]; value: string; onPick: (id: string) => void; post: (b: Record<string, unknown>) => Promise<any> }) {
+  const [q, setQ] = useState('')
+  const [busy, setBusy] = useState(false)
+  const picked = people.find(p => p.id === value)
+  const t = q.trim().toLowerCase()
+  const hits = t.length < 2 ? [] : people.filter(p => p.name.toLowerCase().includes(t) || (p.email ?? '').toLowerCase().includes(t)).slice(0, 8)
+  const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(q.trim())
+  if (picked) return (
+    <div className={`${input} flex items-center justify-between gap-2`}>
+      <span className="truncate">Share with <b>{picked.name}</b>{picked.email ? ` · ${picked.email}` : ''}</span>
+      <button type="button" onClick={() => { onPick(''); setQ('') }} className="text-xs font-semibold text-neutral-500">Change</button>
+    </div>
+  )
+  return (
+    <div className="relative">
+      <input className={input} placeholder="Share with — type a name or email" value={q} onChange={e => setQ(e.target.value)} />
+      {(hits.length > 0 || isEmail) && (
+        <div className="absolute z-20 mt-1 w-full overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-lg">
+          {hits.map(p => <button key={p.id} type="button" onClick={() => onPick(p.id)} className="block w-full px-md py-sm text-left text-sm hover:bg-neutral-50"><b>{p.name}</b> <span className="text-neutral-500">· {ROLE[p.role] ?? p.role}{p.email ? ` · ${p.email}` : ''}</span></button>)}
+          {isEmail && !hits.some(p => (p.email ?? '').toLowerCase() === t) && (
+            <button type="button" disabled={busy} onClick={async () => {
+              setBusy(true)
+              try { const d = await post({ action: 'new_person_board', name: q.trim().split('@')[0], email: q.trim(), kind: 'friend' }); people.push({ id: d.personId, name: q.trim(), role: 'landlord', email: q.trim() }); onPick(d.personId) } catch { /* shown on share */ } finally { setBusy(false) }
+            }} className="block w-full border-t border-neutral-100 px-md py-sm text-left text-sm font-semibold hover:bg-neutral-50">{busy ? 'Adding…' : `＋ Share with ${q.trim()} (new — no sign-in needed)`}</button>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function ImportPanel({ people, preselect, post, onClose, onDone }: {
   people: { id: string; name: string; role: string }[]; preselect?: string
   post: (b: Record<string, unknown>) => Promise<any>; onClose: () => void; onDone: (boardId: string) => Promise<void>
@@ -439,10 +472,7 @@ function ImportPanel({ people, preselect, post, onClose, onDone }: {
             <option value="">Which of your boards?</option>
             {boards.map(b => <option key={b.id} value={b.id}>{b.title} · {b.items.length} items</option>)}
           </select>
-          <select className={input} value={personId} onChange={e => setPersonId(e.target.value)}>
-            <option value="">Share with…</option>
-            {people.map(p => <option key={p.id} value={p.id}>{p.name} · {ROLE[p.role] ?? p.role}</option>)}
-          </select>
+          <PersonSearch people={people} value={personId} onPick={setPersonId} post={post} />
         </div>
       )}
       {src && (

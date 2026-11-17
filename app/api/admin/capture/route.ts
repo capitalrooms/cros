@@ -311,6 +311,19 @@ export async function POST(req: NextRequest) {
 
     if (kind === 'certificate') return NextResponse.json({ error: 'Certificates go through the AI Doc Scanner so their dates update the property — use “Read it in the scanner”' }, { status: 400 })
 
+    // a fire escape plan (17 Nov 2026): the original filed as it is, and the same plan remade in our layout (lib/firePlan)
+    if (kind === 'fire_plan') {
+      const path0 = `capture/${propertyId}/${Date.now()}-${safeName(item.file_name)}`
+      const up0 = await s.storage.from('property-documents').upload(path0, o.bytes, { contentType: o.mime || 'application/octet-stream', upsert: false })
+      if (up0.error) return NextResponse.json({ error: up0.error.message }, { status: 500 })
+      const { data: pub0 } = s.storage.from('property-documents').getPublicUrl(path0)
+      const { data: orig } = await s.from('property_documents').insert({ property_id: propertyId, document_type: 'evacuation_plan', file_name: item.file_name, storage_url: pub0.publicUrl, file_size: o.bytes.length, description: `${title} (original)`.slice(0, 1000), uploaded_by: admin.personId, visible_to_tenants: false }).select('id').single()
+      const { remakeFirePlan } = await import('@/lib/firePlan')
+      const made = await remakeFirePlan(s as any, { propertyId, bytes: o.bytes, mime: o.mime, byPersonId: admin.personId }).catch((e: unknown) => ({ error: e instanceof Error ? e.message : 'not remade' }))
+      await done(kind, `property_documents:${(orig as any)?.id ?? ''}`, { property_id: propertyId })
+      return NextResponse.json({ ok: true, filedTo: `${firstLine(prop.name)} › Documents${'id' in made ? ' — and remade in our layout' : ` (couldn’t remake it: ${made.error})`}` })
+    }
+
     // a document on the property: letter, bill, receipt, sheet, other
     const docType = kind === 'letter' ? 'correspondence' : kind === 'bill' ? 'utility_bill' : kind === 'receipt' ? 'receipt' : kind === 'safety_sheet' ? 'safety_check_sheet' : 'other'
     const path = `capture/${propertyId}/${Date.now()}-${safeName(item.file_name)}`
