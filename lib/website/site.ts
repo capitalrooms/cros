@@ -19,7 +19,7 @@ export const NAV: [string, string][] = [
 export const TEAM: { name: string; role: string; photo: string; bio: string }[] = [
   { name: 'Harry', role: 'Founder · Property Management & Business Development', photo: '/website/team/harry.jpg',
     bio: 'Harry started Capital Rooms in 2018 after working at a big estate agency, where landlords were passed from one person to the next. He wanted to do it differently. Here, you get one person who knows your property, picks up the phone and keeps you in the loop.' },
-  { name: 'Jacob', role: 'Lettings Manager', photo: '',
+  { name: 'Jacob', role: 'Lettings Manager', photo: '/website/team/jacob.jpg',
     bio: 'Jacob has worked for a few London agencies and now looks after all our lettings. He’s warm, upbeat and brilliant with people who are new to the city. For landlords, that means good tenants, properly referenced, who are happy to stay.' },
   { name: 'Martin', role: 'Accounts Manager', photo: '',
     bio: 'Martin has spent 20 years in property, including time at the companies that make landlord statement software. He loves a spreadsheet, chases late rent straight away and makes sure every penny is accounted for.' },
