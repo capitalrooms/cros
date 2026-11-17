@@ -27,11 +27,19 @@ const day = (iso: string | null | undefined) => !iso ? '' : new Date(iso.length 
 const input = 'w-full rounded-xl border border-neutral-300 bg-white px-md py-sm text-base sm:text-sm text-neutral-900'   // 16px on phones so iPhone doesn't zoom in
 const ROLE: Record<string, string> = { cleaner: 'Cleaner', contractor: 'Contractor', lettings: 'Lettings', landlord: 'Landlord' }
 
+/** Planner requests: signed in as usual, or — opened from a planner link (/p/<token>) — carrying the link instead. */
+export function plannerFetch(url: string, init: RequestInit = {}) {
+  const link = typeof window !== 'undefined' ? (window as any).__crosPlannerLink as string | undefined : undefined
+  if (!link) return adminFetch(url, init)
+  const headers = new Headers(init.headers); headers.set('x-planner-link', link)
+  return fetch(url, { ...init, headers })
+}
+
 export async function uploadPhotos(boardId: string, files: FileList | null): Promise<Photo[]> {
   const out: Photo[] = []
   for (const f of Array.from(files ?? []).slice(0, 6)) {
     const fd = new FormData(); fd.append('file', f); fd.append('boardId', boardId)
-    const r = await adminFetch('/api/planner/shared/upload', { method: 'POST', body: fd })
+    const r = await plannerFetch('/api/planner/shared/upload', { method: 'POST', body: fd })
     const d = await r.json().catch(() => ({}))
     if (!r.ok) throw new Error(d.error ?? 'Photo not uploaded')
     out.push({ path: d.path, url: d.url })
@@ -314,7 +322,15 @@ export function EmailBoard({ boardId, member, post }: { boardId: string; member:
   if (!open) return (
     <div className="flex flex-wrap items-center justify-between gap-sm rounded-2xl border border-neutral-200 bg-white px-lg py-sm">
       <p className="text-sm text-neutral-700">Let {member} know it’s there — an email with a button that signs them straight into their planner.</p>
-      <button type="button" onClick={() => setOpen(true)} className="rounded-xl bg-neutral-900 px-md py-xs text-sm font-bold text-white">Email them the board…</button>
+      <div className="flex flex-wrap gap-sm">
+        {/* a link that opens just this planner, no sign-in — to text or email to anyone, e.g. a contractor we rarely use (17 Nov 2026) */}
+        <button type="button" onClick={async () => {
+          try { const d = await post({ action: 'link', boardId }); await navigator.clipboard.writeText(d.link); setMsg({ ok: true, text: `Link copied — paste it in a text or email to ${member}. It opens just this planner, no sign-in.` }) }
+          catch (e) { setMsg({ ok: false, text: e instanceof Error ? e.message : 'Couldn’t make the link' }) }
+        }} className="rounded-xl border border-neutral-300 px-md py-xs text-sm font-semibold">Copy planner link</button>
+        <button type="button" onClick={() => setOpen(true)} className="rounded-xl bg-neutral-900 px-md py-xs text-sm font-bold text-white">Email them the board…</button>
+      </div>
+      {msg && <p className={`w-full text-sm font-semibold ${msg.ok ? 'text-green-700' : 'text-red-700'}`}>{msg.text}</p>}
     </div>
   )
   return (

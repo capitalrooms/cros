@@ -1,7 +1,7 @@
 // POST /api/planner/shared/upload — a photo for a shared planner board (multipart: file, boardId).
 // Saved privately in planner-files under the board's folder; returns { path, url } (url = a 1-hour signed link).
 import { NextRequest, NextResponse } from 'next/server'
-import { requireSignedIn } from '@/lib/portalAuth'
+import { plannerCaller } from '@/lib/planner/caller'
 import { createServiceClient } from '@/lib/supabase'
 
 export const runtime = 'nodejs'
@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic'
 const TYPES: Record<string, string> = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif', 'image/heic': 'heic' }
 
 export async function POST(req: NextRequest) {
-  const caller = await requireSignedIn(req)
+  const caller = await plannerCaller(req)
   if (!caller) return NextResponse.json({ error: 'Please sign in again' }, { status: 401 })
   const form = await req.formData().catch(() => null)
   const file = form?.get('file')

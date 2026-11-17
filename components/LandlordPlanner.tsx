@@ -5,7 +5,7 @@
 // notes and reply. preview = an administrator "viewing as" the landlord: the same screen, read only.
 import { useCallback, useEffect, useState } from 'react'
 import { adminFetch } from '@/lib/adminFetch'
-import { uploadPhotos, type Photo } from '@/components/SharedPlanner'
+import { uploadPhotos, plannerFetch, type Photo } from '@/components/SharedPlanner'
 import '@/components/public/public.css'
 
 interface Reply { id: string; body: string; author: string; createdAt: string; links: string[]; photos: Photo[] }
@@ -76,7 +76,7 @@ export default function LandlordPlanner({ previewBoardId, officeBoardId }: { pre
   const [error, setError] = useState('')
 
   const load = useCallback(async () => {
-    const r = await adminFetch(`/api/planner/shared${boardParam ? `?board=${boardParam}` : ''}`)
+    const r = await plannerFetch(`/api/planner/shared${boardParam ? `?board=${boardParam}` : ''}`)
     const d = await r.json().catch(() => ({}))
     if (!r.ok) { setError(d.error ?? 'Your planner didn’t load. Pull down to refresh.'); return }
     setBoardId(d.board?.id ?? null); setEntries(d.entries ?? []); if (!previewBoardId) setProps(d.properties ?? [])
@@ -84,7 +84,7 @@ export default function LandlordPlanner({ previewBoardId, officeBoardId }: { pre
   useEffect(() => { load() }, [load])
 
   async function post(body: Record<string, unknown>) {
-    const r = await adminFetch('/api/planner/shared', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+    const r = await plannerFetch('/api/planner/shared', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
     const d = await r.json().catch(() => ({}))
     if (!r.ok) throw new Error(d.error ?? 'Not saved')
     return d

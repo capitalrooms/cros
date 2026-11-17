@@ -18,6 +18,8 @@ import { insertNotifications } from '@/lib/serverNotify'
 import { sendServerPush } from '@/lib/serverPush'
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
 import { loadPrivateBoards, importItems } from '@/lib/planner/importBoard'
+import { plannerLink } from '@/lib/planner/link'
+import { plannerCaller } from '@/lib/planner/caller'
 import { shortAddress } from '@/lib/lettings/letWording'
 import { authLink } from '@/lib/auth/links'
 import { authUsersByEmail, statusOf } from '@/lib/auth/accounts'
@@ -44,6 +46,8 @@ function cleanPhotos(v: unknown, boardId: string): string[] {
 }
 
 type S = ReturnType<typeof createServiceClient>
+
+
 
 async function boardFor(s: S, caller: Caller, boardId: string) {
   const { data } = await s.from('planner_shared_boards').select('*').eq('id', boardId).is('archived_at', null).maybeSingle() as { data: any }
@@ -95,7 +99,7 @@ async function tell(s: S, caller: Caller, board: any, title: string, body: strin
 }
 
 export async function GET(req: NextRequest) {
-  const caller = await requireSignedIn(req)
+  const caller = await plannerCaller(req)
   if (!caller) return NextResponse.json({ error: 'Please sign in again' }, { status: 401 })
   const s = createServiceClient()
   if (isOffice(caller)) {
@@ -135,7 +139,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const caller = await requireSignedIn(req)
+  const caller = await plannerCaller(req)
   if (!caller) return NextResponse.json({ error: 'Please sign in again' }, { status: 401 })
   const b = await req.json().catch(() => ({}))
   const s = createServiceClient()
@@ -145,6 +149,14 @@ export async function POST(req: NextRequest) {
   // Richard is going to get"). Their copy's button signs them straight into their planner — no password needed; a test
   // goes to the office person pressing it, word for word, but its button opens the board as the office sees it (a
   // sign-in link for someone else's account is never sent to anyone but them).
+  // the link that opens this board without signing in — to text or email to anyone (office only)
+  if (b.action === 'link') {
+    if (!isOffice(caller)) return NextResponse.json({ error: 'Only the office can do that' }, { status: 403 })
+    const board = await boardFor(s, caller, String(b.boardId ?? ''))
+    if (!board) return NextResponse.json({ error: 'Board not found' }, { status: 404 })
+    return NextResponse.json({ ok: true, link: plannerLink(board.id) })
+  }
+
   if (b.action === 'email_board') {
     if (!isOffice(caller)) return NextResponse.json({ error: 'Only the office can do that' }, { status: 403 })
     const board = await boardFor(s, caller, String(b.boardId ?? ''))
