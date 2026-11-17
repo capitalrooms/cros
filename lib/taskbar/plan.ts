@@ -26,6 +26,8 @@ export type Action =
   | { kind: 'note'; title: string; propertyId: string; propertyName: string; roomId?: string | null; content: string }
   | { kind: 'todo'; title: string; propertyId: string; propertyName: string; roomId?: string | null; description: string; due_date: string | null; responsible?: string | null; notes?: string | null }
   | { kind: 'certs'; title: string; propertyId: string; propertyName: string; cert_types: string[]; certsTo: 'landlord' | 'tenants' | 'both'; message?: string }
+  | { kind: 'planner'; title: string; name: string; contactEmail?: string | null; contactPhone?: string | null; plannerKind: 'contractor' | 'friend' | 'landlord' | 'cleaner' }
+  | { kind: 'rightmove_docs'; title: string; propertyIds: string[]; propertyNames: string[]; landlordName: string }
   | { kind: 'viewing'; title: string; propertyId: string; propertyName: string; roomId: string; roomName: string; visitor_name: string; visitor_phone?: string | null; viewing_date: string; viewing_slot: string; notes?: string | null; sms_occupant: boolean }
 export interface Plan { message: string; choices: string[]; actions: Action[] }
 
@@ -124,8 +126,9 @@ async function findArea(s: SupabaseClient, q: string) {
 const S = { type: 'string' } as const, B = { type: 'boolean' } as const
 const person = { type: 'object', properties: { name: S, email: S, phone: S, personId: S } }
 const ACTION_PROPS = {
-  kind: { type: 'string', enum: ['message', 'house_message', 'wifi', 'quotes', 'market_report', 'expense', 'publish', 'open', 'letter', 'note', 'todo', 'certs', 'viewing'] },
+  kind: { type: 'string', enum: ['message', 'house_message', 'wifi', 'quotes', 'market_report', 'expense', 'publish', 'open', 'letter', 'note', 'todo', 'certs', 'viewing', 'planner', 'rightmove_docs'] },
   title: { type: 'string', description: 'What the card does, e.g. "Email Sarah Khan about the cleaner"' },
+  name: S, contactEmail: S, contactPhone: S, plannerKind: { type: 'string', enum: ['contractor', 'friend', 'landlord', 'cleaner'] }, propertyIds: { type: 'array', items: S }, propertyNames: { type: 'array', items: S }, landlordName: S,
   recipients: { type: 'array', items: person }, subject: S, message: S, email: B, sms: B, statementTenancyId: S,
   propertyId: S, propertyName: S, roomId: S, roomName: S, channels: { type: 'string', enum: ['push_email', 'email_only', 'push_email_sms', 'sms_only'] },
   network: S, password: S, supplier: S, serviceId: S,
@@ -185,6 +188,8 @@ How to work:
 - "The tenant of X" / "room 2 at X": find_property, then use the person in that room. Several people match or nobody does: ask with short "choices", propose nothing yet.
 - Fill every field you can and write the message text fully, ready to send, in British English — warm, plain, short. Say "property" or "room", never "home". No fixed or minimum terms (Renters' Rights rules). Leave a [placeholder in square brackets] only for a fact you genuinely don't have.
 - A request can need several actions (e.g. save the WiFi AND tell the tenants) — propose them in order. A question ("when does Sarah's tenancy end?", "who lives at Crownfield?") — answer it in "message" from what the tools return; add an "open" action to the record when useful.
+- A shared planner / shared board / planner link with someone (a contractor, a friend about their property, a landlord): kind "planner" — name, contactEmail and/or contactPhone, plannerKind. It makes (or reuses) their shared planner and gives a link that opens it without signing in.
+- Chasing a landlord for Rightmove details or documents (letter of authority, proof of ownership, ID, floor plan): kind "rightmove_docs" with the property ids (find_property) and the landlord's name — it sends the proper Rightmove documents email with their own upload link. Never a plain "message" for this.
 - Nothing is sent by you: every action is a card they check and confirm. So don't ask "shall I?" — propose it, with every field for that kind filled in. Never say "done" or "sent" — say what you've set up for them to check.
 - Rent reminders and arrears chasers aren't sent from CROS at the moment: it is on statements only (rent is collected in another system), so CROS doesn't hold what anyone owes. Say so, and offer to open the rent screens instead — never write an amount owed.
 - "Write to", "letter", "notice", "formally", or anything they'd want on file (fees, rent changes, notices, complaints, references) → a letter, not a message. Everyday news and arrangements → a message.

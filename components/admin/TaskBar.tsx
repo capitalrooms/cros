@@ -39,7 +39,7 @@ const IDEAS: [string, string[]][] = [
   ['Reminders & notes', ['Remind me to [task] at [property] by [date]', 'Note on [property]: …', 'What’s left to do at [property]?']],
   ['Find out', ['Who lives at [property]?', 'When did we last charge a TV licence at [property]?', 'When does the gas certificate at [property] expire?']],
 ]
-const KIND: Record<Action['kind'], string> = { message: 'Email or text', house_message: 'Message the house', wifi: 'WiFi details', quotes: 'Ask for quotes', market_report: 'Market report', expense: 'Add an expense', publish: 'Draft in Publish', open: 'Open', letter: 'Letter', note: 'Note', todo: 'To-do', certs: 'Send certificates', viewing: 'Book a viewing' }
+const KIND: Record<Action['kind'], string> = { planner: 'Shared planner', rightmove_docs: 'Rightmove documents', message: 'Email or text', house_message: 'Message the house', wifi: 'WiFi details', quotes: 'Ask for quotes', market_report: 'Market report', expense: 'Add an expense', publish: 'Draft in Publish', open: 'Open', letter: 'Letter', note: 'Note', todo: 'To-do', certs: 'Send certificates', viewing: 'Book a viewing' }
 
 const Spark = ({ size = 18 }: { size?: number }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" aria-hidden><path d="M12 3l1.8 4.6L18 9.4l-4.2 1.8L12 16l-1.8-4.8L6 9.4l4.2-1.8z" /><path d="M19 15l.7 1.8 1.8.7-1.8.7L19 20l-.7-1.8-1.8-.7 1.8-.7z" /></svg>
 const field = 'mt-1 block w-full rounded-lg border border-neutral-300 bg-white px-2.5 py-1.5 text-sm text-neutral-900 disabled:bg-neutral-50 disabled:text-neutral-600'
@@ -168,6 +168,17 @@ export default function TaskBar() {
         if (!r.ok) return fail(r.j.error || 'Not sent')
         return setCard(ti, ci, { _state: 'done', _note: `Sent to ${r.j.sent} of ${r.j.total}${r.j.errors?.length ? ` — ${r.j.errors.length} failed` : ''}` })
       }
+      if (c.kind === 'planner') {
+        const r = await post('/api/planner/shared', { action: 'new_person_board', name: c.name, email: c.contactEmail || '', phone: c.contactPhone || '', kind: c.plannerKind })
+        if (!r.ok) return fail(r.j.error || 'Not made')
+        await navigator.clipboard.writeText(r.j.link).catch(() => {})
+        return setCard(ti, ci, { _state: 'done', _note: `Planner ready — link copied: ${r.j.link}`, _link: '/admin/planner/shared' })
+      }
+      if (c.kind === 'rightmove_docs') {
+        const r = await post('/api/admin/portal-docs', { propertyIds: c.propertyIds, action: 'send' })
+        if (!r.ok) return fail(r.j.error || 'Not sent')
+        return setCard(ti, ci, { _state: 'done', _note: `Sent to ${c.landlordName} with their upload link` })
+      }
       if (c.kind === 'viewing') {
         const r = await post('/api/viewings/book', { room_id: c.roomId, property_id: c.propertyId, visitor_name: c.visitor_name, visitor_phone: c.visitor_phone || null, viewing_date: c.viewing_date, viewing_slot: c.viewing_slot, notes: c.notes || null, sms_occupant: c.sms_occupant })
         if (!r.ok) return fail(r.j.error || 'Not booked')
@@ -260,7 +271,7 @@ function CardView({ c, set, run, onLink }: { c: Card; set: (p: Partial<Card>) =>
   const f = (k: string, v: unknown) => set({ [k]: v } as any)
   const verb = c.kind === 'message' ? `Send${c.email && c.sms ? ' email and text' : c.sms ? ' text' : ' email'}${c.recipients.length > 1 ? ` to ${c.recipients.length}` : ''}`
     : c.kind === 'house_message' ? `Send to ${c.roomName ? c.roomName : 'everyone'}` : c.kind === 'wifi' ? 'Save WiFi details' : c.kind === 'quotes' ? `Ask ${c.contractors.length + (c.others?.length ?? 0)} for quotes`
-    : c.kind === 'market_report' ? 'Email the report' : c.kind === 'expense' ? (c._dup ? 'Add it anyway' : `Add £${c.amount.toFixed(2)}`) : c.kind === 'publish' ? 'Draft it' : c.kind === 'letter' ? (c.letter ? 'Email the letter' : 'Write the letter') : c.kind === 'note' ? 'Save note' : c.kind === 'todo' ? 'Add to-do' : c.kind === 'certs' ? `Send ${c.cert_types.length} certificate${c.cert_types.length === 1 ? '' : 's'}` : c.kind === 'viewing' ? 'Book it' : 'Open'
+    : c.kind === 'market_report' ? 'Email the report' : c.kind === 'expense' ? (c._dup ? 'Add it anyway' : `Add £${c.amount.toFixed(2)}`) : c.kind === 'publish' ? 'Draft it' : c.kind === 'letter' ? (c.letter ? 'Email the letter' : 'Write the letter') : c.kind === 'note' ? 'Save note' : c.kind === 'todo' ? 'Add to-do' : c.kind === 'certs' ? `Send ${c.cert_types.length} certificate${c.cert_types.length === 1 ? '' : 's'}` : c.kind === 'viewing' ? 'Book it' : c.kind === 'planner' ? 'Make planner and copy link' : c.kind === 'rightmove_docs' ? 'Send the Rightmove request' : 'Open'
   const gaps = JSON.stringify(c).match(/\[[^\]"]{2,60}\]/g)
   return (
     <div className={`rounded-2xl bg-white p-3 ring-1 ${done ? 'ring-emerald-300' : 'ring-neutral-200'}`}>
@@ -342,6 +353,16 @@ function CardView({ c, set, run, onLink }: { c: Card; set: (p: Partial<Card>) =>
           <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs">{([['gas_safe', 'Gas safety'], ['eicr', 'EICR'], ['pat', 'PAT'], ['fire_detection', 'Fire alarm'], ['emergency_lighting', 'Emergency lighting'], ['fire_risk', 'Fire risk assessment']] as const).map(([k, l]) => <label key={k} className="flex items-center gap-1"><input type="checkbox" disabled={lock} checked={c.cert_types.includes(k)} onChange={e => f('cert_types', e.target.checked ? [...c.cert_types, k] : c.cert_types.filter(x => x !== k))} /> {l}</label>)}</div>
           <label className={lab}>A line to add (optional)<input disabled={lock} value={c.message ?? ''} onChange={e => f('message', e.target.value)} className={field} /></label>
         </>)}
+        {c.kind === 'planner' && (
+          <div className="grid gap-2 sm:grid-cols-2">
+            <label className={lab}>Name<input disabled={lock} value={c.name} onChange={e => f('name', e.target.value)} className={field} /></label>
+            <label className={lab}>Email<input disabled={lock} value={c.contactEmail ?? ''} onChange={e => f('contactEmail', e.target.value)} className={field} /></label>
+            <label className={lab}>Mobile<input disabled={lock} value={c.contactPhone ?? ''} onChange={e => f('contactPhone', e.target.value)} className={field} /></label>
+            <label className={lab}>They are<select disabled={lock} value={c.plannerKind} onChange={e => f('plannerKind', e.target.value)} className={field}><option value="contractor">A contractor</option><option value="friend">A friend or owner — ideas for their property</option><option value="landlord">A landlord</option><option value="cleaner">A cleaner</option></select></label>
+            <p className="text-xs text-neutral-500 sm:col-span-2">Their shared planner, with a link that opens it without signing in. The link is copied for you to send.</p>
+          </div>
+        )}
+        {c.kind === 'rightmove_docs' && <p className="text-xs text-neutral-600">The Rightmove documents email to {c.landlordName} for {c.propertyNames.join(', ')} — with their own link to send the letter of authority, proof of ownership, ID and floor plan.</p>}
         {c.kind === 'viewing' && (
           <div className="grid gap-2 sm:grid-cols-2">
             <p className="text-xs text-neutral-600 sm:col-span-2">{c.roomName}, {c.propertyName}</p>
