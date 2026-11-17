@@ -111,7 +111,7 @@ export async function GET(req: NextRequest) {
     const want = req.nextUrl.searchParams.get('board')
     const board = (boards ?? []).find(b => b.id === want) ?? (boards ?? [])[0] ?? null
     const [{ data: people }, { data: properties }] = await Promise.all([
-      s.from('people').select('id, salutation, first_name, last_name, full_name, company, role').in('role', ['cleaner', 'contractor', 'lettings', 'landlord']).order('first_name'),
+      s.from('people').select('id, salutation, first_name, last_name, full_name, company, role').in('role', ['cleaner', 'contractor', 'lettings', 'landlord', 'tenant']).order('first_name'),
       s.from('properties').select('id, name, address, property_code'),
     ])
     return NextResponse.json({
@@ -224,6 +224,32 @@ export async function POST(req: NextRequest) {
       await s.from('audit_logs').insert({ user_id: caller.personId, action: 'planner_duplicates_removed', details: `${board.id}: ${remove.length}` })
     }
     return NextResponse.json({ ok: true, removed: remove.length })
+  }
+
+  // A planner for anyone (17 Nov 2026, Harry: "any random person I want to share it with is a cleaner currently" … "me and
+  // a friend had a board for ideas for their property"): name + email or mobile + what they are. Someone already in
+  // CROS with that email is used; otherwise they're added (no sign-in — they use the planner link). Returns the link.
+  if (b.action === 'new_person_board') {
+    if (!isOffice(caller)) return NextResponse.json({ error: 'Only the office can do that' }, { status: 403 })
+    const nm = String(b.name ?? '').trim(), email = String(b.email ?? '').trim().toLowerCase(), phone = String(b.phone ?? '').trim()
+    if (!nm) return NextResponse.json({ error: 'Their name, please.' }, { status: 400 })
+    const role = b.kind === 'landlord' || b.kind === 'friend' ? 'landlord' : b.kind === 'cleaner' ? 'cleaner' : 'contractor'
+    let person: any = null
+    if (email) person = (await s.from('people').select('id, salutation, first_name, last_name, full_name, company, role').ilike('email', email).limit(1).maybeSingle()).data
+    if (!person) {
+      const [first, ...rest] = nm.split(/\s+/)
+      const ins = await s.from('people').insert({ first_name: first, last_name: rest.join(' ') || null, full_name: nm, email: email || `no-email+${Date.now()}@capitalrooms.invalid`, phone: phone || null, role }).select('id, salutation, first_name, last_name, full_name, company, role').single()
+      if (ins.error) return NextResponse.json({ error: `Couldn’t add them: ${ins.error.message}` }, { status: 400 })
+      person = ins.data
+    }
+    let { data: board } = await s.from('planner_shared_boards').select('id').eq('member_person_id', person.id).is('archived_at', null).maybeSingle() as { data: any }
+    if (!board) {
+      const title = String(b.title || (b.kind === 'friend' ? `Ideas for ${nm.split(' ')[0]}’s property` : `${name(person)} & Capital Rooms`)).slice(0, 120)
+      const made = await s.from('planner_shared_boards').insert({ member_person_id: person.id, title, kind: role === 'landlord' ? 'landlord' : 'staff', created_by: caller.email }).select('id').single()
+      if (made.error) return NextResponse.json({ error: made.error.message }, { status: 400 })
+      board = made.data
+    }
+    return NextResponse.json({ boardId: board.id, link: plannerLink(board.id) })
   }
 
   if (b.action === 'create_board' || b.action === 'archive_board') {

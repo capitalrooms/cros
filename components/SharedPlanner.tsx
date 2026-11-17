@@ -171,6 +171,7 @@ export default function SharedPlanner({ mode, initialBoard }: { mode: 'office' |
             </button>
             <p className="text-[11px] text-neutral-500">Landlord boards are for chosen project landlords only.</p>
           </div>
+          <NewPersonBoard post={post} onMade={id => setBoardId(id)} />
           <button type="button" onClick={() => setImporting(true)}
             className="w-full rounded-xl border border-neutral-300 bg-white px-md py-sm text-left text-sm font-semibold text-neutral-800 hover:bg-neutral-50">
             ⇪ Bring in a board from your planner
@@ -291,6 +292,34 @@ function EntryCard({ e, boardId, post, reload }: { e: Entry; boardId: string; po
 interface PItem { id: string; groupName: string; title: string; status: string; responsible?: string; date?: string; updates?: { body?: string; images?: string[] }[] }
 interface PBoard { id: string; title: string; subtitle?: string; items: PItem[] }
 const PSTATUS: Record<string, string> = { discuss: 'To discuss', discussed: 'Discussed', progress: 'In progress', done: 'Done', parked: 'Parked' }
+
+// A planner for anyone — a contractor we rarely use, a friend with a property — by name and email or mobile; the link is
+// copied to send them (17 Nov 2026)
+function NewPersonBoard({ post, onMade }: { post: (b: Record<string, unknown>) => Promise<any>; onMade: (id: string) => void }) {
+  const [open, setOpen] = useState(false)
+  const [f, setF] = useState({ name: '', email: '', phone: '', kind: 'contractor' })
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState('')
+  if (!open) return <button type="button" onClick={() => setOpen(true)} className="w-full rounded-xl border border-neutral-300 bg-white px-md py-sm text-left text-sm font-semibold text-neutral-800 hover:bg-neutral-50">＋ New planner for anyone</button>
+  return (
+    <div className="space-y-sm rounded-xl border border-neutral-300 bg-white p-md">
+      <p className="text-xs font-bold uppercase tracking-wide text-neutral-500">New planner for anyone</p>
+      <input className={input} placeholder="Their name" value={f.name} onChange={e => setF({ ...f, name: e.target.value })} />
+      <input className={input} type="email" placeholder="Email (optional)" value={f.email} onChange={e => setF({ ...f, email: e.target.value })} />
+      <input className={input} placeholder="Mobile (optional)" value={f.phone} onChange={e => setF({ ...f, phone: e.target.value })} />
+      <select className={input} value={f.kind} onChange={e => setF({ ...f, kind: e.target.value })}>
+        <option value="contractor">A contractor</option><option value="friend">A friend or owner — ideas for their property</option><option value="landlord">A landlord</option><option value="cleaner">A cleaner</option>
+      </select>
+      <button type="button" disabled={busy || !f.name.trim()} className="w-full rounded-xl bg-neutral-900 py-sm text-sm font-bold text-white disabled:opacity-40" onClick={async () => {
+        setBusy(true); setMsg('')
+        try { const d = await post({ action: 'new_person_board', ...f }); await navigator.clipboard.writeText(d.link).catch(() => {}); setMsg('Made — the link is copied. Paste it in a text or email; it opens just this planner, no sign-in.'); onMade(d.boardId) }
+        catch (e) { setMsg(e instanceof Error ? e.message : 'Not made') } finally { setBusy(false) }
+      }}>{busy ? 'Making…' : 'Make planner and copy link'}</button>
+      {msg && <p className="text-xs font-semibold text-neutral-700">{msg}</p>}
+      <button type="button" onClick={() => setOpen(false)} className="w-full text-xs text-neutral-500">Close</button>
+    </div>
+  )
+}
 
 // Email the person their board (4 Nov 2026): a test to you first, word for word, then to them — their copy's button
 // signs them straight into their planner.
