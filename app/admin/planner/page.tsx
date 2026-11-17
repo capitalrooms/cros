@@ -1154,6 +1154,11 @@ function BoardBrief({ brief, onChange }: { brief?: { notes: string; images: stri
   const [notes, setNotes] = useState(brief?.notes ?? '')
   const [big, setBig] = useState<string | null>(null)
   const imgs = brief?.images ?? []
+  const dirty = notes !== (brief?.notes ?? '')
+  const [saved, setSaved] = useState(false)
+  const commit = () => { if (notes !== (brief?.notes ?? '')) { onChange({ notes, images: imgs }); setSaved(true); setTimeout(() => setSaved(false), 2500) } }
+  // saves by itself a moment after you stop typing — and the Save button for anyone who wants to be sure
+  useEffect(() => { if (!dirty) return; const t = setTimeout(commit, 1500); return () => clearTimeout(t) })   // eslint-disable-line react-hooks/exhaustive-deps
   const add = (files: FileList | null) => Array.from(files ?? []).slice(0, 8).forEach(f => { const r = new FileReader(); r.onload = () => onChange({ notes, images: [...(brief?.images ?? []), String(r.result)] }); r.readAsDataURL(f) })
   if (!open) return (
     <button onClick={() => setOpen(true)} style={{ textAlign: 'left', fontSize: 12, color: '#78716c', background: '#fbfaf8', border: 'none', borderBottom: '1px solid #e5e2db', padding: '8px 16px', cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>
@@ -1163,9 +1168,13 @@ function BoardBrief({ brief, onChange }: { brief?: { notes: string; images: stri
   return (
     <div style={{ background: '#fbfaf8', borderBottom: '1px solid #e5e2db', padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 8, flexShrink: 0, maxHeight: 340, overflowY: 'auto' }}>
       <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.07em', color: '#a8a29e', margin: 0 }}>Brief</p>
-      <textarea value={notes} onChange={e => setNotes(e.target.value)} onBlur={() => { if (notes !== (brief?.notes ?? '')) onChange({ notes, images: imgs }) }} rows={3}
+      <textarea value={notes} onChange={e => setNotes(e.target.value)} onBlur={commit} rows={3}
         placeholder="What this list is for — e.g. Ground floor bathroom refit at 71 Alloa Road: black fittings, white metro tiles, budget about £4,000, done by March."
         style={{ width: '100%', fontSize: 13, lineHeight: 1.5, border: '1px solid #e5e2db', borderRadius: 8, padding: '8px 10px', fontFamily: 'inherit', resize: 'vertical', background: '#fff' }} />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <button onClick={commit} disabled={!dirty} style={{ fontSize: 13, fontWeight: 600, background: dirty ? '#1c1917' : '#e7e5e4', color: dirty ? '#fff' : '#a8a29e', border: 'none', borderRadius: 8, padding: '7px 16px', cursor: dirty ? 'pointer' : 'default', fontFamily: 'inherit' }}>Save</button>
+        <span style={{ fontSize: 12, color: '#78716c' }}>{dirty ? 'Saving in a moment…' : saved ? 'Saved ✓ — shared boards update too' : ''}</span>
+      </div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
         {imgs.map((src, i) => (
           <div key={i} style={{ position: 'relative' }}>
