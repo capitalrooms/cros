@@ -52,11 +52,24 @@ function Pill({ stage, onChange }: { stage: string; onChange?: (key: string) => 
 
 // web addresses in notes and replies become links (17 Nov 2026, Harry: "can hyperlinks in notes be clickable")
 const URL_RE = /(https?:\/\/[^\s<>"']+|www\.[^\s<>"']+)/g
+// "screwfix.com › shower-rail…" rather than a 300-character shop address
+export function shortUrl(u: string) {
+  try { const x = new URL(u.startsWith('www.') ? `https://${u}` : u); const seg = x.pathname.split('/').filter(s => s && !/^\d+$/.test(s) && s.length > 2).pop()
+    return `${x.hostname.replace(/^www\./, '')}${seg ? ` › ${decodeURIComponent(seg).replace(/[-_]+/g, ' ').replace(/\.\w+$/, '').slice(0, 40)}` : ''}` } catch { return u.slice(0, 50) }
+}
+// the picture a product link shows when shared (og:image) — for items with a link but no photos yet
+function LinkPicture({ url }: { url: string }) {
+  const [img, setImg] = useState<string | null | undefined>(undefined)
+  useEffect(() => { let on = true; plannerFetch(`/api/planner/link-preview?url=${encodeURIComponent(url)}`).then(r => r.json()).then(j => on && setImg(j.image ?? null)).catch(() => on && setImg(null)); return () => { on = false } }, [url])
+  if (!img) return <div className="flex h-40 items-center justify-center rounded-xl bg-neutral-50 text-[13px]" style={{ color: MUTED }}>{img === undefined ? 'Loading picture…' : 'No pictures yet'}</div>
+  // eslint-disable-next-line @next/next/no-img-element
+  return <a href={url} target="_blank" rel="noreferrer" className="block overflow-hidden rounded-xl bg-white"><img src={img} alt="" className="h-48 w-full object-contain" /></a>
+}
 export function Linkified({ text }: { text: string }) {
   const parts = text.split(URL_RE)
   return <>{parts.map((x, i) => i % 2 === 1
     ? (() => { const tail = x.match(/[.,;:!?)]+$/)?.[0] ?? ''; const u = tail ? x.slice(0, -tail.length) : x
-        return <span key={i}><a href={u.startsWith('www.') ? `https://${u}` : u} target="_blank" rel="noreferrer" className="pub-link break-all underline">{u.replace(/^https?:\/\//, '')}</a>{tail}</span> })()
+        return <span key={i}><a href={u.startsWith('www.') ? `https://${u}` : u} target="_blank" rel="noreferrer" className="pub-link underline" title={u}>{shortUrl(u)} ↗</a>{tail}</span> })()
     : <span key={i}>{x}</span>)}</>
 }
 
@@ -86,7 +99,7 @@ function Attachments({ links, photos, big }: { links: string[]; photos: Photo[];
         // eslint-disable-next-line @next/next/no-img-element
         <button key={p.path} type="button" onClick={() => setAt(i)} className="overflow-hidden rounded-lg"><img src={p.url!} alt="" className="h-28 w-28 object-cover transition hover:opacity-90 md:h-32 md:w-32" /></button>
       ))}</div>}
-      {links.map(l => <a key={l} href={l} target="_blank" rel="noreferrer" className="pub-link block truncate text-[14px] underline">{l.replace(/^https?:\/\//, '')}</a>)}
+      {links.map(l => <a key={l} href={l} target="_blank" rel="noreferrer" title={l} className="pub-link block truncate text-[14px] underline">{shortUrl(l)} ↗</a>)}
       {at != null && pics[at] && (
         <div role="dialog" aria-modal="true" onClick={() => setAt(null)} className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-4"
           onTouchStart={e => ((e.currentTarget as any)._x = e.touches[0].clientX)}
@@ -176,9 +189,10 @@ export default function LandlordPlanner({ previewBoardId, officeBoardId }: { pre
             const p = parse(e)
             return (
               <article key={e.id} className="flex flex-col gap-2 rounded-2xl border border-neutral-200 bg-white p-3">
-                {e.photos.length ? <Attachments links={[]} photos={e.photos} big /> : <div className="flex h-40 items-center justify-center rounded-xl bg-neutral-50 text-[13px]" style={{ color: MUTED }}>No pictures yet</div>}
-                <div className="flex items-start justify-between gap-2">
-                  <p className="m-0 text-[16px] font-semibold leading-snug">{e.title}</p>
+                {(() => { const firstLink = e.links[0] ?? (p.notes.match(URL_RE)?.[0]?.replace(/[.,;:!?)]+$/, '') ?? null)
+                  return e.photos.length ? <Attachments links={[]} photos={e.photos} big /> : firstLink ? <LinkPicture url={firstLink.startsWith('www.') ? `https://${firstLink}` : firstLink} /> : <div className="flex h-40 items-center justify-center rounded-xl bg-neutral-50 text-[13px]" style={{ color: MUTED }}>No pictures yet</div> })()}
+                <p className="m-0 text-[16px] font-semibold leading-snug">{e.title}</p>
+                <div className="self-start">
                   <Pill stage={p.stage} onChange={readOnly ? undefined : key => post({ action: 'update', entryId: e.id, stage: key }).then(load)} />
                 </div>
                 {e.property && <p className="m-0 text-[12px]" style={{ color: MUTED }}>{e.property}</p>}
