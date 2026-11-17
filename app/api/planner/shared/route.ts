@@ -319,6 +319,7 @@ export async function POST(req: NextRequest) {
       board = data
     }
     // the board takes the name you gave it in your planner, not "X & Capital Rooms" (17 Nov 2026)
+    await s.from('planner_shared_boards').update({ source_board_id: src.id }).eq('id', board.id).then(() => {}, () => {})   // stays linked (mig 293)
     if (src.title && (!board.title || /& Capital Rooms$/.test(board.title))) { await s.from('planner_shared_boards').update({ title: src.title.slice(0, 120) }).eq('id', board.id); board.title = src.title }
     // a landlord whose app parts have been chosen: sharing a board with them switches their planner on
     if (p.role === 'landlord' && Array.isArray(p.access_areas) && !p.access_areas.includes('planner')) {

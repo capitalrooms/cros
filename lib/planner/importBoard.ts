@@ -95,27 +95,73 @@ export async function importItems(s: SupabaseClient, opts: { boardId: string; au
     }
     // with migration 223: status, person and a non-date "when" in their own columns; before it, as the first line
     let { data: e, error } = await s.from('planner_shared_entries').insert({
-      ...base, body: '',
+      ...base, body: '', source_item_id: it.id,
       stage: it.status in STAGE_KEY ? STAGE_KEY[it.status] : null,
       responsible: (it.responsible ?? '').trim() || null,
       due_note: due ? null : date || null,
     }).select('id').single()
+    if (error && /source_item_id/.test(error.message)) {
+      ({ data: e, error } = await s.from('planner_shared_entries').insert({ ...base, body: '', stage: it.status in STAGE_KEY ? STAGE_KEY[it.status] : null, responsible: (it.responsible ?? '').trim() || null, due_note: due ? null : date || null }).select('id').single())
+    }
     if (error && /stage|responsible|due_note|schema cache/.test(error.message)) {
       ({ data: e, error } = await s.from('planner_shared_entries').insert({ ...base, body: line }).select('id').single())
     }
     if (error || !e) throw new Error(error?.message ?? 'An item wasn’t copied')
     entries++
-    for (const u of it.updates ?? []) {
-      const photos: string[] = []
-      for (const img of u.images ?? []) { const p = await copyPhoto(s, opts.boardId, img); if (p) photos.push(p); else photosMissed++ }
-      const when = dayMonth(u.when)
-      await s.from('planner_shared_replies').insert({
-        entry_id: (e as any).id, author_id: opts.authorId, body: String(u.body ?? ''),
-        links: (u.links ?? []).filter(l => /^https?:\/\//i.test(l)).slice(0, 10), photos,
-        ...(when ? { created_at: `${when}T12:00:00Z` } : {}),
-      })
-      replies++
-    }
+    replies += await copyUpdates(s, opts.boardId, (e as any).id, opts.authorId, it.updates ?? [], new Set(), r => { photosMissed += r })
   }
   return { entries, replies, photosMissed, skipped }
+}
+
+/** An item's updates → replies on the shared entry, skipping ones already there (by id, or same text). */
+async function copyUpdates(s: SupabaseClient, boardId: string, entryId: string, authorId: string, updates: NonNullable<PrivateItem['updates']>, have: Set<string>, missed: (n: number) => void): Promise<number> {
+  let n = 0
+  for (const u of updates) {
+    if (have.has(`id:${u.id}`) || have.has(`body:${String(u.body ?? '').trim()}`)) continue
+    const photos: string[] = []
+    for (const img of u.images ?? []) { const p = await copyPhoto(s, boardId, img); if (p) photos.push(p); else missed(1) }
+    const when = dayMonth(u.when)
+    const row = { entry_id: entryId, author_id: authorId, body: String(u.body ?? ''), links: (u.links ?? []).filter(l => /^https?:\/\//i.test(l)).slice(0, 10), photos, ...(when ? { created_at: `${when}T12:00:00Z` } : {}) }
+    const { error } = await s.from('planner_shared_replies').insert({ ...row, source_update_id: u.id })
+    if (error && /source_update_id/.test(error.message)) await s.from('planner_shared_replies').insert(row)
+    n++
+  }
+  return n
+}
+
+/** After the office Planner is saved: every shared board linked to one of its boards follows it — new items added,
+ *  title/status/person/dates updated, new updates added as replies. Replies people wrote on the shared board stay. */
+export async function syncLinkedBoards(s: SupabaseClient, boards: PrivateBoard[], authorId: string | null): Promise<number> {
+  const { data: shared, error } = await s.from('planner_shared_boards').select('id, title, source_board_id, created_by').is('archived_at', null)
+  if (error) return 0
+  let changed = 0
+  for (const sb of (shared ?? []) as any[]) {
+    // linked, or (boards shared before the link existed) named the same as an office board
+    const src = boards.find(b => b.id === sb.source_board_id) ?? (!sb.source_board_id ? boards.find(b => b.title && b.title.trim() === String(sb.title ?? '').trim()) : undefined)
+    if (!src) continue
+    if (!sb.source_board_id) await s.from('planner_shared_boards').update({ source_board_id: src.id }).eq('id', sb.id)
+    const { data: ents } = await s.from('planner_shared_entries').select('id, title, property_id, source_item_id, created_by').eq('board_id', sb.id)
+    const list = (ents ?? []) as any[]
+    const author = authorId ?? list[0]?.created_by ?? null
+    if (!author) continue
+    const { data: props } = await s.from('properties').select('id, name, address')
+    const plist = ((props ?? []) as any[]).map(p => ({ id: p.id, text: `${oneLine(p.name)} | ${oneLine(p.address)}`.toLowerCase() }))
+    const fresh: PrivateItem[] = []
+    for (const it of src.items) {
+      const propertyId = propertyFor(it.groupName, plist)
+      const title = (propertyId || !it.groupName ? it.title : `${it.groupName} — ${it.title}`).slice(0, 300)
+      const e = list.find(x => x.source_item_id === it.id) ?? list.find(x => !x.source_item_id && String(x.title).trim().toLowerCase() === title.trim().toLowerCase())
+      if (!e) { fresh.push(it); continue }
+      const date = it.date && it.date !== '—' ? it.date.trim() : ''
+      const due = dayMonth(date)
+      const upd: Record<string, unknown> = { title, property_id: propertyId, due_date: due, due_note: due ? null : date || null, responsible: (it.responsible ?? '').trim() || null,
+        stage: it.status in STAGE_KEY ? STAGE_KEY[it.status] : null, status: it.status === 'done' ? 'done' : 'open', source_item_id: it.id }
+      await s.from('planner_shared_entries').update(upd).eq('id', e.id)
+      const { data: reps } = await s.from('planner_shared_replies').select('body, source_update_id').eq('entry_id', e.id)
+      const have = new Set<string>(((reps ?? []) as any[]).flatMap(r => [r.source_update_id ? `id:${r.source_update_id}` : '', `body:${String(r.body ?? '').trim()}`]).filter(Boolean))
+      changed += await copyUpdates(s, sb.id, e.id, author, it.updates ?? [], have, () => {})
+    }
+    if (fresh.length) { const r = await importItems(s, { boardId: sb.id, authorId: author, items: fresh }); changed += r.entries }
+  }
+  return changed
 }

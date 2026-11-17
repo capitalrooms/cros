@@ -493,7 +493,7 @@ function ImportPanel({ people, preselect, post, onClose, onDone }: {
       <div className="flex items-start justify-between gap-md">
         <div>
           <h2 className="text-lg font-bold text-neutral-900">Bring in a board from your planner</h2>
-          <p className="text-xs text-neutral-500">Everything ticked is copied across — items, notes, links and photos. Your own planner board stays exactly as it is.</p>
+          <p className="text-xs text-neutral-500">Do this once per board. After that it stays linked: anything you add or change on your planner board shows up for everyone on the shared board by itself — no resending.</p>
         </div>
         <button type="button" onClick={onClose} className="text-sm font-semibold text-neutral-500 hover:text-neutral-900">Close</button>
       </div>

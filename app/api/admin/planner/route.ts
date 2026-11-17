@@ -2,7 +2,8 @@
 // browser). Kept as a private JSON file in storage — admin-only, never public.
 //   GET → { boards, savedAt } (boards null when nothing has been saved yet)
 //   PUT { boards } → saves
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse, after } from 'next/server'
+import { syncLinkedBoards } from '@/lib/planner/importBoard'
 import { createClient } from '@supabase/supabase-js'
 import { requireAdmin } from '@/lib/adminAuth'
 
@@ -32,5 +33,7 @@ export async function PUT(req: NextRequest) {
   const file = JSON.stringify({ boards: body.boards, savedAt, savedBy: admin.email })
   const { error } = await svc().storage.from(BUCKET).upload(PATH, new Blob([file], { type: 'application/json' }), { upsert: true, contentType: 'application/json' })
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  // shared boards linked to these follow them — no resharing (17 Nov 2026); runs after the reply so saving stays quick
+  after(async () => { try { await syncLinkedBoards(svc() as any, body.boards, admin.personId ?? null) } catch (e) { console.error('[planner] sync', e) } })
   return NextResponse.json({ ok: true, savedAt })
 }
