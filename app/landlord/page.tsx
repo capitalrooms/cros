@@ -8,13 +8,11 @@ import { displayName } from '@/lib/people'
 import ViewAsBanner from '@/app/components/ViewAsBanner'
 import PropertyFinancialSummary from '@/app/components/PropertyFinancialSummary'
 import LandlordPlanner from '@/components/LandlordPlanner'
-import PublicShell from '@/components/public/PublicShell'
 import LandlordDocuments from './LandlordDocuments'
 import ExpenseHistory from './ExpenseHistory'
 import UpkeepByArea from './UpkeepByArea'
 import { dearName } from '@/lib/people'
 import { landlordSections, type LandlordSection } from '@/lib/access/landlordSections'
-import LineIcon from '@/components/LineIcon'
 
 // Notification categories the landlord can self-manage
 const NOTIF_CATEGORIES: { key: string; label: string; description: string; mandatory?: boolean }[] = [
@@ -46,6 +44,8 @@ interface Statement {
   properties?: { name: string; address: string }
 }
 
+type Tab = 'home' | 'statements' | 'documents' | 'spending'
+
 export default function LandlordDashboard() {
   const router = useRouter()
   const [user, setUser]                 = useState<any>(null)
@@ -58,7 +58,10 @@ export default function LandlordDashboard() {
   const [prefs, setPrefs]               = useState<Record<string, boolean>>({})
   const [showNotifPrefs, setShowNotifPrefs] = useState(false)
   const [viewingAs, setViewingAs]       = useState<{ id: string; name: string; role: string } | null>(null)
-  const [portfolioPeriod, setPortfolioPeriod] = useState<'3m' | '6m' | '12m' | 'all'>('12m')
+  const [period, setPeriod] = useState<'month' | '3m' | '12m'>('month')
+  const [tab, setTab] = useState<Tab>('home')
+  const [houses, setHouses] = useState<{ id: string; name: string; rooms: number; let: number; due: { label: string; date: string; overdue: boolean }[] }[]>([])
+  const [tenants, setTenants] = useState<{ total: number; working: number; students: number; unknown: number; fields: string[]; roomsLet: number; rooms: number; avgStayMonths: number | null } | null>(null)
   // the parts of the app the office has switched on for this landlord (lib/access/landlordSections, 14 Oct 2026)
   const [sections, setSections] = useState<LandlordSection[]>([])
   const [boardId, setBoardId] = useState<string | null>(null)
@@ -137,6 +140,10 @@ export default function LandlordDashboard() {
         setPrefs(pm)
       }
 
+      // houses, certificates due, who lives there (app/api/landlord/overview)
+      const ov = await fetch(`/api/landlord/overview${asParam && isAdmin ? `?as=${encodeURIComponent(asParam)}` : ''}`).then(r => r.ok ? r.json() : null).catch(() => null)
+      if (ov) { setHouses(ov.houses ?? []); setTenants(ov.tenants ?? null) }
+
       setLoading(false)
     }
 
@@ -166,206 +173,175 @@ export default function LandlordDashboard() {
     ).values()
   )
 
-  // Portfolio summary — totals across all properties for the selected period
-  const portfolioCutoff = (() => {
-    if (portfolioPeriod === 'all') return null
-    const d = new Date()
-    d.setMonth(d.getMonth() - (portfolioPeriod === '3m' ? 3 : portfolioPeriod === '6m' ? 6 : 12))
-    return d.toISOString().split('T')[0]
+  // ── the landlord home (17 Nov 2026, Harry: "really really busy, too many different size fonts and too bold" → style A,
+  // the tenant app / website look): one clear figure for the period, a bar splitting rent into you · management · costs,
+  // a card per house, who lives there (counts only), and four tabs. Three type sizes; colour only where it means something.
+  const now = new Date()
+  const monthKey = (d: string) => d.slice(0, 7)
+  const latestMonth = statements[0]?.statement_date ? monthKey(statements[0].statement_date) : null
+  const thisMonth = now.toISOString().slice(0, 7)
+  const periodStmts = (() => {
+    if (period === 'month') { const m = statements.some(x => monthKey(x.statement_date) === thisMonth) ? thisMonth : latestMonth; return statements.filter(x => m && monthKey(x.statement_date) === m) }
+    const d = new Date(); d.setMonth(d.getMonth() - (period === '3m' ? 3 : 12)); const cut = d.toISOString().slice(0, 10)
+    return statements.filter(x => x.statement_date >= cut)
   })()
-  const portfolioStmts = portfolioCutoff
-    ? statements.filter(s => s.statement_date >= portfolioCutoff)
-    : statements
-  const portfolioTotals = portfolioStmts.reduce(
-    (acc, s) => ({
-      gross:   acc.gross   + parseFloat(String(s.gross_rent          || 0)),
-      fees:    acc.fees    + parseFloat(String(s.management_fees     || 0)),
-      charges: acc.charges + parseFloat(String(s.property_charges    || 0)),
-      net:     acc.net     + parseFloat(String(s.net_to_landlord     || 0)),
-    }),
-    { gross: 0, fees: 0, charges: 0, net: 0 }
-  )
+  const num = (v: unknown) => parseFloat(String(v || 0)) || 0
+  const tot = periodStmts.reduce((a, x) => ({ gross: a.gross + num(x.gross_rent), fees: a.fees + num(x.management_fees), costs: a.costs + num(x.property_charges), net: a.net + num(x.net_to_landlord) }), { gross: 0, fees: 0, costs: 0, net: 0 })
+  const pct = (n: number) => tot.gross > 0 ? Math.max(0, Math.round(n / tot.gross * 100)) : 0
+  const feePct = tot.gross > 0 ? Math.round(tot.fees / tot.gross * 100) : 0
+  const whole = (n: number) => `£${Math.round(n).toLocaleString('en-GB')}`
+  const periodLabel = period === 'month'
+    ? `Paid to you in ${new Date(`${(periodStmts[0]?.statement_date ?? now.toISOString()).slice(0, 7)}-15`).toLocaleDateString('en-GB', { month: 'long' })}`
+    : period === '3m' ? 'Paid to you in the last 3 months' : 'Paid to you in the last 12 months'
+  const netBy = (pid: string) => periodStmts.filter(x => x.property_id === pid).reduce((a, x) => a + num(x.net_to_landlord), 0)
   const gbp = (n: number) => `£${n.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  void gbp
+  const firstName = (name || '').replace(/^(mr|mrs|ms|miss|mx|dr|prof|sir|dame|lady|lord)\.?\s+/i, '').split(' ')[0]
+  const tabs = [
+    { key: 'home', label: 'Home', show: true },
+    { key: 'statements', label: 'Statements', show: sections.includes('statements') },
+    { key: 'documents', label: 'Documents', show: true },
+    { key: 'spending', label: 'Spending', show: sections.includes('statements') },
+  ].filter(t => t.show) as { key: Tab; label: string }[]
 
-  if (loading) {
-    return <PublicShell centred signedIn><p className="pub-muted mx-auto max-w-6xl px-6 py-24 text-[16px] md:px-14">Loading…</p></PublicShell>
-  }
+  if (loading) return <div className="garden min-h-screen bg-[#EEF2EC]" />
 
-  // the landlord-onboarding look (components/public) — 14 Oct 2026, Harry: "do it in the onboarding landlord style"
-  const wrap = 'mx-auto max-w-6xl px-6 md:px-14'
+  const card = 'rounded-[20px] bg-white'
   return (
-    <PublicShell centred signedIn label={viewingAs ? `Viewing as ${name}` : 'Your account'}>
+    <div className="garden min-h-screen bg-[#EEF2EC] pb-32 text-[#14261F]" style={{ paddingTop: 'max(calc(env(safe-area-inset-top) + 14px), 20px)' }}>
       {viewingAs && <ViewAsBanner name={viewingAs.name} role={viewingAs.role} personId={viewingAs.id} />}
+      <div className="mx-auto max-w-xl space-y-4 px-4 lg:max-w-3xl">
 
-      <section className={`${wrap} pt-10 md:pt-14`}>
-        <p className="pub-eyebrow pub-enter m-0 mb-4">Capital Rooms · landlord</p>
-        <h1 className="pub-serif pub-enter m-0 text-[34px] leading-[1.05] md:text-[56px]">Hello, {name || 'there'}</h1>
-        <p className="pub-intro pub-enter-2 mt-4 max-w-2xl">
-          {sections.includes('planner')
-            ? 'Everything we’re working on together, by property. Tap a line to open it.'
-            : sections.includes('statements') ? 'Financial summaries for your properties.' : 'Your statements, agreements and invoices, all in one place.'}
-        </p>
-      </section>
-
-      {/* Shared planner with the office — both sides add and edit; viewing as them, the same screen read only */}
-      {sections.includes('planner') && (
-        <section className={`${wrap} pt-8 md:pt-12`}>
-          <h2 className="pub-h2 mb-5">Planner</h2>
-          {viewingAs
-            ? (boardId ? <LandlordPlanner previewBoardId={boardId} /> : <p className="pub-note">No board yet — switch the planner on from their profile.</p>)
-            : <LandlordPlanner />}
-        </section>
-      )}
-
-      <section className={`${wrap} pt-12`}>
-        {sections.includes('statements') && (<>
-
-        {/* Portfolio summary */}
-        {statements.length > 0 && (
-          <div className="mb-2xl">
-            <div className="flex items-center justify-between mb-md flex-wrap gap-sm">
-              <p className="text-xs font-bold uppercase tracking-widest text-neutral-500">
-                Portfolio total{properties.length > 1 ? ` · ${properties.length} properties` : ''}
-              </p>
-              <div className="flex items-center gap-xs">
-                {(['3m', '6m', '12m', 'all'] as const).map(p => (
-                  <button
-                    key={p}
-                    onClick={() => setPortfolioPeriod(p)}
-                    className={`text-xs px-sm py-xs rounded-full font-medium transition-colors ${
-                      portfolioPeriod === p
-                        ? 'bg-neutral-900 text-white'
-                        : 'text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100'
-                    }`}
-                  >
-                    {p === 'all' ? 'All time' : p}
-                  </button>
-                ))}
-              </div>
+        {tab === 'home' && (<>
+          <div className="flex items-start justify-between gap-3 pt-1">
+            <div>
+              <p className="text-[13px] text-[#4E6158]">{now.getHours() < 12 ? 'Good morning' : now.getHours() < 18 ? 'Good afternoon' : 'Good evening'}{firstName ? `, ${firstName}` : ''}</p>
+              <h1 className="text-[26px] font-semibold leading-tight tracking-[-0.02em]">Your properties</h1>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-md">
-              {[
-                { label: 'Gross rent',  value: portfolioTotals.gross,   colour: 'text-neutral-900' },
-                { label: 'Mgmt fees',   value: portfolioTotals.fees,    colour: 'text-red-600' },
-                { label: 'Expenses',    value: portfolioTotals.charges, colour: 'text-red-600' },
-                { label: 'Net income',  value: portfolioTotals.net,     colour: 'text-green-700' },
-              ].map(m => (
-                <div key={m.label} className="rounded-2xl bg-white border border-neutral-200 px-md py-md shadow-sm">
-                  <p className="text-[11px] font-semibold uppercase tracking-widest text-neutral-400">{m.label}</p>
-                  <p className={`text-xl font-black mt-xs tabular-nums ${m.colour}`}>{gbp(m.value)}</p>
-                </div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/brand/lockup-ink.png" alt="Capital Rooms" style={{ height: 26, width: 'auto', marginTop: 6 }} />
+          </div>
+
+          {sections.includes('statements') && statements.length > 0 && (<>
+            <div className="flex gap-2">
+              {([['month', 'This month'], ['3m', '3 months'], ['12m', '12 months']] as const).map(([k, l]) => (
+                <button key={k} type="button" onClick={() => setPeriod(k)} className={`h-9 rounded-full px-4 text-[13px] ${period === k ? 'bg-[#17332B] text-white' : 'bg-white text-[#4E6158]'}`}>{l}</button>
               ))}
             </div>
-            {portfolioCutoff && (
-              <p className="text-xs text-neutral-400 mt-sm text-right">
-                {portfolioStmts.length} statement{portfolioStmts.length !== 1 ? 's' : ''} from {new Date(portfolioCutoff).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })} onwards
+            <section className="rounded-[22px] bg-[#17332B] p-5 text-[#F1F5EE]">
+              <p className="text-[13px] text-[#B9CBBF]">{periodLabel}</p>
+              <p className="mt-0.5 text-[34px] font-semibold leading-none tracking-[-0.02em] tabular-nums">{whole(tot.net)}</p>
+              <div className="mt-4 flex h-2 overflow-hidden rounded-full bg-white/10" aria-hidden="true">
+                <div style={{ width: `${pct(tot.net)}%`, background: 'var(--cr-gold, #E9B949)' }} />
+                <div style={{ width: `${pct(tot.fees)}%`, background: '#7E9488' }} />
+                <div style={{ width: `${pct(tot.costs)}%`, background: '#C9D6CC' }} />
+              </div>
+              <div className="mt-2 flex justify-between text-[12px] text-[#B9CBBF]">
+                <span>You {pct(tot.net)}%</span><span>Management {feePct}%</span><span>Costs {pct(tot.costs)}%</span>
+              </div>
+              <p className="mt-3 text-[12px] text-[#B9CBBF]">From {whole(tot.gross)} rent · {periodStmts.length} statement{periodStmts.length === 1 ? '' : 's'}</p>
+            </section>
+          </>)}
+
+          {!!houses.length && (<>
+            <p className="px-1 pt-1 text-[13px] text-[#4E6158]">{houses.length} {houses.length === 1 ? 'property' : 'properties'}</p>
+            <div className={`${card} px-4`}>
+              {houses.map((h, i) => (
+                <button key={h.id} type="button" onClick={() => { setSelectedProperty(h.id); setTab('statements'); window.scrollTo({ top: 0 }) }}
+                  className={`flex w-full items-center justify-between gap-3 py-3 text-left ${i < houses.length - 1 ? 'border-b border-[#E3EAE4]' : ''}`}>
+                  <span className="min-w-0">
+                    <span className="block truncate text-[15px]">{h.name}</span>
+                    <span className="mt-0.5 flex flex-wrap gap-1.5">
+                      {h.rooms > 1 && <span className="text-[12px] text-[#4E6158]">{h.let} of {h.rooms} rooms let</span>}
+                      {h.due.slice(0, 2).map(d => <span key={d.label} className={`rounded-full px-2 py-0.5 text-[11px] ${d.overdue ? 'bg-[#FCEBEB] text-[#791F1F]' : 'bg-[#FAEEDA] text-[#633806]'}`}>{d.label} {d.overdue ? 'overdue' : `due ${new Date(d.date).toLocaleDateString('en-GB', { month: 'short' })}`}</span>)}
+                    </span>
+                  </span>
+                  {sections.includes('statements') && <span className="shrink-0 text-[15px] tabular-nums">{whole(netBy(h.id))}</span>}
+                </button>
+              ))}
+            </div>
+          </>)}
+
+          {tenants && (<>
+            <p className="px-1 pt-1 text-[13px] text-[#4E6158]">Who lives in your homes</p>
+            <section className={`${card} p-4`}>
+              <p className="text-[15px]">{tenants.total} tenant{tenants.total === 1 ? '' : 's'}{tenants.rooms > 1 ? ` · ${tenants.roomsLet} of ${tenants.rooms} rooms let` : ''}</p>
+              <div className="mt-3 flex h-2 overflow-hidden rounded-full bg-[#E3EAE4]" aria-hidden="true">
+                <div style={{ width: `${tenants.working / tenants.total * 100}%`, background: '#17332B' }} />
+                <div style={{ width: `${tenants.students / tenants.total * 100}%`, background: '#5E8C74' }} />
+              </div>
+              <p className="mt-2 text-[13px] leading-relaxed text-[#4E6158]">
+                {!!tenants.working && <>Working {tenants.working}{tenants.fields.length ? ` · ${tenants.fields.join(', ')}` : ''}<br /></>}
+                {!!tenants.students && <>Students {tenants.students}<br /></>}
+                {!!tenants.unknown && <>Not told us {tenants.unknown}<br /></>}
+                {tenants.avgStayMonths != null && <>Average stay so far {tenants.avgStayMonths} month{tenants.avgStayMonths === 1 ? '' : 's'}</>}
               </p>
-            )}
+            </section>
+          </>)}
+
+          {sections.includes('planner') && (<>
+            <p className="px-1 pt-1 text-[13px] text-[#4E6158]">What we’re working on</p>
+            <section className={`${card} p-4`}>
+              {viewingAs ? (boardId ? <LandlordPlanner previewBoardId={boardId} /> : <p className="text-[13px] text-[#4E6158]">No board yet.</p>) : <LandlordPlanner />}
+            </section>
+          </>)}
+
+          {commsEnabled && sections.includes('notifications') && (
+            <section className={`${card} p-4`}>
+              <button type="button" onClick={() => setShowNotifPrefs(v => !v)} className="flex w-full items-center justify-between text-left">
+                <span><span className="block text-[15px]">Updates from us</span><span className="block text-[13px] text-[#4E6158]">Choose what we email you about</span></span>
+                <span className="text-[#4E6158]" aria-hidden="true">{showNotifPrefs ? '⌃' : '⌄'}</span>
+              </button>
+              {showNotifPrefs && <div className="mt-2">{NOTIF_CATEGORIES.map((cat, i) => {
+                const on = cat.mandatory ? true : (prefs[cat.key] ?? true)
+                return (
+                  <div key={cat.key} className={`flex items-center justify-between gap-3 py-2.5 ${i ? 'border-t border-[#E3EAE4]' : ''}`}>
+                    <span className="min-w-0"><span className="block text-[14px]">{cat.label}</span><span className="block text-[12px] text-[#4E6158]">{cat.description}</span></span>
+                    {cat.mandatory ? <span className="text-[12px] text-[#4E6158]">Always on</span>
+                      : <button type="button" role="switch" aria-checked={on} aria-label={cat.label} onClick={() => togglePref(cat.key)} className={`relative h-7 w-12 shrink-0 rounded-full ${on ? 'bg-[#17332B]' : 'bg-[#C9D6CC]'}`}><span className={`absolute top-1 h-5 w-5 rounded-full bg-white transition-transform ${on ? 'translate-x-6' : 'translate-x-1'}`} /></button>}
+                  </div>)
+              })}</div>}
+            </section>
+          )}
+
+          <div className="flex gap-5 px-1 pt-2 text-[13px] text-[#4E6158]">
+            <a href="/account" className="underline">Password and sign-in</a>
+            {!viewingAs && <button type="button" onClick={handleSignOut} className="underline">Sign out</button>}
           </div>
-        )}
-
-        {/* Property Selector */}
-        {properties.length > 0 && (
-          <div className="mb-3xl rounded-2xl p-lg" style={{ background: '#EEF0F3', border: '1px solid #DDE1E6' }}>
-            <label htmlFor="landlord-property" className="block text-xs font-bold uppercase tracking-widest mb-md" style={{ color: '#5B6470' }}>
-              {properties.length > 1 ? 'Select property' : 'Your property'}
-            </label>
-            <div className="relative">
-              <select
-                id="landlord-property"
-                value={selectedProperty}
-                onChange={(e) => setSelectedProperty(e.target.value)}
-                disabled={properties.length < 2}
-                className="w-full rounded-lg px-md py-sm pr-10 text-base font-bold appearance-none cursor-pointer disabled:cursor-default disabled:opacity-100"
-                style={{ background: '#fff', color: '#1F2329', border: '1px solid #D3D8DE' }}
-              >
-                {properties.map((prop) => {
-                  // the full address once — not "208 Rotherhithe Street — 208 Rotherhithe Street, London…"
-                  const addr = String(prop.address || '').replace(/\s*\n\s*/g, ', ')
-                  const name = String(prop.name || '').split('\n')[0]
-                  const label = !addr ? name : !name || addr.toLowerCase().startsWith(name.toLowerCase()) ? addr : `${name} — ${addr}`
-                  return <option key={prop.id} value={prop.id}>{label}</option>
-                })}
-              </select>
-              {properties.length > 1 && <span aria-hidden="true" className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm" style={{ color: '#5B6470' }}>▾</span>}
-            </div>
-          </div>
-        )}
-
-        {/* Financial summary — shared component (also used in admin property Financials tab) */}
-        {selectedProperty
-          ? <PropertyFinancialSummary propertyId={selectedProperty} />
-          : (
-            <div className="rounded-2xl bg-white border border-neutral-200 px-lg py-3xl text-center mb-3xl">
-              <p className="text-3xl mb-md"><LineIcon glyph="💷" /></p>
-              <p className="text-sm font-semibold text-neutral-600">No monthly statements</p>
-              <p className="text-xs text-neutral-400 mt-xs">Monthly statements appear here for houses we manage. Lettings statements for tenants we've found you are under Your documents below.</p>
-            </div>
-          )
-        }
-
         </>)}
 
-        {/* ─── Notification Preferences ─── */}
-        {commsEnabled && sections.includes('notifications') && (
-          <div className="mt-3xl">
-            <button
-              onClick={() => setShowNotifPrefs(v => !v)}
-              className="flex items-center justify-between w-full rounded-2xl bg-neutral-900 px-lg py-md text-left"
-            >
-              <div>
-                <p className="text-sm font-bold text-white">Notification preferences</p>
-                <p className="text-xs text-white/40 mt-xs">Choose which updates you receive from Capital Rooms</p>
-              </div>
-              <span className="text-white/40 text-lg ml-md">{showNotifPrefs ? '▲' : '▼'}</span>
-            </button>
+        {tab === 'statements' && (<>
+          <h1 className="pt-1 text-[26px] font-semibold tracking-[-0.02em]">Statements</h1>
+          {properties.length > 1 && (
+            <select value={selectedProperty} onChange={e => setSelectedProperty(e.target.value)} className="h-12 w-full rounded-full border-0 bg-white px-4 text-[15px]">
+              {properties.map(prop => <option key={prop.id} value={prop.id}>{String(prop.name || prop.address || '').split('\n')[0]}</option>)}
+            </select>
+          )}
+          <section className={`${card} p-4`}>
+            {selectedProperty ? <PropertyFinancialSummary propertyId={selectedProperty} /> : <p className="text-[14px] text-[#4E6158]">Monthly statements show here for the homes we manage.</p>}
+          </section>
+        </>)}
 
-            {showNotifPrefs && (
-              <div className="mt-sm rounded-2xl bg-neutral-900 overflow-hidden">
-                {NOTIF_CATEGORIES.map((cat, i) => {
-                  const isEnabled = cat.mandatory ? true : (prefs[cat.key] ?? true)
-                  return (
-                    <div key={cat.key} className={`flex items-center justify-between px-lg py-md ${i < NOTIF_CATEGORIES.length - 1 ? 'border-b border-white/5' : ''}`}>
-                      <div className="flex-1 min-w-0 mr-md">
-                        <p className="text-sm font-semibold text-white">{cat.label}</p>
-                        <p className="text-xs text-white/40">{cat.description}</p>
-                      </div>
-                      {cat.mandatory ? (
-                        <span className="text-xs text-white/30 italic">Always on</span>
-                      ) : (
-                        <button
-                          onClick={() => togglePref(cat.key)}
-                          className={`relative inline-flex h-7 w-12 flex-shrink-0 items-center rounded-full transition-colors ${isEnabled ? 'bg-emerald-500' : 'bg-neutral-600'}`}
-                        >
-                          <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${isEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
-                        </button>
-                      )}
-                    </div>
-                  )
-                })}
-                <div className="px-lg py-md border-t border-white/5">
-                  <p className="text-xs text-white/30">
-                    Your property manager can see these preferences. Emergency notifications cannot be turned off.
-                  </p>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-      </section>
+        {tab === 'documents' && (<>
+          <h1 className="pt-1 text-[26px] font-semibold tracking-[-0.02em]">Documents</h1>
+          <section className={`${card} py-2`}><LandlordDocuments asId={viewingAs?.id ?? null} /></section>
+        </>)}
 
-      {/* statements, agreements, invoices and certificates from us — let-only landlords too (21 Oct 2026) */}
-      <LandlordDocuments asId={viewingAs?.id ?? null} />
+        {tab === 'spending' && (<>
+          <h1 className="pt-1 text-[26px] font-semibold tracking-[-0.02em]">Spending</h1>
+          <section className={`${card} py-2`}><ExpenseHistory asId={viewingAs?.id ?? null} /></section>
+          <section className={`${card} py-2`}><UpkeepByArea asId={viewingAs?.id ?? null} /></section>
+        </>)}
+      </div>
 
-      {/* their costs by type over the years — e.g. what internet has cost each tax year (5 Nov 2026) */}
-      {sections.includes('statements') && <ExpenseHistory asId={viewingAs?.id ?? null} />}
-      {sections.includes('statements') && <UpkeepByArea asId={viewingAs?.id ?? null} />}
-
-      {/* account */}
-      <section className={`${wrap} flex flex-wrap items-center gap-6 pb-16 pt-16`}>
-        <a href="/account" className="pub-eyebrow inline-flex min-h-[44px] items-center" style={{ color: '#111' }}>Password &amp; sign-in</a>
-        {!viewingAs && <button type="button" onClick={handleSignOut} className="pub-eyebrow inline-flex min-h-[44px] items-center" style={{ color: '#111' }}>Sign out</button>}
-      </section>
-    </PublicShell>
+      {tabs.length > 1 && (
+        <nav aria-label="Landlord sections" className="fixed inset-x-3 z-40 mx-auto flex max-w-xl justify-around gap-1 rounded-[24px] bg-[#17332B] p-1.5" style={{ bottom: 'max(env(safe-area-inset-bottom), 12px)' }}>
+          {tabs.map(t => (
+            <button key={t.key} type="button" onClick={() => { setTab(t.key); window.scrollTo({ top: 0 }) }} aria-current={tab === t.key ? 'page' : undefined}
+              className={`h-11 flex-1 rounded-[18px] text-[13px] ${tab === t.key ? 'text-[#17332B]' : 'text-[#B9CBBF]'}`} style={tab === t.key ? { background: 'var(--cr-gold, #E9B949)' } : undefined}>{t.label}</button>
+          ))}
+        </nav>
+      )}
+    </div>
   )
 }
