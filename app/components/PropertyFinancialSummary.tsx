@@ -277,12 +277,12 @@ export default function PropertyFinancialSummary({ propertyId }: { propertyId: s
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-md pt-sm">
           {[
             { label: 'Gross Rent', value: num(stmt.gross_rent),        colour: 'text-neutral-900' },
-            { label: 'Mgmt Fees',  value: num(stmt.management_fees),   colour: 'text-red-600' },
-            { label: 'Expenses',   value: num(stmt.property_charges),  colour: 'text-red-600' },
-            { label: 'Net',        value: num(stmt.net_to_landlord),   colour: 'text-green-700' },
+            { label: 'Management',  value: num(stmt.management_fees),   colour: 'text-neutral-600' },
+            { label: 'Costs',   value: num(stmt.property_charges),  colour: 'text-neutral-600' },
+            { label: 'To you',        value: num(stmt.net_to_landlord),   colour: 'text-neutral-900' },
           ].map(m => (
             <div key={m.label} className="bg-white rounded-xl border border-neutral-200 px-md py-sm">
-              <p className="text-[11px] font-semibold uppercase tracking-widest text-neutral-400">{m.label}</p>
+              <p className="text-[12px] text-neutral-500">{m.label}</p>
               <p className={`text-lg font-bold mt-xs tabular-nums ${m.colour}`}>{gbp(m.value)}</p>
             </div>
           ))}
@@ -295,7 +295,7 @@ export default function PropertyFinancialSummary({ propertyId }: { propertyId: s
         {/* Line items */}
         {items.length > 0 ? (
           <div className="space-y-sm">
-            <p className="text-xs font-semibold uppercase tracking-widest text-neutral-400">Line Items</p>
+            <p className="text-[12px] text-neutral-500">What’s in it</p>
 
             {incomeItems.length > 0 && (
               <Accordion id={`${stmt.id}__income`} emoji="💷" title="Rent Received"
@@ -442,12 +442,12 @@ export default function PropertyFinancialSummary({ propertyId }: { propertyId: s
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-md">
             {[
               { label: 'Gross Rent', value: totals.gross,   colour: 'text-neutral-900' },
-              { label: 'Mgmt Fees',  value: totals.fees,    colour: 'text-red-600' },
-              { label: 'Expenses',   value: totals.charges, colour: 'text-red-600' },
-              { label: 'Net',        value: totals.net,     colour: 'text-green-700' },
+              { label: 'Management',  value: totals.fees,    colour: 'text-neutral-600' },
+              { label: 'Costs',   value: totals.charges, colour: 'text-neutral-600' },
+              { label: 'To you',        value: totals.net,     colour: 'text-neutral-900' },
             ].map(m => (
               <div key={m.label} className="rounded-xl bg-white border border-neutral-200 px-md py-md shadow-sm">
-                <p className="text-[11px] font-semibold uppercase tracking-widest text-neutral-400">{m.label}</p>
+                <p className="text-[12px] text-neutral-500">{m.label}</p>
                 <p className={`text-xl font-bold mt-xs tabular-nums ${m.colour}`}>{gbp(m.value)}</p>
               </div>
             ))}
@@ -498,7 +498,7 @@ export default function PropertyFinancialSummary({ propertyId }: { propertyId: s
                   <div className="flex items-center gap-lg ml-md shrink-0">
                     <div className="text-right">
                       <p className="text-xs text-neutral-400">Net</p>
-                      <p className="text-base font-bold text-green-700 tabular-nums">{gbp(num(stmt.net_to_landlord))}</p>
+                      <p className="text-base font-semibold text-neutral-900 tabular-nums">{gbp(num(stmt.net_to_landlord))}</p>
                     </div>
                     <span className="text-neutral-400 text-sm">{isOpen ? '▲' : '▼'}</span>
                   </div>

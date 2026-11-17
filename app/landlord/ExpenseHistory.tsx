@@ -26,10 +26,9 @@ export default function ExpenseHistory({ asId }: { asId: string | null }) {
   }).filter(t => t.count).sort((a, b) => b.total - a.total) : d.types
 
   return (
-    <section className="mx-auto mt-12 max-w-6xl px-6 md:px-14">
-      <p className="pub-eyebrow m-0">Your property expenses</p>
-      <h2 className="pub-serif m-0 mt-2 text-[28px] leading-tight md:text-[36px]">What’s been spent, by type</h2>
-      <p className="pub-muted mt-2 text-[14px]">Every cost on your statements, grouped — internet, cleaning, repairs and so on — with the total for each tax year. Open a type to see each charge.</p>
+    <section className="px-4 py-2">
+      {/* in the landlord app's Spending tab (17 Nov 2026): no second heading — the tab says what it is */}
+      <p className="text-[13px] text-[#4E6158]">Every cost on your statements by type, with each tax year’s total. Tap a type to see each charge.</p>
       {d.houses.length > 1 && (
         <select value={house} onChange={e => setHouse(e.target.value)} className="mt-4 rounded-full border px-4 py-2 text-[14px]" style={{ borderColor: '#111' }} aria-label="Property">
           <option value="">All properties</option>{d.houses.map(h => <option key={h} value={h}>{h}</option>)}
@@ -39,9 +38,9 @@ export default function ExpenseHistory({ asId }: { asId: string | null }) {
         {types.map(t => (
           <li key={t.category} style={{ borderBottom: `1px solid ${LINE}` }}>
             <button type="button" onClick={() => setOpen(open === t.category ? null : t.category)} aria-expanded={open === t.category} className="flex w-full flex-wrap items-baseline justify-between gap-3 py-4 text-left">
-              <span className="text-[16px] font-semibold">{t.category} <span className="pub-muted text-[13px] font-normal">· {t.count} charge{t.count === 1 ? '' : 's'}</span></span>
+              <span className="text-[15px]">{t.category} <span className="pub-muted text-[13px] font-normal">· {t.count} charge{t.count === 1 ? '' : 's'}</span></span>
               <span className="flex flex-wrap items-baseline gap-4 text-[14px]">
-                {t.byYear.slice(0, 3).map(y => <span key={y.taxYear} className="pub-muted">{y.taxYear} <b style={{ color: '#111' }}>{gbp(y.amount)}</b></span>)}
+                {t.byYear.slice(0, 3).map(y => <span key={y.taxYear} className="pub-muted">{y.taxYear} <span style={{ color: '#14261F' }}>{gbp(y.amount)}</span></span>)}
                 <span className="text-[16px] font-semibold">{gbp(t.total)}</span>
               </span>
             </button>

@@ -35,44 +35,46 @@ export default function LandlordDocuments({ asId }: { asId?: string | null }) {
     } catch (e) { w?.close(); setMsg(e instanceof Error ? e.message : 'That document couldn’t be opened') } finally { setBusy('') }
   }
 
+  const [openGroup, setOpenGroup] = useState<string | null>(null)
   if (!data) return null
+  // folded shut by kind, the newest first; tap a row to open it, the arrow to save it (17 Nov 2026 — it was 38 rows of
+  // View / Download pairs under a second big heading)
   const groups: [string, string, Doc[]][] = ([
-    ['Lettings statements', 'What came in for each let, our fee, and what was paid to you', data.statements],
+    ['Certificates', 'Safety certificates for the homes we manage', data.certificates],
     ['Tenancy agreements', '', data.agreements],
-    ['Invoices and letters from us', '', data.invoices],
-    ['Receipts', 'Sent with our invoices', data.receipts ?? []],
-    ['Certificates', 'Safety certificates for the houses we manage', data.certificates],
+    ['Lettings statements', 'Each let we found: what came in, our fee, what was paid to you', data.statements],
+    ['Invoices and letters', '', data.invoices],
+    ['Receipts', '', data.receipts ?? []],
   ] as [string, string, Doc[]][]).filter(([, , xs]) => xs.length)
 
   return (
-    <section className="mx-auto mt-12 max-w-6xl px-6 md:px-14">
-      <p className="pub-eyebrow m-0">Your documents</p>
-      <h2 className="pub-serif m-0 mt-2 text-[28px] leading-tight md:text-[36px]">Statements, agreements and invoices</h2>
-      {data.houses.length > 0 && <p className="pub-muted mt-2 text-[14px]">{data.houses.map(h => `${h.name}${h.lettingType === 'let_only' ? ' (tenant find)' : ''}`).join(' · ')}</p>}
-      {msg && <p className="mt-3 text-[14px]" style={{ color: '#9B2C1F' }}>{msg}</p>}
-      {!groups.length && <p className="pub-muted mt-6 text-[15px]">Nothing here yet — statements, agreements and invoices appear as soon as we have them.</p>}
-      <div className="mt-6 flex flex-col gap-8">
-        {groups.map(([title, sub, xs]) => (
-          <div key={title}>
-            <p className="m-0 text-[15px] font-semibold">{title} <span className="pub-muted font-normal">· {xs.length}</span></p>
-            {sub && <p className="pub-muted m-0 mt-0.5 text-[13px]">{sub}</p>}
-            <ul className="m-0 mt-3 list-none divide-y p-0" style={{ borderTop: '1px solid #E4E0D8', borderBottom: '1px solid #E4E0D8' }}>
-              {xs.map(d => (
-                <li key={`${d.type}-${d.id}`} className="flex flex-wrap items-center justify-between gap-3 py-3" style={{ borderColor: '#E4E0D8' }}>
-                  <div className="min-w-0">
-                    <p className="m-0 truncate text-[15px]">{d.title}</p>
-                    <p className="pub-muted m-0 text-[13px]">{[d.property, d.extra === 'moving in' ? `${d.date && d.date > new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }) ? 'moving in' : 'moved in'} ${day(d.date)}` : day(d.date), d.extra && d.extra !== 'moving in' ? d.extra : ''].filter(Boolean).join(' · ')}</p>
-                  </div>
-                  <div className="flex shrink-0 gap-2">
-                    <button type="button" disabled={!!busy} onClick={() => open(d, false)} className="rounded-full border px-4 py-1.5 text-[13px] font-semibold" style={{ borderColor: '#111' }}>{busy === `${d.id}false` ? 'Opening…' : 'View'}</button>
-                    <button type="button" disabled={!!busy} onClick={() => open(d, true)} className="rounded-full px-4 py-1.5 text-[13px] font-semibold text-white" style={{ background: '#111' }}>{busy === `${d.id}true` ? 'Saving…' : 'Download'}</button>
-                  </div>
-                </li>
-              ))}
-            </ul>
+    <div className="px-4">
+      {msg && <p className="py-2 text-[13px] text-[#8E2318]">{msg}</p>}
+      {!groups.length && <p className="py-3 text-[14px] text-[#4E6158]">Statements, agreements and certificates show here as soon as we have them.</p>}
+      {groups.map(([title, sub, xs], gi) => {
+        const isOpen = openGroup === title
+        return (
+          <div key={title} className={gi ? 'border-t border-[#E3EAE4]' : ''}>
+            <button type="button" onClick={() => setOpenGroup(isOpen ? null : title)} className="flex w-full items-center justify-between gap-3 py-3.5 text-left" aria-expanded={isOpen}>
+              <span className="min-w-0"><span className="block text-[15px]">{title}</span>{sub && <span className="block text-[12px] text-[#4E6158]">{sub}</span>}</span>
+              <span className="shrink-0 text-[13px] text-[#4E6158]">{xs.length} {isOpen ? '⌃' : '⌄'}</span>
+            </button>
+            {isOpen && (
+              <ul className="m-0 list-none p-0 pb-2">
+                {xs.map(d => (
+                  <li key={`${d.type}-${d.id}`} className="flex items-center gap-2 border-t border-[#EEF2EC] py-2.5">
+                    <button type="button" disabled={!!busy} onClick={() => open(d, false)} className="min-w-0 flex-1 text-left">
+                      <span className="block truncate text-[14px]">{busy === `${d.id}false` ? 'Opening…' : d.title}</span>
+                      <span className="block truncate text-[12px] text-[#4E6158]">{[d.property, d.extra === 'moving in' ? `${d.date && d.date > new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }) ? 'moving in' : 'moved in'} ${day(d.date)}` : day(d.date), d.extra && d.extra !== 'moving in' ? d.extra : ''].filter(Boolean).join(' · ')}</span>
+                    </button>
+                    <button type="button" disabled={!!busy} onClick={() => open(d, true)} aria-label={`Save ${d.title}`} className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#EEF2EC] text-[#17332B]">{busy === `${d.id}true` ? '…' : '↓'}</button>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
-        ))}
-      </div>
-    </section>
+        )
+      })}
+    </div>
   )
 }

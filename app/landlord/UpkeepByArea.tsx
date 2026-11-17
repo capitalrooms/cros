@@ -12,9 +12,8 @@ export default function UpkeepByArea({ asId }: { asId: string | null }) {
   if (!d?.houses?.length) return null
   const h = d.houses.find(x => x.id === house) ?? d.houses[0]
   return (
-    <section className="mx-auto mt-12 max-w-6xl px-6 md:px-14">
-      <p className="pub-eyebrow m-0">Upkeep</p>
-      <h2 className="pub-serif m-0 mt-2 text-[28px] leading-tight md:text-[36px]">Each part of the house, over the years</h2>
+    <section className="px-4 py-2">
+      <p className="text-[15px] text-[#14261F]">Each part of the house, over the years</p>
       <p className="pub-muted mt-2 text-[14px]">When the kitchen, bathrooms, hallway and each room were last decorated, and what’s been spent on them each year. Open a row to see the jobs.</p>
       {d.houses.length > 1 && (
         <select value={h.id} onChange={e => setHouse(e.target.value)} className="mt-4 rounded-full border px-4 py-2 text-[14px]" style={{ borderColor: '#111' }} aria-label="Property">
