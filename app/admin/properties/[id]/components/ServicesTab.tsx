@@ -7,6 +7,8 @@
 // fault line are what tenants see in their app — written there from here, so there's one copy.
 import { useCallback, useEffect, useState } from 'react'
 import { adminFetch } from '@/lib/adminFetch'
+import { openMyFile } from '@/lib/files/useStoredFile'
+import type { BillFound, ServiceDoc } from '@/lib/properties/serviceDocs'
 import { SERVICE_KINDS, WHO_PAYS, kindLabel, type ServiceView, type Suggestion } from '@/lib/properties/services'
 
 const gbp = (n: number) => `£${n.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -15,7 +17,12 @@ const EMPTY = { id: '', kind: 'internet', supplier: '', account_number: '', acco
 type Form = typeof EMPTY
 
 export default function ServicesTab({ propertyId }: { propertyId: string }) {
-  const [d, setD] = useState<{ ready: boolean; services: ServiceView[]; suggestions: Suggestion[] } | null>(null)
+  const [d, setD] = useState<{ ready: boolean; services: ServiceView[]; suggestions: Suggestion[]; docs?: { byService: Record<string, ServiceDoc[]>; loose: ServiceDoc[] } } | null>(null)
+  // reading bills / screenshots: the files kept, and the fields filled from them (highlighted until saved)
+  const [docIds, setDocIds] = useState<string[]>([])
+  const [filled, setFilled] = useState<Record<string, string>>({})
+  const [reading, setReading] = useState('')
+  const [drag, setDrag] = useState(false)
   const [form, setForm] = useState<Form | null>(null)
   const [open, setOpen] = useState<string | null>(null)
   const [err, setErr] = useState('')
@@ -26,17 +33,48 @@ export default function ServicesTab({ propertyId }: { propertyId: string }) {
   async function save() {
     if (!form) return
     setBusy(true); setErr('')
-    const r = await adminFetch('/api/admin/property-services', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ propertyId, service: { ...form, id: form.id || undefined } }) })
+    const r = await adminFetch('/api/admin/property-services', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ propertyId, service: { ...form, id: form.id || undefined }, docIds }) })
     const j = await r.json().catch(() => ({}))
     setBusy(false)
     if (!r.ok) { setErr(j.error ?? 'Not saved'); return }
-    setForm(null); load()
+    setForm(null); setDocIds([]); setFilled({}); load()
   }
   async function act(action: 'end' | 'delete', id: string, what: string) {
     if (!window.confirm(action === 'end' ? `Mark ${what} as closed? It stays on record.` : `Delete ${what}? Only for one added by mistake.`)) return
     await adminFetch('/api/admin/property-services', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, id }) })
     load()
   }
+  // send bills / screenshots (or ones already on file) → the details found go into the form for you to check and save
+  async function readFiles(files: File[] | null, onFile: string[] | null, into: ServiceView | null) {
+    setReading(files ? `Reading ${files.length} file${files.length === 1 ? '' : 's'}…` : 'Reading…'); setErr('')
+    let r: Response
+    if (files) {
+      const fd = new FormData(); fd.append('propertyId', propertyId); if (into) fd.append('serviceId', into.id)
+      files.forEach(f => fd.append('files', f))
+      r = await adminFetch('/api/admin/property-services/read', { method: 'POST', body: fd })
+    } else r = await adminFetch('/api/admin/property-services/read', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ propertyId, serviceId: into?.id, docIds: onFile }) })
+    const j = await r.json().catch(() => ({}))
+    setReading('')
+    if (!r.ok) { setErr(j.error ?? 'Couldn’t read that'); return }
+    const f: BillFound | null = j.found
+    const base: Form = into ? (Object.fromEntries(Object.keys(EMPTY).map(k => [k, (into as any)[k] == null ? '' : String((into as any)[k])])) as Form)
+      : (form && !form.id ? form : { ...EMPTY })
+    // the same supplier already recorded here? fill that account rather than starting a second one
+    const match = !into && f?.supplier ? d?.services.find(x => !x.ended_at && x.supplier && x.supplier.toLowerCase().split(' ')[0] === f.supplier!.toLowerCase().split(' ')[0]) : null
+    const start: Form = match ? (Object.fromEntries(Object.keys(EMPTY).map(k => [k, (match as any)[k] == null ? '' : String((match as any)[k])])) as Form) : base
+    const next = { ...start }, changed: Record<string, string> = {}
+    if (f) for (const k of Object.keys(EMPTY) as (keyof Form)[]) {
+      const v = (f as any)[k]; if (v == null || v === '' || k === 'id') continue
+      const val = String(v)
+      if (val !== next[k]) { changed[k] = next[k]; next[k] = val }
+    }
+    if (f?.plan) { const line = `Plan: ${f.plan}`; if (!next.notes.includes(f.plan)) { changed.notes = next.notes; next.notes = next.notes ? `${next.notes}\n${line}` : line } }
+    setForm(next); setFilled(changed); setDocIds(ids => [...new Set([...ids, ...(j.docIds ?? [])])])
+    if (j.error) setErr(j.error)
+    else if (!Object.keys(changed).length) setErr('Nothing new found on that — the file is kept with the account.')
+    if (into && !Object.keys(changed).length) load()
+  }
+  const pick = (into: ServiceView | null) => { const i = document.createElement('input'); i.type = 'file'; i.multiple = true; i.accept = 'application/pdf,image/*'; i.onchange = () => i.files?.length && readFiles([...i.files], null, into); i.click() }
   const edit = (x: ServiceView) => setForm(Object.fromEntries(Object.keys(EMPTY).map(k => [k, (x as any)[k] == null ? '' : String((x as any)[k])])) as Form)
   const fromSuggestion = (g: Suggestion) => setForm({ ...EMPTY, kind: g.kind, supplier: g.supplier ?? '', monthly_cost: g.perMonth != null ? g.perMonth.toFixed(2) : '', wifi_network: g.wifi?.network ?? '', wifi_password: g.wifi?.password ?? '', support_phone: g.wifi?.phone ?? '' })
 
@@ -44,9 +82,11 @@ export default function ServicesTab({ propertyId }: { propertyId: string }) {
   const live = d.services.filter(x => !x.ended_at), closed = d.services.filter(x => x.ended_at)
   const monthly = live.filter(x => x.who_pays !== 'tenants' && x.who_pays !== 'landlord').reduce((n, x) => n + (x.monthly_cost ?? x.paid.perMonth ?? 0), 0)
   const input = 'mt-xs w-full rounded-lg border border-neutral-300 px-sm py-xs text-sm font-normal'
+  const was = (k: string) => k in filled ? <span className="ml-xs font-normal text-amber-800">· from the file{filled[k] ? ` (was ${filled[k].slice(0, 40)})` : ''} <button type="button" onClick={() => { setForm({ ...form!, [k]: filled[k] }); const n = { ...filled }; delete n[k]; setFilled(n) }} className="underline">undo</button></span> : null
+  const hi = (k: string) => k in filled ? ' border-amber-400 bg-amber-50' : ''
   const field = (k: keyof Form, label: string, o: { type?: string; ph?: string; wide?: boolean } = {}) => (
-    <label className={`text-xs font-semibold text-neutral-600 ${o.wide ? 'sm:col-span-2' : ''}`}>{label}
-      <input type={o.type ?? 'text'} value={form![k]} placeholder={o.ph} onChange={e => setForm({ ...form!, [k]: e.target.value })} className={input} />
+    <label className={`text-xs font-semibold text-neutral-600 ${o.wide ? 'sm:col-span-2' : ''}`}>{label}{was(k)}
+      <input type={o.type ?? 'text'} value={form![k]} placeholder={o.ph} onChange={e => setForm({ ...form!, [k]: e.target.value })} className={input + hi(k)} />
     </label>
   )
 
@@ -58,6 +98,29 @@ export default function ServicesTab({ propertyId }: { propertyId: string }) {
         <p className="text-sm text-neutral-600">{live.length ? `${live.length} account${live.length === 1 ? '' : 's'} · about ${gbp(monthly)} a month paid by us` : 'The accounts at this house — internet, energy, water and the rest — with the details that are easy to lose.'}</p>
         {d.ready && <button type="button" onClick={() => { setForm({ ...EMPTY }); setErr('') }} className="rounded-xl bg-neutral-900 px-md py-sm text-sm font-bold text-white">+ Add a bill or service</button>}
       </div>
+
+      {/* drop bills, letters or screenshots — CROS reads them and fills the account for you to accept */}
+      {d.ready && !form && (
+        <div onDragOver={e => { e.preventDefault(); setDrag(true) }} onDragLeave={() => setDrag(false)}
+          onDrop={e => { e.preventDefault(); setDrag(false); const fs = [...e.dataTransfer.files]; if (fs.length) readFiles(fs, null, null) }}
+          className={`flex flex-wrap items-center justify-between gap-sm rounded-2xl border-2 border-dashed px-lg py-md text-sm ${drag ? 'border-neutral-900 bg-neutral-50' : 'border-neutral-300 bg-white'}`}>
+          <span className="text-neutral-700">{reading || <><b>Drop a bill, welcome letter or screenshot here</b> — CROS reads the account number, plan, prices and meter numbers for you to check, and keeps the file with the account.</>}</span>
+          {!reading && <button type="button" onClick={() => pick(null)} className="rounded-lg border border-neutral-300 px-md py-xs text-xs font-semibold">Choose files</button>}
+        </div>
+      )}
+      {reading && form && <p className="text-sm text-neutral-600">{reading}</p>}
+      {err && !form && <p className="text-sm text-red-700">{err}</p>}
+      {d.ready && !form && (d.docs?.loose.length ?? 0) > 0 && (
+        <details className="rounded-2xl border border-neutral-200 bg-white px-lg py-sm text-sm">
+          <summary className="cursor-pointer font-semibold text-neutral-700">Bills on file not tied to an account · {d.docs!.loose.length}</summary>
+          <ul className="mt-sm divide-y divide-neutral-100">{d.docs!.loose.map(doc => (
+            <li key={doc.id} className="flex flex-wrap items-center justify-between gap-sm py-1">
+              <button type="button" onClick={() => openMyFile(doc.url, doc.file_name)} className="min-w-0 truncate text-left text-blue-700 hover:underline">{doc.file_name}</button>
+              <button type="button" onClick={() => readFiles(null, [doc.id], null)} className="text-xs font-semibold text-neutral-700 underline">Read it</button>
+            </li>
+          ))}</ul>
+        </details>
+      )}
 
       {/* costs that keep coming up with no account recorded */}
       {d.ready && d.suggestions.length > 0 && !form && (
@@ -74,10 +137,14 @@ export default function ServicesTab({ propertyId }: { propertyId: string }) {
 
       {form && (
         <section className="rounded-2xl border border-neutral-200 bg-white p-lg space-y-md">
-          <h3 className="text-base font-bold">{form.id ? `${kindLabel(form.kind)} — edit` : 'Add a bill or service'}</h3>
+          <div className="flex flex-wrap items-center justify-between gap-sm">
+            <h3 className="text-base font-bold">{form.id ? `${kindLabel(form.kind)} — edit` : 'Add a bill or service'}</h3>
+            <button type="button" onClick={() => pick(null)} className="rounded-lg border border-neutral-300 px-md py-xs text-xs font-semibold">Fill from a bill or screenshot</button>
+          </div>
+          {Object.keys(filled).length > 0 && <p className="rounded-lg bg-amber-50 px-md py-sm text-sm text-amber-900"><b>{Object.keys(filled).length} detail{Object.keys(filled).length === 1 ? '' : 's'} filled from the file</b> (highlighted) — check them, then Save to accept. The file{docIds.length === 1 ? '' : 's'} will be kept with this account.</p>}
           <div className="grid gap-md sm:grid-cols-2">
             <label className="text-xs font-semibold text-neutral-600">What it’s for
-              <select value={form.kind} onChange={e => setForm({ ...form, kind: e.target.value })} className={input}>{SERVICE_KINDS.map(k => <option key={k.key} value={k.key}>{k.label}</option>)}</select>
+              {was('kind')}<select value={form.kind} onChange={e => setForm({ ...form, kind: e.target.value })} className={input + hi('kind')}>{SERVICE_KINDS.map(k => <option key={k.key} value={k.key}>{k.label}</option>)}</select>
             </label>
             {field('supplier', 'Supplier', { ph: 'e.g. Community Fibre' })}
             {field('account_number', 'Account number')}
@@ -97,14 +164,14 @@ export default function ServicesTab({ propertyId }: { propertyId: string }) {
               {field('wifi_password', 'WiFi password (tenants see this)')}
             </>}
             <label className="text-xs font-semibold text-neutral-600 sm:col-span-2">Notes
-              <textarea value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} rows={2} className={input} placeholder="e.g. Router in the kitchen cupboard; password for the online account is in the office password manager" />
+              {was('notes')}<textarea value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} rows={3} className={input + hi('notes')} placeholder="e.g. Router in the kitchen cupboard; password for the online account is in the office password manager" />
             </label>
           </div>
           <p className="text-xs text-neutral-500">The online account’s password isn’t kept here — keep it in your password manager. {form.kind === 'internet' ? 'The network, WiFi password and fault line replace the WiFi details in the tenant app’s house information.' : ''}</p>
           {err && <p className="text-sm text-red-700">{err}</p>}
           <div className="flex gap-sm">
             <button type="button" disabled={busy} onClick={save} className="rounded-xl bg-neutral-900 px-lg py-sm text-sm font-bold text-white disabled:opacity-40">{busy ? 'Saving…' : 'Save'}</button>
-            <button type="button" onClick={() => setForm(null)} className="rounded-xl border border-neutral-300 px-md py-sm text-sm font-semibold">Cancel</button>
+            <button type="button" onClick={() => { setForm(null); setFilled({}); setDocIds([]) }} className="rounded-xl border border-neutral-300 px-md py-sm text-sm font-semibold">Cancel</button>
           </div>
         </section>
       )}
@@ -138,6 +205,15 @@ export default function ServicesTab({ propertyId }: { propertyId: string }) {
               .filter(([, v]) => v).map(([k, v]) => <div key={k} className="flex gap-sm"><dt className="w-40 shrink-0 text-neutral-500">{k}</dt><dd className="min-w-0 break-words font-medium">{v}</dd></div>)}
             {!x.account_number && !x.login_email && <p className="text-amber-800 sm:col-span-2">Account number and login not recorded yet — <button type="button" onClick={() => edit(x)} className="font-semibold underline">add them</button>.</p>}
           </dl>
+          {/* the paperwork kept with this account */}
+          <div onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); const fs = [...e.dataTransfer.files]; if (fs.length) readFiles(fs, null, x) }}
+            className="flex flex-wrap items-center gap-sm border-t border-neutral-100 px-lg py-sm text-sm">
+            <span className="text-neutral-500">Files</span>
+            {(d.docs?.byService[x.id] ?? []).map(doc => (
+              <button key={doc.id} type="button" onClick={() => openMyFile(doc.url, doc.file_name)} title={new Date(doc.created_at).toLocaleDateString('en-GB')} className="max-w-[220px] truncate rounded-full border border-neutral-200 px-sm py-0.5 text-xs font-medium text-neutral-800 hover:bg-neutral-50">📄 {doc.file_name}</button>
+            ))}
+            <button type="button" onClick={() => pick(x)} className="text-xs font-semibold text-blue-700 hover:underline">+ Add a bill or screenshot</button>
+          </div>
           {/* what's actually been paid, from the expenses and statements */}
           <div className="border-t border-neutral-100 px-lg py-sm text-sm">
             <button type="button" onClick={() => setOpen(open === x.id ? null : x.id)} className="flex w-full flex-wrap items-center justify-between gap-sm text-left">

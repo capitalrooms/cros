@@ -2,7 +2,7 @@
  * /api/admin/property-services — a property's bills & services (migration 264, lib/properties/services).
  *   GET  ?propertyId=                    → { ready, services (with what's been paid), suggestions }
  *   GET  ?all=1                          → { ready, rows } every live account across the houses (the overview)
- *   POST { propertyId, service }         → add (service.id → update)
+ *   POST { propertyId, service, docIds? } → add (service.id → update); docIds = bills read for it, kept with the account
  *   POST { action: 'end', id }           → the account was closed or moved (kept for the record)
  *   POST { action: 'delete', id }        → removed (a mistake)
  * Saving an internet account rewrites the WiFi item in the house information the tenant app shows.
@@ -10,6 +10,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/adminAuth'
 import { createServiceClient } from '@/lib/supabase'
+import { serviceDocs, tagFor } from '@/lib/properties/serviceDocs'
 import { servicesFor, syncHouseInfo, allServices, SERVICE_KINDS, WHO_PAYS } from '@/lib/properties/services'
 
 export const dynamic = 'force-dynamic'
@@ -23,7 +24,9 @@ export async function GET(req: NextRequest) {
   if (req.nextUrl.searchParams.get('all') === '1') return NextResponse.json(await allServices(createServiceClient()))
   const id = req.nextUrl.searchParams.get('propertyId')
   if (!id) return NextResponse.json({ error: 'propertyId required' }, { status: 400 })
-  return NextResponse.json(await servicesFor(createServiceClient(), id))
+  const s = createServiceClient()
+  const [base, docs] = await Promise.all([servicesFor(s, id), serviceDocs(s, id)])
+  return NextResponse.json({ ...base, docs })
 }
 
 export async function POST(req: NextRequest) {
@@ -56,11 +59,14 @@ export async function POST(req: NextRequest) {
     meter_refs: txt(v.meter_refs, 300), wifi_network: v.kind === 'internet' ? txt(v.wifi_network, 80) : null, wifi_password: v.kind === 'internet' ? txt(v.wifi_password, 80) : null,
     notes: txt(v.notes, 1000), updated_at: new Date().toISOString(),
   }
-  const { error } = v.id
-    ? await s.from('property_services').update(row).eq('id', v.id).eq('property_id', b.propertyId)
-    : await s.from('property_services').insert({ ...row, created_by: admin.personId })
+  const { data: saved, error } = v.id
+    ? await s.from('property_services').update(row).eq('id', v.id).eq('property_id', b.propertyId).select('id').maybeSingle()
+    : await s.from('property_services').insert({ ...row, created_by: admin.personId }).select('id').single()
   if (missing(error)) return NextResponse.json({ error: SETUP }, { status: 409 })
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  // the bills / screenshots it was filled from stay with this account (Documents, type utility_bill)
+  const ids = (Array.isArray(b.docIds) ? b.docIds : []).filter((x: unknown) => typeof x === 'string').slice(0, 20)
+  if (saved?.id && ids.length) await s.from('property_documents').update({ description: tagFor(saved.id) }).eq('property_id', b.propertyId).eq('document_type', 'utility_bill').in('id', ids)
   if (v.kind === 'internet') await syncHouseInfo(s, b.propertyId)   // the tenants' WiFi details, from this account
   return NextResponse.json({ ok: true })
 }
