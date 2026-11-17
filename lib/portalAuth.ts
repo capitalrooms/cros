@@ -5,7 +5,7 @@ import type { NextRequest } from 'next/server'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { secondStepMissing, administratorWithoutTwoStep } from '@/lib/auth/aal'
 
-export interface Caller { userId: string; email: string; personId: string; role: string; /** the administrator's own person id, when viewing as this tenant (read-only) */ viewingAsBy?: string }
+export interface Caller { userId: string; email: string; personId: string; role: string; /** the administrator's own person id, when viewing as this tenant (read-only) */ viewingAsBy?: string; /** opened from a planner link: the one board it opens */ plannerBoardId?: string }
 export const STAFF_ROLES = ['administrator', 'admin', 'lettings']
 
 const svc = () => createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { autoRefreshToken: false, persistSession: false } })

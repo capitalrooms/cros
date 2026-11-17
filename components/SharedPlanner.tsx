@@ -17,7 +17,7 @@ interface Entry {
 interface Data {
   office: boolean; setupNeeded?: boolean
   boards?: { id: string; title: string; member: string; role: string; open: number; personId?: string }[]
-  board: { id: string; title: string; member?: string; role?: string } | null
+  board: { id: string; title: string; member?: string; role?: string; onBoard?: { personId: string; name: string; first: boolean; link: string }[] } | null
   entries: Entry[]
   people?: { id: string; name: string; role: string }[]
   properties?: { id: string; name: string }[]
@@ -193,6 +193,25 @@ export default function SharedPlanner({ mode, initialBoard }: { mode: 'office' |
             post={post} onClose={() => setImporting(false)}
             onDone={async id => { setImporting(false); setBoardId(id); await load(id) }} />
         )}
+        {mode === 'office' && board && (
+          // who's on this board — one board, two or three people, each with their own link (migration 293)
+          <div className="rounded-2xl border border-neutral-200 bg-white px-lg py-md space-y-sm">
+            <p className="text-sm font-bold text-neutral-900">People on this board</p>
+            <div className="flex flex-wrap gap-sm">{(board.onBoard ?? []).map(m => (
+              <span key={m.personId} className="inline-flex items-center gap-xs rounded-full border border-neutral-200 py-0.5 pl-md pr-xs text-sm">
+                {m.name}
+                <button type="button" title="Copy their link — opens this board as them, no sign-in" className="rounded-full px-sm text-xs font-semibold text-blue-700 hover:bg-blue-50"
+                  onClick={async () => { await navigator.clipboard.writeText(m.link).catch(() => {}); alert(`${m.name}’s link is copied — paste it in a text or email. It opens this board as them, no sign-in.`) }}>Copy link</button>
+                {!m.first && <button type="button" title="Take them off this board" className="rounded-full px-xs text-xs text-neutral-400 hover:text-red-700"
+                  onClick={async () => { if (!confirm(`Take ${m.name} off this board? Their link stops working.`)) return; try { await post({ action: 'remove_member', boardId: board.id, personId: m.personId }); await load(board.id) } catch (e) { setError(e instanceof Error ? e.message : 'Not removed') } }}>✕</button>}
+              </span>
+            ))}</div>
+            <div className="max-w-md"><PersonSearch people={data.people ?? []} value="" post={post} onPick={async pid => {
+              try { const d = await post({ action: 'add_member', boardId: board.id, personId: pid }); await navigator.clipboard.writeText(d.link).catch(() => {}); await load(board.id); alert('Added — their own link is copied. Paste it in a text or email; it opens this board, no sign-in.') } catch (e) { setError(e instanceof Error ? e.message : 'Not added') }
+            }} /></div>
+            <p className="text-[11px] text-neutral-500">Add someone else to this same board — type a name or email. Everyone sees and edits the one list, and their notes carry their own name.</p>
+          </div>
+        )}
         {mode === 'office' && board && <EmailBoard key={board.id} boardId={board.id} member={board.member ?? "them"} post={post} />}
         {mode === 'office' && board && (() => {
           // the same item more than once (the board was shared more than once before 4 Nov 2026) — one press tidies it
@@ -222,7 +241,13 @@ export default function SharedPlanner({ mode, initialBoard }: { mode: 'office' |
           <div className="pub rounded-2xl border border-neutral-200 bg-white p-6 md:p-8">
             <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap" precedence="default" />
             <p className="pub-eyebrow m-0 mb-1">With {board.member} · what they see in their app</p>
-            <h2 className="pub-h2 mb-6">Planner</h2>
+            <div className="mb-6 flex flex-wrap items-baseline gap-3">
+              <h2 className="pub-h2 m-0">{board.title && !/& Capital Rooms$/.test(board.title) ? board.title : 'Planner'}</h2>
+              <button type="button" className="text-[13px] underline text-neutral-500" onClick={async () => {
+                const nm = prompt('Name this board (everyone on it sees this)', board.title ?? ''); if (!nm?.trim()) return
+                try { await post({ action: 'rename_board', boardId: board.id, title: nm.trim() }); await load(board.id) } catch (e) { setError(e instanceof Error ? e.message : 'Not renamed') }
+              }}>Rename</button>
+            </div>
             <LandlordPlanner key={board.id} officeBoardId={board.id} />
           </div>
         ) : !board ? (

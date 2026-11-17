@@ -19,7 +19,7 @@ import { sendServerPush } from '@/lib/serverPush'
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
 import { loadPrivateBoards, importItems } from '@/lib/planner/importBoard'
 import { plannerLink } from '@/lib/planner/link'
-import { plannerCaller } from '@/lib/planner/caller'
+import { plannerCaller, onBoard, boardPeople } from '@/lib/planner/caller'
 import { shortAddress } from '@/lib/lettings/letWording'
 import { authLink } from '@/lib/auth/links'
 import { authUsersByEmail, statusOf } from '@/lib/auth/accounts'
@@ -52,7 +52,8 @@ type S = ReturnType<typeof createServiceClient>
 async function boardFor(s: S, caller: Caller, boardId: string) {
   const { data } = await s.from('planner_shared_boards').select('*').eq('id', boardId).is('archived_at', null).maybeSingle() as { data: any }
   if (!data) return null
-  return isOffice(caller) || data.member_person_id === caller.personId ? data : null
+  if (caller.plannerBoardId && caller.plannerBoardId !== data.id) return null   // a link opens its own board only
+  return isOffice(caller) || await onBoard(s, data, caller.personId) ? data : null
 }
 
 async function signed(s: S, paths: string[]) {
@@ -88,14 +89,23 @@ async function loadBoard(s: S, board: any) {
 async function tell(s: S, caller: Caller, board: any, title: string, body: string) {
   const link = isOffice({ ...caller }) ? '/planner' : `/admin/planner/shared?board=${board.id}`
   let ids: string[]
-  if (isOffice(caller)) ids = [board.member_person_id]
+  // everyone else on the board hears — the office and the board's people (migration 293), never the one who did it
+  const onIt = await boardPeople(s, board).catch(() => [board.member_person_id])
+  if (isOffice(caller)) ids = onIt
   else {
     const { data } = await s.from('people').select('id').in('role', OFFICE)
-    ids = ((data ?? []) as any[]).map(p => p.id)
+    ids = [...((data ?? []) as any[]).map(p => p.id), ...onIt].filter(x => x !== caller.personId)
   }
   if (!ids.length) return
   await insertNotifications(s, ids, { title, body, type: 'planner', link })
   await sendServerPush({ personIds: ids, title, body, url: link, tag: `planner-${board.id}` })
+}
+
+// who's on a board, each with their own no-sign-in link (migration 293)
+async function onBoardList(s: S, board: any) {
+  const ids = await boardPeople(s, board).catch(() => [board.member_person_id])
+  const { data } = await s.from('people').select('id, salutation, first_name, last_name, full_name, company, email').in('id', ids) as { data: any[] | null }
+  return ids.map(id => { const p = (data ?? []).find(x => x.id === id); return { personId: id, name: (p && (name(p) || p.email)) || 'No name on file', first: id === board.member_person_id, link: plannerLink(board.id, id === board.member_person_id ? null : id) } })
 }
 
 export async function GET(req: NextRequest) {
@@ -117,7 +127,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       office: true,
       boards: (boards ?? []).map(b => ({ id: b.id, title: b.title, kind: b.kind, member: name(b.people) || b.people?.email || 'No name on file', role: b.people?.role, personId: b.member_person_id, open: ((open ?? []) as any[]).filter(o => o.board_id === b.id).length })),
-      board: board ? { id: board.id, title: board.title, member: name(board.people), role: board.people?.role } : null,
+      board: board ? { id: board.id, title: board.title, member: name(board.people) || board.people?.email || 'No name on file', role: board.people?.role, onBoard: await onBoardList(s, board) } : null,
       entries: board ? await loadBoard(s, board) : [],
       // staff first (cleaners, contractors, lettings), then landlords; properties in address order
       people: ((people ?? []) as any[]).map(p => ({ id: p.id, name: name(p) || p.email || 'No name', role: p.role, email: /capitalrooms\.invalid$/.test(p.email ?? '') ? '' : (p.email ?? '') }))
@@ -125,7 +135,13 @@ export async function GET(req: NextRequest) {
       properties: sortPropertiesNumerically((properties ?? []) as any[]).map((p: any) => ({ id: p.id, name: shortAddress(p.name) })),
     })
   }
-  const { data: board, error } = await s.from('planner_shared_boards').select('*').eq('member_person_id', caller.personId).is('archived_at', null).maybeSingle() as { data: any; error: any }
+  let { data: board, error } = caller.plannerBoardId
+    ? await s.from('planner_shared_boards').select('*').eq('id', caller.plannerBoardId).is('archived_at', null).maybeSingle() as { data: any; error: any }
+    : await s.from('planner_shared_boards').select('*').eq('member_person_id', caller.personId).is('archived_at', null).maybeSingle() as { data: any; error: any }
+  if (!board && !error) {   // added to someone else's board (migration 293)
+    const { data: m } = await s.from('planner_board_members').select('board_id, planner_shared_boards!inner(*)').eq('person_id', caller.personId).is('planner_shared_boards.archived_at', null).limit(1).maybeSingle() as { data: any }
+    board = m?.planner_shared_boards ?? null
+  }
   if (error) return NextResponse.json(missing(error) ? { setupNeeded: true, board: null, entries: [] } : { error: error.message }, { status: missing(error) ? 200 : 500 })
   // a landlord can tag an entry with one of their own properties (14 Oct 2026)
   // staff can tag any house (4 Nov 2026 — staff now get the same planner layout as landlords)
@@ -246,6 +262,28 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ boardId: board.id, personId: person.id, link: plannerLink(board.id) })
   }
 
+  // one board, two or three people (migration 293): add someone — they get their own link — or take them off
+  if (b.action === 'rename_board') {
+    if (!isOffice(caller)) return NextResponse.json({ error: 'Only the office can do that' }, { status: 403 })
+    const nm = String(b.title ?? '').trim().slice(0, 120)
+    if (!nm) return NextResponse.json({ error: 'Give it a name' }, { status: 400 })
+    const { error } = await s.from('planner_shared_boards').update({ title: nm }).eq('id', String(b.boardId ?? ''))
+    return error ? NextResponse.json({ error: error.message }, { status: 400 }) : NextResponse.json({ ok: true })
+  }
+
+  if (b.action === 'add_member' || b.action === 'remove_member') {
+    if (!isOffice(caller)) return NextResponse.json({ error: 'Only the office can do that' }, { status: 403 })
+    const board = await boardFor(s, caller, String(b.boardId ?? ''))
+    if (!board) return NextResponse.json({ error: 'Board not found' }, { status: 404 })
+    const pid = String(b.personId ?? '')
+    if (pid === board.member_person_id) return NextResponse.json({ error: b.action === 'add_member' ? 'They’re already on this board' : 'They started this board — use Stop sharing instead' }, { status: 400 })
+    const { error } = b.action === 'add_member'
+      ? await s.from('planner_board_members').upsert({ board_id: board.id, person_id: pid, added_by: caller.email }, { onConflict: 'board_id,person_id' })
+      : await s.from('planner_board_members').delete().eq('board_id', board.id).eq('person_id', pid)
+    if (error) return NextResponse.json({ error: /planner_board_members/.test(error.message) ? 'Run migration 293 first.' : error.message }, { status: 400 })
+    return NextResponse.json({ ok: true, link: b.action === 'add_member' ? plannerLink(board.id, pid) : null })
+  }
+
   if (b.action === 'create_board' || b.action === 'archive_board') {
     if (!isOffice(caller)) return NextResponse.json({ error: 'Only the office can do that' }, { status: 403 })
     if (b.action === 'archive_board') {
@@ -280,6 +318,8 @@ export async function POST(req: NextRequest) {
       if (error) return NextResponse.json({ error: missing(error) ? 'Run migration 200 in Supabase first' : error.message }, { status: 400 })
       board = data
     }
+    // the board takes the name you gave it in your planner, not "X & Capital Rooms" (17 Nov 2026)
+    if (src.title && (!board.title || /& Capital Rooms$/.test(board.title))) { await s.from('planner_shared_boards').update({ title: src.title.slice(0, 120) }).eq('id', board.id); board.title = src.title }
     // a landlord whose app parts have been chosen: sharing a board with them switches their planner on
     if (p.role === 'landlord' && Array.isArray(p.access_areas) && !p.access_areas.includes('planner')) {
       await s.from('people').update({ access_areas: [...p.access_areas, 'planner'] }).eq('id', p.id)

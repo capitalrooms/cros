@@ -61,7 +61,7 @@ export function Linkified({ text }: { text: string }) {
 }
 
 // photos: bigger thumbnails; tap opens them full screen, swipe/arrow through, tap outside or Esc to close
-function Attachments({ links, photos }: { links: string[]; photos: Photo[] }) {
+function Attachments({ links, photos, big }: { links: string[]; photos: Photo[]; big?: boolean }) {
   const pics = photos.filter(p => p.url)
   const [at, setAt] = useState<number | null>(null)
   useEffect(() => {
@@ -72,7 +72,17 @@ function Attachments({ links, photos }: { links: string[]; photos: Photo[] }) {
   if (!links.length && !pics.length) return null
   return (
     <div className="mt-3 flex flex-col gap-2">
-      {pics.length > 0 && <div className="flex flex-wrap gap-2">{pics.map((p, i) => (
+      {big && pics.length > 0 && (
+        <div className="grid gap-1" style={{ gridTemplateColumns: pics.length > 1 ? '2fr 1fr' : '1fr' }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <button type="button" onClick={() => setAt(0)} className="overflow-hidden rounded-xl" style={{ gridRow: pics.length > 1 ? 'span 2' : undefined }}><img src={pics[0].url!} alt="" className="h-48 w-full object-cover" /></button>
+          {pics.slice(1, 3).map((p, i) => (
+            // eslint-disable-next-line @next/next/no-img-element
+            <button key={p.path} type="button" onClick={() => setAt(i + 1)} className="relative overflow-hidden rounded-xl"><img src={p.url!} alt="" className="h-[94px] w-full object-cover" />{i === 1 && pics.length > 3 && <span className="absolute inset-0 flex items-center justify-center bg-black/45 text-sm font-semibold text-white">+{pics.length - 3}</span>}</button>
+          ))}
+        </div>
+      )}
+      {!big && pics.length > 0 && <div className="flex flex-wrap gap-2">{pics.map((p, i) => (
         // eslint-disable-next-line @next/next/no-img-element
         <button key={p.path} type="button" onClick={() => setAt(i)} className="overflow-hidden rounded-lg"><img src={p.url!} alt="" className="h-28 w-28 object-cover transition hover:opacity-90 md:h-32 md:w-32" /></button>
       ))}</div>}
@@ -100,10 +110,14 @@ export default function LandlordPlanner({ previewBoardId, officeBoardId }: { pre
   const readOnly = !!previewBoardId
   const boardParam = previewBoardId || officeBoardId
   const [boardId, setBoardId] = useState<string | null>(null)
+  const [boardTitle, setBoardTitle] = useState('')
   const [entries, setEntries] = useState<Entry[] | null>(null)
   const [props, setProps] = useState<{ id: string; name: string }[]>([])
   const [open, setOpen] = useState<string | null>(null)
   const [showDone, setShowDone] = useState(false)
+  // list, or a photo board: each item a card with its pictures and notes (17 Nov 2026, Harry: "a picture board for the project … photos of the design we want and then notes on each part")
+  const [view, setView] = useState<'list' | 'photos'>(() => { try { return (localStorage.getItem('planner-view') as any) === 'photos' ? 'photos' : 'list' } catch { return 'list' } })
+  const pickView = (v: 'list' | 'photos') => { setView(v); try { localStorage.setItem('planner-view', v) } catch { /* fine */ } }
   const [adding, setAdding] = useState(false)
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
   const [error, setError] = useState('')
@@ -112,7 +126,7 @@ export default function LandlordPlanner({ previewBoardId, officeBoardId }: { pre
     const r = await plannerFetch(`/api/planner/shared${boardParam ? `?board=${boardParam}` : ''}`)
     const d = await r.json().catch(() => ({}))
     if (!r.ok) { setError(d.error ?? 'Your planner didn’t load. Pull down to refresh.'); return }
-    setBoardId(d.board?.id ?? null); setEntries(d.entries ?? []); if (!previewBoardId) setProps(d.properties ?? [])
+    setBoardId(d.board?.id ?? null); setBoardTitle(d.board?.title ?? ''); setEntries(d.entries ?? []); if (!previewBoardId) setProps(d.properties ?? [])
   }, [previewBoardId, boardParam])
   useEffect(() => { load() }, [load])
 
@@ -144,14 +158,41 @@ export default function LandlordPlanner({ previewBoardId, officeBoardId }: { pre
     <div className="flex flex-col gap-8">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <p className="pub-eyebrow m-0">{live.length} open{done.length ? ` · ${done.length} done` : ''}</p>
-        {!readOnly && !adding && <button type="button" className="pub-btn-ghost" onClick={() => setAdding(true)}>Add new note</button>}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="inline-flex overflow-hidden rounded-full border border-neutral-300 text-[13px]">
+            {(['list', 'photos'] as const).map(v => <button key={v} type="button" onClick={() => pickView(v)} className={`px-3 py-1.5 ${view === v ? 'bg-neutral-900 text-white' : 'bg-white text-neutral-700'}`}>{v === 'list' ? 'List' : 'Photo board'}</button>)}
+          </div>
+          {!readOnly && !adding && <button type="button" className="pub-btn-ghost" onClick={() => setAdding(true)}>Add an item</button>}
+        </div>
       </div>
 
       {adding && boardId && <Composer boardId={boardId} properties={props} onCancel={() => setAdding(false)}
         onSend={async v => { await post({ action: 'entry', boardId, ...v }); setAdding(false); await load() }} />}
 
       {live.length === 0 && <p className="pub-muted m-0 text-[15px]">Nothing open right now.</p>}
-      {groups.map((g, gi) => {
+      {view === 'photos' && (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {[...live].sort((a, b) => (b.photos.length ? 1 : 0) - (a.photos.length ? 1 : 0)).map(e => {
+            const p = parse(e)
+            return (
+              <article key={e.id} className="flex flex-col gap-2 rounded-2xl border border-neutral-200 bg-white p-3">
+                {e.photos.length ? <Attachments links={[]} photos={e.photos} big /> : <div className="flex h-40 items-center justify-center rounded-xl bg-neutral-50 text-[13px]" style={{ color: MUTED }}>No pictures yet</div>}
+                <div className="flex items-start justify-between gap-2">
+                  <p className="m-0 text-[16px] font-semibold leading-snug">{e.title}</p>
+                  <Pill stage={p.stage} onChange={readOnly ? undefined : key => post({ action: 'update', entryId: e.id, stage: key }).then(load)} />
+                </div>
+                {e.property && <p className="m-0 text-[12px]" style={{ color: MUTED }}>{e.property}</p>}
+                {p.notes && <p className="m-0 line-clamp-4 whitespace-pre-wrap text-[14px] leading-relaxed" style={{ color: '#4A4741' }}><Linkified text={p.notes} /></p>}
+                {e.links.length > 0 && <Attachments links={e.links} photos={[]} />}
+                <button type="button" onClick={() => { pickView('list'); setOpen(e.id) }} className="mt-auto self-start text-[13px] underline" style={{ color: MUTED }}>
+                  {e.replies.length ? `${e.replies.length} repl${e.replies.length === 1 ? 'y' : 'ies'} · ` : ''}Open, reply or add pictures
+                </button>
+              </article>
+            )
+          })}
+        </div>
+      )}
+      {view === 'list' && groups.map((g, gi) => {
         const colour = GROUP_COLOURS[gi % GROUP_COLOURS.length]
         const items = live.filter(e => (e.property ?? '') === g)
         const shut = closed.has(g)
@@ -160,7 +201,7 @@ export default function LandlordPlanner({ previewBoardId, officeBoardId }: { pre
             <button type="button" onClick={() => setClosed(c => { const n = new Set(c); if (n.has(g)) n.delete(g); else n.add(g); return n })}
               className="flex w-full items-center gap-3 bg-transparent py-2 text-left" aria-expanded={!shut}>
               <span className="text-[12px]" style={{ color: colour, display: 'inline-block', transform: shut ? 'rotate(-90deg)' : 'none', transition: 'transform .15s' }}>▼</span>
-              <span className="text-[17px] font-semibold tracking-[-.005em]" style={{ color: colour }}>{g || 'General'}</span>
+              <span className="text-[17px] font-semibold tracking-[-.005em]" style={{ color: colour }}>{g || (boardTitle && !/& Capital Rooms$/.test(boardTitle) ? boardTitle : 'General')}</span>
               <span className="text-[12px]" style={{ color: MUTED }}>{items.length} item{items.length === 1 ? '' : 's'}</span>
             </button>
             {!shut && (

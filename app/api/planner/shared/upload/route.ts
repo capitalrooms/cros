@@ -1,7 +1,7 @@
 // POST /api/planner/shared/upload — a photo for a shared planner board (multipart: file, boardId).
 // Saved privately in planner-files under the board's folder; returns { path, url } (url = a 1-hour signed link).
 import { NextRequest, NextResponse } from 'next/server'
-import { plannerCaller } from '@/lib/planner/caller'
+import { plannerCaller, onBoard } from '@/lib/planner/caller'
 import { createServiceClient } from '@/lib/supabase'
 
 export const runtime = 'nodejs'
@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
 
   const s = createServiceClient()
   const { data: board } = await s.from('planner_shared_boards').select('id, member_person_id').eq('id', boardId).is('archived_at', null).maybeSingle()
-  if (!board || !(['administrator', 'admin'].includes(caller.role) || board.member_person_id === caller.personId)) {
+  if (!board || !(['administrator', 'admin'].includes(caller.role) || await onBoard(s, board as any, caller.personId))) {
     return NextResponse.json({ error: 'Board not found' }, { status: 404 })
   }
   const path = `${board.id}/${crypto.randomUUID()}.${ext}`
