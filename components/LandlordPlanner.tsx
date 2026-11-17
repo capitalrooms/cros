@@ -189,7 +189,7 @@ export default function LandlordPlanner({ previewBoardId, officeBoardId }: { pre
             const p = parse(e)
             return (
               <article key={e.id} className="flex flex-col gap-2 rounded-2xl border border-neutral-200 bg-white p-3">
-                {(() => { const firstLink = e.links[0] ?? (p.notes.match(URL_RE)?.[0]?.replace(/[.,;:!?)]+$/, '') ?? null)
+                {(() => { const firstLink = e.links[0] ?? e.replies.flatMap(r => r.links)[0] ?? ([p.notes, ...e.replies.map(r => r.body)].join(' ').match(URL_RE)?.[0]?.replace(/[.,;:!?)]+$/, '') ?? null)
                   return e.photos.length ? <Attachments links={[]} photos={e.photos} big /> : firstLink ? <LinkPicture url={firstLink.startsWith('www.') ? `https://${firstLink}` : firstLink} /> : <div className="flex h-40 items-center justify-center rounded-xl bg-neutral-50 text-[13px]" style={{ color: MUTED }}>No pictures yet</div> })()}
                 <p className="m-0 text-[16px] font-semibold leading-snug">{e.title}</p>
                 <div className="self-start">
