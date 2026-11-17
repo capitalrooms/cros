@@ -50,15 +50,48 @@ function Pill({ stage, onChange }: { stage: string; onChange?: (key: string) => 
   )
 }
 
+// web addresses in notes and replies become links (17 Nov 2026, Harry: "can hyperlinks in notes be clickable")
+const URL_RE = /(https?:\/\/[^\s<>"']+|www\.[^\s<>"']+)/g
+export function Linkified({ text }: { text: string }) {
+  const parts = text.split(URL_RE)
+  return <>{parts.map((x, i) => i % 2 === 1
+    ? (() => { const tail = x.match(/[.,;:!?)]+$/)?.[0] ?? ''; const u = tail ? x.slice(0, -tail.length) : x
+        return <span key={i}><a href={u.startsWith('www.') ? `https://${u}` : u} target="_blank" rel="noreferrer" className="pub-link break-all underline">{u.replace(/^https?:\/\//, '')}</a>{tail}</span> })()
+    : <span key={i}>{x}</span>)}</>
+}
+
+// photos: bigger thumbnails; tap opens them full screen, swipe/arrow through, tap outside or Esc to close
 function Attachments({ links, photos }: { links: string[]; photos: Photo[] }) {
-  if (!links.length && !photos.length) return null
+  const pics = photos.filter(p => p.url)
+  const [at, setAt] = useState<number | null>(null)
+  useEffect(() => {
+    if (at == null) return
+    const k = (e: KeyboardEvent) => { if (e.key === 'Escape') setAt(null); if (e.key === 'ArrowRight') setAt(i => i == null ? i : (i + 1) % pics.length); if (e.key === 'ArrowLeft') setAt(i => i == null ? i : (i - 1 + pics.length) % pics.length) }
+    window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k)
+  }, [at, pics.length])
+  if (!links.length && !pics.length) return null
   return (
     <div className="mt-3 flex flex-col gap-2">
-      {photos.length > 0 && <div className="flex flex-wrap gap-2">{photos.map(p => p.url && (
+      {pics.length > 0 && <div className="flex flex-wrap gap-2">{pics.map((p, i) => (
         // eslint-disable-next-line @next/next/no-img-element
-        <a key={p.path} href={p.url} target="_blank" rel="noreferrer"><img src={p.url} alt="" className="h-20 w-20 object-cover" /></a>
+        <button key={p.path} type="button" onClick={() => setAt(i)} className="overflow-hidden rounded-lg"><img src={p.url!} alt="" className="h-28 w-28 object-cover transition hover:opacity-90 md:h-32 md:w-32" /></button>
       ))}</div>}
-      {links.map(l => <a key={l} href={l} target="_blank" rel="noreferrer" className="pub-link block truncate text-[14px]">{l.replace(/^https?:\/\//, '')}</a>)}
+      {links.map(l => <a key={l} href={l} target="_blank" rel="noreferrer" className="pub-link block truncate text-[14px] underline">{l.replace(/^https?:\/\//, '')}</a>)}
+      {at != null && pics[at] && (
+        <div role="dialog" aria-modal="true" onClick={() => setAt(null)} className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-4"
+          onTouchStart={e => ((e.currentTarget as any)._x = e.touches[0].clientX)}
+          onTouchEnd={e => { const d = e.changedTouches[0].clientX - ((e.currentTarget as any)._x ?? 0); if (Math.abs(d) > 50 && pics.length > 1) { e.stopPropagation(); setAt(i => i == null ? i : (i + (d < 0 ? 1 : -1) + pics.length) % pics.length) } }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={pics[at].url!} alt="" onClick={e => e.stopPropagation()} className="max-h-full max-w-full rounded-lg object-contain" />
+          <button type="button" onClick={() => setAt(null)} className="absolute right-4 top-4 rounded-full bg-white/15 px-3 py-1 text-lg text-white" aria-label="Close">✕</button>
+          {pics.length > 1 && <>
+            <button type="button" onClick={e => { e.stopPropagation(); setAt((at - 1 + pics.length) % pics.length) }} className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full bg-white/15 px-3 py-2 text-xl text-white" aria-label="Previous">‹</button>
+            <button type="button" onClick={e => { e.stopPropagation(); setAt((at + 1) % pics.length) }} className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full bg-white/15 px-3 py-2 text-xl text-white" aria-label="Next">›</button>
+            <span className="absolute bottom-4 left-1/2 -translate-x-1/2 text-sm text-white/80">{at + 1} of {pics.length}</span>
+          </>}
+          <a href={pics[at].url!} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} className="absolute bottom-4 right-4 text-sm text-white/80 underline">Open original</a>
+        </div>
+      )}
     </div>
   )
 }
@@ -197,14 +230,14 @@ function PlannerRow({ e, stripe, isOpen, onToggle, readOnly, boardId, post, relo
               </label>
             </div>
           )}
-          {p.notes && <p className="m-0 whitespace-pre-wrap text-[15px] leading-relaxed" style={{ color: '#4A4741' }}>{p.notes}</p>}
+          {p.notes && <p className="m-0 whitespace-pre-wrap text-[15px] leading-relaxed" style={{ color: '#4A4741' }}><Linkified text={p.notes} /></p>}
           <Attachments links={e.links} photos={e.photos} />
           {e.replies.length > 0 && (
             <div className="flex flex-col gap-3" style={{ borderLeft: '1px solid #111', paddingLeft: 14 }}>
               {e.replies.map(r => (
                 <div key={r.id}>
                   <p className="pub-eyebrow m-0 mb-1">{r.author} · {day(r.createdAt)}</p>
-                  {r.body && <p className="m-0 whitespace-pre-wrap text-[15px] leading-relaxed">{r.body}</p>}
+                  {r.body && <p className="m-0 whitespace-pre-wrap text-[15px] leading-relaxed"><Linkified text={r.body} /></p>}
                   <Attachments links={r.links} photos={r.photos} />
                 </div>
               ))}
