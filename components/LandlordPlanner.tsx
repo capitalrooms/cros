@@ -254,6 +254,8 @@ function PlannerRow({ e, stripe, isOpen, onToggle, readOnly, boardId, post, relo
   post: (b: Record<string, unknown>) => Promise<any>; reload: () => Promise<void>
 }) {
   const [reply, setReply] = useState('')
+  const [replyPhotos, setReplyPhotos] = useState<Photo[]>([])
+  const [adding, setAddingPhotos] = useState(false)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
   const p = parse(e)
@@ -311,12 +313,23 @@ function PlannerRow({ e, stripe, isOpen, onToggle, readOnly, boardId, post, relo
           {!readOnly && (
             <>
               <label className="pub-label">Add a note
-                <textarea className="pub-input" value={reply} onChange={x => setReply(x.target.value)} placeholder="Write a reply…" />
+                <textarea className="pub-input" value={reply} onChange={x => setReply(x.target.value)} placeholder="Write a note, paste a link, or just add photos…" />
               </label>
+              {/* a note can carry photos too — a picture of the one you like, a screenshot from the shop (17 Nov 2026) */}
+              {replyPhotos.length > 0 && <div className="flex flex-wrap gap-2">{replyPhotos.map(ph => ph.url && (
+                <span key={ph.path} className="relative">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={ph.url} alt="" className="h-20 w-20 rounded-lg object-cover" />
+                  <button type="button" onClick={() => setReplyPhotos(replyPhotos.filter(x => x.path !== ph.path))} className="absolute -right-2 -top-2 h-6 w-6 rounded-full bg-neutral-900 text-xs text-white" aria-label="Remove">✕</button>
+                </span>
+              ))}</div>}
               {err && <p className="pub-error">{err}</p>}
               <div className="flex flex-wrap gap-3">
-                <button type="button" className="pub-btn" style={{ minHeight: 46 }} disabled={busy || !reply.trim()}
-                  onClick={() => act(async () => { await post({ action: 'reply', entryId: e.id, body: reply }); setReply('') })}>{busy ? 'Saving…' : 'Reply'}</button>
+                <button type="button" className="pub-btn" style={{ minHeight: 46 }} disabled={busy || adding || (!reply.trim() && !replyPhotos.length)}
+                  onClick={() => act(async () => { await post({ action: 'reply', entryId: e.id, body: reply, photos: replyPhotos.map(x => x.path) }); setReply(''); setReplyPhotos([]) })}>{busy ? 'Saving…' : 'Add note'}</button>
+                <label className="pub-btn-ghost cursor-pointer" style={{ minHeight: 46, display: 'inline-flex', alignItems: 'center' }}>{adding ? 'Adding photo…' : 'Add photos'}
+                  <input type="file" accept="image/*" multiple className="hidden" onChange={async x => { const fs = x.target.files; if (!fs?.length) return; setAddingPhotos(true); try { setReplyPhotos([...replyPhotos, ...(await uploadPhotos(boardId, fs))]) } catch (z) { alert(z instanceof Error ? z.message : 'Photo not added') } finally { setAddingPhotos(false); x.target.value = '' } }} />
+                </label>
                 <button type="button" className="pub-btn-ghost" disabled={busy}
                   onClick={() => act(() => post({ action: 'status', entryId: e.id, status: e.status === 'open' ? 'done' : 'open' }))}>{e.status === 'open' ? 'Mark as done' : 'Reopen'}</button>
               </div>

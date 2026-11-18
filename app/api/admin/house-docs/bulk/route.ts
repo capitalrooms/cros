@@ -11,6 +11,7 @@ import { sendEmail } from '@/lib/sendEmail'
 import { senderFor } from '@/lib/email/sender'
 import { demoPropertyIds } from '@/lib/demoProperties'
 import { loadHouse, houseEmailHtml, defaultHouseSubject, defaultHouseMessage } from '@/lib/houseDocs'
+import { dearFromText } from '@/lib/people'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -59,7 +60,7 @@ export async function POST(req: NextRequest) {
     const docs = h?.documents.filter(d => d.url && d.uploadedAt && d.uploadedAt.slice(0, 10) >= since) ?? []
     if (!h || !docs.length) return NextResponse.json({ error: 'That house has no certificates uploaded since the date chosen.' }, { status: 400 })
     const sender = await senderFor(req)
-    const r = await sendEmail(sender.replyTo, `[TEST] ${defaultHouseSubject(h.property.address)}`, houseEmailHtml(sender.name.split(' ')[0] || 'there', h.property.address, docs, message), { kind: 'house-docs', req })
+    const r = await sendEmail(sender.replyTo, `[TEST] ${defaultHouseSubject(h.property.address)}`, houseEmailHtml(dearFromText(sender.name), h.property.address, docs, message), { kind: 'house-docs', req })
     return r.ok ? NextResponse.json({ ok: true, sentTo: sender.replyTo }) : NextResponse.json({ error: r.error || 'The email could not be sent.' }, { status: 502 })
   }
   if (b.action !== 'send') return NextResponse.json({ error: 'Unknown action' }, { status: 400 })

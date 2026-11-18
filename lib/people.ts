@@ -163,7 +163,9 @@ export function looksLikeEntity(p: PersonLike | null | undefined): boolean {
 function formalOne(salutation?: string | null, first?: string | null, last?: string | null): string {
   const s = String(salutation ?? '').trim(), f = String(first ?? '').trim(), l = String(last ?? '').trim()
   if (s && l) return `${s} ${l}`
-  return [s, f, l].filter(Boolean).join(' ')   // no title on file: the whole name, never just a first name
+  // no title on file: the whole name ("Richard Page"), never a lone surname ("Dear Page") or a lone first name
+  if (!s && f && l) return `${f} ${l}`
+  return s ? `${s} ${f || l}`.trim() : ''
 }
 
 /** The name after "Dear" — "Mr Page", "Mr Smith and Mrs Smith", or "Sir or Madam". */

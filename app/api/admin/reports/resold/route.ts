@@ -3,7 +3,7 @@
 // is profit on goods resold — e.g. a £15 light charged at £20 — so the accountant can see why money spent and money
 // recharged differ. Voided expenses and practice (demo) houses are left out.
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAdmin } from '@/lib/adminAuth'
+import { requireDirector } from '@/lib/adminAuth'
 import { createServiceClient } from '@/lib/supabase'
 import { demoPropertyIds } from '@/lib/demoProperties'
 
@@ -12,7 +12,7 @@ const r2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100
 const isDate = (v: string | null) => !!v && /^\d{4}-\d{2}-\d{2}$/.test(v)
 
 export async function GET(req: NextRequest) {
-  if (!(await requireAdmin(req))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!(await requireDirector(req))) return NextResponse.json({ error: 'That report is for directors only' }, { status: 403 })
   const from = req.nextUrl.searchParams.get('from'), to = req.nextUrl.searchParams.get('to')
   if (!isDate(from) || !isDate(to)) return NextResponse.json({ error: 'Choose the dates' }, { status: 400 })
   const s = createServiceClient()

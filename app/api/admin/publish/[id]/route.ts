@@ -22,6 +22,7 @@ import { sendSms } from '@/lib/sms'
 import { slugify } from '@/lib/website/markdown'
 import { SCENES, ILLUSTRATIONS, seasonNow } from '@/lib/publish/pictures'
 import { writePublication, TONES, REWRITES } from '@/lib/publish/write'
+import { dearFromText } from '@/lib/people'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 300
@@ -110,7 +111,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   if (b.action === 'test') {
     const { data: who } = await s.from('people').select('id, salutation, first_name, last_name, phone').eq('id', me.personId).maybeSingle() as { data: any }
-    const x = { personId: null, name: [who?.first_name, who?.last_name].filter(Boolean).join(' ') || 'you', email: me.email, phone: who?.phone ?? null, landlord: true, dear: `Dear ${who?.first_name ?? 'you'},` }
+    const fullName = [who?.first_name, who?.last_name].filter(Boolean).join(' ') || 'you'
+    const x = { personId: null, name: fullName, email: me.email, phone: who?.phone ?? null, landlord: true, dear: `Dear ${dearFromText(fullName)},` }
     const e = await emailFor(s, { ...p, audience: { ...p.audience, ownAreas: false } }, x, {})
     const r = await sendEmail(me.email, `[Test${p.ab?.subjectB?.trim() ? ' A' : ''}] ${e.subject}`, e.html, { req, kind: 'publication', theme: lookFor(p), ...(e.pdf ? { attachments: [e.pdf] } : {}) })
     if (r.ok && p.channels?.email && p.ab?.subjectB?.trim()) await sendEmail(me.email, `[Test B] ${p.ab.subjectB.trim()}`, e.html, { req, kind: 'publication', theme: lookFor(p), ...(e.pdf ? { attachments: [e.pdf] } : {}) }).catch(() => null)

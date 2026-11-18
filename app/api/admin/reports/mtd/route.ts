@@ -1,13 +1,13 @@
 // GET /api/admin/reports/mtd?year=2026&landlordId= — Making Tax Digital quarterly figures per landlord (lib/finance/mtd)
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase'
-import { requireAdmin } from '@/lib/adminAuth'
+import { requireDirector } from '@/lib/adminAuth'
 import { mtdFigures, mtdQuarters, HMRC_BOXES } from '@/lib/finance/mtd'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET(req: NextRequest) {
-  if (!(await requireAdmin(req))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!(await requireDirector(req))) return NextResponse.json({ error: 'That report is for directors only' }, { status: 403 })
   const now = new Date()
   const current = now.getMonth() > 3 || (now.getMonth() === 3 && now.getDate() >= 6) ? now.getFullYear() : now.getFullYear() - 1
   const year = Number(req.nextUrl.searchParams.get('year')) || current

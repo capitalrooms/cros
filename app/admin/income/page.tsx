@@ -13,7 +13,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
-import { createClient } from '@/lib/supabase'
+import { adminFetch } from '@/lib/adminFetch'
 import AppBar from '@/components/AppBar'
 import { incomeTabs } from '@/lib/financeTabs'
 import PageHero from '@/components/PageHero'
@@ -241,6 +241,7 @@ export default function IncomeDashboard() {
   const [loading, setLoading] = useState(true)
   const [statements, setStatements] = useState<StatementRow[]>([])
   const [estimates, setEstimates] = useState<PropertyEstimate[]>([])
+  const [denied, setDenied] = useState(false)
 
   useEffect(() => {
     async function init() {
@@ -250,29 +251,15 @@ export default function IncomeDashboard() {
         return
       }
 
-      const supabase = createClient()
-
-      // Fetch all imported statements (last 2+ years for YoY)
-      const { data: stmts } = await supabase
-        .from('landlord_statements')
-        .select(`
-          id, statement_date, management_fees, gross_rent,
-          property_charges, net_to_landlord, property_id,
-          properties(name)
-        `)
-        .order('statement_date', { ascending: true })
-
-      // Fetch live portfolio estimate
-      const { data: rooms } = await supabase
-        .from('rooms')
-        .select('property_id, current_asking_rent, status')
-        .eq('status', 'occupied')
-        .not('current_asking_rent', 'is', null)
-
-      const { data: props } = await supabase
-        .from('properties')
-        .select('id, name, management_fee_pct')
-        .order('name')
+      // Directors only (18 Nov 2026): the agency's annual income is checked on the server, not only hidden here.
+      // The route returns all imported statements (2+ years for YoY), occupied rents and properties for the estimate.
+      const res = await adminFetch('/api/admin/agency-income')
+      if (!res.ok) {
+        setDenied(true)
+        setLoading(false)
+        return
+      }
+      const { statements: stmts, rooms, properties: props } = await res.json()
 
       // Build estimates
       const rentByProp: Record<string, number> = {}
@@ -389,6 +376,17 @@ export default function IncomeDashboard() {
   const hasImports = statements.length > 0
 
   // ── Render ────────────────────────────────────────────────────────────────────
+
+  if (denied) {
+    return (
+      <div className="min-h-screen fin">
+        <AppBar left={<BackButton href="/admin/finance" />} title="Income" />
+        <div className="mx-auto max-w-6xl px-lg py-xl">
+          <p className="text-sm text-neutral-600">Agency income is for directors only. Ask a director if you need these figures; the monthly statements, fees and VAT are in Finance.</p>
+        </div>
+      </div>
+    )
+  }
 
   if (loading) {
     return (

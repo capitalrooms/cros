@@ -1,17 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createRouteHandlerClient } from '@/lib/serverAuth'
-import { cookies } from 'next/headers'
+import { requireDirector } from '@/lib/adminAuth'
+import { createServiceClient } from '@/lib/supabase'
 import { landlordFormalNames } from '@/lib/people'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET(req: NextRequest) {
-  const supabase = createRouteHandlerClient({ cookies })
-  const { data: { session } } = await supabase.auth.getSession()
-  if (!session) return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
-  const { data: person } = await supabase.from('people').select('role').eq('email', session.user.email).single()
-  if (!person || !['administrator','admin','lettings'].includes(person.role))
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  // Directors only (Harry, 18 Nov 2026): the tax-year summary is annual company-level figures, not the monthly accounts
+  if (!(await requireDirector(req))) return NextResponse.json({ error: 'The tax year summary is for directors only' }, { status: 403 })
+  const supabase = createServiceClient()
 
   const { searchParams } = new URL(req.url)
   const landlordName = searchParams.get('landlord') || ''

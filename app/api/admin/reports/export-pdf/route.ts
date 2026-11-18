@@ -21,6 +21,7 @@ import {
 } from '@/lib/pdfLetterhead'
 import { contentDisposition } from '@/lib/contentDisposition'
 import { PDF } from '@/lib/pdf/palette'
+import { requireDirector } from '@/lib/adminAuth'
 
 export const dynamic = 'force-dynamic'
 
@@ -185,6 +186,8 @@ export async function POST(req: NextRequest) {
 
   const { type, from, to, landlord_name } = await req.json()
   if (!type || !from || !to) return NextResponse.json({ error: 'type, from, to required' }, { status: 400 })
+  // the tax-year summary is annual company-level figures: directors only (18 Nov 2026)
+  if (type === 'tax_year' && !(await requireDirector(req))) return NextResponse.json({ error: 'The tax year summary is for directors only' }, { status: 403 })
 
   // Fetch report data from the relevant internal route
   const baseUrl = req.nextUrl.origin
