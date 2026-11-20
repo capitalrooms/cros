@@ -159,13 +159,24 @@ export function canOpenPage(pathname: string, areas: AreaKey[], role: string | n
 
 /** API routes every office person may call: their own profile and signature, opening and uploading documents (used
  *  on many screens, e.g. the letting file), and the Export button on every list (it exports what they can see). */
-const API_OPEN_TO_OFFICE = ['/api/admin/profile', '/api/admin/upload-signature', '/api/admin/files/sign', '/api/storage/presign-upload',
+const API_OPEN_TO_OFFICE = ['/api/admin/annual-access', '/api/admin/profile', '/api/admin/upload-signature', '/api/admin/files/sign', '/api/storage/presign-upload',
   '/api/admin/upload-property-document', '/api/admin/verify-upload', '/api/admin/export/pdf']
 
 /** /api/admin routes anyone may call, signed in or not: the address finder on public forms (landlord onboarding). */
 export const PUBLIC_API = ['/api/admin/postcode-lookup']
 export const isPublicApi = (pathname: string) => PUBLIC_API.some(p => pathname === p || pathname.startsWith(p + '/'))
-export function canCallApi(pathname: string, areas: AreaKey[], role: string | null | undefined, method = 'GET'): boolean {
+// ── Annual financial reports (18–19 Nov 2026, Harry: "Annual financial reports" — owner grants it) ──────────────
+// Not an area on the rail and not in ALL_AREAS: it is a separate permission, stored as the string 'annual_finance' in
+// people.access_areas. The owner (people.is_owner, set by migration only) always has it; anyone else only if the owner
+// ticked it. Administrators get NO automatic access to these routes — being an administrator is not enough.
+export const ANNUAL_KEY = 'annual_finance'
+export const ANNUAL_PAGES = ['/admin/income', '/admin/company-pnl', '/admin/reports/tax-year', '/admin/reports/resold', '/admin/reports/mtd']
+export const ANNUAL_APIS = ['/api/admin/agency-income', '/api/admin/company-pnl', '/api/admin/reports/tax-year', '/api/admin/reports/resold', '/api/admin/reports/mtd']
+const isUnder = (path: string, prefixes: string[]) => prefixes.some(p => path === p || path.startsWith(p + '/'))
+export const isAnnualPath = (path: string) => isUnder(path, ANNUAL_APIS) || isUnder(path, ANNUAL_PAGES)
+
+export function canCallApi(pathname: string, areas: AreaKey[], role: string | null | undefined, method = 'GET', annual = false): boolean {
+  if (isAnnualPath(pathname)) return annual
   if (isAdministrator(role)) return true
   if (API_OPEN_TO_OFFICE.some(p => pathname === p || pathname.startsWith(p + '/'))) return true
   if (areasOf(pathname, a => a.api).some(k => areas.includes(k))) return true

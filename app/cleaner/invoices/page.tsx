@@ -15,7 +15,7 @@ export default function InvoicesPage({ searchParams }: { searchParams: PageSearc
       <AppBar left={<BackButton href={`/cleaner${as ? `?as=${as}` : ''}`} />} />
       <main className="mx-auto max-w-2xl px-4 py-5">
         <h1 className="mb-1 text-2xl font-extrabold text-neutral-900">Invoices</h1>
-        <p className="mb-4 text-sm text-neutral-600">One invoice for your cleans over a period, sent to Capital Rooms.</p>
+        <p className="mb-4 text-sm text-neutral-600">Bill Capital Rooms for your completed cleans.</p>
         <SupplierInvoices viewAs={as} />
       </main>
       <RoleTabBar<CleanerTab> role="cleaner" active={null} />

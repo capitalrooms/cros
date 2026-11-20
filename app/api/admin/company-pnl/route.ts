@@ -3,7 +3,7 @@
  *   GET ?year=2026 (tax year from 6 April) | ?from=&to= → Pnl
  */
 import { NextRequest, NextResponse } from 'next/server'
-import { requireDirector } from '@/lib/adminAuth'
+import { requireAnnual } from '@/lib/adminAuth'
 import { createServiceClient } from '@/lib/supabase'
 import { companyPnl } from '@/lib/finance/companyPnl'
 
@@ -12,7 +12,7 @@ export const maxDuration = 60
 const isDate = (v: string | null) => !!v && /^\d{4}-\d{2}-\d{2}$/.test(v)
 
 export async function GET(req: NextRequest) {
-  if (!(await requireDirector(req))) return NextResponse.json({ error: 'The profit and loss is for directors only' }, { status: 403 })
+  if (!(await requireAnnual(req))) return NextResponse.json({ error: 'Annual financial reports are not permitted for this account' }, { status: 403 })
   const q = req.nextUrl.searchParams
   let from = q.get('from'), to = q.get('to')
   if (!isDate(from) || !isDate(to)) {

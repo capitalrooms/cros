@@ -2,6 +2,7 @@
 // a clean, professional layout under their own name, with their own logo or a generated monogram.
 import path from 'node:path'
 import fs from 'node:fs'
+import { drawPoweredByFooter } from '@/lib/pdf/poweredByFooter'
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const PDFDocument = require('pdfkit') as typeof import('pdfkit')
 
@@ -16,7 +17,10 @@ export interface SupplierInvoicePdf {
   labourTotal: number; partsTotal: number; vat: number; total: number
   bank?: { name?: string | null; sortCode?: string | null; accountNo?: string | null } | null
   notes?: string | null
-  poweredBy?: boolean   // not for a Capital Rooms managed property (another client, or a let-only house): 'Powered by Capital Rooms' at the foot
+  /** kept for callers; the footer is now the same on every invoice (lib/pdf/poweredByFooter) */
+  poweredBy?: boolean
+  /** the cleaner's or contractor's own reference for the invoice, printed beside the CROS number */
+  yourRef?: string | null
 }
 
 const PALETTE = ['#1F4E79', '#2E6B4F', '#7A3E2E', '#4B3F72', '#2F5D62', '#8A5A00', '#5B4636', '#3D5A80']
@@ -64,7 +68,7 @@ export async function renderSupplierInvoice(d: SupplierInvoicePdf): Promise<Buff
 
   doc.font(BOLD).fontSize(26).fillColor(ACCENT).text('INVOICE', M, y, { width: CW, align: 'right' })
   doc.font(REG).fontSize(9.5).fillColor(INK)
-  const meta: [string, string][] = [['Invoice no.', String(d.number)], ['Date', day(d.issueDate)], ['Due', day(d.dueDate)]]
+  const meta: [string, string][] = [['Invoice no.', String(d.number)], ...(d.yourRef ? [['Your ref', d.yourRef] as [string, string]] : []), ['Date', day(d.issueDate)], ['Due', day(d.dueDate)]]
   let my = y + 34
   for (const [k, v] of meta) {
     doc.fillColor(MUTED).text(k, W - M - 200, my, { width: 90, align: 'right' })
@@ -133,13 +137,10 @@ export async function renderSupplierInvoice(d: SupplierInvoicePdf): Promise<Buff
   doc.text(`${pay}\nPayment due by ${day(d.dueDate)}.${d.vat ? '' : ' No VAT has been charged.'}`, M + 14, y + 26, { width: CW - 28, lineGap: 2 })
   y += 82
   if (d.notes) doc.font(REG).fontSize(9).fillColor(MUTED).text(d.notes, M, y, { width: CW })
-  if (d.poweredBy) {
-    const H = 841.89
-    doc.page.margins.bottom = 0   // the footer sits below the normal margin; without this the text would start a new page
-    doc.moveTo(M, H - 46).lineTo(W - M, H - 46).lineWidth(0.5).strokeColor(RULE).stroke()
-    doc.font(BOLD).fontSize(8).fillColor(MUTED).text('Powered by Capital Rooms', M, H - 38, { width: CW, align: 'center', lineBreak: false })
-    doc.font(REG).fontSize(7).fillColor(MUTED).text('Invoices made free with CROS · capitalrooms.co.uk', M, H - 27, { width: CW, align: 'center', lineBreak: false })
-  }
+  // the same 'Powered by' footer on every invoice (one source: lib/pdf/poweredByFooter)
+  const H = 841.89
+  doc.page.margins.bottom = 0   // the footer sits below the normal margin; without this the text would start a new page
+  drawPoweredByFooter(doc, { x: M, width: CW, top: H - 84, bold: BOLD, regular: REG, ink: INK, body: MUTED })
 
   doc.end()
   return done

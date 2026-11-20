@@ -990,9 +990,16 @@ export function NoticeTab({ file, patch, reload, startMarking }: { file: Letting
     await reload()
   }
   async function fellThrough() {
-    if (!confirm('Mark this let as fallen through? It’s kept on record, comes off every current list, and the room goes back on the market. Deal with the holding deposit (refund or retain) separately.')) return
+    if (!confirm('Mark this let as fallen through? It’s kept on record, comes off every current list, and the room goes back on the market.')) return
+    // a tenancy whose start date has passed: the office confirms the tenant never moved in (19 Nov 2026)
+    const neverMovedIn = file.stage === 'live' ? confirm('Did the tenant never move in? (Only confirm if they never lived here.)') : false
+    if (file.stage === 'live' && !neverMovedIn) { setErr('A tenant who moved in gets notice, not a fall-through.'); return }
+    // the holding deposit is resolved in the same step (Tenant Fees Act sch.2): kept because the applicant withdrew, or refunded
+    const keep = confirm('If there is a holding deposit: keep it because the applicant withdrew? OK = keep (withdrew). Cancel = refund it.')
+    const refundReference = keep ? undefined : (prompt('Bank reference for the refund (the payment reference it went back with):') ?? '').trim()
+    if (!keep && !refundReference) { setErr('A refund needs its bank reference.'); return }
     setBusy(true); setErr('')
-    try { await patch({ action: 'cancel', reason }) } catch (e) { setErr(e instanceof Error ? e.message : 'Could not save') } finally { setBusy(false) }
+    try { await patch({ action: 'cancel', reason, neverMovedIn, holdingOutcome: keep ? 'retained' : 'refunded', retainGround: 'withdrew', refundReference }) } catch (e) { setErr(e instanceof Error ? e.message : 'Could not save') } finally { setBusy(false) }
   }
   return (
     <div className="space-y-md">

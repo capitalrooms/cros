@@ -11,8 +11,6 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createRouteHandlerClient } from '@/lib/serverAuth'
-import { cookies } from 'next/headers'
 import {
   loadPDFLetterheadAssets, fetchPDFBizSettings,
   drawPDFLogo, drawPDFFooter, drawPDFLetterRule,
@@ -21,7 +19,8 @@ import {
 } from '@/lib/pdfLetterhead'
 import { contentDisposition } from '@/lib/contentDisposition'
 import { PDF } from '@/lib/pdf/palette'
-import { requireDirector } from '@/lib/adminAuth'
+import { buildTaxYearPDF } from '@/lib/pdf/taxYearSummary'
+import { requireAdmin, requireAnnual } from '@/lib/adminAuth'
 
 export const dynamic = 'force-dynamic'
 
@@ -39,6 +38,9 @@ function dateLabel(s: string) {
 
 // ── Build PDF using pdfLetterhead ─────────────────────────────────────────────
 
+/** Agency fees (management and letting together — the books don't split them). Never estimated. */
+const agencyFees = (x: any): number => Number(x.agency_fees ?? ((Number(x.management_fees) || 0) + (Number(x.letting_fees) || 0)))
+
 async function buildPDF(data: any, type: string, from: string, to: string): Promise<Buffer> {
   const [assets, biz] = await Promise.all([
     Promise.resolve(loadPDFLetterheadAssets()),
@@ -54,28 +56,26 @@ async function buildPDF(data: any, type: string, from: string, to: string): Prom
   const title = type === 'tax_year' ? 'Tax Year Income Summary' : 'Landlord Income Analysis'
 
   // ── Page 1 header ─────────────────────────────────────────────────────────
-  drawPDFLogo(doc, logoImg)
+  drawPDFLogo(doc, logoImg)   // top right, at the margin
 
-  doc.font(fontBold).fontSize(16).fillColor(BLACK).text(title, MARGIN, MARGIN, { width: COL_W, align: 'right' })
-  doc.font(fontReg).fontSize(9).fillColor(GREY)
-    .text(`${dateLabel(from)} – ${dateLabel(to)}`, MARGIN, MARGIN + 20, { width: COL_W, align: 'right' })
-
+  // the date and the subject sit below the logo, on the left (approved letterhead, lib/pdfLetterhead)
+  // approved letter layout (docs: cros-pdf-letterhead-template): date, then Re: with the bold subject, then the rule
   let y = Math.max(MARGIN + LOGO_H + 20, MARGIN + 40)
   doc.font(fontReg).fontSize(9).fillColor(GREY)
     .text(new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }), MARGIN, y)
-  y += 18
+  y += 28
 
-  // Re: line
+  // Re: line — bold subject on the same line, rule 24pt beneath
   doc.save().font(fontReg).fontSize(9).fillColor(BLACK)
     .text('Re:  ', MARGIN, y, { continued: true })
     .font(fontBold).text(`${title} — ${dateLabel(from)} to ${dateLabel(to)}`).restore()
-  y = drawPDFLetterRule(doc, y + 16)
+  y = drawPDFLetterRule(doc, y + 24)
 
   // Disclaimer banner
   doc.rect(MARGIN, y, COL_W, 22).fillColor(PDF.tint).fill()
   doc.strokeColor(PDF.gold).lineWidth(0.5).rect(MARGIN, y, COL_W, 22).stroke()
   doc.font(fontReg).fontSize(8).fillColor(PDF.gold)
-    .text('For informational purposes only. This is not a certified tax return. Please consult your accountant.', MARGIN + 8, y + 7)
+    .text('For information only. This is not a certified tax return. Please consult your accountant.', MARGIN + 8, y + 7)
   y += 30
 
   const bodyBottom = PAGE_H - FOOTER_BAND_H - 30
@@ -92,13 +92,12 @@ async function buildPDF(data: any, type: string, from: string, to: string): Prom
 
     // Summary tiles
     const tiles = [
-      { label: 'Gross Rent',      value: gbp(landlord.rent || 0),            dark: false },
-      { label: 'Mgmt Fees',       value: gbp(landlord.management_fees || 0), dark: false },
-      { label: 'Letting Fees',    value: gbp(landlord.letting_fees || 0),    dark: false },
-      { label: 'Expenses',        value: gbp(landlord.expenses || 0),        dark: false },
-      { label: 'Net to Landlord', value: gbp(landlord.net || 0),             dark: true  },
+      { label: 'Gross rent',      value: gbp(landlord.rent || 0),        dark: false },
+      { label: 'Agency fees',     value: gbp(agencyFees(landlord)),      dark: false },
+      { label: 'Expenses',        value: gbp(landlord.expenses || 0),    dark: false },
+      { label: 'Net to landlord', value: gbp(landlord.net || 0),         dark: true  },
     ]
-    const tileW = Math.floor(COL_W / 5) - 2
+    const tileW = Math.floor(COL_W / 4) - 2
     const tileH = 38
     tiles.forEach((tile, i) => {
       const x = MARGIN + i * (tileW + 2)
@@ -117,12 +116,11 @@ async function buildPDF(data: any, type: string, from: string, to: string): Prom
       doc.font(fontBold).fontSize(9.5).fillColor(PDF.ink).text(prop.property_name, MARGIN, y); y += 12
 
       const cols = [
-        { label: 'Month',       x: MARGIN,       w: 60  },
-        { label: 'Rent',        x: MARGIN + 62,  w: 78  },
-        { label: 'Mgmt Fee',    x: MARGIN + 142, w: 78  },
-        { label: 'Letting Fee', x: MARGIN + 222, w: 78  },
-        { label: 'Expenses',    x: MARGIN + 302, w: 78  },
-        { label: 'Net',         x: MARGIN + 382, w: COL_W - 382 },
+        { label: 'Month',        x: MARGIN,       w: 90  },
+        { label: 'Rent',         x: MARGIN + 92,  w: 110 },
+        { label: 'Agency fees',  x: MARGIN + 202, w: 110 },
+        { label: 'Expenses',     x: MARGIN + 312, w: 110 },
+        { label: 'Net',          x: MARGIN + 422, w: COL_W - 422 },
       ]
       const hy = y
       doc.rect(MARGIN, hy, COL_W, 14).fillColor(PDF.tint).fill()
@@ -136,8 +134,8 @@ async function buildPDF(data: any, type: string, from: string, to: string): Prom
         if (y > bodyBottom - 14) { doc.addPage(); y = MARGIN }
         if (bg) doc.rect(MARGIN, y, COL_W, 13).fillColor(PDF.tint).fill()
         bg = !bg
-        const net = Number(m.rent || 0) - Number(m.mgmt || 0) - Number(m.letting || 0) - Number(m.expenses || 0)
-        const vals = [monthLabel(m.month), gbp(m.rent || 0), gbp(m.mgmt || 0), gbp(m.letting || 0), gbp(m.expenses || 0), gbp(net)]
+        const net = Number(m.rent || 0) - agencyFees(m) - Number(m.expenses || 0)
+        const vals = [monthLabel(m.month), gbp(m.rent || 0), gbp(agencyFees(m)), gbp(m.expenses || 0), gbp(net)]
         cols.forEach((c, i) => {
           doc.font(fontReg).fontSize(7.5).fillColor(BLACK).text(vals[i], c.x + 2, y + 3, { width: c.w - 4 })
         })
@@ -147,8 +145,8 @@ async function buildPDF(data: any, type: string, from: string, to: string): Prom
       if (y > bodyBottom - 15) { doc.addPage(); y = MARGIN }
       const ty = y
       doc.rect(MARGIN, ty, COL_W, 14).fillColor(PDF.line).fill()
-      const propNet = Number(prop.rent || 0) - Number(prop.management_fees || 0) - Number(prop.letting_fees || 0) - Number(prop.expenses || 0)
-      const totVals = ['Total', gbp(prop.rent || 0), gbp(prop.management_fees || 0), gbp(prop.letting_fees || 0), gbp(prop.expenses || 0), gbp(propNet)]
+      const propNet = Number(prop.rent || 0) - agencyFees(prop) - Number(prop.expenses || 0)
+      const totVals = ['Property total', gbp(prop.rent || 0), gbp(agencyFees(prop)), gbp(prop.expenses || 0), gbp(propNet)]
       cols.forEach((c, i) => {
         doc.font(fontBold).fontSize(7.5).fillColor(BLACK).text(totVals[i], c.x + 2, ty + 4, { width: c.w - 4 })
       })
@@ -175,19 +173,13 @@ async function buildPDF(data: any, type: string, from: string, to: string): Prom
 // ── Route handler ─────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
-  const supabase = createRouteHandlerClient({ cookies })
-  const { data: { session } } = await supabase.auth.getSession()
-  if (!session) return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
-
-  const { data: person } = await supabase
-    .from('people').select('role').eq('email', session.user.email).single()
-  if (!person || !['administrator', 'admin', 'lettings'].includes(person.role))
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  // Office sign-in is a Bearer token (lib/adminAuth), not a cookie session — so the cookie check always refused everyone.
+  if (!(await requireAdmin(req))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { type, from, to, landlord_name } = await req.json()
   if (!type || !from || !to) return NextResponse.json({ error: 'type, from, to required' }, { status: 400 })
   // the tax-year summary is annual company-level figures: directors only (18 Nov 2026)
-  if (type === 'tax_year' && !(await requireDirector(req))) return NextResponse.json({ error: 'The tax year summary is for directors only' }, { status: 403 })
+  if (type === 'tax_year' && !(await requireAnnual(req))) return NextResponse.json({ error: 'Annual financial reports are not permitted for this account' }, { status: 403 })
 
   // Fetch report data from the relevant internal route
   const baseUrl = req.nextUrl.origin
@@ -200,20 +192,21 @@ export async function POST(req: NextRequest) {
     })
     reportData = await res.json()
   } else if (type === 'tax_year') {
-    const params = new URLSearchParams({ from, to, search: landlord_name || '' })
+    const params = new URLSearchParams({ from, to, landlord: landlord_name || '' })   // the tax-year route reads 'landlord' (was 'search': every export failed with 'Landlord required')
     const res = await fetch(`${baseUrl}/api/admin/reports/tax-year?${params}`, {
       headers: { cookie: req.headers.get('cookie') || '', authorization: req.headers.get('authorization') || '' },   // sign-in is a Bearer token, not a cookie
     })
     reportData = await res.json()
+    if (!res.ok) return NextResponse.json(reportData, { status: res.status })   // refused or failed: say so, don't draw an empty PDF
     // Normalise tax-year response to match landlord_income shape
-    if (reportData && !reportData.landlords) {
-      reportData = { landlords: reportData.landlord ? [{ ...reportData.landlord, ...reportData }] : [] }
-    }
   } else {
     return NextResponse.json({ error: 'Unknown report type' }, { status: 400 })
   }
 
-  const pdf = await buildPDF(reportData, type, from, to)
+  // the tax-year summary has its own layout on the approved letterhead (lib/pdf/taxYearSummary); the rest use buildPDF
+  const pdf = type === 'tax_year'
+    ? await buildTaxYearPDF(reportData, loadPDFLetterheadAssets(), await fetchPDFBizSettings())
+    : await buildPDF(reportData, type, from, to)
 
   const filename = `capital-rooms-${type.replace('_', '-')}-${from.slice(0, 7)}-to-${to.slice(0, 7)}.pdf`
 

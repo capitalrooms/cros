@@ -331,7 +331,7 @@ export async function POST(req: NextRequest) {
     }
 
     // a document on the property: letter, bill, receipt, sheet, other
-    const docType = kind === 'letter' ? 'correspondence' : kind === 'bill' ? 'utility_bill' : kind === 'receipt' ? 'receipt' : kind === 'safety_sheet' ? 'safety_check_sheet' : 'other'
+    const docType = kind === 'letter' ? 'correspondence' : kind === 'bill' ? 'utility_bill' : kind === 'receipt' ? 'receipt' : kind === 'safety_sheet' ? 'safety_check_sheet' : kind === 'tenancy_agreement' ? 'tenancy_agreement' : 'other'
     const path = `capture/${propertyId}/${Date.now()}-${safeName(item.file_name)}`
     const { error: upErr } = await s.storage.from('property-documents').upload(path, o.bytes, { contentType: o.mime || 'application/octet-stream', upsert: false })
     if (upErr) return NextResponse.json({ error: upErr.message }, { status: 500 })

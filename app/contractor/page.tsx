@@ -73,7 +73,7 @@ type Tab = 'today' | 'quotes' | 'ongoing' | 'waiting' | 'booked' | 'done'
 const JOB_TABS: Tab[] = ['today', 'ongoing', 'waiting', 'booked', 'done']   // grouped as "Jobs" on the phone tab bar (Done joined 14 Nov 2026 — Ask took its place on the bar)
 
 // ── Job card ──────────────────────────────────────────────────────────────────
-function JobCard({ job, variant, asParam }: { job: Job; variant?: 'overdue' | 'waiting' | 'ongoing'; asParam?: string }) {
+function JobCard({ job, variant, asParam, from }: { job: Job; variant?: 'overdue' | 'waiting' | 'ongoing'; asParam?: string; from?: string }) {
   const category = String(job.category || 'General').replace(/-/g, ' ')
   const borderCls =
     // Garden Ask (14 Nov 2026): white cards; a coloured edge says what needs doing
@@ -83,7 +83,7 @@ function JobCard({ job, variant, asParam }: { job: Job; variant?: 'overdue' | 'w
     'border-transparent bg-white'
 
   return (
-    <Link className="block" href={`/contractor/job/${job.id}${asParam ? `?as=${asParam}` : ''}`}>
+    <Link className="block" href={`/contractor/job/${job.id}?${new URLSearchParams({ ...(asParam ? { as: asParam } : {}), ...(from ? { from } : {}) }).toString()}`.replace(/\?$/, '')}>
       <div className={`mb-2 flex cursor-pointer items-center justify-between gap-md rounded-[20px] border p-md ${borderCls}`}>
         <div className="min-w-0 flex-1">
           {/* what's wrong first, then where (9 Nov 2026) */}
@@ -126,7 +126,7 @@ function JobCard({ job, variant, asParam }: { job: Job; variant?: 'overdue' | 'w
 function QuoteCard({ job, asParam }: { job: Job; asParam?: string }) {
   const submitted = !!job.quote_submitted_at
   return (
-    <Link className="block" href={`/contractor/job/${job.id}${asParam ? `?as=${asParam}` : job.quote_id ? `?quote=${job.quote_id}` : ''}`}>
+    <Link className="block" href={`/contractor/job/${job.id}?${new URLSearchParams({ ...(asParam ? { as: asParam } : job.quote_id ? { quote: job.quote_id } : {}), from: 'quotes' }).toString()}`.replace(/\?$/, '')}>
       <div className={`rounded-2xl border p-md shadow-sm flex items-center justify-between gap-md hover:shadow-md transition-shadow cursor-pointer ${
         submitted ? 'border-green-200 bg-green-50' : 'border-blue-200 bg-blue-50'
       }`}>
@@ -565,9 +565,11 @@ export default function ContractorDashboard() {
                     <div className="space-y-sm">{submittedQuotes.map(job => <QuoteCard key={job.id} job={job} asParam={asId} />)}</div>
                   </div>
                 )}
+                <Link href="/contractor/quote-request" className="block rounded-2xl bg-[#17332B] px-lg py-md text-center text-sm font-bold text-white shadow-sm">+ Raise a quote</Link>
                 {quoteJobs.length === 0 && (
-                  <div className="rounded-2xl border-2 border-dashed border-neutral-200 bg-white py-2xl text-center">
-                    <p className="text-sm font-medium text-neutral-400">No quote requests</p>
+                  <div className="rounded-2xl border-2 border-dashed border-neutral-200 bg-white py-xl text-center">
+                    <p className="text-sm font-medium text-neutral-500">No quote requests from the office right now.</p>
+                    <p className="mt-xs text-xs text-neutral-400">Discussed a job on the phone? Raise a quote for it here.</p>
                   </div>
                 )}
               </div>
@@ -585,7 +587,7 @@ export default function ContractorDashboard() {
                     <div className="rounded-xl border border-amber-200 bg-amber-50 px-md py-sm">
                       <p className="text-xs text-amber-700 font-semibold">Jobs started but left on site — tap to pick up or mark complete.</p>
                     </div>
-                    {ongoing.map(job => <JobCard key={job.id} job={job} variant="ongoing" asParam={asId} />)}
+                    {ongoing.map(job => <JobCard key={job.id} job={job} variant="ongoing" asParam={asId} from={activeTab} />)}
                   </>
                 )}
               </div>
@@ -598,13 +600,13 @@ export default function ContractorDashboard() {
                   <div>
                     <h2 className="text-sm font-bold text-red-600 uppercase tracking-wide mb-sm">Overdue</h2>
                     <div className="rounded-xl border border-red-200 bg-red-50 px-md py-sm mb-md"><p className="text-xs text-red-700">These visits have passed — open each to log or reschedule.</p></div>
-                    <div className="space-y-sm">{overdue.map(job => <JobCard key={job.id} job={job} variant="overdue" asParam={asId} />)}</div>
+                    <div className="space-y-sm">{overdue.map(job => <JobCard key={job.id} job={job} variant="overdue" asParam={asId} from={activeTab} />)}</div>
                   </div>
                 )}
                 {toSchedule.length > 0 && (
                   <div>
                     <h2 className="text-sm font-bold text-amber-700 uppercase tracking-wide mb-sm">Need a date</h2>
-                    <div className="space-y-sm">{toSchedule.map(job => <JobCard key={job.id} job={job} variant="waiting" asParam={asId} />)}</div>
+                    <div className="space-y-sm">{toSchedule.map(job => <JobCard key={job.id} job={job} variant="waiting" asParam={asId} from={activeTab} />)}</div>
                   </div>
                 )}
                 {overdue.length === 0 && toSchedule.length === 0 && (
@@ -622,7 +624,7 @@ export default function ContractorDashboard() {
                   <div className="rounded-2xl border-2 border-dashed border-neutral-200 bg-white py-2xl text-center">
                     <p className="text-sm font-medium text-neutral-400">No jobs booked ahead</p>
                   </div>
-                ) : bookedAhead.map(job => <JobCard key={job.id} job={job} asParam={asId} />)}
+                ) : bookedAhead.map(job => <JobCard key={job.id} job={job} asParam={asId} from={activeTab} />)}
               </div>
             )}
 
@@ -634,7 +636,7 @@ export default function ContractorDashboard() {
                     <p className="text-sm font-medium text-neutral-400">No completed jobs yet</p>
                   </div>
                 ) : completedJobs.map(job => (
-                  <Link key={job.id} href={`/contractor/job/${job.id}`} className="block">
+                  <Link key={job.id} href={`/contractor/job/${job.id}?from=done`} className="block">
                     <div className="rounded-2xl border border-neutral-200 bg-white p-md flex items-center justify-between gap-md hover:shadow-md transition-shadow cursor-pointer">
                       <div className="min-w-0 flex-1">
                         <p className="font-bold text-neutral-900 line-clamp-2">{String((job as any).title || job.category || "Repair").split(" — ")[0]}</p>
@@ -758,7 +760,7 @@ export default function ContractorDashboard() {
                     {selectedDay === today ? 'Nothing booked for today' : `Nothing booked for ${formatDateUK(selectedDay)}`}
                   </p>
                 </div>
-              ) : dayJobs.map(job => <JobCard key={job.id} job={job} asParam={asId} />)}
+              ) : dayJobs.map(job => <JobCard key={job.id} job={job} asParam={asId} from={activeTab} />)}
             </div>
           )}
 
@@ -779,9 +781,11 @@ export default function ContractorDashboard() {
                   <div className="space-y-sm">{submittedQuotes.map(job => <QuoteCard key={job.id} job={job} asParam={asId} />)}</div>
                 </div>
               )}
+              <Link href="/contractor/quote-request" className="block rounded-2xl bg-[#17332B] px-lg py-md text-center text-sm font-bold text-white shadow-sm">+ Raise a quote</Link>
               {quoteJobs.length === 0 && (
-                <div className="rounded-2xl border-2 border-dashed border-neutral-200 bg-white py-2xl text-center">
-                  <p className="text-sm font-medium text-neutral-400">No quote requests</p>
+                <div className="rounded-2xl border-2 border-dashed border-neutral-200 bg-white py-xl text-center">
+                  <p className="text-sm font-medium text-neutral-500">No quote requests from the office right now.</p>
+                  <p className="mt-xs text-xs text-neutral-400">Discussed a job on the phone? Raise a quote for it here.</p>
                 </div>
               )}
             </div>
@@ -798,7 +802,7 @@ export default function ContractorDashboard() {
                   <div className="rounded-xl border border-amber-200 bg-amber-50 px-md py-sm mb-md">
                     <p className="text-xs text-amber-700 font-semibold">Jobs started but left on site — tap to pick up or mark complete.</p>
                   </div>
-                  <div className="space-y-sm">{ongoing.map(job => <JobCard key={job.id} job={job} variant="ongoing" asParam={asId} />)}</div>
+                  <div className="space-y-sm">{ongoing.map(job => <JobCard key={job.id} job={job} variant="ongoing" asParam={asId} from={activeTab} />)}</div>
                 </>
               )}
             </div>
@@ -809,7 +813,7 @@ export default function ContractorDashboard() {
               {toSchedule.length > 0 && (
                 <div>
                   <h2 className="text-sm font-bold text-amber-700 uppercase tracking-wide mb-sm">New jobs: pick a date</h2>
-                  <div className="space-y-sm">{toSchedule.map(job => <JobCard key={job.id} job={job} variant="waiting" asParam={asId} />)}</div>
+                  <div className="space-y-sm">{toSchedule.map(job => <JobCard key={job.id} job={job} variant="waiting" asParam={asId} from={activeTab} />)}</div>
                 </div>
               )}
               {overdue.length > 0 && (
@@ -818,7 +822,7 @@ export default function ContractorDashboard() {
                   <div className="rounded-xl border border-red-200 bg-red-50 px-md py-sm mb-sm">
                     <p className="text-xs text-red-700">These visits have passed — tap to log or reschedule.</p>
                   </div>
-                  <div className="space-y-sm">{overdue.map(job => <JobCard key={job.id} job={job} variant="overdue" asParam={asId} />)}</div>
+                  <div className="space-y-sm">{overdue.map(job => <JobCard key={job.id} job={job} variant="overdue" asParam={asId} from={activeTab} />)}</div>
                 </div>
               )}
               {overdue.length === 0 && toSchedule.length === 0 && (
@@ -835,7 +839,7 @@ export default function ContractorDashboard() {
                 <div className="rounded-2xl border-2 border-dashed border-neutral-200 bg-white py-2xl text-center">
                   <p className="text-sm font-medium text-neutral-400">No jobs booked ahead</p>
                 </div>
-              ) : <div className="space-y-sm">{bookedAhead.map(job => <JobCard key={job.id} job={job} asParam={asId} />)}</div>}
+              ) : <div className="space-y-sm">{bookedAhead.map(job => <JobCard key={job.id} job={job} asParam={asId} from={activeTab} />)}</div>}
             </div>
           )}
 
@@ -848,7 +852,7 @@ export default function ContractorDashboard() {
               ) : (
                 <div className="space-y-sm">
                   {completedJobs.map(job => (
-                    <Link key={job.id} href={`/contractor/job/${job.id}`} className="block">
+                    <Link key={job.id} href={`/contractor/job/${job.id}?from=done`} className="block">
                       <div className="rounded-2xl border border-neutral-200 bg-white p-md flex items-center justify-between gap-md hover:shadow-md transition-shadow cursor-pointer">
                         <div className="min-w-0 flex-1">
                           <p className="font-bold text-neutral-900 line-clamp-2">{String((job as any).title || job.category || "Repair").split(" — ")[0]}</p>

@@ -212,9 +212,10 @@ export default function TenantRequests() {
                       <span className={`inline-block rounded-full px-md py-xs text-xs font-bold ${visitPassed ? 'bg-amber-100 text-amber-800' : statusStyle.badge}`}>
                         {visitPassed ? 'Visit date passed' : statusStyle.label}
                       </span>
-                      <h3 className="mt-xs line-clamp-2 text-lg font-bold leading-snug text-neutral-900">{request.title}</h3>
+                      {(() => { const raw = String(request.title ?? ''); const m = raw.match(/^(.+?) — \1(.*)$/); const title = m ? m[1] + m[2] : raw;
+                        return <h3 className="mt-xs line-clamp-2 text-lg font-bold leading-snug text-neutral-900">{title}</h3> })()}
 
-                      {(() => { const stem = String(request.title ?? '').replace(/(\.\.\.|…)$/, '').trim(); const d = String(request.description ?? '');
+                      {(() => { const rawT = String(request.title ?? ''); const dup = rawT.match(/^(.+?) — \1(.*)$/); const stem = (dup ? dup[1] + dup[2] : rawT).replace(/(\.\.\.|…)$/, '').trim(); const d = String(request.description ?? '').split('\n')[0].trim();
                         return d && !(stem && d.startsWith(stem) && d.length <= stem.length + 3) ? <p className="mt-sm line-clamp-3 text-sm text-neutral-600">{d}</p> : null })()}
 
                       <div className="mt-md space-y-xs text-sm text-neutral-600">

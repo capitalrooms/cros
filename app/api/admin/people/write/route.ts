@@ -9,14 +9,22 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/adminAuth'
 import { officeCaller, bearer } from '@/lib/access/server'
-import { isAdministrator } from '@/lib/access/areas'
+import { isAdministrator, ANNUAL_KEY } from '@/lib/access/areas'
 import { createServiceClient } from '@/lib/supabase'
 import { logAudit } from '@/lib/auditLog'
 
 export const dynamic = 'force-dynamic'
 const OFFICE = ['administrator', 'admin', 'lettings']
 const ROLES = ['tenant', 'landlord', 'contractor', 'cleaner', 'applicant', 'guarantor', 'inactive', ...OFFICE]
-const NEVER = ['id', 'created_at', 'auth_user_id', 'user_id']
+// is_owner is never written here (19 Nov 2026): it's set by migration only. The annual permission is changed only by the owner
+// through /api/admin/accounts (set_annual), so it's stripped from anything written here and kept as it was.
+const NEVER = ['id', 'created_at', 'auth_user_id', 'user_id', 'is_owner']
+const keepAnnual = (incoming: unknown, existing: unknown): string[] | null => {
+  const had = Array.isArray(existing) && existing.includes(ANNUAL_KEY)
+  const list = Array.isArray(incoming) ? incoming.filter((k): k is string => typeof k === 'string' && k !== ANNUAL_KEY) : null
+  if (list === null) return had ? [ANNUAL_KEY] : null
+  return had ? [...list, ANNUAL_KEY] : list
+}
 const ADMIN_ONLY = ['role', 'access_areas', 'email']
 const UUID = /^[0-9a-f-]{36}$/i
 
@@ -34,7 +42,7 @@ export async function POST(req: NextRequest) {
   if (b.op === 'update') {
     const id = String(b.id ?? '')
     if (!UUID.test(id)) return NextResponse.json({ error: 'Who? (no person id)' }, { status: 400 })
-    const { data: before } = await s.from('people').select('id, email, role').eq('id', id).maybeSingle() as { data: any }
+    const { data: before } = await s.from('people').select('id, email, role, access_areas').eq('id', id).maybeSingle() as { data: any }
     if (!before) return NextResponse.json({ error: 'That person isn’t in CROS any more.' }, { status: 404 })
     const emailChanged = 'email' in fields && String(fields.email ?? '') !== String(before.email ?? '').toLowerCase()
     const touchesAdmin = ('role' in fields && fields.role !== before.role) || 'access_areas' in fields || emailChanged || OFFICE.includes(String(before.role))
@@ -44,6 +52,7 @@ export async function POST(req: NextRequest) {
       const { data: clash } = await s.from('people').select('id').ilike('email', String(fields.email)).neq('id', id).limit(1)
       if (clash?.length) return NextResponse.json({ error: `${fields.email} already belongs to someone else in CROS.` }, { status: 409 })
     }
+    if ('access_areas' in fields) fields.access_areas = keepAnnual(fields.access_areas, before.access_areas)
     const { data, error } = await s.from('people').update(fields).eq('id', id).select('*').maybeSingle()
     if (error) return NextResponse.json({ error: /duplicate key|unique/i.test(error.message) ? 'Someone else in CROS already has that email or phone number.' : error.message }, { status: 400 })
     await logAudit({ userId: me.personId, action: 'update', table: 'people', recordId: id, details: `Changed ${Object.keys(fields).join(', ')}` }).catch(() => false)
@@ -58,6 +67,7 @@ export async function POST(req: NextRequest) {
       const { data: existing } = await s.from('people').select('id').ilike('email', String(fields.email)).limit(1).maybeSingle() as { data: any }
       if (existing) return NextResponse.json({ error: `${fields.email} is already in CROS — search for them.`, existingId: existing.id }, { status: 409 })
     }
+    if ('access_areas' in fields) fields.access_areas = keepAnnual(fields.access_areas, null)
     const { data, error } = await s.from('people').insert(fields).select('*').single()
     if (error) return NextResponse.json({ error: /duplicate key|unique/i.test(error.message) ? 'Someone with that email is already in CROS.' : error.message }, { status: 400 })
     await logAudit({ userId: me.personId, action: 'create', table: 'people', recordId: (data as any).id, details: `Added a ${role}` }).catch(() => false)

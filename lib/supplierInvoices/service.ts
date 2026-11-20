@@ -50,6 +50,8 @@ export async function gate(s: S, personId: string, role: string) {
 export interface Line { description: string; where?: string; labour: number; parts: number; ticketId?: string | null; cleanId?: string | null; propertyId?: string | null; date?: string | null; receipt?: string | null }
 export interface Draft {
   toCapitalRooms: boolean
+  /** the cleaner's or contractor's own invoice reference (optional) */
+  yourRef?: string | null
   client?: { name?: string; email?: string; address?: string }
   propertyId?: string | null
   periodFrom?: string | null; periodTo?: string | null
@@ -103,7 +105,7 @@ export async function shape(s: S, personId: string, role: 'contractor' | 'cleane
   const vat = prof.vatRegistered ? r2((labourTotal + partsTotal) * 0.2) : 0
   const period = d.periodFrom && d.periodTo ? `${new Date(`${d.periodFrom}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })} – ${new Date(`${d.periodTo}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}` : null
   return {
-    ours: !!d.toCapitalRooms, prof, client, property, lines, issue, due: addDays(issue, prof.paymentDays), labourTotal, partsTotal, vat, total: r2(labourTotal + partsTotal + vat), period,
+    ours: !!d.toCapitalRooms, prof, client, property, lines, issue, yourRef: String(d.yourRef ?? '').trim().slice(0, 40) || null, due: addDays(issue, prof.paymentDays), labourTotal, partsTotal, vat, total: r2(labourTotal + partsTotal + vat), period,
     propertyLine: property ? [firstLine(property.name), String(property.address ?? '').replace(/\n/g, ', '), property.postcode].filter(Boolean).filter((v, i, a) => a.indexOf(v) === i).join(', ') : null,
   }
 }
@@ -117,7 +119,7 @@ async function logoBytes(s: S, path: string | null) {
 export async function pdfFor(s: S, sh: any, number: number, notes?: string | null) {
   return renderSupplierInvoice({
     supplier: { name: sh.prof.tradingName, address: sh.prof.address, phone: sh.prof.phone, email: sh.prof.email, vatNumber: sh.prof.vatRegistered ? sh.prof.vatNumber : null, logo: await logoBytes(s, sh.prof.logoPath), colour: sh.prof.colour },
-    number, issueDate: sh.issue, dueDate: sh.due, client: sh.client, property: sh.propertyLine, period: sh.period,
+    number, issueDate: sh.issue, dueDate: sh.due, client: sh.client, property: sh.propertyLine, period: sh.period, yourRef: sh.yourRef,
     lines: sh.lines.map((l: Line) => ({ description: l.description, where: l.where, labour: l.labour, parts: l.parts })),
     labourTotal: sh.labourTotal, partsTotal: sh.partsTotal, vat: sh.vat, total: sh.total,
     bank: { name: sh.prof.bankName, sortCode: sh.prof.sortCode, accountNo: sh.prof.accountNo }, notes: notes ?? null,
@@ -139,6 +141,7 @@ export async function send(s: S, personId: string, role: 'contractor' | 'cleaner
     client_name: sh.client.name, client_email: sh.client.email || null, client_address: sh.client.address || null,
     property_id: sh.property?.id ?? null, issue_date: sh.issue, due_date: sh.due, period_from: d.periodFrom || null, period_to: d.periodTo || null,
     lines: sh.lines, labour_total: sh.labourTotal, parts_total: sh.partsTotal, vat_amount: sh.vat, total: sh.total, notes,
+    your_ref: sh.yourRef,
   }).select('id').single()
   if (error) return { error: error.message }
 

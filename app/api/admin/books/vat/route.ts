@@ -7,7 +7,7 @@
  * lib/finance/vatReturn.
  */
 import { NextRequest, NextResponse } from 'next/server'
-import { requireDirector, requireAdministrator } from '@/lib/adminAuth'
+import { requireOwner, requireAdministrator } from '@/lib/adminAuth'
 import { createServiceClient } from '@/lib/supabase'
 import { vatSettings, vatPeriods, vatPeriod, vatCsv, vatMonths, vatDueDate, vatFiled } from '@/lib/finance/vatReturn'
 
@@ -15,7 +15,7 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
 export async function GET(req: NextRequest) {
-  if (!(await requireDirector(req))) return NextResponse.json({ error: 'Directors only' }, { status: 403 })
+  if (!(await requireOwner(req))) return NextResponse.json({ error: 'Directors only' }, { status: 403 })
   const s = createServiceClient()
   const st = await vatSettings(s)
   const from = req.nextUrl.searchParams.get('from'), to = req.nextUrl.searchParams.get('to')

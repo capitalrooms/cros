@@ -5,6 +5,7 @@
 //   syncHouseInfo — the one place tenants' WiFi details come from: the internet account writes the WiFi item in the
 //                   house information (network, password, supplier and its fault line) — no second copy to keep up
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { open as openSecret } from '@/lib/crypto/fieldCrypt'   // the Wi-Fi password is stored encrypted (19 Nov 2026)
 
 export type ServiceKind = 'internet' | 'energy' | 'gas' | 'electricity' | 'water' | 'council_tax' | 'tv_licence' | 'appliance_cover' | 'cleaning' | 'gardening' | 'insurance' | 'other'
 export const SERVICE_KINDS: { key: ServiceKind; label: string; categories: string[] }[] = [
@@ -93,6 +94,8 @@ export async function servicesFor(s: SupabaseClient, propertyId: string): Promis
     s.from('properties').select('house_info').eq('id', propertyId).maybeSingle(),
   ])
   const ready = !(error && /property_services|does not exist|schema cache/i.test(error.message))
+  // the Wi-Fi password is kept encrypted; it's opened here only, for the office screens and what tenants are shown
+  for (const r of (rows ?? []) as any[]) if (r.wifi_password) r.wifi_password = openSecret(r.wifi_password)
   const t = today(), yearAgo = new Date(Date.parse(t) - 365 * 86_400_000).toISOString().slice(0, 10), soon = new Date(Date.parse(t) + 60 * 86_400_000).toISOString().slice(0, 10)
   const forKind = (k: string, supplier: string | null) => {
     const cats = SERVICE_KINDS.find(x => x.key === k)?.categories ?? []
@@ -145,6 +148,7 @@ export async function syncHouseInfo(s: SupabaseClient, propertyId: string): Prom
     s.from('properties').select('house_info').eq('id', propertyId).maybeSingle(),
   ])
   const net = (svc ?? [])[0] as any
+  if (net?.wifi_password) net.wifi_password = openSecret(net.wifi_password)
   if (!net || !(net.wifi_network || net.wifi_password || net.supplier)) return   // nothing to say — leave the house information alone
   const items = (((prop as any)?.house_info?.items ?? []) as any[]).filter(i => !/wi-?fi|internet|broadband/i.test(String(i.label)))
   const value = [net.wifi_network ? `Network: ${net.wifi_network}` : null, net.wifi_password ? `Password: ${net.wifi_password}` : null,
@@ -162,7 +166,7 @@ export async function allServices(s: SupabaseClient): Promise<{ ready: boolean; 
   return {
     ready: true,
     rows: ((data ?? []) as any[]).filter(r => !r.properties?.is_demo).map(r => ({
-      ...r, monthly_cost: r.monthly_cost != null ? Number(r.monthly_cost) : null,
+      ...r, wifi_password: r.wifi_password ? openSecret(r.wifi_password) : r.wifi_password, monthly_cost: r.monthly_cost != null ? Number(r.monthly_cost) : null,
       property: String(r.properties?.name || r.properties?.address || '').split(/\n/)[0],
       endsInDays: r.contract_end ? Math.round((Date.parse(r.contract_end) - Date.parse(t)) / 86_400_000) : null,
     })),

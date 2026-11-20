@@ -564,7 +564,7 @@ export default function CleanerDashboard() {
                           <div style={{ fontWeight: 700, color: 'var(--cr-ink)', fontSize: '14px' }}>{c.properties?.name ?? 'Clean'}</div>
                           <div style={{ fontSize: '12px', color: 'rgb(var(--n-500))', marginTop: 2 }}>
                             {formatDateUK(c.clean_date)}{c.hours_worked != null ? ` · ${Number(c.hours_worked)} hour${Number(c.hours_worked) === 1 ? '' : 's'}` : ''}{c.supplier_invoice_id ? ' · Invoiced' : ''}
-                            {c.hours_worked == null && !c.supplier_invoice_id && <span style={{ marginLeft: 8, fontWeight: 700, color: '#8a5a00', background: '#FDF1D6', borderRadius: 999, padding: '1px 8px' }}>Add hours</span>}
+                            {c.hours_worked == null && !c.supplier_invoice_id && <span style={{ marginLeft: 8, fontWeight: 700, color: '#8a5a00', background: '#FDF1D6', borderRadius: 999, padding: '1px 8px' }}>Hours to log</span>}
                           </div>
                         </a>
                       ))}
@@ -845,7 +845,7 @@ export default function CleanerDashboard() {
                     </div>
                     {/* hours are what the invoice is priced from — a done clean without them asks for them */}
                     {c.hours_worked == null && !c.supplier_invoice_id
-                      ? <span className="shrink-0 rounded-full bg-amber-100 text-amber-900 text-xs font-bold px-sm py-xs">Add hours</span>
+                      ? <span className="shrink-0 rounded-full bg-amber-100 text-amber-900 text-xs font-bold px-sm py-xs">Hours to log</span>
                       : <span className="shrink-0 rounded-full bg-green-100 text-green-700 text-xs font-bold px-sm py-xs">{c.supplier_invoice_id ? 'Invoiced' : 'Done'}</span>}
                   </button>
                 ))}

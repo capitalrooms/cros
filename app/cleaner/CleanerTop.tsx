@@ -87,7 +87,7 @@ export default function CleanerTop({ firstName, today, doneToday, todo, onBook, 
           {!next.arrived_at && <GhostButton href={`/cleaner/clean/${next.id}`}>See clean</GhostButton>}
         </Hero>
       ) : (
-        <Hero art="door" eyebrow="Nothing booked for today" title="Book a clean" sub="At one of your houses — the tenants are told you’re coming" height={176}>
+        <Hero art="door" eyebrow="Nothing booked for today" title="Got time to spare?" sub="Book a clean at one of your houses. Tenants are told." height={176}>
           <HoneyButton onClick={onBook}>Book a clean</HoneyButton>
         </Hero>
       )}

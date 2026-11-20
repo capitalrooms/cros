@@ -32,6 +32,8 @@ export async function POST(req: NextRequest) {
   if (!ROLES.includes(row.role)) return NextResponse.json({ error: 'Choose what they are (tenant, contractor…).' }, { status: 400 })
   if (row.salutation && !(SALUTATIONS as readonly string[]).includes(row.salutation)) return NextResponse.json({ error: `“${row.salutation}” isn’t one of the titles CROS knows.` }, { status: 400 })
   if ((OFFICE.includes(row.role) || row.access_areas) && !(await isAdmin(req))) return NextResponse.json({ error: 'Only an administrator can add an office account.' }, { status: 403 })
+  // the annual financial reports permission is the owner's to give (19 Nov 2026) — never granted when someone is added
+  if (Array.isArray(row.access_areas)) row.access_areas = row.access_areas.filter((k: unknown) => k !== 'annual_finance')
 
   const s = createServiceClient()
   const { data: existing } = await s.from('people').select('id').ilike('email', row.email).limit(1).maybeSingle()

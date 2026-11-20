@@ -8,7 +8,7 @@ import { tenantAccount } from '@/lib/finance/tenantAccount'
 import { resolvePropertyAccount } from '@/lib/banking/propertyAccount'
 import { openFields, BANK_FIELDS } from '@/lib/crypto/fieldCrypt'
 import { CLIENT_ACCOUNT } from '@/lib/movein/pack'
-import { dearName, displayName } from '@/lib/people'
+import { dearName, displayName, hiName } from '@/lib/people'
 
 export interface TenantContact { personId: string; name: string; first: string; dear: string; email: string | null; phone: string | null }
 export interface TenancyFacts {
@@ -51,7 +51,7 @@ export async function tenancyFacts(s: SupabaseClient, tenancyId: string): Promis
     letOnly ? resolvePropertyAccount(s, prop).catch(() => null) : Promise.resolve(null),
   ])
   const tenants: TenantContact[] = [tt.people, tt.co].filter((p: any) => p?.id).map((p: any) => ({
-    personId: p.id, name: displayName(p), first: p.first_name || String(p.full_name ?? '').split(' ')[0] || '', dear: dearName(p), email: p.email || null, phone: p.phone || null,
+    personId: p.id, name: displayName(p), first: hiName(p), dear: dearName(p), email: p.email || null, phone: p.phone || null,
   }))
   const dueDay = Number(tt.rent_due_day) || acct?.dueDay || 1
   const unpaid = (acct?.months ?? []).filter(m => m.how === 'unpaid' || m.how === 'part')

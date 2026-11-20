@@ -4,13 +4,13 @@
  * but not the company's annual turnover. Returns the imported statements, occupied room rents and properties.
  */
 import { NextRequest, NextResponse } from 'next/server'
-import { requireDirector } from '@/lib/adminAuth'
+import { requireAnnual } from '@/lib/adminAuth'
 import { createServiceClient } from '@/lib/supabase'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET(req: NextRequest) {
-  if (!(await requireDirector(req))) return NextResponse.json({ error: 'Agency income is for directors only' }, { status: 403 })
+  if (!(await requireAnnual(req))) return NextResponse.json({ error: 'Annual financial reports are not permitted for this account' }, { status: 403 })
   const s = createServiceClient()
   const [{ data: statements, error: e1 }, { data: rooms, error: e2 }, { data: properties, error: e3 }] = await Promise.all([
     s.from('landlord_statements').select(`

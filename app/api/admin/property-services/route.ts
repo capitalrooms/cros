@@ -10,6 +10,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/adminAuth'
 import { createServiceClient } from '@/lib/supabase'
+import { seal as sealSecret } from '@/lib/crypto/fieldCrypt'
 import { serviceDocs, tagFor } from '@/lib/properties/serviceDocs'
 import { servicesFor, syncHouseInfo, allServices, SERVICE_KINDS, WHO_PAYS } from '@/lib/properties/services'
 
@@ -56,7 +57,7 @@ export async function POST(req: NextRequest) {
     property_id: b.propertyId, kind: v.kind, supplier: txt(v.supplier, 120), account_number: txt(v.account_number, 80), account_holder: txt(v.account_holder, 120),
     login_email: email, support_phone: txt(v.support_phone, 40), who_pays: WHO_PAYS.some(w => w.key === v.who_pays) ? v.who_pays : 'we_recharge',
     payment_method: txt(v.payment_method, 60), monthly_cost: cost, contract_start: date(v.contract_start), contract_end: date(v.contract_end),
-    meter_refs: txt(v.meter_refs, 300), wifi_network: v.kind === 'internet' ? txt(v.wifi_network, 80) : null, wifi_password: v.kind === 'internet' ? txt(v.wifi_password, 80) : null,
+    meter_refs: txt(v.meter_refs, 300), wifi_network: v.kind === 'internet' ? txt(v.wifi_network, 80) : null, wifi_password: v.kind === 'internet' ? (txt(v.wifi_password, 80) ? sealSecret(txt(v.wifi_password, 80)) : null) : null,
     notes: txt(v.notes, 1000), updated_at: new Date().toISOString(),
   }
   const { data: saved, error } = v.id

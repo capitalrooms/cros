@@ -12,6 +12,7 @@ import BackButton from '@/app/components/BackButton'
 import ExportButtons from '@/app/components/ExportButtons'
 import { adminFetch } from '@/lib/adminFetch'
 import { incomeTabs } from '@/lib/financeTabs'
+import { useAnnualAccess } from '@/lib/directorAccess'
 import { one, type PageSearchParams } from '@/lib/pageSearchParams'
 import type { Pnl } from '@/lib/finance/companyPnl'
 
@@ -22,6 +23,7 @@ const day = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString('en
 const thisTaxYear = () => { const d = new Date(); return d.getMonth() > 3 || (d.getMonth() === 3 && d.getDate() >= 6) ? d.getFullYear() : d.getFullYear() - 1 }
 
 export default function CompanyPnlPage({ searchParams }: { searchParams: PageSearchParams }) {
+  const { annual } = useAnnualAccess()
   const sp = use(searchParams)
   const [year, setYear] = useState(Number(one(sp.year)) || thisTaxYear())
   const [d, setD] = useState<Pnl | null>(null)
@@ -49,7 +51,7 @@ export default function CompanyPnlPage({ searchParams }: { searchParams: PageSea
           { label: noCosts ? 'Net profit (no costs filed yet)' : `Net profit${d.totals.margin != null ? ` · ${d.totals.margin}% margin` : ''}`, value: gbp0(d.totals.profit), tone: d.totals.profit < 0 ? 'bad' : 'good' },
           { label: 'Expected turnover, next 12 months', value: gbp0(d.expected.perYear) },
         ] : undefined}
-        tabs={incomeTabs('pnl')}
+        tabs={incomeTabs('pnl', annual)}
       />
 
       <main className="mx-auto max-w-6xl space-y-lg px-lg py-xl">

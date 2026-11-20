@@ -184,7 +184,7 @@ async function certFromVision(bytes: Buffer, mime: string): Promise<Partial<Scan
 
 // ── Full classify path: tool_use (reliable with large schemas, all models) ────
 
-const CLASSIFY_PROMPT = `You are a UK lettings administrator's assistant. Classify this document and extract all available fields. Use ISO dates (yyyy-mm-dd). Leave missing fields as "". confidence is 0-1. doc_type must be one of: gas_safety_certificate, electrical_eicr, emergency_lighting_certificate, fire_alarm_certificate, pat_test, hmo_licence, epc, insurance, tenancy_agreement, deposit_certificate, tenant_reference, right_to_rent, evacuation_plan, emergency_contacts, house_rules, policy_document, council_correspondence, utility_bill, landlord_statement_tenant, safety_info, inventory, wifi_details, waste_schedule, supplier_invoice, purchase_receipt, other.`
+const CLASSIFY_PROMPT = `You are a UK lettings administrator's assistant. Classify this document and extract all available fields. Use ISO dates (yyyy-mm-dd). Leave missing fields as "". For a tenancy agreement, list EVERY tenant in the tenants array, not just the first. For an invoice or bill, read the TOTAL to pay into amount (the grand total, including VAT). confidence is 0-1. doc_type must be one of: gas_safety_certificate, electrical_eicr, emergency_lighting_certificate, fire_alarm_certificate, pat_test, hmo_licence, epc, insurance, tenancy_agreement, deposit_certificate, tenant_reference, right_to_rent, evacuation_plan, emergency_contacts, house_rules, policy_document, council_correspondence, utility_bill, landlord_statement_tenant, safety_info, inventory, wifi_details, waste_schedule, supplier_invoice, purchase_receipt, other.`
 
 const CLASSIFY_TOOL = {
   name: 'extract_document',
@@ -207,6 +207,7 @@ const CLASSIFY_TOOL = {
       person_name:       { type: 'string' },
       person_phone:      { type: 'string' },
       person_email:      { type: 'string' },
+      tenants:           { type: 'array', description: 'Tenancy agreements: EVERY tenant named in the agreement, in order (the first is the lead tenant). Each with name, email and phone when written; leave "" when not.', items: { type: 'object', additionalProperties: false, properties: { name: { type: 'string' }, email: { type: 'string' }, phone: { type: 'string' } }, required: ['name', 'email', 'phone'] } },
       occupation:        { type: 'string' },
       annual_income:     { type: 'string' },
       previous_address:  { type: 'string' },
@@ -217,7 +218,7 @@ const CLASSIFY_TOOL = {
       purchase_category: { type: 'string' },
       item_name:         { type: 'string' },
       item_make_model:   { type: 'string' },
-      amount:            { type: 'string' },
+      amount:            { type: 'string', description: 'Invoices and bills: the TOTAL to pay, in pounds, as a plain number with pence (e.g. 85.00) — the grand total including VAT, not a line item. Leave "" only if no total is printed.' },
       work_description:  { type: 'string' },
     },
     required: ['doc_type', 'confidence'],

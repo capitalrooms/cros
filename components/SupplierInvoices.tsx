@@ -8,11 +8,49 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import SupplierLogo from '@/components/SupplierLogo'
 import NameInput, { emptyName, toFullName, type NameValue } from '@/app/components/NameInput'
 import AddressField from '@/app/components/AddressField'
+import { adminFetch } from '@/lib/adminFetch'
 
 type Tab = 'new' | 'list' | 'details'
 interface Line { key: string; description: string; where: string; labour: string; parts: string; partsPaid: boolean; ticketId?: string; cleanId?: string; propertyId?: string; date?: string; receipt?: string | null }
 const input = 'w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-[15px] text-neutral-900'
 const label = 'block text-xs font-bold uppercase tracking-wide text-neutral-500 mb-1'
+
+// A note box that can tidy the wording. Typing and dictation both work: the keyboard's mic writes into the box.
+// The tidied version is only offered; the person chooses to use it or keep their own words.
+export function TidyBox({ value, onChange, kind, placeholder }: { value: string; onChange: (v: string) => void; kind: 'job' | 'quote' | 'line' | 'note'; placeholder: string }) {
+  const [busy, setBusy] = useState(false)
+  const [suggest, setSuggest] = useState<string | null>(null)
+  const [err, setErr] = useState('')
+  async function tidy() {
+    setBusy(true); setErr(''); setSuggest(null)
+    try {
+      const r = await adminFetch('/api/supplier/tidy-wording', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: value, kind }) })
+      const d = await r.json().catch(() => ({}))
+      if (!r.ok) setErr(d.error || 'That didn’t tidy up. Your words are still here.')
+      else if (d.changed) setSuggest(d.text)
+      else setErr('That already reads clearly.')
+    } catch { setErr('That didn’t tidy up. Your words are still here.') }
+    setBusy(false)
+  }
+  return (
+    <div className="space-y-2">
+      <textarea rows={3} className={input} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} />
+      <div className="flex flex-wrap items-center gap-2">
+        <button type="button" onClick={tidy} disabled={busy || value.trim().length < 3} className="rounded-full border border-neutral-300 px-3 py-1.5 text-sm font-semibold text-neutral-800 disabled:opacity-40">{busy ? 'Tidying…' : 'Tidy my wording'}</button>
+        <span className="text-xs text-neutral-500">Tap the mic on your keyboard to say it instead.</span>
+      </div>
+      {err && <p className="text-xs text-neutral-600">{err}</p>}
+      {suggest && <div className="rounded-xl bg-green-50 p-3 space-y-2">
+        <p className="text-xs font-bold uppercase tracking-wide text-green-900">Suggested wording</p>
+        <p className="whitespace-pre-wrap text-sm text-neutral-900">{suggest}</p>
+        <div className="flex gap-2">
+          <button type="button" onClick={() => { onChange(suggest); setSuggest(null) }} className="rounded-full bg-[#17332B] px-3 py-1.5 text-sm font-semibold text-white">Use this</button>
+          <button type="button" onClick={() => setSuggest(null)} className="rounded-full border border-neutral-300 px-3 py-1.5 text-sm font-semibold text-neutral-800">Keep mine</button>
+        </div>
+      </div>}
+    </div>
+  )
+}
 const btn = 'rounded-xl border border-neutral-300 bg-white px-4 py-2 text-sm font-semibold text-neutral-800 disabled:opacity-40'
 const btnDark = 'rounded-xl bg-neutral-900 px-4 py-2 text-sm font-bold text-white disabled:opacity-40'
 const gbp = (n: number) => `£${n.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -101,7 +139,7 @@ function Lines({ lines, setLines, post, role }: { lines: Line[]; setLines: (l: L
             </div>
           </div>
           {l.partsPaid && (
-            <label className="block text-xs text-neutral-600">{l.receipt ? 'Receipt added' : busy === l.key ? 'Uploading…' : 'Add the receipt photo (optional) — say which items were for this job above'}
+            <label className="block text-xs text-neutral-600">{l.receipt ? 'Receipt added' : busy === l.key ? 'Uploading…' : 'Add a receipt photo (optional) — name the products bought above'}
               <input type="file" accept="image/*" className="mt-1 block text-xs" onChange={e => receipt(l.key, e.target.files?.[0])} />
             </label>
           )}
@@ -160,6 +198,7 @@ function ContractorNew({ data, post, done, jobId }: { data: any; post: (b: Recor
   const [contact, setContact] = useState<NameValue>(emptyName())
   const [lines, setLines] = useState<Line[]>(startJob ? [{ ...blank(), description: startJob.line ?? startJob.title, where: startJob.where, labour: startJob.price ? String(startJob.price) : '', ticketId: startJob.id, propertyId: startJob.propertyId }] : [])
   const [notes, setNotes] = useState('')
+  const [yourRef, setYourRef] = useState('')
   const jobs = (data.jobs as any[]).filter(j => !propertyId || j.propertyId === propertyId)
   const added = new Set(lines.map(l => l.ticketId).filter(Boolean))
   return (
@@ -207,9 +246,10 @@ function ContractorNew({ data, post, done, jobId }: { data: any; post: (b: Recor
       )}
       {(ours ? !!propertyId : true) && <Lines lines={lines} setLines={setLines} post={post} role="contractor" />}
       {lines.length > 0 && <>
-        <textarea rows={2} className={input} value={notes} onChange={e => setNotes(e.target.value)} placeholder="Note on the invoice (optional)" />
+        <label className="block text-xs text-neutral-600">Your invoice reference (optional)<input className={`${input} mt-1`} value={yourRef} onChange={e => setYourRef(e.target.value)} placeholder="Your own invoice number, if you use one" maxLength={40} /></label>
+        <TidyBox kind="note" value={notes} onChange={setNotes} placeholder="Note on the invoice (optional): e.g. thanks for the work, see the photos" />
         <Totals lines={lines} vat={data.profile.vatRegistered} />
-        <SendBar post={post} done={done} draft={() => ({ toCapitalRooms: ours, propertyId: ours ? propertyId : null, client: ours ? undefined : { name: client.company.trim() || toFullName(contact), email: client.email, address: [client.company.trim() && toFullName(contact) ? `FAO ${toFullName(contact)}` : '', client.address].filter(Boolean).join('\n') }, lines: toDraftLines(lines), notes })} />
+        <SendBar post={post} done={done} draft={() => ({ yourRef: yourRef.trim() || null, toCapitalRooms: ours, propertyId: ours ? propertyId : null, client: ours ? undefined : { name: client.company.trim() || toFullName(contact), email: client.email, address: [client.company.trim() && toFullName(contact) ? `FAO ${toFullName(contact)}` : '', client.address].filter(Boolean).join('\n') }, lines: toDraftLines(lines), notes })} />
       </>}
     </div>
   )
@@ -224,6 +264,7 @@ function CleanerNew({ data, post, done }: { data: any; post: (b: Record<string, 
   const inRange = cleans.filter(c => c.date >= from && c.date <= to)
   const [lines, setLines] = useState<Line[]>([])
   const [notes, setNotes] = useState('')
+  const [yourRef, setYourRef] = useState('')
   // the cleans in the period, prefilled; extra lines kept when the period changes
   useEffect(() => {
     setLines(prev => [
@@ -248,9 +289,10 @@ function CleanerNew({ data, post, done }: { data: any; post: (b: Record<string, 
       </div>
       <Lines lines={lines} setLines={setLines} post={post} role="cleaner" />
       {lines.length > 0 && <>
-        <textarea rows={2} className={input} value={notes} onChange={e => setNotes(e.target.value)} placeholder="Note on the invoice (optional)" />
+        <label className="block text-xs text-neutral-600">Your invoice reference (optional)<input className={`${input} mt-1`} value={yourRef} onChange={e => setYourRef(e.target.value)} placeholder="Your own invoice number, if you use one" maxLength={40} /></label>
+        <TidyBox kind="note" value={notes} onChange={setNotes} placeholder="Note on the invoice (optional): e.g. the extra oven clean was agreed by phone" />
         <Totals lines={lines} vat={data.profile.vatRegistered} />
-        <SendBar post={post} done={done} draft={() => ({ toCapitalRooms: true, periodFrom: from, periodTo: to, lines: toDraftLines(lines), notes })} />
+        <SendBar post={post} done={done} draft={() => ({ yourRef: yourRef.trim() || null, toCapitalRooms: true, periodFrom: from, periodTo: to, lines: toDraftLines(lines), notes })} />
       </>}
     </div>
   )

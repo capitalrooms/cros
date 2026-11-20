@@ -10,6 +10,7 @@
 import { use, useCallback, useEffect, useState } from 'react'
 import { CROS_COLLECTS_RENT } from '@/lib/finance/mode'
 import { isOfficeRole } from '@/lib/access/areas'
+import { ANNUAL_REPORT_HREFS, useAnnualAccess } from '@/lib/directorAccess'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { one, type PageSearchParams } from '@/lib/pageSearchParams'
@@ -177,12 +178,14 @@ const MORE = [
 
 function More() {
   const [o, setO] = useState(false)
+  const { annual } = useAnnualAccess()
+  const items = MORE.filter(([, h]) => annual || !ANNUAL_REPORT_HREFS.includes(h))
   return (
     <div className="relative">
       <Pill tone="paper" second onClick={() => setO(!o)}>More {o ? '▴' : '▾'}</Pill>
       {o && (
         <ul className="absolute right-0 z-20 mt-sm max-h-96 w-60 overflow-y-auto rounded-2xl bg-[var(--paper,#FFFDF6)] p-xs shadow-lg ring-1 ring-black/5">
-          {MORE.map(([l, h]) => <li key={h}><Link href={h} className="block rounded-xl px-md py-xs text-sm text-[var(--ink,#23261A)] hover:bg-[var(--line,#EDE8D6)]">{l}</Link></li>)}
+          {items.map(([l, h]) => <li key={h}><Link href={h} className="block rounded-xl px-md py-xs text-sm text-[var(--ink,#23261A)] hover:bg-[var(--line,#EDE8D6)]">{l}</Link></li>)}
         </ul>
       )}
     </div>

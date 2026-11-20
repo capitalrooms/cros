@@ -10,6 +10,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase'
 import { requireAdministrator } from '@/lib/adminAuth'
 import { getClientIp } from '@/lib/auditLog'
+import { requireOwner } from '@/lib/adminAuth'
+import { annualFor, officeCaller, bearer } from '@/lib/access/server'
+import { ANNUAL_KEY } from '@/lib/access/areas'
 import { getElectedCommsLive } from '@/lib/comms'
 import { authUsersByEmail, statusOf, sendAccountEmail, setAccess, clearTwoStep } from '@/lib/auth/accounts'
 import { ALL_AREAS, areasFor, isAdministrator } from '@/lib/access/areas'
@@ -43,15 +46,16 @@ export async function GET(req: NextRequest) {
   const admin = await requireAdministrator(req)
   if (!admin) return NextResponse.json({ error: 'Please sign in again.' }, { status: 401 })
   const s = createServiceClient()
-  const { data: people, error } = await s.from('people').select('id, email, role, access_areas').in('role', ROLES)
+  const { data: people, error } = await s.from('people').select('id, email, role, access_areas, is_owner').in('role', ROLES)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   const users = await authUsersByEmail(s)
   const statuses: Record<string, ReturnType<typeof statusOf>> = {}
   for (const p of people ?? []) if (p.email) statuses[p.id] = statusOf(users.get(p.email.toLowerCase()))
-  const access: Record<string, { areas: string[]; custom: boolean; administrator: boolean }> = {}
+  const access: Record<string, { areas: string[]; custom: boolean; administrator: boolean; annual: boolean; owner: boolean }> = {}
   for (const p of (people ?? []) as any[]) if (['administrator', 'admin', 'lettings'].includes(p.role))
-    access[p.id] = { areas: areasFor(p.role, p.access_areas), custom: Array.isArray(p.access_areas), administrator: isAdministrator(p.role) }
-  return NextResponse.json({ statuses, groups: await groupsOf(s, people ?? []), me: admin.personId, access })
+    access[p.id] = { areas: areasFor(p.role, p.access_areas), custom: Array.isArray(p.access_areas), administrator: isAdministrator(p.role), annual: annualFor(p).annual, owner: annualFor(p).isOwner }
+  // meOwner: only the owner sees the Annual financial reports tick box (19 Nov 2026)
+  return NextResponse.json({ statuses, groups: await groupsOf(s, people ?? []), me: admin.personId, meOwner: !!(await officeCaller(bearer(req.headers)))?.isOwner, access })
 }
 
 export async function POST(req: NextRequest) {
@@ -61,14 +65,35 @@ export async function POST(req: NextRequest) {
   const action = String(b.action ?? '')
   if (action === 'set_access') {
     const s = createServiceClient()
-    const { data: p } = await s.from('people').select('id, email, role').eq('id', String(b.personId ?? '')).maybeSingle()
+    const { data: p } = await s.from('people').select('id, email, role, access_areas').eq('id', String(b.personId ?? '')).maybeSingle()
     if (!p || !['lettings'].includes(p.role)) return NextResponse.json({ error: 'Access levels are for office staff who aren’t administrators.' }, { status: 400 })
     const areas = b.areas === null ? null : (Array.isArray(b.areas) ? b.areas : []).filter((k: unknown) => typeof k === 'string' && (ALL_AREAS as string[]).includes(k))
-    const { error } = await s.from('people').update({ access_areas: areas }).eq('id', p.id)
+    // the annual permission is the owner's to change (set_annual) — keep it as it is whatever is ticked here (19 Nov 2026)
+    const hadAnnual = Array.isArray(p.access_areas) && p.access_areas.includes(ANNUAL_KEY)
+    const next = areas === null ? (hadAnnual ? [ANNUAL_KEY] : null) : (hadAnnual ? [...areas, ANNUAL_KEY] : areas)
+    const { error } = await s.from('people').update({ access_areas: next }).eq('id', p.id)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     await s.from('audit_logs').insert({ user_id: admin.personId, action: 'access_set', details: `${p.email}: ${areas === null ? 'role preset' : areas.join(', ') || 'nothing'}`, ip_address: getClientIp(req.headers) })
     return NextResponse.json({ ok: true, areas: areasFor(p.role, areas) })
   }
+  // Annual financial reports (19 Nov 2026): only the owner may grant or revoke it. Recorded in the audit log.
+  if (action === 'set_annual') {
+    const owner = await requireOwner(req)
+    if (!owner) return NextResponse.json({ error: 'Only the owner can grant or revoke annual financial reports.' }, { status: 403 })
+    const s = createServiceClient()
+    const { data: p } = await s.from('people').select('id, email, role, access_areas, is_owner').eq('id', String(b.personId ?? '')).maybeSingle()
+    if (!p) return NextResponse.json({ error: 'Person not found' }, { status: 404 })
+    if (p.is_owner) return NextResponse.json({ error: 'The owner always has annual financial reports.' }, { status: 400 })
+    const granted = b.granted === true
+    // the person's current areas, as they are now (their role's preset while they have no custom list)
+    const base = (Array.isArray(p.access_areas) ? p.access_areas : areasFor(p.role, null)).filter((k: string) => k !== ANNUAL_KEY)
+    const next = granted ? [...base, ANNUAL_KEY] : base
+    const { error } = await s.from('people').update({ access_areas: next }).eq('id', p.id)
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    await s.from('audit_logs').insert({ user_id: owner.personId, action: granted ? 'annual_access_granted' : 'annual_access_revoked', details: `${p.email} — ${granted ? 'granted' : 'revoked'} by ${owner.email}`, ip_address: getClientIp(req.headers) })
+    return NextResponse.json({ ok: true, annual: granted })
+  }
+
   // change someone's email (23 Oct 2026 audit: it couldn't be changed in CROS at all, and changing only the CROS record
   // would lock out anyone who already signs in — their sign-in is moved to the new address in the same step)
   if (action === 'change_email') {

@@ -21,10 +21,20 @@ async function who(req: NextRequest) {
   return me && (isStaff(me) || me.role === 'cleaner') ? me : null
 }
 
+// A cleaner may only see a house they have a clean booked at. Office staff see every house.
+async function mayAccessHouse(me: { role?: string; personId?: string } | null, propertyId: string): Promise<boolean> {
+  if (!me || !propertyId) return false
+  if (isStaff(me as any)) return true
+  const { count } = await createServiceClient().from('cleans').select('id', { count: 'exact', head: true })
+    .eq('property_id', propertyId).eq('cleaner_id', me.personId ?? '')
+  return (count ?? 0) > 0
+}
+
 export async function GET(req: NextRequest) {
   const me = await who(req)
   if (!me) return NextResponse.json({ error: 'Please sign in again.' }, { status: 401 })
   const propertyId = req.nextUrl.searchParams.get('propertyId') ?? ''
+  if (!(await mayAccessHouse(me as any, propertyId))) return NextResponse.json({ error: 'Not your house' }, { status: 403 })
   const s = createServiceClient()
   const { data: house } = await s.from('properties').select('id, name, address, postcode, clean_frequency_weeks, communal_notes').eq('id', propertyId).maybeSingle()
   if (!house) return NextResponse.json({ error: 'House not found' }, { status: 404 })
@@ -67,6 +77,7 @@ export async function POST(req: NextRequest) {
   const b = await req.json().catch(() => ({}))
   const text = String(b.text ?? '').trim().slice(0, 1000)
   if (!b.propertyId || !text) return NextResponse.json({ error: 'Write the note' }, { status: 400 })
+  if (!(await mayAccessHouse(me as any, String(b.propertyId)))) return NextResponse.json({ error: 'Not your house' }, { status: 403 })
   const { error } = await createServiceClient().from('property_cleaning_notes').insert({
     property_id: String(b.propertyId), cleaning_type: me.role === 'cleaner' ? 'reminder' : 'office',
     note_title: me.role === 'cleaner' ? 'Note from the cleaner' : 'Note from the office', note_content: text,
@@ -81,6 +92,8 @@ export async function PATCH(req: NextRequest) {
   if (!me) return NextResponse.json({ error: 'Please sign in again.' }, { status: 401 })
   const b = await req.json().catch(() => ({}))
   if (!b.noteId) return NextResponse.json({ error: 'noteId required' }, { status: 400 })
+  const { data: note } = await createServiceClient().from('property_cleaning_notes').select('property_id').eq('id', String(b.noteId)).maybeSingle()
+  if (!note || !(await mayAccessHouse(me as any, (note as any).property_id))) return NextResponse.json({ error: 'Not your house' }, { status: 403 })
   const { error } = await createServiceClient().from('property_cleaning_notes').update({ is_completed: true, completed_by: me.personId, completed_at: new Date().toISOString() }).eq('id', String(b.noteId))
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ ok: true })

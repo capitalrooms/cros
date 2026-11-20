@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import AppBar from '@/components/AppBar'
 import { incomeTabs } from '@/lib/financeTabs'
+import { useAnnualAccess } from '@/lib/directorAccess'
 import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 
@@ -11,6 +12,7 @@ const today = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/L
 const firstOfMonth = () => new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10)
 
 export default function FeesReport() {
+  const { annual } = useAnnualAccess()
   const [from, setFrom]     = useState(firstOfMonth())
   const [to, setTo]         = useState(today())
   const [search, setSearch] = useState('')
@@ -31,7 +33,7 @@ export default function FeesReport() {
   return (
     <div className="min-h-screen fin">
       <AppBar left={<BackButton href="/admin/finance" />} title="Income" />
-      <PageHero look="olive" title="Income" subtitle="Fees report: management and letting fees raised in a date range" tabs={incomeTabs('fees')} />
+      <PageHero look="olive" title="Income" subtitle="Fees report: management and letting fees raised in a date range" tabs={incomeTabs('fees', annual)} />
       <div className="max-w-6xl mx-auto px-lg py-xl space-y-lg">
 
         {/* Filters */}

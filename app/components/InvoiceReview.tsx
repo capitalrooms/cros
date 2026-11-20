@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase'
+import { adminFetch } from '@/lib/adminFetch'
 import type { AIResult } from './DocReview'
 
 interface Job {
@@ -27,13 +28,33 @@ export default function InvoiceReview({
   properties,
   onApplied,
   onCancel,
+  sourceRef,
 }: {
   initial: AIResult
   file?: File
   properties: Array<{ id: string; name: string; address?: string }>
   onApplied: (msg: string) => void
   onCancel: () => void
+  /** where the invoice came from (the inbox item, or the upload): kept on the expense so it can be traced */
+  sourceRef?: string
 }) {
+  const [filingNoJob, setFilingNoJob] = useState(false)
+  // Skip: no job to link to, so file it as a property expense for next month (19 Nov 2026)
+  async function fileWithoutJob() {
+    if (!propertyId) { setError('Choose which property this invoice is for'); return }
+    const amt = Number(finalCost || invoiceAmount)
+    if (!(amt > 0)) { setError('Type the amount on the invoice — it’s needed to file it as an expense'); return }
+    setFilingNoJob(true); setError('')
+    try {
+      const r = await adminFetch('/api/admin/invoice-to-expense', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ propertyId, amount: amt, description: initial.summary || (initial as any).what_for || (initial as any).work_description || 'Supplier invoice', expenseDate: initial.issue_date || undefined, supplier: initial.provider || undefined, invoiceNumber: (initial as any).invoice_number || undefined, sourceRef }),
+      })
+      const d = await r.json().catch(() => ({}))
+      if (!r.ok) { setError(d.error ?? 'Not filed'); return }
+      onApplied(`Filed as a property expense, charged to ${d.deductMonth ? new Date(d.deductMonth + 'T12:00:00').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }) : 'next month'} — no job linked`)
+    } catch (e) { setError(e instanceof Error ? e.message : 'Not filed') } finally { setFilingNoJob(false) }
+  }
   const guessedProperty = useMemo(() => {
     const addr = (initial.property_address || '').toLowerCase()
     if (!addr) return ''
@@ -183,7 +204,7 @@ export default function InvoiceReview({
       {error && <p className="mt-md text-sm text-red-600">{error}</p>}
 
       <div className="mt-lg flex gap-md">
-        <button onClick={onCancel} disabled={saving} className="flex-1 rounded-lg border border-neutral-300 px-lg py-sm text-sm font-semibold text-neutral-700 hover:bg-neutral-50 disabled:opacity-50">Skip</button>
+        <button onClick={fileWithoutJob} disabled={saving || filingNoJob} className="flex-1 rounded-lg border border-neutral-300 px-lg py-sm text-sm font-semibold text-neutral-700 hover:bg-neutral-50 disabled:opacity-50">{filingNoJob ? 'Filing…' : 'Skip — file as an expense (next month)'}</button>
         <button onClick={handleSave} disabled={saving} className="flex-1 rounded-lg bg-neutral-900 px-lg py-sm text-sm font-semibold text-white hover:bg-neutral-800 disabled:opacity-50">{saving ? 'Saving…' : 'Link & set final cost'}</button>
       </div>
     </div>

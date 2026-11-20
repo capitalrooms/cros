@@ -4,6 +4,7 @@ import Link from 'next/link'
 import AppBar from '@/components/AppBar'
 import PageHero from '@/components/PageHero'
 import { financeTabs } from '@/lib/financeTabs'
+import { ANNUAL_REPORT_HREFS, useAnnualAccess } from '@/lib/directorAccess'
 import BackButton from '@/app/components/BackButton'
 
 interface ReportLink {
@@ -76,12 +77,15 @@ function Section({ title, items }: { title: string; items: ReportLink[] }) {
 }
 
 export default function ReportsPage() {
+  const { annual } = useAnnualAccess()
+  // annual financial reports: only where the owner has granted them — the server checks too (lib/directorAccess)
+  const financial = FINANCIAL.filter(r => annual || !ANNUAL_REPORT_HREFS.includes(r.href ?? ''))
   return (
     <div className="min-h-screen fin">
       <AppBar left={<BackButton href="/admin" label="Dashboard" />} title="Reports" />
       <PageHero look="olive" title="Reports" subtitle="Financial, property and tenancy reports" tabs={financeTabs('reports')} />
       <div className="max-w-6xl mx-auto px-lg py-xl space-y-xl">
-        <Section title="Financial" items={FINANCIAL} />
+        <Section title="Financial" items={financial} />
         <Section title="Property management" items={PROPERTY} />
         <Section title="Tenancy" items={TENANCY} />
       </div>

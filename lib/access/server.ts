@@ -3,9 +3,9 @@
 // A short in-memory memo per sign-in token saves a lookup on every request a page makes in quick succession.
 import { createClient } from '@supabase/supabase-js'
 import { secondStepMissing, administratorWithoutTwoStep } from '@/lib/auth/aal'
-import { areasFor, isOfficeRole, type AreaKey } from '@/lib/access/areas'
+import { areasFor, isOfficeRole, ANNUAL_KEY, type AreaKey } from '@/lib/access/areas'
 
-export interface OfficeCaller { email: string; personId: string; role: string; areas: AreaKey[] }
+export interface OfficeCaller { email: string; personId: string; role: string; areas: AreaKey[]; isOwner: boolean; annual: boolean }
 
 const memo = new Map<string, { at: number; who: OfficeCaller | null }>()
 const MEMO_MS = 30_000
@@ -19,12 +19,18 @@ export async function officeCaller(token: string | null | undefined): Promise<Of
   let who: OfficeCaller | null = null
   const { data: { user } } = await svc.auth.getUser(token)
   if (user?.email && !secondStepMissing(user, token)) {
-    const { data: p } = await svc.from('people').select('id, role, access_areas').ilike('email', user.email).order('created_at').limit(1).maybeSingle()
-    if (p && isOfficeRole(p.role) && !administratorWithoutTwoStep(p.role, user)) who = { email: user.email, personId: p.id, role: p.role, areas: areasFor(p.role, p.access_areas) }
+    const { data: p } = await svc.from('people').select('id, role, access_areas, is_owner').ilike('email', user.email).order('created_at').limit(1).maybeSingle()
+    if (p && isOfficeRole(p.role) && !administratorWithoutTwoStep(p.role, user)) who = { email: user.email, personId: p.id, role: p.role, areas: areasFor(p.role, p.access_areas), ...annualFor(p) }
   }
   if (memo.size > 500) memo.clear()
   memo.set(token, { at: Date.now(), who })
   return who
+}
+
+/** Annual financial reports (lib/access/areas ANNUAL): the owner always has it; anyone else only if the owner ticked it. */
+export function annualFor(p: { access_areas?: string[] | null; is_owner?: boolean | null }): { isOwner: boolean; annual: boolean } {
+  const isOwner = p.is_owner === true
+  return { isOwner, annual: isOwner || (Array.isArray(p.access_areas) && p.access_areas.includes(ANNUAL_KEY)) }
 }
 
 export const bearer = (h: Headers) => h.get('authorization')?.replace(/^Bearer\s+/i, '').trim() || null

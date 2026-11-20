@@ -53,8 +53,11 @@ export const expenseTabs = (active: 'log' | 'contractor' | 'review' | 'autoledge
 
 // Income is one place (3 Nov 2026): what the agency earns — the monthly dashboard, and the fees report for any dates.
 // Profit and loss (5 Nov 2026): directors only — the page itself says so to anyone else.
-export const incomeTabs = (active: 'income' | 'fees' | 'pnl'): HeroTab[] =>
-  ([['income', 'Agency income', '/admin/income'], ['fees', 'Fee income', '/admin/reports/fees'], ['pnl', 'Profit and loss', '/admin/company-pnl']] as const).map(([key, label, href]) => ({ label, href, active: key === active }))
+// 'Agency income' and 'Profit and loss' are annual (19 Nov 2026): only shown when the caller has the permission.
+export const incomeTabs = (active: 'income' | 'fees' | 'pnl', annual = true): HeroTab[] =>
+  ([['income', 'Agency income', '/admin/income'], ['fees', 'Fee income', '/admin/reports/fees'], ['pnl', 'Profit and loss', '/admin/company-pnl']] as const)
+    .filter(([key]) => annual || key === 'fees' || key === active)
+    .map(([key, label, href]) => ({ label, href, active: key === active }))
 
 // Rent owed is one place (3 Nov 2026 tidy-up): who hasn't paid this month, older arrears, and chasing them.
 export const rentOwedTabs = (active: 'due' | 'arrears' | 'chase'): HeroTab[] =>

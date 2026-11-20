@@ -184,7 +184,7 @@ function Item({ it, data, reload }: { it: any; data: any; reload: () => Promise<
     catch (e) { setMsg(e instanceof Error ? e.message : 'Couldn’t read it') } finally { setBusy('') }
   }
 
-  const needsProperty = ['room_photo', 'property_photo', 'safety_sheet', 'certificate', 'fire_plan'].includes(kind)
+  const needsProperty = ['room_photo', 'property_photo', 'safety_sheet', 'certificate', 'fire_plan', 'tenancy_agreement'].includes(kind)
   const canFile = kind && kind !== 'certificate' && (!needsProperty || propertyId) && (kind !== 'room_photo' || roomId) && (kind !== 'safety_sheet' || (rows && rows.length))
   return (
     <section className={`${card} p-md`}>

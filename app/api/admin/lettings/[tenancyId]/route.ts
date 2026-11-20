@@ -225,18 +225,36 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ te
     const reason = String(b.reason ?? '').trim().slice(0, 500)
     if (!reason) return NextResponse.json({ error: 'Say why it fell through — it stays on the record' }, { status: 400 })
     if (t.let_cancelled_at) return NextResponse.json({ error: 'Already marked as fallen through' }, { status: 409 })
-    if (stageOf(t, today) !== 'let_agreed') return NextResponse.json({ error: 'Only a let that hasn’t started can fall through. For a live tenancy, record notice instead.' }, { status: 409 })
+    // a let that never started can fall through; a tenancy whose start date has passed can too, when the tenant never
+    // moved in (the office confirms that — 19 Nov 2026). A tenant who did move in gets notice, not a fall-through.
+    const never = b.neverMovedIn === true
+    if (stageOf(t, today) !== 'let_agreed' && !(stageOf(t, today) === 'live' && never)) return NextResponse.json({ error: 'Only a let that hasn’t started can fall through. For a tenant who moved in, record notice instead.' }, { status: 409 })
+    // the holding deposit must be resolved in the same step — never left as "held" (Tenant Fees Act sch.2; 19 Nov 2026)
+    const holdFilter = t.applicant_id ? `applicant_id.eq.${t.applicant_id},tenancy_id.eq.${tenancyId}` : `tenancy_id.eq.${tenancyId}`
+    const { data: heldDeposits } = await s.from('holding_deposits').select('id, hold_no, amount, status').or(holdFilter).eq('status', 'held')
+    const holding = (heldDeposits ?? []) as any[]
+    if (holding.length && b.holdingOutcome !== 'retained' && b.holdingOutcome !== 'refunded') return NextResponse.json({ error: `Say what happens to the holding deposit (${holding.map(h => h.hold_no).join(', ')}): keep it (the applicant withdrew) or refund it.`, holding: holding.map(h => ({ holdNo: h.hold_no, amount: h.amount })) }, { status: 409 })
+    if (holding.length && b.holdingOutcome === 'retained' && String(b.retainGround ?? '') !== 'withdrew') return NextResponse.json({ error: 'A holding deposit can only be kept for one of the reasons under the Tenant Fees Act. For a withdrawal, choose “withdrew”.' }, { status: 400 })
     const yesterday = new Date(Date.now() - 86400000).toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
     const { error } = await s.from('tenancies').update({
       let_cancelled_at: new Date().toISOString(), let_cancelled_reason: reason, let_cancelled_by: caller.email, end_date: yesterday,
     }).eq('id', tenancyId)
     if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+    // resolve each held deposit: kept for withdrawal (the reasons go to the applicant in writing) or refunded
+    for (const h of holding) {
+      const patch = b.holdingOutcome === 'retained'
+        ? { status: 'retained', outcome_on: today, outcome_reason: `Withdrew — let fell through: ${reason}`, outcome_by: caller.email, outcome_at: new Date().toISOString(), retain_ground: 'withdrew' }
+        : { status: 'refunded', outcome_on: today, outcome_reason: `Let fell through: ${reason}`, outcome_by: caller.email, outcome_at: new Date().toISOString(), refund_reference: String(b.refundReference ?? '').trim().slice(0, 120) || null }
+      const { error: hErr } = await s.from('holding_deposits').update(patch).eq('id', h.id).eq('status', 'held')
+      if (hErr) return NextResponse.json({ error: `The holding deposit ${h.hold_no} couldn’t be recorded: ${hErr.message}. Nothing was changed.` }, { status: 400 })
+    }
     // the room goes back to what it was: on notice if the current tenant is leaving, occupied if someone lives there, else available
     if (t.room_id) {
       const { data: others } = await s.from('tenancies').select('notice_received_date, start_date, end_date').eq('room_id', t.room_id).neq('id', tenancyId)
         .is('let_cancelled_at', null).lte('start_date', today).or(`end_date.is.null,end_date.gte.${today}`)
       const status = !others?.length ? 'available' : others.some((o: any) => o.notice_received_date) ? 'on_notice' : 'occupied'
-      await s.from('rooms').update({ status }).eq('id', t.room_id)
+      const { error: roomErr } = await s.from('rooms').update({ status }).eq('id', t.room_id)
+      if (roomErr) return NextResponse.json({ error: `The let was marked fallen through, but the room couldn’t be relisted: ${roomErr.message}. Relist it from the room.` }, { status: 500 })
       if (status !== 'occupied') {
         const leaving = (others ?? []).find((o: any) => o.notice_received_date)
         await alertLettingsRoomUp(s, t.room_id, { availableFrom: leaving?.end_date ?? null, why: `A let fell through (${reason}) — back on the market.` })

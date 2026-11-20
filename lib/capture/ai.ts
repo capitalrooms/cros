@@ -9,6 +9,7 @@ export const CAPTURE_KINDS = {
   room_photo: 'Room photo',
   property_photo: 'Property photo (outside, communal)',
   letter: 'Letter or post about a property',
+  tenancy_agreement: 'Tenancy agreement',
   bill: 'Bill or invoice',
   certificate: 'Certificate or safety report',
   safety_sheet: 'Handwritten safety checks (smoke alarms / fire doors)',
@@ -61,6 +62,7 @@ kind — one of:
 - certificate: a gas, electrical, fire, EPC, PAT or other safety certificate or inspection report
 - safety_sheet: a handwritten or ticked sheet of smoke alarm / fire door checks
 - fire_plan: a fire escape / evacuation plan or fire action notice (escape routes, what to do, assembly point)
+- tenancy_agreement: a signed tenancy agreement or tenancy document for one property (names of tenants, dates, rent)
 - receipt: a till receipt
 - company_post: post for the company itself (HMRC, bank, insurance for the business, Companies House)
 - other

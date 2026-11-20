@@ -16,6 +16,7 @@ import { getCurrentUser } from '@/lib/auth'
 import { adminFetch } from '@/lib/adminFetch'
 import AppBar from '@/components/AppBar'
 import { incomeTabs } from '@/lib/financeTabs'
+import { useAnnualAccess } from '@/lib/directorAccess'
 import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import Link from 'next/link'
@@ -237,6 +238,7 @@ function BarChart({
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function IncomeDashboard() {
+  const { annual } = useAnnualAccess()
   const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [statements, setStatements] = useState<StatementRow[]>([])
@@ -400,7 +402,7 @@ export default function IncomeDashboard() {
   return (
     <div className="min-h-screen fin pb-3xl">
       <AppBar left={<BackButton href="/admin/finance" />} title="Income" />
-      <PageHero look="olive" title="Income" subtitle="What the agency earns: management and letting fees, from the landlord statements" tabs={incomeTabs('income')} />
+      <PageHero look="olive" title="Income" subtitle="What the agency earns: management and letting fees, from the landlord statements" tabs={incomeTabs('income', annual)} />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
 

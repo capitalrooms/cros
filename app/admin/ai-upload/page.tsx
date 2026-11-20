@@ -296,7 +296,7 @@ export default function AIUploadPage() {
               const common = { initial: result, file, properties, onApplied, onCancel }
               if (isPhoto(result, file)) return <PhotoReview key={i} {...common} />
               if (result.doc_type === 'purchase_receipt') return <PurchaseReview key={i} {...common} />
-              if (result.doc_type === 'supplier_invoice') return <InvoiceReview key={i} {...common} />
+              if (result.doc_type === 'supplier_invoice') return <InvoiceReview key={i} {...common} sourceRef={`upload:${file.name}`} />
               return <DocReview key={i} {...common} people={people} tenancies={tenancies} />
             })}
           </div>

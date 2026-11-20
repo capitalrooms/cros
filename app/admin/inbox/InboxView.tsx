@@ -456,6 +456,7 @@ export default function InboxView({ embedded = false }: { embedded?: boolean }) 
                       ) : ai?.doc_type === 'supplier_invoice' ? (
                         <InvoiceReview
                           initial={ai}
+                          sourceRef={`inbox:${d.id}`}
                           properties={properties}
                           onApplied={(msg) => markFiled(d.id, msg)}
                           onCancel={() => setOpenId(null)}

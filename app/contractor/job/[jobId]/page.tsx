@@ -622,6 +622,11 @@ export default function JobDetailPage() {
     )
   }
 
+  // Back returns to the tab the job was opened from (Ongoing, Waiting, Booked, Done…), not always Today
+  const fromTab = searchParams.get('from')
+  const backTabs = ['today', 'quotes', 'ongoing', 'waiting', 'booked', 'done']
+  const backHref = fromTab && backTabs.includes(fromTab) ? `/contractor?tab=${fromTab}` : '/contractor'
+
   const isBooked = !!job.booked_date
   const hasArrived = !!job.arrived_at
   const isDone = job.status === 'completed'
@@ -632,7 +637,7 @@ export default function JobDetailPage() {
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
-      <AppBar left={<BackButton href="/contractor" />} />
+      <AppBar left={<BackButton href={backHref} />} />
 
       <main className="mx-auto max-w-4xl px-lg py-lg">
         {/* Hero */}

@@ -9,6 +9,7 @@ import { useRouter } from 'next/navigation';
 import AppBar from '@/components/AppBar'
 import NameInput from '@/app/components/NameInput'
 import { nameFields } from '@/lib/people'
+import { tenantsFromAgreement } from '@/lib/tenancy/contacts'
 import PageHero, { HeroButton } from '@/components/PageHero'
 import SubTabs from '@/app/components/SubTabs'
 import { tenancyTabs } from '@/lib/lettingsTabs'
@@ -90,6 +91,13 @@ export default function TenanciesManagementPage() {
   const [lastName, setLastName]       = useState('');
   const [email, setEmail]             = useState('');
   const [phone, setPhone]             = useState('');
+  // Homeppl candidates for the tenant (19 Nov 2026): listed for the office to pick from; nothing is saved until the tenancy is saved
+  const [hpCandidates, setHpCandidates] = useState<any[] | null>(null);
+  const [hpBusy, setHpBusy]             = useState(false);
+  const [hpError, setHpError]           = useState('');
+  const [agreementBusy, setAgreementBusy] = useState(false);
+  const [agreementNote, setAgreementNote] = useState('');
+  const [otherTenants, setOtherTenants]   = useState<{ name: string; email: string; phone: string }[]>([]);
   const [startDate, setStartDate]     = useState(new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }));
   const [rent, setRent]               = useState('');
   const [deposit, setDeposit]         = useState('');
@@ -347,7 +355,7 @@ export default function TenanciesManagementPage() {
         ) : (
           <div className="rounded-2xl border border-neutral-200 bg-white">
             <div className="hidden md:grid grid-cols-[minmax(0,1.3fr)_minmax(0,1.4fr)_120px_100px_120px_88px] gap-md border-b border-neutral-200 px-lg py-sm text-[11px] font-bold uppercase tracking-[0.06em] text-neutral-500">
-              <span>Tenant</span><span>Room</span><span>Dates</span><span className="text-right">Rent</span><span>Stage</span><span />
+              <span>Tenant</span><span>Unit</span><span>Dates</span><span className="text-right">Rent</span><span>Stage</span><span />
             </div>
             <ul className="divide-y divide-neutral-100">
               {shown.map(t => {
@@ -412,7 +420,7 @@ export default function TenanciesManagementPage() {
 
               {/* 1. Room */}
               <div>
-                <p className="text-xs font-bold uppercase tracking-widest text-neutral-400 mb-2">1 — Room</p>
+                <p className="text-xs font-bold uppercase tracking-widest text-neutral-400 mb-2">1 — Unit</p>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs font-medium text-neutral-600 mb-1">Property *</label>
@@ -423,7 +431,7 @@ export default function TenanciesManagementPage() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-neutral-600 mb-1">Room *</label>
+                    <label className="block text-xs font-medium text-neutral-600 mb-1">Unit *</label>
                     <select value={selRoom} onChange={e => setSelRoom(e.target.value)}
                       disabled={!selProp}
                       className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm disabled:opacity-40">
@@ -479,6 +487,87 @@ export default function TenanciesManagementPage() {
                   </div>
                 </div>
               </div>
+
+              {/* 2a. Read the tenancy agreement: fills only the empty fields, the office checks them (19 Nov 2026) */}
+              <div className="rounded-lg border border-dashed border-neutral-300 px-3 py-2 text-xs text-neutral-600">
+                <label className="block font-semibold text-neutral-800 mb-1">Read from a tenancy agreement (optional)</label>
+                <input type="file" accept="application/pdf,image/*" disabled={agreementBusy} onChange={async e => {
+                  const f = e.target.files?.[0]; if (!f) return
+                  setAgreementBusy(true); setAgreementNote('')
+                  try {
+                    const fd = new FormData(); fd.append('file', f); fd.append('mime_type', f.type || 'application/pdf')
+                    const r = await fetch('/api/ai/classify-document', { method: 'POST', body: fd })
+                    const d = await r.json().catch(() => ({}))
+                    if (!r.ok) throw new Error(d.error ?? 'The agreement couldn’t be read')
+                    const x = d.result ?? {}
+                    if (x.doc_type && x.doc_type !== 'tenancy_agreement') setAgreementNote(`This looks like a ${String(x.doc_type).replace(/_/g, ' ')}, not a tenancy agreement. Check before using it.`)
+                    // every tenant on the agreement: the first is the lead; the rest are listed with what's missing
+                    const list = tenantsFromAgreement(x)
+                    const [lead, ...others] = list
+                    setOtherTenants(others)
+                    const [first, ...rest] = (lead?.name ?? '').split(/\s+/)
+                    if (!firstName.trim() && first) setFirstName(first)
+                    if (!lastName.trim() && rest.length) setLastName(rest[rest.length - 1])
+                    if (!email.trim() && lead?.email) setEmail(lead.email)
+                    if (!phone.trim() && lead?.phone) setPhone(lead.phone)
+                    if (x.tenancy_start && /^\d{4}-\d{2}-\d{2}$/.test(x.tenancy_start)) setStartDate(x.tenancy_start)
+                    if (!rent.trim() && x.monthly_rent) setRent(String(x.monthly_rent).replace(/[^0-9.]/g, ''))
+                    setAgreementNote(others.length ? `Filled the lead tenant from the agreement. ${others.length} more tenant${others.length > 1 ? 's' : ''} on it — see below.` : 'Filled the empty fields from the agreement. Check them.')
+                  } catch (err: any) { setAgreementNote(err?.message ?? 'The agreement couldn’t be read') } finally { setAgreementBusy(false) }
+                }} className="text-xs" />
+                {agreementBusy && <p className="mt-1">Reading the agreement…</p>}
+                {agreementNote && <p className="mt-1">{agreementNote}</p>}
+                {otherTenants.length > 0 && (
+                  <ul className="mt-2 space-y-1">
+                    {otherTenants.map((t, i) => {
+                      const gaps = [!t.email && 'email', !t.phone && 'phone'].filter(Boolean)
+                      return (
+                        <li key={i} className="flex flex-wrap items-center gap-2 rounded-md bg-white px-2 py-1 border border-neutral-200">
+                          <span className="font-medium text-neutral-900">{t.name}</span>
+                          <span className={gaps.length ? 'text-amber-700' : 'text-emerald-700'}>{gaps.length ? `missing ${gaps.join(' and ')}` : 'contact on file'}</span>
+                          {t.email && <span className="text-neutral-500">{t.email}</span>}
+                          {t.phone && <span className="text-neutral-500">{t.phone}</span>}
+                        </li>
+                      )
+                    })}
+                  </ul>
+                )}
+                {otherTenants.length > 0 && <p className="mt-1 text-neutral-600">Add the other tenants once the lead is saved, using the joint tenant option on the tenancy.</p>}
+              </div>
+
+              {/* 2b. Missing contacts: look them up in Homeppl, pick one (never saved automatically) */}
+              {(!email.trim() || !phone.trim()) && lastName.trim() && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                  <p>{[!email.trim() && 'email', !phone.trim() && 'phone'].filter(Boolean).join(' and ')} missing for {[firstName, lastName].filter(Boolean).join(' ')}.</p>
+                  <button type="button" disabled={hpBusy} onClick={async () => {
+                    setHpBusy(true); setHpError(''); setHpCandidates(null)
+                    try {
+                      const r = await fetch(`/api/admin/homeppl/candidates?name=${encodeURIComponent([firstName, lastName].filter(Boolean).join(' '))}`)
+                      const d = await r.json().catch(() => ({}))
+                      if (!r.ok) throw new Error(d.error ?? 'Homeppl couldn’t be searched')
+                      setHpCandidates(d.candidates ?? [])
+                    } catch (e: any) { setHpError(e?.message ?? 'Homeppl couldn’t be searched') } finally { setHpBusy(false) }
+                  }} className="mt-1 rounded-md border border-amber-400 bg-white px-2 py-1 font-semibold text-amber-900 hover:bg-amber-100 disabled:opacity-50">
+                    {hpBusy ? 'Searching Homeppl…' : 'Find in Homeppl'}
+                  </button>
+                  {hpError && <p className="mt-1 text-red-700">{hpError}</p>}
+                  {hpCandidates && hpCandidates.length === 0 && <p className="mt-1">Homeppl has no application under that name.</p>}
+                  {hpCandidates && hpCandidates.length > 0 && (
+                    <ul className="mt-2 space-y-1">
+                      {hpCandidates.map(c => (
+                        <li key={c.validationUuid}>
+                          <button type="button" onClick={() => { if (!email.trim() && c.email) setEmail(c.email); if (!phone.trim() && c.phone) setPhone(c.phone); setHpCandidates(null) }}
+                            className="w-full rounded-md border border-amber-200 bg-white px-2 py-1 text-left hover:bg-amber-100">
+                            <span className="font-medium">{[c.firstName, c.lastName].filter(Boolean).join(' ') || 'No name on file'}</span>
+                            <span className="ml-2 text-neutral-500">{c.email || 'no email'} · {c.phone || 'no phone'} · {c.status || 'no status'}</span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <p className="mt-1 text-neutral-600">Picking one only fills the empty fields. Save the tenancy to keep them.</p>
+                </div>
+              )}
 
               {/* 3. Tenancy details */}
               <div>

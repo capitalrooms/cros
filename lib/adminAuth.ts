@@ -8,7 +8,7 @@ import { canCallApi, isAdministrator } from '@/lib/access/areas'
  *  (lib/access/areas — stage 2, 12 Oct 2026). Two-step sign-in, if set up, must have been completed. */
 export async function requireAdmin(req: NextRequest): Promise<{ email: string; personId: string } | null> {
   const who = await officeCaller(bearer(req.headers))
-  if (!who || !canCallApi(req.nextUrl.pathname, who.areas, who.role, req.method)) return null
+  if (!who || !canCallApi(req.nextUrl.pathname, who.areas, who.role, req.method, who.annual)) return null
   return { email: who.email, personId: who.personId }
 }
 
@@ -18,12 +18,15 @@ export async function requireAdministrator(req: NextRequest): Promise<{ email: s
   return who && isAdministrator(who.role) ? { email: who.email, personId: who.personId } : null
 }
 
-/** Directors only (5 Nov 2026, Harry: the office account and the company's profit and loss are for directors): an
- *  administrator whose job title is Director (People › Office). */
-export async function requireDirector(req: NextRequest): Promise<{ email: string; personId: string } | null> {
+/** Annual financial reports (tax year, resold, MTD, agency income, company P&L): the owner, or someone the owner ticked
+ *  'Annual financial reports'. Administrator status alone is not enough (19 Nov 2026). */
+export async function requireAnnual(req: NextRequest): Promise<{ email: string; personId: string; isOwner: boolean } | null> {
   const who = await officeCaller(bearer(req.headers))
-  if (!who || !isAdministrator(who.role)) return null
-  const { createServiceClient } = await import('@/lib/supabase')
-  const { data } = await createServiceClient().from('people').select('job_title').eq('id', who.personId).maybeSingle()
-  return /director/i.test(String((data as any)?.job_title ?? '')) ? { email: who.email, personId: who.personId } : null
+  return who && who.annual ? { email: who.email, personId: who.personId, isOwner: who.isOwner } : null
+}
+
+/** The owner only (19 Nov 2026): the office account and the VAT books. Stored flag, never a job title. */
+export async function requireOwner(req: NextRequest): Promise<{ email: string; personId: string } | null> {
+  const who = await officeCaller(bearer(req.headers))
+  return who && who.isOwner ? { email: who.email, personId: who.personId } : null
 }

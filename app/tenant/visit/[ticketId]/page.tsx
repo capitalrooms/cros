@@ -228,7 +228,7 @@ export default function VisitDetailPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-neutral-50">
-        <AppBar left={<BackButton href="/tenant" label="Home" />} />
+        <AppBar left={<BackButton href="/tenant/requests" label="Repairs" />} />
         <main className="mx-auto max-w-xl px-lg pt-xl">
           <div className="space-y-md">
             <div className="h-32 rounded-2xl bg-neutral-100 animate-pulse" />
@@ -243,7 +243,7 @@ export default function VisitDetailPage() {
   if (error || !ticket) {
     return (
       <div className="min-h-screen bg-neutral-50">
-        <AppBar left={<BackButton href="/tenant" label="Home" />} />
+        <AppBar left={<BackButton href="/tenant/requests" label="Repairs" />} />
         <main className="mx-auto max-w-xl px-lg pt-xl text-center">
           <p className="text-4xl mb-md"><LineIcon glyph="🔍" /></p>
           <p className="font-bold text-neutral-700">{error || 'Visit not found'}</p>
@@ -257,7 +257,7 @@ export default function VisitDetailPage() {
 
   return (
     <div className="min-h-screen bg-neutral-50">
-      <AppBar left={<BackButton href="/tenant" label="Home" />} />
+      <AppBar left={<BackButton href="/tenant/requests" label="Repairs" />} />
 
       <main className="mx-auto max-w-xl px-lg pb-2xl pt-md space-y-lg">
 

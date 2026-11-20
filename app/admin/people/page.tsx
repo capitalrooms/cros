@@ -127,10 +127,11 @@ export default function PeopleManagement({ searchParams }: { searchParams: PageS
   const setProp = (id: string) => nt && saveN(id, { type: 'property', id, on: !propOn(id) },
     d => ({ ...d, tenants: { ...d.tenants, properties: d.tenants.properties.some(x => x.id === id) ? d.tenants.properties.map(x => x.id === id ? { ...x, on: !x.on } : x) : [...d.tenants.properties, { id, on: true }] } }))
   // sign-in accounts (12 Oct 2026): status per person, invites / resets / turning sign-in off — /api/admin/accounts
-  const [acct, setAcct] = useState<{ statuses: Record<string, any>; groups: Record<Tab, string[]>; me: string; access?: Record<string, { areas: string[]; custom: boolean; administrator: boolean }> } | null>(null)
+  const [acct, setAcct] = useState<{ statuses: Record<string, any>; groups: Record<Tab, string[]>; me: string; meOwner?: boolean; access?: Record<string, { areas: string[]; custom: boolean; administrator: boolean; annual: boolean; owner: boolean }> } | null>(null)
   // access levels for an office person (stage 2): which parts of the office app they may use
   const [accessFor, setAccessFor] = useState<Person | null>(null)
   const [accessDraft, setAccessDraft] = useState<Set<string>>(new Set())
+  const [annualBusy, setAnnualBusy] = useState(false)
   const [accessBusy, setAccessBusy] = useState(false)
   const [acctBusy, setAcctBusy] = useState('')
   const [acctMsg, setAcctMsg] = useState<{ ok: boolean; text: string } | null>(null)
@@ -428,6 +429,17 @@ export default function PeopleManagement({ searchParams }: { searchParams: PageS
         ? prev.selectedProperties.filter((id) => id !== propertyId)
         : [...prev.selectedProperties, propertyId],
     }))
+  }
+
+  async function setAnnual(granted: boolean) {
+    if (!accessFor) return
+    setAnnualBusy(true)
+    const r = await adminFetch('/api/admin/accounts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'set_annual', personId: accessFor.id, granted }) })
+    const d = await r.json().catch(() => ({}))
+    setAnnualBusy(false)
+    if (!r.ok) { setAcctMsg({ ok: false, text: d.error || 'Could not change annual financial reports' }); return }
+    setAcctMsg({ ok: true, text: `${displayName(accessFor)} ${granted ? 'can now' : 'can no longer'} see annual financial reports. Recorded in the audit log.` })
+    loadAccounts()
   }
 
   async function saveAccess(areas: string[] | null) {
@@ -1133,6 +1145,23 @@ export default function PeopleManagement({ searchParams }: { searchParams: PageS
                   </li>
                 ))}
               </ul>
+              {acct?.meOwner && acct.access?.[accessFor.id] && (
+                <div className="mt-md rounded-xl border border-neutral-300 bg-neutral-50 px-md py-sm">
+                  <p className="text-xs font-bold uppercase tracking-wide text-neutral-500">Owner only</p>
+                  {acct.access[accessFor.id].owner ? (
+                    <p className="mt-xs text-sm text-neutral-700">Owner — always has annual financial reports.</p>
+                  ) : (
+                    <label className="mt-xs flex cursor-pointer items-start gap-sm">
+                      <input type="checkbox" className="mt-1" checked={acct.access[accessFor.id].annual} disabled={annualBusy}
+                        onChange={e => setAnnual(e.target.checked)} />
+                      <span>
+                        <span className="block text-sm font-semibold text-neutral-900">Annual financial reports</span>
+                        <span className="block text-xs text-neutral-500">Tax-year summary, mark-ups (goods resold), Making Tax Digital, agency income and company profit &amp; loss. Recorded in the audit log.</span>
+                      </span>
+                    </label>
+                  )}
+                </div>
+              )}
               <div className="mt-lg flex justify-end gap-sm">
                 <button type="button" onClick={() => setAccessFor(null)} disabled={accessBusy} className="rounded-xl px-md py-sm text-sm text-neutral-600 hover:bg-neutral-100">Cancel</button>
                 <button type="button" onClick={() => saveAccess([...accessDraft])} disabled={accessBusy} className="rounded-xl bg-neutral-900 px-lg py-sm text-sm font-bold text-white disabled:opacity-40">{accessBusy ? 'Saving…' : 'Save access'}</button>

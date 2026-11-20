@@ -21,10 +21,14 @@ interface PropertyBreakdown {
   property_id: string
   property_name: string
   property_address: string
-  gross_rent: number
-  management_fees: number
-  expenses: number
-  net_income: number
+  gross_rent: number | null
+  management_fees: number | null
+  expenses: number | null
+  net_income: number | null
+  coverage?: 'full' | 'partial' | 'none'
+  coverage_message?: string | null
+  reliable_from?: string
+  basis?: string
 }
 
 interface TaxSummary {
@@ -32,10 +36,14 @@ interface TaxSummary {
   period_from: string
   period_to: string
   tax_year: string | null
-  gross_rent: number
-  management_fees: number
-  expenses: number
-  net_income: number
+  gross_rent: number | null
+  management_fees: number | null
+  expenses: number | null
+  net_income: number | null
+  coverage?: 'full' | 'partial' | 'none'
+  coverage_message?: string | null
+  reliable_from?: string
+  basis?: string
   properties: PropertyBreakdown[]
 }
 
@@ -170,10 +178,20 @@ export default function TaxYearReport() {
                 </p>
               </div>
 
+              {result.coverage && result.coverage !== 'full' && (
+                <div className="rounded-xl border border-amber-300 bg-amber-50 p-md text-sm text-amber-900">
+                  <p className="font-bold">No complete figure for this period</p>
+                  <p className="mt-xs">{result.coverage_message}</p>
+                  <p className="mt-xs">The records CROS holds are listed below and on the <a href="/admin/statements" className="underline">Statements</a> page. They are not a tax-year total.</p>
+                </div>
+              )}
+              {result.basis && (
+                <p className="text-xs text-neutral-500">{result.basis}</p>
+              )}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-md">
                 {[
                   { label: 'Gross rent',       value: result.gross_rent,       color: 'text-neutral-900' },
-                  { label: 'Management fees',  value: result.management_fees,  color: 'text-red-600' },
+                  { label: 'Agency fees',  value: result.management_fees,  color: 'text-red-600' },
                   { label: 'Expenses',         value: result.expenses,         color: 'text-red-600' },
                   { label: 'Net income',       value: result.net_income,       color: 'text-emerald-700' },
                 ].map(t => (
@@ -194,7 +212,7 @@ export default function TaxYearReport() {
                   <table className="w-full text-sm">
                     <thead className="bg-neutral-50 border-b border-neutral-100">
                       <tr>
-                        {['Property','Gross rent','Mgmt fees','Expenses','Net income'].map(h => (
+                        {['Property','Gross rent','Agency fees','Expenses','Net income'].map(h => (
                           <th key={h} className="px-lg py-sm text-left text-xs font-bold uppercase tracking-wider text-neutral-400">{h}</th>
                         ))}
                       </tr>

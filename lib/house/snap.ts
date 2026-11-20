@@ -12,6 +12,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { AI_MODEL_SMART } from '@/lib/ai-classify'
 import { syncHouseInfo } from '@/lib/properties/services'
+import { seal as sealSecret } from '@/lib/crypto/fieldCrypt'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -154,7 +155,7 @@ export async function applySnaps(s: SupabaseClient, propertyId: string, approved
       // one copy: an internet account on Bills & services owns the WiFi details when there is one
       const { data: svc } = await s.from('property_services').select('id').eq('property_id', propertyId).eq('kind', 'internet').is('ended_at', null).limit(1)
       if (svc?.[0]) {
-        await s.from('property_services').update({ ...(sn.wifi.network ? { wifi_network: sn.wifi.network } : {}), ...(sn.wifi.password ? { wifi_password: sn.wifi.password } : {}), updated_at: new Date().toISOString() }).eq('id', (svc[0] as any).id)
+        await s.from('property_services').update({ ...(sn.wifi.network ? { wifi_network: sn.wifi.network } : {}), ...(sn.wifi.password ? { wifi_password: sealSecret(sn.wifi.password) } : {}), updated_at: new Date().toISOString() }).eq('id', (svc[0] as any).id)
         if (infoChanged) { await s.from('properties').update({ house_info: { ...(prop?.house_info ?? {}), items } }).eq('id', propertyId); infoChanged = false }
         await syncHouseInfo(s, propertyId)
         const { data: fresh } = await s.from('properties').select('house_info').eq('id', propertyId).maybeSingle() as { data: any }

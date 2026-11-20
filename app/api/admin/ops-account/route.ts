@@ -14,10 +14,10 @@
  *   POST { action: 'receipt_url', id, fileName } → { path, token } upload the receipt straight from the browser
  *   POST { action: 'receipt_done', id, path, fileName } → attached to the line and every expense made from it
  *   POST { action: 'no_receipt', id, value }  → "no receipt needed" (bank charges…) on or off
- * Directors only (lib/adminAuth requireDirector, 5 Nov 2026). Every expense goes through lib/expenses/create (duplicates, statement month, numbering).
+ * Directors only (lib/adminAuth requireOwner, 5 Nov 2026). Every expense goes through lib/expenses/create (duplicates, statement month, numbering).
  */
 import { NextRequest, NextResponse } from 'next/server'
-import { requireDirector } from '@/lib/adminAuth'
+import { requireOwner } from '@/lib/adminAuth'
 import { createServiceClient } from '@/lib/supabase'
 import { parseBankDebits } from '@/lib/parseBank'
 import { matchKey, payeeKey } from '@/lib/ops/keys'
@@ -50,7 +50,7 @@ function suggest(line: any, byKey: Map<string, any>, byPayee: Map<string, any[]>
 const ruleOut = (r: any) => ({ as: r.filed_as, propertyId: r.property_id, roomId: r.room_id, splits: r.splits, category: r.category, description: r.description, lastAmount: r.last_amount, times: r.times_used })
 
 export async function GET(req: NextRequest) {
-  const admin = await requireDirector(req)
+  const admin = await requireOwner(req)
   if (!admin) return NextResponse.json({ error: 'The office account is for directors only' }, { status: 403 })
   const s = createServiceClient()
   const [{ data: props }, { data: rooms }] = await Promise.all([
@@ -77,7 +77,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const admin = await requireDirector(req)
+  const admin = await requireOwner(req)
   if (!admin) return NextResponse.json({ error: 'The office account is for directors only' }, { status: 403 })
   const s = createServiceClient()
   const b = await req.json().catch(() => ({}))

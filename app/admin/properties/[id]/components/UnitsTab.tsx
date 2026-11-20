@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { initials as avatarInitials } from '@/lib/people'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
@@ -144,6 +144,8 @@ export default function UnitsTab({ propertyId, propertyType, bedrooms, initialRo
 
   // Drill-down
   const [view, setView] = useState<View>('list')
+  // a single let has one unit: open it straight away (once per visit), so there is no extra click through the list (19 Nov 2026)
+  const autoOpened = useRef(false)
   const [selectedRoom, setSelectedRoom] = useState<RoomDetail | null>(null)
   const [pastTenancies, setPastTenancies] = useState<TenancyDetail[]>([])
   const [detailLoading, setDetailLoading] = useState(false)
@@ -293,6 +295,7 @@ export default function UnitsTab({ propertyId, propertyType, bedrooms, initialRo
       String(a.unit_code || a.name || '').localeCompare(String(b.unit_code || b.name || ''), undefined, { numeric: true })
     )
     setRooms(enriched)
+    if (wholeLet && enriched.length === 1 && !autoOpened.current) { autoOpened.current = true; openRoom(enriched[0] as RoomRow) }
 
     // Fetch room-tagged photos in one batch
     const roomIds = enriched.map(r => r.id)
