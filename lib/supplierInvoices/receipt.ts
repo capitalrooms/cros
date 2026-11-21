@@ -34,10 +34,10 @@ export async function readReceipt(dataUrl: string): Promise<ReceiptRead> {
         { type: 'text', text: 'Read this receipt.' },
       ],
     }],
-  }).catch(() => null)
-  const text = msg?.content?.[0]?.type === 'text' ? msg.content[0].text : ''
+  }).catch(e => { console.error('receipt read failed', e?.status, String(e?.message).slice(0, 200)); return null })
+  const text = (msg?.content ?? []).find(b => b.type === 'text')?.text ?? ''
   const json = text.match(/\{[\s\S]*\}/)?.[0]
-  if (!json) return { items: [], shop: null, readable: false }
+  if (!json) { console.error('receipt read: no JSON in reply', text.slice(0, 200)); return { items: [], shop: null, readable: false } }
   try {
     const d = JSON.parse(json) as { readable?: boolean; shop?: string | null; items?: { name?: unknown; amount?: unknown }[] }
     const items = (Array.isArray(d.items) ? d.items : [])

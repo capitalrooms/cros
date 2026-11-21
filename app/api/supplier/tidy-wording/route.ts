@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
     messages: [{ role: 'user', content: text }],
   }).catch(() => null)
 
-  const out = msg?.content?.[0]?.type === 'text' ? msg.content[0].text.trim() : ''
+  const out = ((msg?.content ?? []).find(b => b.type === 'text')?.text ?? '').trim()
   if (!out) return NextResponse.json({ error: 'That didn’t tidy up. Your words are still here, try again.' }, { status: 502 })
   return NextResponse.json({ text: out, changed: out !== text })
 }
