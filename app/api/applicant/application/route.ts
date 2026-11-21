@@ -1,3 +1,4 @@
+import { allowRequest } from '@/lib/rateLimit'
 // POST /api/applicant/application { applicantId, email } — "Reopen my application": returns what the applicant sent,
 // so the form can be changed and sent again. Only with the email it was sent with (the link alone isn't enough to
 // read someone's details), and only while we haven't moved the application on (invited / applied).
@@ -11,6 +12,9 @@ const EDITABLE_STAGES = ['invited', 'applied']
 const FIELDS = 'id, room_id, property_id, pipeline_stage, salutation, first_name, middle_name, last_name, email, phone, date_of_birth, current_address, profession, salary, linkedin_url, profession_description, preferred_start_date, preferred_term, bio, interests, sociability, house_preferences, communication_style, room_requirements, room_conditions, rent_offer_type, offered_rent, previous_addresses, guarantor_needed, guarantor_name, guarantor_email, guarantor_phone, applicant_profile'
 
 export async function POST(req: NextRequest) {
+  // at most 20 tries per address per 15 minutes: stops guessing of application ids and emails (21 Nov 2026)
+  const ip = (req.headers.get('x-forwarded-for') ?? 'unknown').split(',')[0].trim()
+  if (!(await allowRequest(`applicant-application:${ip}`, 20, 15 * 60))) return NextResponse.json({ error: 'Too many tries. Please wait 15 minutes and try again.' }, { status: 429 })
   const body = await req.json().catch(() => ({}))
   const id = String(body.applicantId ?? '')
   const email = String(body.email ?? '').trim().toLowerCase()
