@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { allowRequest } from '@/lib/rateLimit'
 
 function createServiceClient() {
   return createClient(
@@ -17,6 +18,9 @@ function createServiceClient() {
 export async function GET(req: NextRequest) {
   const phone = req.nextUrl.searchParams.get('phone')
   if (!phone) return NextResponse.json({ hint: null })
+  // at most 10 lookups per address per 15 minutes: stops anyone checking many numbers (21 Nov 2026)
+  const ip = (req.headers.get('x-forwarded-for') ?? 'unknown').split(',')[0].trim()
+  if (!(await allowRequest(`lookup-email:${ip}`, 10, 15 * 60))) return NextResponse.json({ hint: null }, { status: 429 })
 
   // Normalise: strip spaces, ensure +44 format for UK numbers
   const normalised = phone.trim().replace(/\s+/g, '')
