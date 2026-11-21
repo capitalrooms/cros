@@ -117,9 +117,25 @@ export async function POST(request: NextRequest) {
   // Load tenant viewing template once — used for both room tenant and other tenants
   const tenantTpl = await getTemplate('appointment-viewing-tenants')
 
+  // What the visit is, who is coming and the notes the office typed, so tenants know what to expect (21 Nov 2026)
+  const esc = (x: string) => x.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!))
+  const typeLabel = String((appointment as any).appointment_type ?? 'visit').replace(/_/g, ' ').replace(/^\w/, c => c.toUpperCase())
+  const who = [(appointment as any).visitor_name, (appointment as any).visitor_company].filter(Boolean).join(', ')
+  const detailRows = [
+    `<tr><td style="padding:6px 0;color:#78716c;width:100px">What</td><td style="padding:6px 0;font-weight:600">${esc(typeLabel)}</td></tr>`,
+    who ? `<tr><td style="padding:6px 0;color:#78716c">Who</td><td style="padding:6px 0">${esc(who)}</td></tr>` : '',
+    (appointment as any).notes ? `<tr><td style="padding:6px 0;color:#78716c;vertical-align:top">Details</td><td style="padding:6px 0">${esc(String((appointment as any).notes)).replace(/\n/g, '<br>')}</td></tr>` : '',
+  ].join('')
+  const appointmentDetails = `<div style="background:#f3f1ef;padding:16px;border-radius:8px;margin:20px 0"><table style="width:100%;border-collapse:collapse;font-size:14px">${detailRows}</table></div>`
+
   async function buildViewingEmail(tenantName: string, roomOrAtProperty: string): Promise<string> {
-    const vars = { tenant_name: tenantName, when, room_name: roomName ?? '', property_name: propertyName, property_name_address: propertyNameAddress, room_or_at_property: roomOrAtProperty }
-    if (tenantTpl) return await emailHtml(render(tenantTpl.template_text, vars), { kind: 'appointment-booked', req: request })
+    const vars = { tenant_name: tenantName, when, room_name: roomName ?? '', property_name: propertyName, property_name_address: propertyNameAddress, room_or_at_property: roomOrAtProperty, appointment_details: appointmentDetails }
+    if (tenantTpl) {
+      // a template with no {{appointment_details}} slot still gets the details, placed after its text
+      const rendered = render(tenantTpl.template_text, vars)
+      const withDetails = tenantTpl.template_text.includes('appointment_details') ? rendered : `${rendered}${appointmentDetails}`
+      return await emailHtml(withDetails, { kind: 'appointment-booked', req: request })
+    }
     return await emailHtml(`
       <h2 style="margin:0 0 18px;font-size:22px">Viewing Scheduled</h2>
       <p style="margin:0 0 12px;font-size:16px">Hi ${tenantName},</p>

@@ -18,6 +18,7 @@ import LineIcon from '@/components/LineIcon'
 import SidePanel from '@/app/components/SidePanel'
 import { TimeGrid, DayList, WeekNav, type CalEntry, type Tone } from '@/components/calendar/Calendar'
 import { parseTime, ymd } from '@/components/calendar/look'
+import { TidyBox } from '@/components/SupplierInvoices'
 type AppointmentType = 'landlord' | 'lettings' | 'management_visit' | 'contractor' | 'cleaner' | 'delivery' | 'inspection' | 'gas_safety' | 'electrical' | 'fire_door' | 'smoke_alarm' | 'other'
 
 interface Appointment {
@@ -402,13 +403,10 @@ export default function AppointmentsPage() {
                   className="border border-neutral-300 rounded-lg px-md py-sm text-sm"
                 />
 
-                <textarea
-                  placeholder="Notes for tenants (optional)"
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  rows={2}
-                  className="col-span-2 border border-neutral-300 rounded-lg px-md py-sm text-sm"
-                />
+                <div className="col-span-2">
+                  {/* the tenants' message is built from this: tidy it so it reads well (21 Nov 2026) */}
+                  <TidyBox kind="note" value={notes} onChange={setNotes} placeholder="Notes for tenants (optional): e.g. Delivering a fridge, please keep the hall clear" />
+                </div>
 
                 <label className="col-span-2 flex items-center gap-sm text-sm">
                   <input
