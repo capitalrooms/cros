@@ -106,7 +106,8 @@ export async function GET(req: NextRequest) {
   }
   if (wantsFull && authed) body.checks = checks
   else if (wantsFull && !authed) body.note = 'pass ?full=1 with Authorization: Bearer <CRON_SECRET> for per-check detail'
-  else body.failing = [...errors, ...warnings].map((c) => `${c.level === 'warn' ? '⚠ ' : '✗ '}${c.name}`)
+  // the names of failing checks reveal internal set-up, so only the authorised caller sees them (21 Nov 2026)
+  else if (authed) body.failing = [...errors, ...warnings].map((c) => `${c.level === 'warn' ? '⚠ ' : '✗ '}${c.name}`)
 
   return NextResponse.json(body, { status: healthy ? 200 : 503 })
 }
