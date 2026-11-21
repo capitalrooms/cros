@@ -111,7 +111,9 @@ export const EMAIL_KINDS: EmailKind[] = [
   { key: 'aml-request-more', name: 'Landlord onboarding — more documents needed', audience: 'Landlords', from: 'Office', when: 'When ID or proof of address needs adding' },
   { key: 'aml-update-accepted', name: 'Landlord onboarding — update accepted', audience: 'Landlords', from: 'Office', when: 'When their changed details are accepted' },
   { key: 'aml-verified', name: 'Landlord onboarding — verification complete', audience: 'Landlords', from: 'Office', when: 'When their checks are done', slugs: ['landlord-onboarding-approved'] },
-  { key: 'aml-approved', name: 'Landlord onboarding — approved, final agreement', audience: 'Landlords', from: 'Office', when: 'When approved, with the final agreement attached' },
+  { key: 'aml-passed', name: 'Landlord onboarding — checks passed', audience: 'Landlords', from: 'Office', when: 'When the office confirms the identity and AML checks have passed. Nothing to sign; no agreement attached.' },
+  { key: 'aml-more-info', name: 'Landlord onboarding — we need a little more', audience: 'Landlords', from: 'Office', when: 'When the office needs more details before the checks can finish. Lists what is needed.' },
+  { key: 'aml-docs-unverified', name: 'Landlord onboarding — documents could not be verified', audience: 'Landlords', from: 'Office', when: 'When one or more documents could not be verified. Lists which, and asks for clearer copies.' },
 ]
 export const AUDIENCES: Audience[] = ['Tenants', 'Applicants', 'Landlords', 'Contractors & suppliers', 'Cleaners', 'Office', 'Everyone']
 export const kindByKey = (k: string) => EMAIL_KINDS.find(x => x.key === k)

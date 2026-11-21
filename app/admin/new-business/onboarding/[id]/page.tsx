@@ -128,10 +128,23 @@ export default function OnboardingReviewPage({ params }: { params: Promise<{ id:
   async function approve() {
     const high = row?.form_data?.__decision?.risk_level === 'high'
     if (high && !confirm('This client is HIGH risk. Confirm enhanced due diligence is complete and senior approval has been given.')) return
-    if (!confirm(`Send the confirmation email and final ${row?.form_data?.__agreement?.agreementType === 'rent_collection' ? (row?.form_data?.__agreement?.rentCollection?.version === 'letting' ? 'letting and rent collection' : 'rent collection') : 'management'} agreement to ${row.email}${row.form_data?.j_contact_email ? ` and ${row.form_data.j_contact_email}` : ''}?`)) return
+    if (!confirm(`Tell ${row.email}${row.form_data?.j_contact_email ? ` and ${row.form_data.j_contact_email}` : ''} that their checks have passed? Nothing is signed and no agreement is attached.`)) return
     await act('approve', () => adminFetch(`/api/landlord-onboarding/${id}/approve`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ confirm_high: high }),
-    }), 'Confirmation and final agreement sent')
+    }), 'Landlord told their checks have passed')
+  }
+
+  // "We need a little more" / "documents could not be verified": says exactly what is needed, one item per line
+  async function tellLandlord(outcome: 'more_info' | 'docs_unverified', textareaId: string) {
+    const raw = (document.getElementById(textareaId) as HTMLTextAreaElement | null)?.value ?? ''
+    const items = raw.split('\n').map(s => s.trim()).filter(Boolean)
+    if (!items.length) { alert(outcome === 'more_info' ? 'Say what you need, one item per line.' : 'Say which documents could not be verified, one per line.'); return }
+    if (!confirm(`Email ${row.email} about ${items.length} item${items.length === 1 ? '' : 's'}?`)) return
+    await act('outcome', () => adminFetch(`/api/landlord-onboarding/${id}/outcome`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ outcome, items }),
+    }), outcome === 'more_info' ? 'Landlord asked for the extra details' : 'Landlord told about the documents')
+    const el = document.getElementById(textareaId) as HTMLTextAreaElement | null
+    if (el) el.value = ''
   }
 
   async function acceptUpdate() {
@@ -412,14 +425,40 @@ export default function OnboardingReviewPage({ params }: { params: Promise<{ id:
                   {row.onboarded_at && <p className="text-xs text-green-700">Accepted {fmt(row.onboarded_at)}.</p>}
                 </div>
               )}
-              {hasSnapshot && !row.is_refresh && (
-                <div className="space-y-sm">
-                  <button onClick={() => downloadPdf(`/api/landlord-onboarding/${id}/agreement?pdf=1`, 'Management-Agreement-preview.pdf')} className="w-full rounded-xl border border-neutral-300 py-sm text-sm font-semibold text-neutral-700 hover:bg-neutral-50">Preview final agreement</button>
+              {(row.stage >= 3 || row.form_data?.__submitted_at) && (
+                <div className="space-y-md">
+                  <p className="text-xs font-bold uppercase tracking-wide text-neutral-500">Tell the landlord</p>
+                  <p className="text-xs text-neutral-500">Pick one. Each email says exactly what happened. None of them sends an agreement.</p>
+
                   <button onClick={approve} disabled={!!busy || !decision} className="w-full rounded-xl bg-green-700 text-white py-sm text-sm font-semibold hover:bg-green-800 disabled:opacity-40 disabled:cursor-not-allowed">
-                    {busy === 'approve' ? 'Sending…' : row.approval_sent_at ? 'Re-send confirmation & agreement' : 'Approve & send to landlord'}
+                    {busy === 'approve' ? 'Sending…' : 'Checks passed — tell the landlord'}
                   </button>
+
+                  <div className="space-y-xs">
+                    <textarea id="aml-need-more" rows={3} placeholder={'What we still need, one item per line\ne.g. Proof of address dated within 3 months'} className="w-full rounded-xl border border-neutral-300 px-sm py-xs text-sm" />
+                    <button onClick={() => tellLandlord('more_info', 'aml-need-more')} disabled={!!busy || !decision} className="w-full rounded-xl border border-neutral-300 py-sm text-sm font-semibold text-neutral-800 hover:bg-neutral-50 disabled:opacity-40">We need a little more</button>
+                  </div>
+
+                  <div className="space-y-xs">
+                    <textarea id="aml-docs-unverified" rows={3} placeholder={'Documents we could not verify, one per line\ne.g. Passport photo page is blurred'} className="w-full rounded-xl border border-neutral-300 px-sm py-xs text-sm" />
+                    <button onClick={() => tellLandlord('docs_unverified', 'aml-docs-unverified')} disabled={!!busy || !decision} className="w-full rounded-xl border border-neutral-300 py-sm text-sm font-semibold text-neutral-800 hover:bg-neutral-50 disabled:opacity-40">Documents could not be verified</button>
+                  </div>
+
                   {!decision && <p className="text-xs text-neutral-400">Save your decision first.</p>}
-                  {row.approval_sent_at && <p className="text-xs text-green-700">Sent {fmt(row.approval_sent_at)}. Next: send for digital signature, then mark the agreement sent on the pipeline.</p>}
+                  {row.form_data?.__outcome?.sent_at && (
+                    <p className="text-xs text-green-700">
+                      Last sent {fmt(row.form_data.__outcome.sent_at)}: {row.form_data.__outcome.type === 'passed' ? 'checks passed' : row.form_data.__outcome.type === 'more_info' ? `asked for ${(row.form_data.__outcome.items ?? []).join(', ')}` : `documents not verified: ${(row.form_data.__outcome.items ?? []).join(', ')}`}
+                    </p>
+                  )}
+
+                  {hasSnapshot && !row.is_refresh && (
+                    <div className="space-y-sm border-t border-neutral-200 pt-md">
+                      <p className="text-xs font-bold uppercase tracking-wide text-neutral-500">Management agreement (separate)</p>
+                      <p className="text-xs text-neutral-500">Only when you choose. Nothing sends it automatically.</p>
+                      <button onClick={() => downloadPdf(`/api/landlord-onboarding/${id}/agreement?pdf=1`, 'Management-Agreement-preview.pdf')} className="w-full rounded-xl border border-neutral-300 py-sm text-sm font-semibold text-neutral-700 hover:bg-neutral-50">Preview agreement</button>
+                      {row.approval_sent_at && <p className="text-xs text-neutral-500">The checks-passed email went on {fmt(row.approval_sent_at)}. The agreement is a separate step.</p>}
+                    </div>
+                  )}
                 </div>
               )}
             </div>

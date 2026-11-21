@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/adminAuth'
 import { svc } from '@/lib/landlordOnboarding/store'
-import { checkAgreement } from '@/lib/landlordOnboarding/agreementCheck'
-import { generateManagementAgreementPDF } from '@/lib/managementAgreement/generatePDF'
-import { fetchPDFBizSettings } from '@/lib/pdfLetterhead'
 import { sendEmail } from '@/lib/sendEmail'
 import { onboardingName, dearFromText } from '@/lib/people'
 
@@ -11,10 +8,9 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 export const maxDuration = 30
 
-const esc = (s: string) => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!))
-
-// POST → AML review signed off: send the landlord(s) confirmation plus the final management
-// agreement (updated with their confirmed details), ready for digital signature.
+// POST → the office has confirmed the AML checks passed. Tells the landlord (and the joint landlord, if any) that
+// their checks are complete. Nothing is signed and no agreement is attached: an agreement is only ever sent by its
+// own deliberate step (send-with-agreement), never automatically from here (21 Nov 2026).
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   if (!(await requireAdmin(req))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { id } = await params
@@ -29,58 +25,23 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: 'This client is rated HIGH risk — confirm that enhanced due diligence is complete and senior approval given before sending' }, { status: 409 })
   }
 
-  const check = checkAgreement(f)
-  if (!check.updated) return NextResponse.json({ error: 'No management agreement on file to update — generate one from the Management Agreement page' }, { status: 400 })
-  const pdf = await generateManagementAgreementPDF({ ...check.updated, bizSettings: await fetchPDFBizSettings() })
-
-  const storagePath = `management-agreements/${crypto.randomUUID()}.pdf`
-  await svc().storage.from('valuations').upload(storagePath, pdf, { contentType: 'application/pdf', upsert: false }).catch(() => null)
-
   const recipients = Array.from(new Set([row.email, f.j_contact_email].filter(Boolean).map((e: string) => e.trim().toLowerCase())))
-  // only the changes the office accepted (agreementCheck — refused ones keep what the agreement said)
-  const used = check.diffs.filter(d => d.accepted)
-  const changes = used.length
-    ? `<p style="margin:0 0 8px;font-size:15px;color:#333;line-height:1.6">I have updated the agreement with the details you confirmed:</p>
-       <ul style="margin:0 0 18px;padding-left:18px;font-size:14px;color:#333;line-height:1.7">${used.map(d => `<li><strong>${esc(d.field)}:</strong> ${esc(d.fromLandlord)}</li>`).join('')}</ul>`
-    : `<p style="margin:0 0 18px;font-size:15px;color:#333;line-height:1.6">The details you confirmed match your agreement, so no changes were needed.</p>`
-  const prop = (check.updated.properties?.[0] ?? '').replace(/\n/g, ', ')
-  const kind = check.updated.agreementType === 'rent_collection' ? ((check.updated as any).rentCollection?.version === 'letting' ? 'letting and rent collection' : 'rent collection') : 'management'
   const html = `
 <p style="margin:0 0 18px;font-size:15px;color:#333;line-height:1.6">Dear ${esc(dearFromText(onboardingName(row)))},</p>
-<p style="margin:0 0 16px;font-size:15px;color:#333;line-height:1.6">Thank you for completing your registration. We have now reviewed your information and documents, and your identity and anti-money laundering checks are <strong>complete</strong>.</p>
-${changes}
-<p style="margin:0 0 16px;font-size:15px;color:#333;line-height:1.6">Your final ${kind} agreement${prop ? ` for <strong>${esc(prop)}</strong>` : ''} is attached for your records. Please have a read through — if anything needs changing, just reply to this email.</p>
-<p style="margin:0 0 16px;font-size:15px;color:#333;line-height:1.6">When you are ready, reply to let me know and I will send the agreement for your electronic signature through our signing software. Once it is signed, we can get started.</p>
+<p style="margin:0 0 16px;font-size:15px;color:#333;line-height:1.6">Thank you for providing the details. Your identity and anti-money laundering checks have <strong>passed</strong>.</p>
+<p style="margin:0 0 16px;font-size:15px;color:#333;line-height:1.6">Nothing else is needed from you for now. We will be in touch if anything changes.</p>
 <p style="margin:24px 0 4px;font-size:15px;color:#333">Kind regards,</p>`
-  const slug = (prop || 'Agreement').replace(/[^a-zA-Z0-9]+/g, '-').slice(0, 40)
-  const { ok, error } = await sendEmail(recipients, `Your checks are complete — your final ${kind} agreement`, html, {
-    kind: 'aml-approved',
-    req,
-    attachments: [{ filename: `Capital-Rooms-${kind === 'management' ? 'Management' : 'Rent-Collection'}-Agreement_${slug}_final.pdf`, content: pdf.toString('base64') }],
-  })
+
+  const { ok, error } = await sendEmail(recipients, 'Your checks have passed', html, { kind: 'aml-passed', req })
   if (!ok) return NextResponse.json({ error: `Email failed: ${error ?? 'unknown'}` }, { status: 502 })
 
   const now = new Date().toISOString()
-  const history = [...((f.__agreement_history as unknown[]) ?? []), f.__agreement]
   const { error: saveErr } = await svc().from('landlord_onboarding').update({
-    form_data: {
-      ...f,
-      __agreement: { ...check.updated, sent_at: now, version: (f.__agreement?.version ?? 1) + 1, pdf_path: storagePath },
-      __agreement_history: history,
-    },
+    form_data: { ...f, __outcome: { type: 'passed', items: [], sent_at: now } },
     stage: Math.max(row.stage, 4), verified_at: row.verified_at ?? now, approval_sent_at: now, updated_at: now,
   }).eq('id', id)
   if (saveErr) return NextResponse.json({ error: `Email sent, but the record could not be updated: ${saveErr.message}` }, { status: 500 })
-
-  // Repopulate the saved agreement on the Agreements page with the accepted details, so reopening it shows the final version
-  if (check.formPatch && Object.keys(check.formPatch).length) {
-    const { data: saved } = await svc().from('management_agreements').select('id, form, version').eq('onboarding_id', id).is('deleted_at', null).order('updated_at', { ascending: false }).limit(1).maybeSingle()
-    if (saved) await svc().from('management_agreements').update({
-      form: { ...((saved.form as object) ?? {}), ...check.formPatch, agreementDate: check.updated.agreementDate },
-      ...(check.formPatch.companyName ? { client_name: check.formPatch.companyName } : check.formPatch.clientFirst ? { client_name: [check.formPatch.clientTitle, check.formPatch.clientFirst, check.formPatch.clientLast].filter(Boolean).join(' ') } : {}),
-      properties: check.updated.properties, pdf_path: storagePath, version: (saved.version ?? 1) + 1, updated_by: 'Onboarding approval', updated_at: now,
-    }).eq('id', saved.id).then(() => null, () => null)
-  }
-
-  return NextResponse.json({ ok: true, sentTo: recipients, changes: used.length })
+  return NextResponse.json({ ok: true })
 }
+
+const esc = (s: string) => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!))
