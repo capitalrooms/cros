@@ -47,7 +47,8 @@ export async function gate(s: S, personId: string, role: string) {
   return { enabled: true, others: unbooked.length === 0, why: unbooked.length ? `Book a date for ${unbooked.length} of our job${unbooked.length === 1 ? '' : 's'} to invoice other clients too.` : '', unbooked }
 }
 
-export interface Line { description: string; where?: string; labour: number; parts: number; ticketId?: string | null; cleanId?: string | null; propertyId?: string | null; date?: string | null; receipt?: string | null }
+export interface PartItem { name: string; amount: number }
+export interface Line { description: string; where?: string; labour: number; parts: number; partsNote?: string | null; partItems?: PartItem[]; ticketId?: string | null; cleanId?: string | null; propertyId?: string | null; date?: string | null; receipt?: string | null }
 export interface Draft {
   toCapitalRooms: boolean
   /** the cleaner's or contractor's own invoice reference (optional) */
@@ -69,10 +70,15 @@ export async function shape(s: S, personId: string, role: 'contractor' | 'cleane
   const biz = await fetchPDFBizSettings()
   const lines = (Array.isArray(d.lines) ? d.lines : []).map(l => ({
     description: String(l.description ?? '').trim().slice(0, 300), where: String(l.where ?? '').trim().slice(0, 200),
-    labour: r2(Math.max(0, Number(l.labour) || 0)), parts: r2(Math.max(0, Number(l.parts) || 0)),
+    // several products per line: each with its own price; the parts total is their sum (Nov 2026)
+    partItems: (Array.isArray(l.partItems) ? l.partItems : []).map((p: any) => ({ name: String(p?.name ?? '').trim().slice(0, 120), amount: r2(Math.max(0, Number(p?.amount) || 0)) })).filter((p: PartItem) => p.name && p.amount > 0).slice(0, 40),
+    labour: r2(Math.max(0, Number(l.labour) || 0)),
+    parts: r2(Math.max(0, Number(l.parts) || 0)), // the one amount entered; replaced below by the products' total when there are products
+    partsNote: String(l.partsNote ?? '').trim().slice(0, 200) || null,
     ticketId: l.ticketId || null, cleanId: l.cleanId || null, propertyId: l.propertyId || null, date: l.date || null,
     receipt: typeof l.receipt === 'string' && l.receipt.startsWith(`${personId}/receipts/`) ? l.receipt : null,
-  })).filter(l => l.description && (l.labour || l.parts))
+  })).map(l => (l.partItems?.length ? { ...l, parts: r2(l.partItems.reduce((t, p) => t + p.amount, 0)) } : l))
+    .filter(l => l.description && (l.labour || l.parts))
   if (!lines.length) return { error: 'Add at least one line with a price' }
   if (lines.some(l => !l.where && d.toCapitalRooms && role === 'contractor')) return { error: 'Say where each job was (e.g. “Room 3 en-suite”)' }
 
@@ -117,10 +123,20 @@ async function logoBytes(s: S, path: string | null) {
 }
 
 export async function pdfFor(s: S, sh: any, number: number, notes?: string | null) {
+  // receipt photos go after the invoice, once each, so the client can see what the parts were (Nov 2026)
+  const receiptPaths = [...new Set(sh.lines.map((l: Line) => l.receipt).filter(Boolean))] as string[]
+  const receipts = (await Promise.all(receiptPaths.map(p => logoBytes(s, p)))).filter(Boolean) as Buffer[]
   return renderSupplierInvoice({
+    receipts,
     supplier: { name: sh.prof.tradingName, address: sh.prof.address, phone: sh.prof.phone, email: sh.prof.email, vatNumber: sh.prof.vatRegistered ? sh.prof.vatNumber : null, logo: await logoBytes(s, sh.prof.logoPath), colour: sh.prof.colour },
     number, issueDate: sh.issue, dueDate: sh.due, client: sh.client, property: sh.propertyLine, period: sh.period, yourRef: sh.yourRef,
-    lines: sh.lines.map((l: Line) => ({ description: l.description, where: l.where, labour: l.labour, parts: l.parts })),
+    // the parts note goes on the line, so the client can see what the parts were (Nov 2026)
+    lines: sh.lines.map((l: Line) => ({
+      description: l.partItems?.length
+        ? `${l.description} — parts: ${l.partItems.map(p => `${p.name} £${p.amount.toFixed(2)}`).join(', ')}`
+        : l.parts && l.partsNote ? `${l.description} — parts: ${l.partsNote}` : l.description,
+      where: l.where, labour: l.labour, parts: l.parts,
+    })),
     labourTotal: sh.labourTotal, partsTotal: sh.partsTotal, vat: sh.vat, total: sh.total,
     bank: { name: sh.prof.bankName, sortCode: sh.prof.sortCode, accountNo: sh.prof.accountNo }, notes: notes ?? null,
     // our own managed houses get a plain invoice; everything else carries 'Powered by Capital Rooms'

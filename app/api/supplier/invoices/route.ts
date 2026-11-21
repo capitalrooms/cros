@@ -11,6 +11,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireSignedIn } from '@/lib/portalAuth'
 import { createServiceClient } from '@/lib/supabase'
 import { gate, profileFor, shape, pdfFor, send, emailInvoice, BUCKET } from '@/lib/supplierInvoices/service'
+import { readReceipt } from '@/lib/supplierInvoices/receipt'
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
 import { open, openFields, openRows, seal, BANK_FIELDS } from '@/lib/crypto/fieldCrypt'
 
@@ -134,6 +135,12 @@ export async function POST(req: NextRequest) {
     if (error) return NextResponse.json({ error: error.message }, { status: 400 })
     await s.from('supplier_profiles').upsert({ person_id: c.personId, logo_path: path }, { onConflict: 'person_id' })
     return NextResponse.json({ ok: true })
+  }
+  // read a receipt photo: returns its products and prices for the person to choose from. Nothing is saved.
+  if (b.action === 'read-receipt') {
+    const dataUrl = String(b.dataUrl ?? '')
+    if (!dataUrl || dataUrl.length > 9_000_000) return NextResponse.json({ error: 'Use a photo (JPEG or PNG) under 6 MB' }, { status: 400 })
+    return NextResponse.json(await readReceipt(dataUrl))
   }
   if (b.action === 'receipt') {
     const m = String(b.dataUrl ?? '').match(/^data:(image\/(png|jpeg|webp));base64,(.+)$/)

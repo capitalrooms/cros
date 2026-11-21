@@ -38,6 +38,10 @@ export default function ContractorQuoteRequest() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [sent, setSent] = useState(false)
+  const [kind, setKind] = useState<'quote' | 'visit'>('quote')
+  const [preferredDays, setPreferredDays] = useState('')
+  // opened from "Book a visit" (?kind=visit): same form, but the office books a visit instead of asking for prices
+  useEffect(() => { try { if (new URLSearchParams(window.location.search).get('kind') === 'visit') setKind('visit') } catch {} }, [])
 
   const load = async () => {
     try {
@@ -72,8 +76,8 @@ export default function ContractorQuoteRequest() {
   async function send() {
     setError(''); setBusy(true)
     const body = chosen
-      ? { propertyId: chosen.id, work: work.trim(), reason: reason.trim() || undefined }
-      : { unlisted: { address: address.trim(), postcode: pc.trim() || undefined }, work: work.trim(), reason: reason.trim() || undefined }
+      ? { propertyId: chosen.id, kind, work: work.trim(), reason: reason.trim() || undefined, preferredDays: preferredDays.trim() || undefined }
+      : { unlisted: { address: address.trim(), postcode: pc.trim() || undefined }, kind, work: work.trim(), reason: reason.trim() || undefined, preferredDays: preferredDays.trim() || undefined }
     try {
       const r = await adminFetch('/api/contractor/quote-requests', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
       const d = await r.json().catch(() => ({}))
@@ -92,7 +96,7 @@ export default function ContractorQuoteRequest() {
         <AppBar left={<BackButton href="/contractor?tab=quotes" label="Quotes" />} />
         <main className="mx-auto max-w-xl px-lg py-xl">
           <div className="rounded-2xl bg-white p-xl shadow-sm">
-            <h1 className="text-2xl font-bold text-neutral-900">Quote raised</h1>
+            <h1 className="text-2xl font-bold text-neutral-900">{kind === 'visit' ? 'Visit requested' : 'Quote raised'}</h1>
             <p className="mt-sm text-neutral-600">The office has your request. They’ll approve it, then ask for prices, or get in touch if they need more detail.</p>
             <div className="mt-lg flex flex-col gap-sm">
               <button type="button" onClick={() => { setSent(false); setChosen(null); setTyping(false); setAddress(''); setPc(''); setWork(''); setReason(''); setPostcode(''); setFound(null) }} className="rounded-full border border-neutral-300 px-lg py-3 text-sm font-semibold text-neutral-800">Raise another</button>
@@ -108,8 +112,8 @@ export default function ContractorQuoteRequest() {
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar left={<BackButton href="/contractor?tab=quotes" label="Quotes" />} />
       <main className="mx-auto max-w-xl px-lg py-lg">
-        <h1 className="text-2xl font-bold text-neutral-900">Raise a quote</h1>
-        <p className="mt-xs text-sm text-neutral-600">Discussed work on the phone, or spotted something on site? Raise a quote and the office will get it priced. You don’t need an open job.</p>
+        <h1 className="text-2xl font-bold text-neutral-900">{kind === 'visit' ? 'Book a visit' : 'Raise a quote'}</h1>
+        <p className="mt-xs text-sm text-neutral-600">{kind === 'visit' ? 'Need to check something at a house before a repair, like the size of a tap? Ask the office to book a visit. The tenants are told when it is booked.' : 'Discussed work on the phone, or spotted something on site? Raise a quote and the office will get it priced. You don’t need an open job.'}</p>
 
         <section className="mt-lg rounded-2xl bg-white p-lg shadow-sm">
           <h2 className="text-sm font-bold uppercase tracking-wide text-neutral-500">Which house?</h2>
@@ -171,8 +175,14 @@ export default function ContractorQuoteRequest() {
         </section>
 
         <section className="mt-md rounded-2xl bg-white p-lg shadow-sm">
-          <h2 className="text-sm font-bold uppercase tracking-wide text-neutral-500">What’s the work?</h2>
+          <h2 className="text-sm font-bold uppercase tracking-wide text-neutral-500">{kind === 'visit' ? 'What needs checking?' : 'What’s the work?'}</h2>
           <div className="mt-md"><TidyBox kind="quote" value={work} onChange={setWork} placeholder="e.g. Replace the back door lock and check the frame" /></div>
+          {kind === 'visit' && (
+            <>
+              <label htmlFor="days" className="mt-md block text-xs text-neutral-500">Days that suit you (optional)</label>
+              <input id="days" value={preferredDays} onChange={e => setPreferredDays(e.target.value)} placeholder="e.g. Mon or Wed mornings" className={`${field} mt-xs`} />
+            </>
+          )}
           <label htmlFor="why" className="mt-md block text-xs text-neutral-500">Why it came up (optional)</label>
           <input id="why" value={reason} onChange={e => setReason(e.target.value)} placeholder="e.g. Spotted on the last visit, or raised by the tenant on the phone" className={`${field} mt-xs`} />
         </section>

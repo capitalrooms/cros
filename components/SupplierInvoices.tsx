@@ -11,7 +11,43 @@ import AddressField from '@/app/components/AddressField'
 import { adminFetch } from '@/lib/adminFetch'
 
 type Tab = 'new' | 'list' | 'details'
-interface Line { key: string; description: string; where: string; labour: string; parts: string; partsPaid: boolean; ticketId?: string; cleanId?: string; propertyId?: string; date?: string; receipt?: string | null }
+interface PartItemForm { name: string; amount: string }
+interface Line { key: string; description: string; where: string; labour: string; parts: string; partsPaid: boolean; partItems: PartItemForm[]; ticketId?: string; cleanId?: string; propertyId?: string; date?: string; receipt?: string | null }
+
+// A single-line box with a Tidy button, for the job or clean description and the parts note (Nov 2026).
+// The suggestion is only offered; the person chooses to use it or keep their own words.
+export function TidyInput({ value, onChange, kind, placeholder, className }: { value: string; onChange: (v: string) => void; kind: 'job' | 'quote' | 'line' | 'note'; placeholder: string; className?: string }) {
+  const [busy, setBusy] = useState(false)
+  const [suggest, setSuggest] = useState<string | null>(null)
+  const [err, setErr] = useState('')
+  async function tidy() {
+    setBusy(true); setErr(''); setSuggest(null)
+    try {
+      const r = await adminFetch('/api/supplier/tidy-wording', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: value, kind }) })
+      const d = await r.json().catch(() => ({}))
+      if (!r.ok) setErr(d.error || 'That didn’t tidy up. Your words are still here.')
+      else if (d.changed) setSuggest(d.text)
+      else setErr('That already reads clearly.')
+    } catch { setErr('That didn’t tidy up. Your words are still here.') }
+    setBusy(false)
+  }
+  return (
+    <div className="space-y-1">
+      <div className="flex gap-2">
+        <input className={className ?? input} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} />
+        <button type="button" onClick={tidy} disabled={busy || value.trim().length < 3} className="shrink-0 rounded-xl border border-neutral-300 px-3 text-sm font-semibold text-neutral-800 disabled:opacity-40">{busy ? '…' : 'Tidy'}</button>
+      </div>
+      {err && <p className="text-xs text-neutral-600">{err}</p>}
+      {suggest && <div className="rounded-xl bg-green-50 p-2 space-y-2">
+        <p className="text-sm text-neutral-900">{suggest}</p>
+        <div className="flex gap-2">
+          <button type="button" onClick={() => { onChange(suggest); setSuggest(null) }} className="rounded-full bg-[#17332B] px-3 py-1 text-xs font-semibold text-white">Use this</button>
+          <button type="button" onClick={() => setSuggest(null)} className="rounded-full border border-neutral-300 px-3 py-1 text-xs font-semibold text-neutral-800">Keep mine</button>
+        </div>
+      </div>}
+    </div>
+  )
+}
 const input = 'w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-[15px] text-neutral-900'
 const label = 'block text-xs font-bold uppercase tracking-wide text-neutral-500 mb-1'
 
@@ -57,7 +93,7 @@ const gbp = (n: number) => `£${n.toLocaleString('en-GB', { minimumFractionDigit
 const day = (iso: string) => new Date(`${iso.slice(0, 10)}T12:00:00Z`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'long', timeZone: 'UTC' })
 const today = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
 let seq = 0
-const blank = (): Line => ({ key: `l${++seq}`, description: '', where: '', labour: '', parts: '', partsPaid: false })
+const blank = (): Line => ({ key: `l${++seq}`, description: '', where: '', labour: '', parts: '', partsPaid: false, partItems: [] })
 
 async function toDataUrl(file: File, max = 1600): Promise<string> {
   const bmp = await createImageBitmap(file)
@@ -117,34 +153,102 @@ export default function SupplierInvoices({ viewAs, jobId }: { viewAs?: string | 
 function Lines({ lines, setLines, post, role }: { lines: Line[]; setLines: (l: Line[]) => void; post: (b: Record<string, unknown>) => Promise<any>; role: 'contractor' | 'cleaner' }) {
   const set = (k: string, u: Partial<Line>) => setLines(lines.map(l => l.key === k ? { ...l, ...u } : l))
   const [busy, setBusy] = useState('')
+  // a receipt that has been read, waiting for the person to say which products are for this job
+  const [read, setRead] = useState<Record<string, { items: { name: string; amount: number }[]; shop: string | null; pick: boolean; chosen: boolean[] }>>({})
+  const products = role === 'cleaner' ? 'products' : 'parts'
+
+  // one place sets the products and keeps the parts total in step with them
+  const setProducts = (k: string, items: PartItemForm[]) => {
+    const total = items.reduce((t, i) => t + (Number(i.amount) || 0), 0)
+    set(k, { partItems: items, parts: items.length ? (Math.round(total * 100) / 100).toFixed(2) : '' })
+  }
+
   async function receipt(k: string, f: File | undefined) {
     if (!f) return
     setBusy(k)
-    try { const d = await post({ action: 'receipt', dataUrl: await toDataUrl(f) }); set(k, { receipt: d.path }) } catch (e) { alert(e instanceof Error ? e.message : 'Upload failed') } finally { setBusy('') }
+    try {
+      const dataUrl = await toDataUrl(f)
+      const d = await post({ action: 'receipt', dataUrl })   // the photo is kept and goes on the invoice
+      set(k, { receipt: d.path })
+      const r = await post({ action: 'read-receipt', dataUrl })  // then read the products from it
+      setRead(x => ({ ...x, [k]: { items: r.items ?? [], shop: r.shop ?? null, pick: false, chosen: (r.items ?? []).map(() => true) } }))
+    } catch (e) { alert(e instanceof Error ? e.message : 'Upload failed') } finally { setBusy('') }
   }
+
+  // add products from the receipt: all of them, or only the ones ticked
+  function addFromReceipt(k: string, all: boolean) {
+    const r = read[k]; if (!r) return
+    const picked = all ? r.items : r.items.filter((_, i) => r.chosen[i])
+    const current = lines.find(l => l.key === k)?.partItems ?? []
+    setProducts(k, [...current, ...picked.map(i => ({ name: i.name, amount: i.amount.toFixed(2) }))])
+    setRead(x => { const n = { ...x }; delete n[k]; return n })
+  }
+
   return (
     <div className="space-y-3">
-      {lines.map(l => (
-        <div key={l.key} className="rounded-2xl border border-neutral-200 bg-white p-3 space-y-2">
-          <div className="flex gap-2">
-            <input className={input} value={l.description} onChange={e => set(l.key, { description: e.target.value })} placeholder={role === 'cleaner' ? 'e.g. Fortnightly clean' : 'What you did, e.g. Fixed leaking sink trap'} />
-            <button type="button" className="px-2 text-neutral-400" onClick={() => setLines(lines.filter(x => x.key !== l.key))} aria-label="Remove line">✕</button>
-          </div>
-          <input className={input} value={l.where} onChange={e => set(l.key, { where: e.target.value })} placeholder={role === 'cleaner' ? 'Property / notes' : 'Where exactly, e.g. Room 3 en-suite, kitchen'} />
-          <div className="grid grid-cols-2 gap-2">
-            <label className="text-xs text-neutral-600">{role === 'cleaner' ? 'Clean price (£)' : 'Labour (£)'}<input inputMode="decimal" className={`${input} mt-1`} value={l.labour} onChange={e => set(l.key, { labour: e.target.value.replace(/[^\d.]/g, '') })} /></label>
-            <div className="text-xs text-neutral-600">
-              <label className="flex items-center gap-2 py-1"><input type="checkbox" checked={l.partsPaid} onChange={e => set(l.key, { partsPaid: e.target.checked, parts: e.target.checked ? l.parts : '' })} /> {role === 'cleaner' ? 'Bought products?' : 'Paid for parts?'}</label>
-              {l.partsPaid && <input inputMode="decimal" className={input} value={l.parts} onChange={e => set(l.key, { parts: e.target.value.replace(/[^\d.]/g, '') })} placeholder="£" />}
+      {lines.map(l => {
+        const items = l.partItems ?? []
+        const r = read[l.key]
+        return (
+          <div key={l.key} className="rounded-2xl border border-neutral-200 bg-white p-3 space-y-2">
+            <div className="flex gap-2">
+              <div className="flex-1 min-w-0"><TidyInput kind="line" value={l.description} onChange={v => set(l.key, { description: v })} placeholder={role === 'cleaner' ? 'e.g. Fortnightly clean' : 'What you did, e.g. Fixed leaking sink trap'} /></div>
+              <button type="button" className="px-2 text-neutral-400" onClick={() => setLines(lines.filter(x => x.key !== l.key))} aria-label="Remove line">✕</button>
             </div>
-          </div>
-          {l.partsPaid && (
-            <label className="block text-xs text-neutral-600">{l.receipt ? 'Receipt added' : busy === l.key ? 'Uploading…' : 'Add a receipt photo (optional) — name the products bought above'}
-              <input type="file" accept="image/*" className="mt-1 block text-xs" onChange={e => receipt(l.key, e.target.files?.[0])} />
+            <input className={input} value={l.where} onChange={e => set(l.key, { where: e.target.value })} placeholder={role === 'cleaner' ? 'Property / notes' : 'Where exactly, e.g. Room 3 en-suite, kitchen'} />
+            <label className="block text-xs text-neutral-600">{role === 'cleaner' ? 'Clean price (£)' : 'Labour (£)'}<input inputMode="decimal" className={`${input} mt-1`} value={l.labour} onChange={e => set(l.key, { labour: e.target.value.replace(/[^\d.]/g, '') })} placeholder="£" /></label>
+
+            <label className="flex items-center gap-2 py-1 text-xs text-neutral-700">
+              <input type="checkbox" checked={l.partsPaid} onChange={e => e.target.checked ? set(l.key, { partsPaid: true }) : set(l.key, { partsPaid: false, partItems: [], parts: '', receipt: null })} />
+              {role === 'cleaner' ? 'Bought products for this clean?' : 'Paid for parts?'}
             </label>
-          )}
-        </div>
-      ))}
+
+            {l.partsPaid && (
+              <div className="space-y-2 rounded-xl bg-neutral-50 p-3">
+                <p className="text-xs font-bold uppercase tracking-wide text-neutral-500">{role === 'cleaner' ? 'Products' : 'Parts'}</p>
+                {items.map((p, i) => (
+                  <div key={i} className="flex gap-2 items-start">
+                    <div className="flex-1 min-w-0"><TidyInput kind="line" value={p.name} onChange={v => setProducts(l.key, items.map((x, j) => j === i ? { ...x, name: v } : x))} placeholder={role === 'cleaner' ? 'e.g. Bin bags' : 'e.g. Tap washer 15mm'} /></div>
+                    <input inputMode="decimal" className={`${input} w-24`} value={p.amount} onChange={e => setProducts(l.key, items.map((x, j) => j === i ? { ...x, amount: e.target.value.replace(/[^\d.]/g, '') } : x))} placeholder="£" />
+                    <button type="button" className="px-2 py-2 text-neutral-400" onClick={() => setProducts(l.key, items.filter((_, j) => j !== i))} aria-label="Remove product">✕</button>
+                  </div>
+                ))}
+                <button type="button" className="text-sm font-semibold text-neutral-800 underline" onClick={() => setProducts(l.key, [...items, { name: '', amount: '' }])}>+ Add a {role === 'cleaner' ? 'product' : 'part'}</button>
+                {items.length > 0 && <p className="text-right text-sm text-neutral-700">{products[0].toUpperCase() + products.slice(1)} total <strong>£{(Number(l.parts) || 0).toFixed(2)}</strong></p>}
+
+                <div className="space-y-2 border-t border-neutral-200 pt-2">
+                  <p className="text-xs text-neutral-600">{l.receipt ? 'Receipt photo attached to this invoice.' : 'Add a receipt photo (optional). It goes on the invoice, and we can read the items from it.'}</p>
+                  <input type="file" accept="image/*" className="block text-xs" onChange={e => receipt(l.key, e.target.files?.[0])} />
+                  {busy === l.key && <p className="text-xs text-neutral-500">Reading the receipt…</p>}
+                  {r && r.items.length > 0 && (
+                    <div className="rounded-xl bg-white p-3 space-y-2 ring-1 ring-neutral-200">
+                      <p className="text-sm text-neutral-900">We found {r.items.length} item{r.items.length === 1 ? '' : 's'}{r.shop ? ` at ${r.shop}` : ''}. Do all of them relate to this job?</p>
+                      {!r.pick ? (
+                        <div className="flex flex-wrap gap-2">
+                          <button type="button" onClick={() => addFromReceipt(l.key, true)} className="rounded-full bg-[#17332B] px-3 py-1.5 text-sm font-semibold text-white">Yes, add all</button>
+                          <button type="button" onClick={() => setRead(x => ({ ...x, [l.key]: { ...r, pick: true } }))} className="rounded-full border border-neutral-300 px-3 py-1.5 text-sm font-semibold text-neutral-800">No, let me pick</button>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          {r.items.map((it, i) => (
+                            <label key={i} className="flex items-center gap-2 text-sm">
+                              <input type="checkbox" checked={r.chosen[i]} onChange={e => setRead(x => ({ ...x, [l.key]: { ...r, chosen: r.chosen.map((c, j) => j === i ? e.target.checked : c) } }))} />
+                              <span className="flex-1">{it.name}</span>
+                              <span>£{it.amount.toFixed(2)}</span>
+                            </label>
+                          ))}
+                          <button type="button" onClick={() => addFromReceipt(l.key, false)} className="rounded-full bg-[#17332B] px-3 py-1.5 text-sm font-semibold text-white">Add the ticked items</button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {r && r.items.length === 0 && <p className="text-xs text-neutral-600">We could not read that photo. Type the {products} in above. The photo is still attached.</p>}
+                </div>
+              </div>
+            )}
+          </div>
+        )
+      })}
       <button type="button" className={btn} onClick={() => setLines([...lines, blank()])}>+ Add a line</button>
     </div>
   )
@@ -156,7 +260,7 @@ function Totals({ lines, vat }: { lines: Line[]; vat: boolean }) {
   return <p className="text-right text-sm text-neutral-700">Labour {gbp(labour)} · {lines.some(l => l.partsPaid) ? `Parts ${gbp(parts)} · ` : ''}{vat ? `VAT ${gbp(v)} · ` : ''}<strong className="text-neutral-900">Total {gbp(labour + parts + v)}</strong></p>
 }
 
-const toDraftLines = (lines: Line[]) => lines.map(l => ({ description: l.description, where: l.where, labour: Number(l.labour) || 0, parts: l.partsPaid ? Number(l.parts) || 0 : 0, ticketId: l.ticketId, cleanId: l.cleanId, propertyId: l.propertyId, date: l.date, receipt: l.receipt }))
+const toDraftLines = (lines: Line[]) => lines.map(l => ({ description: l.description, where: l.where, labour: Number(l.labour) || 0, parts: l.partsPaid ? Number(l.parts) || 0 : 0, partItems: l.partsPaid ? l.partItems.map(p => ({ name: p.name, amount: Number(p.amount) || 0 })) : [], ticketId: l.ticketId, cleanId: l.cleanId, propertyId: l.propertyId, date: l.date, receipt: l.receipt }))
 
 function SendBar({ draft, post, done }: { draft: () => any; post: (b: Record<string, unknown>) => Promise<any>; done: () => void }) {
   const [busy, setBusy] = useState('')

@@ -46,9 +46,11 @@ export async function POST(req: NextRequest) {
   const c = await contractorCaller(req)
   if (!c) return NextResponse.json({ error: 'Please sign in again.' }, { status: 401 })
   const b = await req.json().catch(() => ({})) as any
+  const kind = b.kind === 'visit' ? 'visit' : 'quote'
   const work = String(b.work ?? '').trim().slice(0, 2000)
   const reason = String(b.reason ?? '').trim().slice(0, 500) || null
-  if (work.length < 5) return NextResponse.json({ error: 'Tell us what the work is, in a few words.' }, { status: 400 })
+  const preferredDays = String(b.preferredDays ?? '').trim().slice(0, 200) || null
+  if (work.length < 5) return NextResponse.json({ error: kind === 'visit' ? 'Tell us what needs checking, in a few words.' : 'Tell us what the work is, in a few words.' }, { status: 400 })
 
   const s = createServiceClient() as any
   let propertyId: string | null = null
@@ -73,23 +75,25 @@ export async function POST(req: NextRequest) {
 
   // a double tap mustn't make two requests
   const since = new Date(Date.now() - 10 * 60_000).toISOString()
-  const { data: dupe } = await s.from('contractor_quote_requests').select('id').eq('contractor_id', c.personId).eq('work', work).gte('created_at', since).maybeSingle()
+  const { data: dupe } = await s.from('contractor_quote_requests').select('id').eq('contractor_id', c.personId).eq('work', work).eq('kind', kind).gte('created_at', since).maybeSingle()
   if (dupe) return NextResponse.json({ ok: true, id: dupe.id, duplicate: true })
 
   const { data: row, error } = await s.from('contractor_quote_requests').insert({
-    contractor_id: c.personId, property_id: propertyId, unlisted_address: unlistedAddress, postcode, work, reason,
+    contractor_id: c.personId, property_id: propertyId, unlisted_address: unlistedAddress, postcode, work, reason, kind, preferred_days: preferredDays,
   }).select('id').single()
   if (error || !row) return NextResponse.json({ error: 'That didn’t save. Please try again in a moment.' }, { status: 500 })
 
   const { data: me } = await s.from('people').select('full_name, first_name, last_name').eq('id', c.personId).maybeSingle()
   const who = me?.full_name || [me?.first_name, me?.last_name].filter(Boolean).join(' ') || 'A contractor'
-  const body = `<p style="margin:0 0 12px"><strong>${who}</strong> wants a quote for work at <strong>${houseLabel}</strong>.</p>
+  const isVisit = kind === 'visit'
+  const body = `<p style="margin:0 0 12px"><strong>${who}</strong> ${isVisit ? 'wants a visit to' : 'wants a quote for work at'} <strong>${houseLabel}</strong>.</p>
     <p style="margin:0 0 12px">${work.replace(/</g, '&lt;')}</p>
     ${reason ? `<p style="margin:0 0 12px;color:#4E6158">Why: ${reason.replace(/</g, '&lt;')}</p>` : ''}
-    <p style="margin:0">Approve it to ask contractors for prices, or turn it down.</p>${officeButton('/admin/maintenance', 'Review the request')}`
+    ${preferredDays ? `<p style="margin:0 0 12px;color:#4E6158">Preferred days: ${preferredDays.replace(/</g, '&lt;')}</p>` : ''}
+    <p style="margin:0">${isVisit ? 'Book the visit, or turn it down.' : 'Approve it to ask contractors for prices, or turn it down.'}</p>${officeButton('/admin/maintenance', 'Review the request')}`
   await deliverEmail({
     to: OFFICE_ALERT_EMAIL,
-    subject: oneLine(`Quote request from ${who} — ${houseLabel}`),
+    subject: oneLine(`${isVisit ? 'Visit request' : 'Quote request'} from ${who} — ${houseLabel}`),
     html: await buildEmail(body, { kind: 'office-notice-given' }),
   }).catch(e => console.error('Contractor quote request notify failed:', e))
 

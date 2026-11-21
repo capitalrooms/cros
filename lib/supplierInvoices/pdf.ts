@@ -21,6 +21,8 @@ export interface SupplierInvoicePdf {
   poweredBy?: boolean
   /** the cleaner's or contractor's own reference for the invoice, printed beside the CROS number */
   yourRef?: string | null
+  /** receipt photos (JPEG/PNG/WebP), each added as a page after the invoice */
+  receipts?: Buffer[]
 }
 
 const PALETTE = ['#1F4E79', '#2E6B4F', '#7A3E2E', '#4B3F72', '#2F5D62', '#8A5A00', '#5B4636', '#3D5A80']
@@ -141,6 +143,15 @@ export async function renderSupplierInvoice(d: SupplierInvoicePdf): Promise<Buff
   const H = 841.89
   doc.page.margins.bottom = 0   // the footer sits below the normal margin; without this the text would start a new page
   drawPoweredByFooter(doc, { x: M, width: CW, top: H - 84, bold: BOLD, regular: REG, ink: INK, body: MUTED })
+
+  // receipts: one page each, the photo fitted to the page under a small heading
+  for (const [i, img] of (d.receipts ?? []).entries()) {
+    try {
+      doc.addPage({ size: 'A4', margins: { top: M, bottom: M, left: M, right: M } })
+      doc.font(BOLD).fontSize(11).fillColor(INK).text(`Receipt ${i + 1} of ${d.receipts!.length} · invoice ${d.number}`, M, M)
+      doc.image(img, M, M + 24, { fit: [CW, 841.89 - M * 2 - 40], align: 'center', valign: 'top' })
+    } catch (e) { console.error('receipt page skipped', e) }
+  }
 
   doc.end()
   return done

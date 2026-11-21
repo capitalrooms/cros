@@ -159,7 +159,9 @@ export default function ContractorTop({ firstName, booked, weekCount, quotesWait
           {wayMsg && <p className="w-full text-xs font-semibold text-[#F1F5EE]">{wayMsg}</p>}
         </Hero>
       ) : (
-        <Hero art="tool" eyebrow="Nothing booked" title="Jobs to book show below" sub="Book a visit and the tenants are told" height={176} />
+        <Hero art="tool" eyebrow="Nothing booked" title="Jobs to book show below" sub="Need to check something at a house first, like a tap size? Ask the office to book a visit." height={176}>
+          <HoneyButton href={`/contractor/quote-request?kind=visit${asId ? `&as=${asId}` : ''}`}>Book a visit</HoneyButton>
+        </Hero>
       )}
 
       <div className="grid grid-cols-2 gap-2.5">
