@@ -186,7 +186,7 @@ export const PhoneNumberSchema = z.object({
 export const ComplianceLogSchema = z.object({
   checkType: z
     .enum(['fire_door', 'smoke_alarm'], {
-      errorMap: () => ({ message: 'Invalid check type' }),
+      error: () => ({ message: 'Invalid check type' }),
     }),
 
   checkedDate: z
@@ -230,7 +230,7 @@ export function validateInput<T>(schema: z.ZodSchema<T>, data: unknown): { valid
   } catch (error) {
     if (error instanceof z.ZodError) {
       const errors: Record<string, string> = {}
-      error.errors.forEach((err) => {
+      error.issues.forEach((err) => {
         const path = err.path.join('.')
         errors[path] = err.message
       })
