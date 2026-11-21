@@ -74,7 +74,15 @@ export async function factsFor(s: SupabaseClient, role: Role, personId: string):
       s.from('cleans').select('clean_date, clean_time, status').eq('property_id', ten.property_id).gte('clean_date', t).not('status', 'in', '(cancelled)').order('clean_date').limit(4),
     ])
     const { data: mine } = await s.from('maintenance_tickets').select('id, title, category, status, created_at, booked_date').eq('reporter_id', personId).order('created_at', { ascending: false }).limit(15)
+    // what housemates have bought or done for the house (21 Nov 2026): lets the Ask answer "who last bought bin bags?"
+    const since = new Date(Date.now() - 180 * 86400000).toISOString()
+    const { data: contrib } = await s.from('house_contributions').select('description, amount_gbp, created_at, people(full_name, first_name, last_name)').eq('property_id', ten.property_id).gte('created_at', since).order('created_at', { ascending: false }).limit(200)
+    const contribLine = ((contrib ?? []) as any[]).map(c => {
+      const who = c.people?.full_name || [c.people?.first_name, c.people?.last_name].filter(Boolean).join(' ') || 'a housemate'
+      return `${String(c.created_at).slice(0, 10)} ${who}: ${c.description}${c.amount_gbp ? ` (£${Number(c.amount_gbp).toFixed(2)})` : ''}`
+    }).join('; ')
     return [houseFacts(p, { secrets: true }),
+      `HOUSE CONTRIBUTIONS (last 6 months, newest first; who bought or did what): ${contribLine || 'none logged yet'}`,
       `THEIR ROOM: ${ten.rooms?.name ?? 'the whole property'}${ten.rooms?.location_in_house ? ` (${ten.rooms.location_in_house})` : ''}`,
       ten.rent_amount ? `THEIR RENT: £${ten.rent_amount} a month${ten.rent_due_day ? `, due on day ${ten.rent_due_day} of each month` : ''}` : '',
       `NOTICE: a rolling tenancy (Renters' Rights rules) — the tenant gives 2 months' notice. No fixed or minimum terms.`,
