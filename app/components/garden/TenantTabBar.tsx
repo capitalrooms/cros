@@ -15,7 +15,7 @@ export default function TenantTabBar() {
     { key: 'home', label: 'Home', icon: ICONS.home, href: '/tenant', active: path === '/tenant' },
     { key: 'repairs', label: 'Repairs', icon: ICONS.wrench, href: '/tenant/requests', active: on('/tenant/requests', '/tenant/maintenance', '/tenant/maintenance-smart', '/tenant/maintenance-choose', '/tenant/visit') },
     { key: 'ask', label: 'Ask', icon: SPARK, href: '/tenant/ask', active: on('/tenant/ask') },
-    { key: 'house', label: 'House', icon: ICONS.people, href: '/tenant/housemates', active: on('/tenant/housemates', '/tenant/notices', '/tenant/property-info', '/tenant/icebreaker') },
+    { key: 'house', label: 'House', icon: ICONS.people, href: '/tenant/housemates', active: on('/tenant/housemates', '/tenant/notices', '/tenant/property-info', '/tenant/icebreaker', '/tenant/house-jobs') },
     { key: 'you', label: 'You', icon: ICONS.me, href: '/tenant/profile', active: on('/tenant/profile', '/tenant/documents', '/tenant/give-notice') },
   ]
   return (

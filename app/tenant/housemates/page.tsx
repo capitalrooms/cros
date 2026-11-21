@@ -64,6 +64,11 @@ export default function Housemates() {
           <Fact k="Your notice" v="2 months" href="/tenant/give-notice" />
         </section>
 
+        <Link href="/tenant/house-jobs" className="flex items-center justify-between rounded-[20px] bg-white px-4 py-3.5">
+          <span><span className="block text-[15px] font-bold text-[#14261F]">The house</span><span className="block text-[13px] text-[#4E6158]">Jobs anyone can tick off, and what you’ve bought</span></span>
+          <span className="text-[#4E6158]" aria-hidden="true">›</span>
+        </Link>
+
         <Link href="/tenant/notices" className="flex items-center justify-between rounded-[20px] bg-white px-4 py-3.5">
           <span><span className="block text-[15px] font-bold text-[#14261F]">Notice board</span><span className="block text-[13px] text-[#4E6158]">Shared updates and house tasks</span></span>
           <span className="text-[#4E6158]" aria-hidden="true">›</span>
