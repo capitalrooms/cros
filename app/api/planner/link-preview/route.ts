@@ -12,11 +12,17 @@ export async function GET(req: NextRequest) {
   const u = req.nextUrl.searchParams.get('url') ?? ''
   let url: URL
   try { url = new URL(u) } catch { return NextResponse.json({ image: null }) }
-  if (!/^https?:$/.test(url.protocol) || /^(localhost|127\.|10\.|192\.168\.|169\.254\.|\[)/.test(url.hostname)) return NextResponse.json({ image: null })
+  // never fetch an address on our own or internal networks (SSRF). Covers 172.16–31 too, and the address a redirect lands on.
+  const internal = (h: string) => /^(localhost|0\.|127\.|10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.|\[|.*\.local$|.*\.internal$)/i.test(h)
+  if (!/^https?:$/.test(url.protocol) || internal(url.hostname)) return NextResponse.json({ image: null })
   try {
     // many shops turn away anything that doesn't look like a browser — so ask like one (17 Nov 2026: "some links pull
     // photos in and some don't")
     const r = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36', Accept: 'text/html,application/xhtml+xml', 'Accept-Language': 'en-GB,en;q=0.9' }, signal: AbortSignal.timeout(8000), redirect: 'follow' })
+    // a redirect may land somewhere internal: check where we ended up before reading anything
+    const landed = new URL(r.url || url.href)
+    const internalLanded = /^(localhost|0\.|127\.|10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.|\[)/i.test(landed.hostname)
+    if (internalLanded) return NextResponse.json({ image: null })
     const html = (await r.text()).slice(0, 1_500_000)
     // the shop's own sharing picture, then its product data, then the page's main product image
     const ld = [...html.matchAll(/<script[^>]+application\/ld\+json[^>]*>([\s\S]*?)<\/script>/gi)].map(m => m[1]).join(' ')

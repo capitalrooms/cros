@@ -48,3 +48,4 @@ next-env.d.ts
 # local-only backups (also in .vercelignore)
 backups/
 .template-backups/
+production
