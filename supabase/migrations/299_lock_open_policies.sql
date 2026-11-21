@@ -1,4 +1,4 @@
--- 299 · Lock down five open policies (21 Nov 2026 safety review). DRAFT — review, then run once with Harry's go-ahead.
+-- 299 · Lock down open policies (21 Nov 2026 safety review). DRAFT — review, then run once with Harry's go-ahead.
 -- Each change is listed with its reason. The server writes these tables with the service role, which skips these
 -- rules, so tightening them doesn't stop the app working.
 -- Staff check: a signed-in person whose people.role is an office role, matched by email (people.id is not auth.uid).
@@ -25,4 +25,4 @@ CREATE POLICY "staff and cleaners read task templates" ON public.cleaner_task_te
   USING (EXISTS (SELECT 1 FROM public.people p WHERE lower(p.email) = lower(auth.email())
            AND p.role IN ('administrator', 'admin', 'lettings', 'cleaner')));
 
--- Check afterwards: run the same policy query again. These five should be gone or limited.
+-- Check afterwards: run the same policy query again. The four changes should be gone or limited.
