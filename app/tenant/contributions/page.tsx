@@ -194,6 +194,12 @@ export default function ContributionsPage() {
           {/* Description */}
           <div className="mb-md">
             <label className="block text-xs font-bold uppercase tracking-widest text-neutral-400 mb-xs">What did you get / do?</label>
+            {/* quick picks for the everyday jobs, so nobody has to think what to write (21 Nov 2026) */}
+            <div className="mb-sm flex flex-wrap gap-2">
+              {['Took the bins out', 'Swept / vacuumed the kitchen', 'Did some weeding in the garden', 'Cleared trash or leaves from the front entrance', 'Cleaned the bathroom', 'Did the washing-up'].map(q => (
+                <button key={q} type="button" onClick={() => setDesc(q)} className={`rounded-full border px-3 py-1.5 text-sm ${desc === q ? 'border-green-700 bg-green-700 text-white' : 'border-neutral-300 bg-white text-neutral-800'}`}>{q}</button>
+              ))}
+            </div>
             <textarea
               value={desc}
               onChange={e => setDesc(e.target.value)}

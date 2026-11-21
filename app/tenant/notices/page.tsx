@@ -91,7 +91,30 @@ interface ComposeProps {
   initialPreset?: typeof GUEST_PRESET | null
 }
 
+// Swipe the sheet down (or tap the grey bar) to close it. Finger drags move the sheet; a long enough drag closes it.
+function useSheetSwipe(onClose: () => void) {
+  const startY = useRef<number | null>(null)
+  const [dy, setDy] = useState(0)
+  return {
+    dy,
+    handlers: {
+      onTouchStart: (e: React.TouchEvent) => { startY.current = e.touches[0].clientY },
+      onTouchMove: (e: React.TouchEvent) => {
+        if (startY.current === null) return
+        const d = Math.max(0, e.touches[0].clientY - startY.current)
+        setDy(d)
+      },
+      onTouchEnd: () => {
+        if (dy > 90) onClose()
+        setDy(0)
+        startY.current = null
+      },
+    },
+  }
+}
+
 function ComposeModal({ propertyId, personId, onPosted, onClose, initialPreset }: ComposeProps) {
+  const swipe = useSheetSwipe(onClose)
   const [step, setStep] = useState<'type' | 'jedi' | 'write'>(initialPreset ? 'write' : 'type')
   const [noticeType, setNoticeType] = useState<NoticeType>(initialPreset?.type ?? 'info')
   const [subtype, setSubtype] = useState(initialPreset?.subtype ?? '')
@@ -213,8 +236,8 @@ function ComposeModal({ propertyId, personId, onPosted, onClose, initialPreset }
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-black/60" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="mt-auto bg-white rounded-t-3xl overflow-hidden" style={{ maxHeight: '92dvh' }}>
-        <div className="flex justify-center pt-3 pb-1">
+      <div className="mt-auto bg-white rounded-t-3xl overflow-hidden" style={{ maxHeight: '92dvh', transform: swipe.dy ? `translateY(${swipe.dy}px)` : undefined, transition: swipe.dy ? 'none' : 'transform 200ms ease' }}>
+        <div className="flex justify-center pt-3 pb-2 cursor-grab touch-none" onClick={onClose} {...swipe.handlers} aria-label="Drag down or tap to close">
           <div className="w-10 h-1 rounded-full bg-neutral-300" />
         </div>
 
@@ -416,6 +439,7 @@ function ComposeModal({ propertyId, personId, onPosted, onClose, initialPreset }
 // ── Resolve Modal ─────────────────────────────────────────────────────────────
 
 function ResolveModal({ notice, onResolved, onClose }: { notice: Notice; onResolved: (id: string) => void; onClose: () => void }) {
+  const swipe = useSheetSwipe(onClose)
   const [resolving, setResolving] = useState(false)
   const [error, setError] = useState('')
 
@@ -436,8 +460,8 @@ function ResolveModal({ notice, onResolved, onClose }: { notice: Notice; onResol
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-black/60" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="mt-auto bg-white rounded-t-3xl px-6 pt-4 pb-10 max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain">
-        <div className="flex justify-center mb-4"><div className="w-10 h-1 rounded-full bg-neutral-300" /></div>
+      <div className="mt-auto bg-white rounded-t-3xl px-6 pt-4 pb-10 max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain" style={{ transform: swipe.dy ? `translateY(${swipe.dy}px)` : undefined, transition: swipe.dy ? 'none' : 'transform 200ms ease' }}>
+        <div className="flex justify-center mb-4 cursor-grab touch-none" onClick={onClose} {...swipe.handlers} aria-label="Drag down or tap to close"><div className="w-10 h-1 rounded-full bg-neutral-300" /></div>
         <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-green-50 text-3xl mx-auto mb-4"><LineIcon glyph="✅" /></div>
         <h2 className="notice-board text-xl font-bold text-center text-neutral-900 mb-2">Mark as done?</h2>
         <p className="text-sm text-center text-neutral-500 mb-6">Let your housemates know this has been taken care of.</p>
