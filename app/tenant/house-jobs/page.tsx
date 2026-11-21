@@ -22,8 +22,11 @@ export default function HouseJobs() {
   const [boughtOn, setBoughtOn] = useState(new Date().toISOString().slice(0, 10))
 
   async function loadJobs() {
-    const r = await adminFetch('/api/tenant/house-jobs'); const d = await r.json()
-    if (r.ok) setJobs(d.jobs)
+    try {
+      const r = await adminFetch('/api/tenant/house-jobs'); const d = await r.json().catch(() => ({}))
+      if (r.ok) setJobs(d.jobs)
+      else { setJobs([]); setMsg(d.error || 'We couldn’t load the house jobs. Please sign in again.') }
+    } catch { setJobs([]); setMsg('We couldn’t load the house jobs. Check your connection and try again.') }
   }
   async function loadSpend() {
     const r = await adminFetch('/api/tenant/personal-spending'); const d = await r.json()
@@ -58,6 +61,7 @@ export default function HouseJobs() {
           <h2 className="text-sm font-bold uppercase tracking-wide text-neutral-500">Jobs around the house</h2>
           <p className="mt-xs text-sm text-neutral-600">Tap “I did this” when you’ve done one, so housemates know it’s taken care of.</p>
           {!jobs && <p className="mt-md text-sm text-neutral-500">Loading…</p>}
+          {jobs && jobs.length === 0 && <p className="mt-md text-sm text-neutral-500">No jobs to show yet.</p>}
           <div className="mt-md divide-y divide-neutral-100">
             {(jobs ?? []).map(j => (
               <div key={j.key} className="flex items-center justify-between gap-md py-3">
