@@ -85,12 +85,22 @@ function LoginForm() {
     setLoading(true)
 
     try {
+      // too many wrong passwords lately: say so and offer the email link, without trying the password at all
+      const lock = await fetch('/api/auth/sign-in-check', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) })
+        .then(r => r.json()).catch(() => ({ locked: false }))
+      if (lock.locked) {
+        setError(`Too many wrong passwords. Try again in ${lock.minutes} minutes, or email me a sign-in link below.`)
+        setLoading(false)
+        return
+      }
       const result = await signIn(email, password)
+      // every attempt is recorded (lib/auth/signinGuard); failures count towards a short lock
+      fetch('/api/auth/sign-in-log', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, ok: result.success }), keepalive: true }).catch(() => {})
       if (!result.success) {
         setError(
           result.error === 'not_recognized'
             ? result.message
-            : 'Invalid email or password. Please try again.'
+            : 'Invalid email or password. Please try again, or email me a sign-in link below.'
         )
         setLoading(false)
         return

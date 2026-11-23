@@ -8,6 +8,7 @@ import { createServiceClient } from '@/lib/supabase'
 import { validateEmail } from '@/lib/validation'
 import { getClientIp } from '@/lib/auditLog'
 import { authUsersByEmail, sendAccountEmail } from '@/lib/auth/accounts'
+import { resetAllowed } from '@/lib/auth/signinGuard'
 
 const SIGN_IN_ROLES = ['tenant', 'landlord', 'contractor', 'cleaner', 'administrator', 'admin', 'lettings']
 const SAME = { success: true, message: 'If that email has a CROS account, a reset link is on its way. Check your inbox (and spam).' }
@@ -17,10 +18,13 @@ export async function POST(request: NextRequest) {
   const email = String(raw ?? '').trim().toLowerCase()
   if (!email || !validateEmail(email)) return NextResponse.json({ error: 'Enter a valid email address' }, { status: 400 })
   const s = createServiceClient()
+  const ip = getClientIp(request.headers)
+  // one internet address can ask for only a few reset emails an hour (lib/auth/signinGuard)
+  if (!(await resetAllowed(s, ip))) return NextResponse.json(SAME)
   const since = new Date(Date.now() - 2 * 60_000).toISOString()
   const { data: recent } = await s.from('audit_logs').select('id').eq('action', 'password_reset_requested').eq('details', email).gte('created_at', since).limit(1)
   if (recent?.length) return NextResponse.json(SAME)
-  await s.from('audit_logs').insert({ user_id: 'unknown', action: 'password_reset_requested', details: email, ip_address: getClientIp(request.headers) })
+  await s.from('audit_logs').insert({ user_id: 'unknown', action: 'password_reset_requested', details: email, ip_address: ip })
   // the standard sign-in email (lib/auth/accounts), same for every kind of user: a reset link when they have a login;
   // the set-up email when CROS knows them but they've never had (or used) one; nothing for a turned-off login or a stranger
   const users = await authUsersByEmail(s)
@@ -28,7 +32,11 @@ export async function POST(request: NextRequest) {
     .ilike('email', email).in('role', SIGN_IN_ROLES).order('created_at').limit(1).maybeSingle()
   if (person || users.has(email)) {
     const r = await sendAccountEmail(s, { ...(person ?? {}), email }, request, users, 'self')
-    if (!r.ok) console.error('forgot-password email:', r.error)
+    // a failed send is recorded, so the office can see it in the audit log and resend — the person is never told which it was
+    if (!r.ok) {
+      console.error('forgot-password email:', r.error)
+      await s.from('audit_logs').insert({ user_id: 'unknown', action: 'reset_email_failed', details: email, ip_address: ip })
+    }
   }
   return NextResponse.json(SAME)
 }
