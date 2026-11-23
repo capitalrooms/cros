@@ -19,6 +19,8 @@ import { CLIENT_ACCOUNT } from '@/lib/movein/pack'
 import { sendEmail } from '@/lib/sendEmail'
 import { sendSms } from '@/lib/sms'
 import { resolveFee } from '@/lib/fees/managementFee'
+import { shortOverPlan } from '@/lib/rent/shortOver'
+import { paidClaimUrl } from '@/lib/rent/paidClaim'
 import { addLandlordExpense } from '@/lib/expenses/create'
 
 const r2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100
@@ -245,4 +247,45 @@ export async function endPlan(s: SupabaseClient, tenancyId: string, planId: stri
   if (error) throw new Error(error.message)
   await logTenancyEvent(s, tenancyId, 'money', `Payment plan ${outcome === 'completed' ? 'completed' : outcome === 'broken' ? 'broken (not kept to)' : 'cancelled'}${note ? ` — ${note}` : ''}`, by.email)
   return { ok: true }
+}
+
+/**
+ * Option A or B for a short month, sent from the statement screen (Harry, 22 Nov 2026: the office decides case by case).
+ * A — pay the difference within 24 hours, so the landlord's statement goes out in full.
+ * B — settle it next month: the tenant pays next month's rent plus the difference.
+ * Only the chosen option is sent. Email and text as the office picks. Nothing moves between months: the rent account
+ * already holds the shortfall (lib/rent/shortOver).
+ */
+export async function sendShortOption(s: SupabaseClient, tenancyId: string, chargeMonth: string, option: 'A' | 'B',
+  o: { email: boolean; text: boolean; by: { personId: string; email: string }; req?: Request | null }) {
+  // same rule as tellTenant: statements-only mode means CROS doesn't hold the rent figures, so it tells no tenant what they owe
+  if (!(await import('@/lib/finance/mode')).CROS_COLLECTS_RENT) throw new Error('CROS is on statements only — rent is collected in your other system, so it doesn’t tell tenants what they owe. Nothing was sent.')
+  const pos = await rentPosition(s, tenancyId)
+  const month = pos.months.find(m => m.month === chargeMonth.slice(0, 10))
+  if (!month) throw new Error('That month isn’t on this tenancy’s rent account.')
+  const short = r2(month.due - month.received)
+  if (!(short > 0.005)) throw new Error('That month isn’t short any more — nothing to send.')
+  const nextDate = new Date(`${chargeMonth.slice(0, 7)}-01T12:00:00Z`); nextDate.setUTCMonth(nextDate.getUTCMonth() + 1)
+  const nextIso = nextDate.toISOString().slice(0, 10)
+  const nextCharge = pos.months.find(m => m.month > chargeMonth.slice(0, 10))
+  const nextDue = nextCharge ? nextCharge.due : Number(pos.tenancy.rent_amount || 0)
+  if (!(nextDue > 0)) throw new Error('No rent figure for next month on this tenancy — check the tenancy before sending.')
+  const plan = shortOverPlan({ month: month.month, due: month.due, received: month.received, nextMonth: nextIso, nextDue, creditBefore: pos.credit })
+  const line = plan.lines.find(l => l.option === option)
+  if (!line) throw new Error('No message for that option.')
+  const p = pos.tenancy.people
+  if (o.email && !p?.email) throw new Error('They have no email address on file.')
+  if (o.text && !p?.phone) throw new Error('They have no mobile number on file.')
+  if (!o.email && !o.text) throw new Error('Choose email, text or both.')
+  const first = hiName(p)
+  const subject = option === 'A' ? `Please pay ${gbp(short)} within 24 hours` : `Your rent for ${monthName(nextIso)}`
+  // option A carries an "I've paid" link: it tells the finance team at once, and never confirms payment
+  const claim = option === 'A' ? paidClaimUrl(month.chargeId) : null
+  const html = `<p style="margin:0 0 12px">Hi ${first},</p><p style="margin:0 0 12px">${line.text}</p>${claim ? `<p style="margin:0 0 12px">Already paid? <a href="${claim}">Tap here to let us know</a>.</p>` : ''}<p style="margin:0 0 12px;padding:10px 12px;background:#f5f3ee;border-radius:8px">${CLIENT_ACCOUNT.name}<br>Sort code ${CLIENT_ACCOUNT.sortCode} · Account ${CLIENT_ACCOUNT.accountNo}<br>Reference: <b>${pos.tenancy.payment_reference ?? 'your usual rent reference'}</b></p><p style="margin:0;color:#57534e;font-size:13px">If you think this is wrong, just reply and we’ll check. Thank you.</p>`
+  const sent: string[] = []
+  if (o.email) { const r = await sendEmail(p.email, subject, html, { kind: 'rent-due', req: o.req }); if (!r.ok) throw new Error(`The email didn’t send: ${r.error}`); sent.push('email') }
+  if (o.text) { const r = await sendSms(p.phone, `${line.text} Reference: ${pos.tenancy.payment_reference ?? 'your usual rent reference'}.${claim ? ` Already paid? ${claim}` : ''}`); if (r.ok) sent.push('text'); else if (!sent.length) throw new Error(`The text didn’t send: ${r.error}`) }
+  await audit(s, { rent_charge_id: month.chargeId, action: 'tenant_told', by: o.by.personId, new: { option, short, by: sent }, note: `Option ${option} sent for ${monthName(month.month)} shortfall of ${gbp(short)} (${sent.join(' and ')})` })
+  await logTenancyEvent(s, tenancyId, 'money', `Option ${option} sent: ${gbp(short)} short for ${monthName(month.month)} (${sent.join(' and ')})`, o.by.email)
+  return { sent, option, short, text: line.text }
 }

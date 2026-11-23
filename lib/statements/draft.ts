@@ -15,7 +15,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 export interface DraftRoom { room_number: string; tenant_name: string; rent: number; fee: number; chargeIds: string[]; note?: string }
 export interface DraftExpense { id: string; description: string; amount: number; date: string; number?: string | null; supplier?: string | null; hasInvoice?: boolean; shareInvoice?: boolean; category?: string | null }
 export interface DraftLettingFee { tenancyId: string; roomNumber: string; tenant: string; amount: number; startDate: string; number?: string | null }
-export interface Unpaid { room: string; tenant: string; month: string; due: number; received: number }
+export interface Unpaid { room: string; tenant: string; month: string; due: number; received: number; chargeId: string; tenancyId: string | null; monthIso: string }
 export interface StatementDraft {
   propertyId: string
   landlordId: string | null
@@ -122,7 +122,7 @@ export async function buildStatementDraft(s: SupabaseClient, propertyId: string,
     const name = roomName.get(c.room_id) || 'Room'
     const forMonth = String(c.charge_month).slice(0, 10)
     if (forMonth === start && received < Number(c.amount_due || 0)) {
-      unpaid.push({ room: name, tenant: tenantOf(c), month: monthName(forMonth), due: Number(c.amount_due), received })
+      unpaid.push({ room: name, tenant: tenantOf(c), month: monthName(forMonth), due: Number(c.amount_due), received, chargeId: c.id, tenancyId: c.tenancy_id ?? null, monthIso: forMonth })
     }
     if (delta <= 0) continue
     const room: DraftRoom = byRoom.get(lineKey(c)) ?? { room_number: roomNo(name), tenant_name: tenantOf(c), rent: 0, fee: 0, chargeIds: [] }

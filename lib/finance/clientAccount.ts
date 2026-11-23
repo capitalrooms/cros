@@ -23,7 +23,7 @@ const r2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100
 export interface BreakdownLine { key: string; label: string; amount: number; detail?: string }
 export interface ClientAccountPosition {
   asAt: string; start: string
-  cashbook: { rentIn: number; suspenseIn: number; holdingIn: number; depositsHeld: number; adjustments: number; paidToLandlords: number; toOffice: number; total: number }
+  cashbook: { rentIn: number; suspenseIn: number; holdingIn: number; keptIn: number; depositsHeld: number; adjustments: number; paidToLandlords: number; toOffice: number; total: number }
   breakdown: BreakdownLine[]
   breakdownTotal: number
   landlords: { landlordId: string | null; name: string; balance: number; advance: number; awaitingStatement: number; awaitingPayment: number; float: number }[]
@@ -68,12 +68,14 @@ export async function clientAccountPosition(s: SupabaseClient, asAt?: string): P
   const depositsToDps = r2(depRows.filter(d => d.deposit_sent_on && d.deposit_sent_on <= D).reduce((t, d) => t + Number(d.deposit_sent_amount || 0), 0))
   const depositsHeld = r2(depositsIn - depositsToDps)
   const depositsWaiting = depRows.filter(d => !d.deposit_sent_on || d.deposit_sent_on > D).length
-  const cashTotal = r2(rentIn + suspenseIn + holdingIn + depositsHeld + adjustments - paidToLandlords - toOffice)
+  // a forfeited holding deposit is still in the account until it is paid out (less our fee, which moves to the office)
+  const keptIn = sum('holding_kept')
+  const cashTotal = r2(rentIn + suspenseIn + holdingIn + keptIn + depositsHeld + adjustments - paidToLandlords - toOffice)
 
   // who it belongs to
   const sts = real(statements.data as any[]).filter(st => st.source !== 'import')   // the previous agent's statements never touched our account
   // our fees and expenses: on statements, plus tenant-find fees taken from let-only initial monies (migration 231)
-  const initialFees = r2(ledger.entries.filter(e => e.source === 'initial_monies' && e.kind === 'fee').reduce((t, e) => t - e.amount, 0))
+  const initialFees = r2(ledger.entries.filter(e => (e.source === 'initial_monies' || e.source === 'holding_deposit') && e.kind === 'fee').reduce((t, e) => t - e.amount, 0))
   const officeEarned = r2(sts.reduce((t, st) => t + Number(st.management_fees || 0) + Number(st.letting_fees || 0) + Number(st.property_charges || 0), 0) + initialFees)
   const officeDue = r2(officeEarned - toOffice)
   const balances = await landlordBalances(s, ledger.entries)
@@ -88,6 +90,8 @@ export async function clientAccountPosition(s: SupabaseClient, asAt?: string): P
   for (const e of ledger.entries.filter(x => x.source === 'initial_monies')) {
     if (e.kind === 'initial_in' || e.kind === 'fee' || e.kind === 'payout') bucket(e.landlordId).awaitingPayment += e.amount
   }
+  // a kept holding deposit is the landlord's money, less our fee, until it is paid out
+  for (const e of ledger.entries.filter(x => x.source === 'holding_deposit')) bucket(e.landlordId).awaitingPayment += e.amount
   for (const st of sts) {
     const b = bucket(st.landlord_id)
     if (!st.paid_date || st.paid_date > D) b.awaitingPayment += Number(st.net_to_landlord || 0)
@@ -112,7 +116,7 @@ export async function clientAccountPosition(s: SupabaseClient, asAt?: string): P
   const breakdownTotal = r2(breakdown.reduce((t, b) => t + b.amount, 0))
   return {
     asAt: D, start,
-    cashbook: { rentIn, suspenseIn, holdingIn, depositsHeld, adjustments, paidToLandlords, toOffice, total: cashTotal },
+    cashbook: { rentIn, suspenseIn, holdingIn, keptIn, depositsHeld, adjustments, paidToLandlords, toOffice, total: cashTotal },
     breakdown, breakdownTotal, landlords, agrees: Math.round((breakdownTotal - cashTotal) * 100) === 0,
   }
 }

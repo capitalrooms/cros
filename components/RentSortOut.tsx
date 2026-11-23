@@ -3,6 +3,7 @@
 // Everything it does is checked and recorded by lib/rent/resolve (via /api/admin/rent-resolve).
 import { useEffect, useState } from 'react'
 import { adminFetch } from '@/lib/adminFetch'
+import TenancyPayments from '@/components/TenancyPayments'
 
 const gbp = (n: number) => `£${Number(n || 0).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 const monthName = (iso: string) => iso ? new Date(`${iso.slice(0, 7)}-01T12:00:00Z`).toLocaleDateString('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' }) : ''
@@ -56,6 +57,7 @@ export default function RentSortOut({ tenancyId, onClose, onChanged }: { tenancy
         </header>
 
         <div className="space-y-lg px-lg py-md">
+          {data?.account && <TenancyPayments account={data.account} />}
           {error && <p className="rounded-lg border border-red-200 bg-red-50 p-sm text-sm text-red-800">{error}</p>}
           {done && <p className="rounded-lg border border-green-200 bg-green-50 p-sm text-sm text-green-900">{done}</p>}
           {!pos ? <p className="text-sm text-neutral-500">Loading…</p> : <>

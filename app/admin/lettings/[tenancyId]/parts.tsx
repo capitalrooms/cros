@@ -1037,10 +1037,10 @@ export function NoticeTab({ file, patch, reload, startMarking }: { file: Letting
         />
       )}
 
-      {file.stage === 'let_agreed' && (
+      {(file.stage === 'let_agreed' || file.stage === 'live') && (
         <section className={`${card} space-y-sm border-red-200`}>
           <h2 className="text-lg font-bold">The let fell through</h2>
-          <p className="text-sm text-neutral-600">If the applicant withdraws, fails referencing or the landlord pulls out before the start date. The record is kept; the room goes back on the market.</p>
+          <p className="text-sm text-neutral-600">If the applicant withdraws, fails referencing or the landlord pulls out before the start date. The record is kept; the room goes back on the market. {file.stage === 'live' && 'If the tenant never moved in, you will be asked to confirm that. A tenant who moved in gets notice instead.'}</p>
           <input className={`${input} w-full`} placeholder="What happened" value={reason} onChange={e => setReason(e.target.value)} />
           {err && <p className="text-xs text-red-700">{err}</p>}
           <button type="button" disabled={busy || !reason.trim()} onClick={fellThrough} className="rounded-lg border border-red-300 px-md py-xs text-sm font-semibold text-red-700 hover:bg-red-50 disabled:opacity-40">{busy ? 'Saving…' : 'Mark as fallen through'}</button>

@@ -21,6 +21,7 @@ import AppBar from '@/components/AppBar'
 import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import StatementSend from '@/app/admin/statements/StatementSend'
+import ShortOptions from '@/app/admin/statements/prepare/ShortOptions'
 import type { StatementDraft } from '@/lib/statements/draft'
 import { planFloat } from '@/lib/statements/float'
 
@@ -164,6 +165,7 @@ function Prepare({ propertyId, month, practice }: { propertyId: string; month: s
                   Still owed for {monthLabel(month)}: {draft.unpaid.map(u => `${u.room} ${u.tenant} (${gbp(u.due - u.received)})`).join(' · ')} — it goes on a follow-on statement when it arrives.
                 </p>
               )}
+              {draft.unpaid.length > 0 && <div className="p-md"><ShortOptions unpaid={draft.unpaid} /></div>}
             </div>
 
             {draft.lettingFees.length > 0 && (

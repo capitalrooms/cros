@@ -57,6 +57,9 @@ function RentRollScreen({ initialMonth, practice }: { initialMonth?: string; pra
   const [error, setError] = useState('')
   const [filter, setFilter] = useState<'all' | 'ready' | 'waiting' | 'none'>('all')
   const [sel, setSel] = useState<string | null>(null)   // the property open on the right
+  // expenses logged for each house this month: ticked = added (they will be charged), empty = none added yet
+  const [ticks, setTicks] = useState<Record<string, { count: number; total: number }>>({})
+  useEffect(() => { adminFetch(`/api/admin/expense-ticks?month=${month.slice(0, 7)}-01`).then(r => r.ok ? r.json() : null).then(j => setTicks(j?.byProperty ?? {})).catch(() => setTicks({})) }, [month])
 
   const load = useCallback(async (m: string) => {
     setLoading(true); setError('')
@@ -179,7 +182,7 @@ function RentRollScreen({ initialMonth, practice }: { initialMonth?: string; pra
                       <tr key={p.id} onClick={() => pick(p.id)} aria-selected={on} className={`cursor-pointer ${on ? '[&>td]:!bg-[var(--ink,#23261A)] [&>td]:!text-[#F6F3EC]' : ''}`}>
                         <td className="max-w-[260px]">
                           <span className="block truncate font-semibold">{p.name}</span>
-                          <span className={`block truncate text-[11px] ${on ? 'opacity-60' : 'text-neutral-500'}`}>{p.landlord}{p.readyForStatement > 0 && !prevAgent ? <span className={on ? 'text-[#E8B06B]' : 'text-amber-700'}> · ready {gbp(p.readyForStatement)}</span> : null}</span>
+                          <span className={`block truncate text-[11px] ${on ? 'opacity-60' : 'text-neutral-500'}`}>{p.landlord}{!prevAgent && <span className={`ml-xs ${on ? 'text-[#F6F3EC]/80' : 'text-neutral-600'}`}> · {ticks[p.id] ? `☑ expenses ${ticks[p.id].count} · £${ticks[p.id].total.toLocaleString('en-GB', { minimumFractionDigits: 2 })}` : '☐ no expenses yet'}</span>}{p.readyForStatement > 0 && !prevAgent ? <span className={on ? 'text-[#E8B06B]' : 'text-amber-700'}> · ready {gbp(p.readyForStatement)}</span> : null}</span>
                         </td>
                         <td className="hidden sm:table-cell whitespace-nowrap">{paidCount(p)}/{p.rooms.length} paid</td>
                         {!prevAgent && <td className="text-right">{gbp(p.due)}</td>}

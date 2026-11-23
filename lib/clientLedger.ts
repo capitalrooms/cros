@@ -13,8 +13,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { demoPropertyIds, inScope } from '@/lib/demoProperties'
 import { importedChargeIds } from '@/lib/finance/importedCharges'
+import { keptFee } from '@/lib/finance/holdingKept'
 
-export type LedgerKind = 'rent_in' | 'fee' | 'expenses' | 'payout' | 'opening_balance' | 'correction' | 'rent_other' | 'expense_paid' | 'deposit_in' | 'deposit_out' | 'initial_in' | 'refund'
+export type LedgerKind = 'rent_in' | 'fee' | 'expenses' | 'payout' | 'opening_balance' | 'correction' | 'rent_other' | 'expense_paid' | 'deposit_in' | 'deposit_out' | 'initial_in' | 'refund' | 'holding_kept'
 export interface LedgerEntry {
   date: string
   kind: LedgerKind
@@ -23,7 +24,7 @@ export interface LedgerEntry {
   landlordId: string | null
   propertyId: string | null
   reference: string | null
-  source: 'rent_charge' | 'statement' | 'adjustment' | 'initial_monies'
+  source: 'rent_charge' | 'statement' | 'adjustment' | 'initial_monies' | 'holding_deposit'
   sourceId: string
 }
 export interface LandlordLedger { landlordId: string | null; name: string; in: number; out: number; balance: number; entries: number }
@@ -32,7 +33,7 @@ const r2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100
 export const KIND_LABEL: Record<LedgerKind, string> = {
   rent_in: 'Rent received', fee: 'Management fee', expenses: 'Expenses', payout: 'Paid to landlord',
   opening_balance: 'Opening balance', correction: 'Correction', rent_other: 'Other money in', expense_paid: 'Expense paid',
-  deposit_in: 'Deposit received', deposit_out: 'Deposit paid out', initial_in: 'Initial monies received', refund: 'Refunded to tenant',
+  deposit_in: 'Deposit received', deposit_out: 'Deposit paid out', initial_in: 'Initial monies received', refund: 'Refunded to tenant', holding_kept: 'Holding deposit kept',
 }
 
 export async function ledgerStart(s: SupabaseClient): Promise<string> {
@@ -134,6 +135,16 @@ export async function loadLedger(s: SupabaseClient, opts: { asAt?: string; from?
       if (Number(im.fee)) entries.push({ date: im.received_on, kind: 'fee', amount: -r2(Number(im.fee)), description: `Tenant-find fee · ${im.txn_no} · ${where}`, landlordId: ll, propertyId: im.property_id, reference: im.txn_no, source: 'initial_monies', sourceId: im.id })
     }
     if (im.paid_on && inRange(im.paid_on) && Number(im.amount_paid)) entries.push({ date: im.paid_on, kind: 'payout', amount: -r2(Number(im.amount_paid)), description: `Paid to landlord · ${im.payout_no} · ${where}`, landlordId: ll, propertyId: im.property_id, reference: im.payout_no, source: 'initial_monies', sourceId: im.id })
+  }
+  // a holding deposit the applicant forfeited: kept for the landlord, less our referencing fee (lib/finance/holdingKept)
+  const kept = await s.from('holding_deposits').select('id, hold_no, amount, property_id, outcome_on').eq('status', 'retained')
+  for (const h of (kept.error ? [] : kept.data ?? []) as any[]) {
+    if (!h.outcome_on || !inRange(h.outcome_on) || !Number(h.amount) || (h.property_id && !ok(h.property_id))) continue
+    const where = propName.get(h.property_id) || ''
+    const ll = propLandlord.get(h.property_id) ?? null
+    entries.push({ date: h.outcome_on, kind: 'holding_kept', amount: r2(Number(h.amount)), description: `Holding deposit kept · ${h.hold_no} · ${where}`, landlordId: ll, propertyId: h.property_id, reference: h.hold_no, source: 'holding_deposit', sourceId: h.id })
+    const fee = keptFee(Number(h.amount))
+    if (fee) entries.push({ date: h.outcome_on, kind: 'fee', amount: -r2(fee), description: `Referencing fee · ${h.hold_no} · ${where}`, landlordId: ll, propertyId: h.property_id, reference: h.hold_no, source: 'holding_deposit', sourceId: h.id })
   }
   entries.sort((a, b) => a.date.localeCompare(b.date) || b.amount - a.amount)
   return { start, from, asAt, entries, adjustmentsReady }
