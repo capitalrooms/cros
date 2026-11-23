@@ -21,6 +21,7 @@ export default function Housemates() {
   useEffect(() => {
     adminFetch('/api/tenant/housemates').then(async r => {
       if (r.status === 401) { router.push('/login'); return }
+      if (!r.ok) throw new Error(`housemates ${r.status}`)
       setData(await r.json())
     }).catch(() => setError('Couldn’t load your housemates. Check your connection and try again.'))
   }, [router])

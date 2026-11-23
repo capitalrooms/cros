@@ -61,7 +61,9 @@ export default function UserProfilePage({ allowedRoles, backHref, roleName, extr
   const supabase = createClient()
 
   useEffect(() => {
+    // If anything below throws, still leave the loading state so the page shows its error, not "Loading…" forever
     async function init() {
+     try {
       const user = await getCurrentUser()
       const role = user?.assignment?.role || ''
       const isAdmin = ['administrator', 'admin'].includes(role)
@@ -128,7 +130,12 @@ export default function UserProfilePage({ allowedRoles, backHref, roleName, extr
         setPushStatus('unsubscribed')
       }
 
+     } catch (err) {
+      console.error('[profile] could not load', err)
+      setError('Couldn’t load your profile. Check your connection and try again.')
+     } finally {
       setLoading(false)
+     }
     }
     init()
   }, [])
