@@ -35,24 +35,24 @@ const note = (t: string) => `<table role="presentation" width="100%" cellspacing
 export function landlordTimesRequest(o: { firstName: string; applicantFirst: string; link: string }) {
   return band('Video call · one step', `Hello ${esc(o.firstName)}, one quick thing`,
     `${o.applicantFirst} has paid the holding deposit and would like a short video call with you.`)
-    + para(`Could you tick the times you are free? Calls are usually weekday afternoons, and it takes a few minutes. You can change your times from the same page until ${esc(o.applicantFirst)} picks one.`)
+    + para(`Could you tick the times you are free? You can change them from the same page until ${esc(o.applicantFirst)} picks one.`)
     + button('Choose my times', o.link)
-    + note('Nothing is shared with the applicant until they pick a time, and then they only get your number for that call.')
+    + note('Your number is only shared once they have picked a time.')
 }
 
 /** The applicant has picked a time. */
 export function landlordBooked(o: { firstName: string; applicantFirst: string; when: string }) {
   return band('Call booked', `${esc(o.applicantFirst)} is calling at ${esc(o.when)}`,
     'They will call you on video. They have your details and will be expecting you.')
-    + para(`If that time is a problem, reply to this email or call the office and we will sort it out straight away.`)
-    + note('You do not need to do anything else before the call.')
+    + para(`If that time is a problem, reply to this email or call the office and we will sort it out.`)
+    
 }
 
 /** Twenty minutes after the call: how did it go? */
 export function landlordFollowUp(o: { firstName: string; applicantFirst: string; link: string }) {
   return band('After the call', `How did it go with ${esc(o.applicantFirst)}?`,
     'One tap and we will take it from there.')
-    + para(`Can we proceed with the offer? You can say yes, yes with a note, or not going ahead.`)
+    + para(`Can we proceed with the offer?`)
     + button('Let us know', o.link)
 }
 

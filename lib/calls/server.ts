@@ -72,7 +72,7 @@ export async function landlordSaveTimes(tok: string, picked: string[], now = new
       `<p>Hello ${esc(firstName(r.applicant_name))},</p>
        <p>The landlord has accepted your offer, subject to an informal video call. Please choose a time from the list below that suits you.</p>
        <p><a href="${BASE}/call/applicant/${r.applicant_token}">Choose a time</a></p>
-       <p>The times are in London time. If you can't make any of them, use the same link and ask for new times.</p>`)
+       <p>The call is a 5 to 10 minute informal chat, so you can both see if you like each other before going ahead.</p><p>If for any reason either of you does not wish to proceed, your holding deposit will be refunded in full.</p><p>The times are in London time. If you can't make any of them, use the same link and ask for new times.</p>`)
   }
   return { ok: true, status: 200 }
 }
@@ -98,7 +98,7 @@ export async function applicantPick(tok: string, iso: string, now = new Date()) 
       `<p>Hello ${esc(firstName(r.applicant_name))},</p>
        <p>Your call is booked for <strong>${esc(when)}</strong>.</p>
        <p>You can FaceTime or WhatsApp video call ${esc(firstName(landlord?.first_name))} at that time on <strong>${esc(landlord?.phone || 'the number the office will send')}</strong>.</p>
-       <p>If something comes up, reply to this email so the office can help.</p>`)
+       <p>It is a 5 to 10 minute informal chat, so you can both see if you like each other before going ahead.</p><p>If something comes up, reply to this email so the office can help.</p>`)
   }
   return { ok: true, status: 200 }
 }

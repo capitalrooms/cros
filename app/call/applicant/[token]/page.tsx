@@ -41,7 +41,8 @@ export default function ApplicantCallPage({ params }: { params: Promise<{ token:
           <p>Your informal video call with {st.landlordFirstName} is booked for <strong>{st.chosen}</strong>. The details are in your email.</p>
         ) : st.options.length ? (
           <>
-            <p>The landlord has accepted your offer, subject to an informal video call. Please choose a time that suits you. Times are London time.</p>
+            <p>The landlord has accepted your offer, subject to an informal video call. It is a 5 to 10 minute informal chat, so you can both see if you like each other before going ahead.</p>
+            <p>If for any reason either of you does not wish to proceed, your holding deposit will be refunded in full. Please choose a time that suits you. Times are London time.</p>
             <div style={{ display: 'grid', gap: 8, margin: '14px 0' }}>
               {st.options.map(o => <button key={o.iso} style={btn} onClick={() => pick(o.iso)}>{o.label}</button>)}
             </div>
