@@ -96,7 +96,7 @@ export async function POST(req: NextRequest) {
       if (!txn.rent_charge_id) txn.category = 'unmatched'
     }
     const txnStatus =
-      txn.category === 'matched'       ? 'matched'
+      txn.category === 'matched' || txn.category === 'awaiting_bank' ? 'matched'
       : txn.category === 'possible_dupe' ? 'possible_duplicate'
       : 'unmatched'
 
@@ -111,9 +111,9 @@ export async function POST(req: NextRequest) {
         dedup_hash:       txn.dedup_hash,
         status:           txnStatus,
         property_id:      txn.property_id || null,
-        matched_rent_charge_id: txn.category === 'matched' ? txn.rent_charge_id : null,
-        matched_at:             txn.category === 'matched' ? now : null,
-        matched_by:             txn.category === 'matched' ? person.id : null,
+        matched_rent_charge_id: txn.category === 'matched' || txn.category === 'awaiting_bank' ? txn.rent_charge_id : null,
+        matched_at:             txn.category === 'matched' || txn.category === 'awaiting_bank' ? now : null,
+        matched_by:             txn.category === 'matched' || txn.category === 'awaiting_bank' ? person.id : null,
         imported_at:      now,
         imported_by:      person.id,
         ...(txn.balance != null ? { balance: txn.balance } : {}),
@@ -129,6 +129,17 @@ export async function POST(req: NextRequest) {
     }
 
     const txnId = inserted?.id
+
+    // A payment recorded by hand has now appeared on the bank statement: link the line to it. The amounts already stand.
+    if (txn.category === 'awaiting_bank' && txn.rent_charge_id) {
+      await supabase.from('payment_audit_log').insert({
+        rent_charge_id: txn.rent_charge_id, action: 'bank_confirmed', performed_by: person.id, performed_at: now,
+        new_value: { bank_status: 'in_bank', bank_transaction_id: txnId ?? null, amount: txn.amount, transaction_date: txn.transaction_date },
+        note: 'Bank line matched to a payment recorded by hand',
+      })
+      results.matched++
+      continue
+    }
 
     // ── Update matched rent_charges ──────────────────────────────────────────
     if (txn.category === 'matched' && txn.rent_charge_id) {

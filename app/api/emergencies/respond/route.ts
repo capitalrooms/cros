@@ -40,6 +40,9 @@ export async function POST(req: NextRequest) {
   } else if (b.answer === 'yes' || b.answer === 'no') {
     const eta = isoOrNull(b.etaAt)
     if (b.answer === 'yes' && eta && new Date(eta).getTime() < Date.now() - 5 * 60000) return NextResponse.json({ error: 'That time has already passed' }, { status: 400 })
+    // a call-out fee is a real amount: a stray number (e.g. “1” typed into the box) is refused, not stored; £500 is the most we accept (24 Nov 2026)
+    const feeIn = b.fee === '' || b.fee == null ? null : Number(b.fee)
+    if (b.answer === 'yes' && feeIn !== null && (!Number.isFinite(feeIn) || feeIn < 10 || feeIn > 500)) return NextResponse.json({ error: 'Check the call-out fee — enter the amount you will charge, in pounds. The most we accept is £500.' }, { status: 400 })
     out = await respond(s, t, { answer: b.answer, etaAt: eta, fee: b.fee === '' || b.fee == null ? null : Number(b.fee), note: String(b.note ?? '') })
   } else if (['on_site', 'fixed', 'made_safe', 'not_fixed', 'running_late', 'cant_attend'].includes(b.outcome)) {
     out = await report(s, t, {

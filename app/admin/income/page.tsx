@@ -451,7 +451,7 @@ export default function IncomeDashboard() {
             <p className="text-2xl font-bold mt-xs tabular-nums">{GBP(hasImports ? ytdActual : estimateMonthly * (new Date().getMonth() + 1))}</p>
             <p className="text-xs text-white/40 mt-xs">
               {hasImports
-                ? `vs ${GBP(lastYearActual)} in ${lastYear} ${lastYearActual ? '(' + pct(ytdActual, lastYearActual) + ')' : ''}`
+                ? `vs ${GBP(lastYearActual)} in ${lastYear} ${lastYearActual && Object.values(priorYearBars).filter(v => v > 0).length >= 12 ? '(' + pct(ytdActual, lastYearActual) + ')' : ''}`
                 : 'No import data yet'}
             </p>
           </div>

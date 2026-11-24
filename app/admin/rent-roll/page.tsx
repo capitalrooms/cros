@@ -22,6 +22,7 @@ import PageHero, { HeroButton } from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import ExportButtons from '@/app/components/ExportButtons'
 import type { RentRoll, RollRoom } from '@/lib/finance/rentRoll'
+import { CROS_COLLECTS_RENT } from '@/lib/finance/mode'
 
 const gbp = (n: number | null | undefined) => (n == null ? '' : '£' + Number(n).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 }))
 const monthLabel = (m: string) => new Date(m + '-01T12:00:00').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
@@ -45,7 +46,7 @@ function pileOf(p: { allIn?: boolean; payPart?: unknown; received: number; due: 
 
 export default function RentRollPage({ searchParams }: { searchParams: PageSearchParams }) {
   const sp = use(searchParams)
-  return <RentRollScreen initialMonth={one(sp.month)} practice={one(sp.practice) === '1'} />
+  return <RentRollScreen initialMonth={one(sp.month)} practice={false} />   // practice mode switched off (22 Nov 2026)
 }
 
 function RentRollScreen({ initialMonth, practice }: { initialMonth?: string; practice: boolean }) {
@@ -130,9 +131,7 @@ function RentRollScreen({ initialMonth, practice }: { initialMonth?: string; pra
         subtitle={<>{monthLabel(month)} — what’s due, what’s in, what’s missing. Then prepare each property’s statement, then the payment run.</>}
         actions={<>
           <HeroMonthPicker month={month} onChange={go} />
-          {practice
-            ? <><HeroButton primary onClick={raisePractice}>{busyPractice === 'raise' ? 'Raising…' : 'Raise this month’s practice rent'}</HeroButton><HeroButton onClick={async () => { const r = await adminFetch('/api/admin/rent-roll', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'practice_refs' }) }); const j = await r.json().catch(() => ({})); alert(r.ok ? `${j.filled} practice tenanc${j.filled === 1 ? 'y' : 'ies'} given a payment reference` : j.error); load(month) }}>Give practice tenants references</HeroButton><HeroButton href="/admin/bank-import?practice=1">Practice bank import</HeroButton><HeroButton href={`/admin/rent-roll?month=${month}`}>Leave practice</HeroButton></>
-            : <><HeroButton href="/admin/bank-import" primary>Import bank CSV</HeroButton><HeroButton href={`/admin/rent-roll?month=${month}&practice=1`}>Practice mode</HeroButton></>}
+          <HeroButton href="/admin/bank-import" primary>Import bank CSV</HeroButton>
         </>}
         stats={roll ? [
           { label: prevAgent ? 'Rent collected' : 'Rent due', value: gbp(prevAgent ? roll.totals.received : roll.totals.due) },
@@ -225,9 +224,9 @@ function RentRollScreen({ initialMonth, practice }: { initialMonth?: string; pra
                             {[r.reference, r.chargeNo, ...r.receipts.map(x => [shortDate(x.date), x.number].filter(Boolean).join(' ') || x.how), r.statement ? `on ${r.statement}` : ''].filter(Boolean).join(' · ')}
                             {r.difference != null && Math.abs(r.difference) >= 0.01 && r.received > 0 && <span className={r.difference < 0 ? ' text-amber-700' : ' text-blue-700'}> · {r.difference < 0 ? `${gbp(-r.difference)} short` : `${gbp(r.difference)} over`}</span>}
                           </span>
-                          {(!prevAgent && r.tenancyId) || (practice && r.chargeId && r.due != null && r.received < r.due) ? (
+                          {((CROS_COLLECTS_RENT && !prevAgent && r.tenancyId) || (practice && r.chargeId && r.due != null && r.received < r.due)) ? (
                             <span className="mt-0.5 flex gap-1">
-                              {!prevAgent && r.tenancyId && <button type="button" onClick={() => setSortFor(r.tenancyId)} className="rounded border border-neutral-300 bg-white px-1.5 text-[10.5px] font-semibold text-neutral-800 hover:bg-neutral-100">Adjust account…</button>}
+                              {CROS_COLLECTS_RENT && !prevAgent && r.tenancyId && <button type="button" onClick={() => setSortFor(r.tenancyId)} className="rounded border border-neutral-300 bg-white px-1.5 text-[10.5px] font-semibold text-neutral-800 hover:bg-neutral-100">Adjust account…</button>}
                               {practice && r.chargeId && r.due != null && r.received < r.due && <button type="button" disabled={!!busyPractice} onClick={() => recordPractice(r.chargeId!, r.due!, r.received)} className="rounded border border-amber-400 bg-amber-50 px-1.5 text-[10.5px] font-semibold text-amber-900">{busyPractice === r.chargeId ? 'Recording…' : 'Record practice payment'}</button>}
                             </span>
                           ) : null}

@@ -15,7 +15,7 @@ const gbp = (n: number) =>
 const fmtDate = (s: string | null | undefined) =>
   s ? new Date(s.slice(0, 10) + 'T00:00:00').toLocaleDateString('en-GB') : '—'
 
-type Category = 'matched' | 'possible_dupe' | 'unmatched' | 'already_imported'
+type Category = 'matched' | 'possible_dupe' | 'unmatched' | 'already_imported' | 'awaiting_bank'
 
 interface PreviewRow {
   transaction_date: string
@@ -62,13 +62,14 @@ interface ImportBatch {
 const CATEGORY_STYLES: Record<Category, { bg: string; text: string; label: string; desc: string }> = {
   matched:          { bg: 'bg-emerald-50 border-emerald-200', text: 'text-emerald-700', label: 'Matched',          desc: 'Will mark rent charge as paid' },
   possible_dupe:    { bg: 'bg-amber-50 border-amber-200',     text: 'text-amber-700',   label: 'Possible duplicate', desc: 'Charge already paid — held for review' },
+  awaiting_bank:    { bg: 'bg-emerald-50 border-emerald-200',   text: 'text-emerald-800', label: 'Already recorded', desc: 'Recorded by hand earlier — this is the bank line for it' },
   unmatched:        { bg: 'bg-red-50 border-red-200',         text: 'text-red-700',     label: 'Unmatched',         desc: 'No tenant reference found' },
   already_imported: { bg: 'bg-neutral-50 border-neutral-200', text: 'text-neutral-500', label: 'Already imported',  desc: 'Will be skipped (safe)' },
 }
 
 export default function BankImportPage() {
   // practice mode (?practice=1, migrations 209/210): matches demo houses only; every line gets an XRCPT number
-  const [practice] = useState(() => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('practice') === '1')
+  const practice = false   // practice mode switched off (22 Nov 2026)
   const P = practice ? '?practice=1' : ''
   const [file, setFile]           = useState<File | null>(null)
   const [previewing, setPreviewing] = useState(false)
@@ -170,7 +171,7 @@ export default function BankImportPage() {
 
       {practice && <div className="border-b-4 border-amber-400 bg-amber-300 px-lg py-sm text-center text-sm font-bold text-amber-950">PRACTICE MODE — demo houses only. Every line in this file gets a practice receipt number (XRCPT) and stays out of the real books.</div>}
       <PageHero look="olive" eyebrow={practice ? 'PRACTICE' : undefined} title="Bank" subtitle="Import a bank statement CSV — each payment is matched to its rent by the reference" tabs={bankTabs('import')}
-        actions={practice ? <HeroButton href="/admin/bank-import">Leave practice</HeroButton> : <HeroButton href="/admin/bank-import?practice=1">Practice mode</HeroButton>} />
+        />
       <div className="max-w-6xl mx-auto px-lg py-xl space-y-xl">
 
         {/* Gap detection banner */}

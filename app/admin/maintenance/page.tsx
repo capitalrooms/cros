@@ -348,7 +348,8 @@ export default function MaintenanceDashboard() {
       const supabase = createClient();
       let query = supabase
         .from('maintenance_tickets')
-        .select('*, properties(name, address), rooms(name)')
+        .select('*, properties!inner(name, address, is_demo), rooms(name)')
+        .eq('properties.is_demo', false)   // demo and practice houses never appear in the live list (24 Nov 2026 audit)
         .order('created_at', { ascending: false });
 
       if (filterStatus) {

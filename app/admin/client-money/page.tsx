@@ -109,7 +109,11 @@ export default function ClientMoneyPage() {
               </div>
               <table className="w-full text-sm">
                 <tbody className="divide-y divide-neutral-100">
-                  {data.position.breakdown.map(b => (
+                  {/* only the lines with money on them — the £0 lines are hidden (24 Nov 2026 review) */}
+                  {data.position.breakdown.filter(b => Math.abs(b.amount) > 0.004).length === 0 && (
+                    <tr><td className="py-sm text-neutral-500" colSpan={2}>Nothing else held — all client money is in the holding deposits above.</td></tr>
+                  )}
+                  {data.position.breakdown.filter(b => Math.abs(b.amount) > 0.004).map(b => (
                     <tr key={b.key}><td className="py-sm text-neutral-800">{b.label}{b.detail && b.amount ? <span className="ml-sm text-xs text-amber-700">{b.detail}</span> : null}</td><td className="py-sm text-right tabular-nums font-semibold">{gbp(b.amount)}</td></tr>
                   ))}
                   <tr className="border-t-2 border-neutral-900"><td className="py-sm font-bold">Total client funds</td><td className="py-sm text-right font-bold tabular-nums">{gbp(data.position.breakdownTotal)}</td></tr>

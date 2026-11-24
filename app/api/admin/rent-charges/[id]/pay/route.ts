@@ -99,7 +99,8 @@ export async function POST(req: NextRequest, { params: paramsPromise }: { params
     performed_by: person.id,
     performed_at: now,
     old_value: { status: charge.status, amount_received: charge.amount_received },
-    new_value: { status, amount_received: total, this_payment: received, payment_method, payment_date },
+    // bank_status: recorded by hand, not yet seen on the bank statement (24 Nov 2026) — the next bank import links it, never doubles it
+    new_value: { status, amount_received: total, this_payment: received, payment_method, payment_date, bank_status: 'awaiting' },
     note: payment_notes?.trim() || null,
   })
 

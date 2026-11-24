@@ -294,6 +294,14 @@ export async function POST(req: NextRequest) {
     }
 
     if (charge.status === 'paid') {
+      // A payment recorded by hand that's still awaiting the bank (24 Nov 2026): this line is that payment arriving, not a second one
+      const { data: lastHand } = await supabase.from('payment_audit_log').select('new_value').eq('rent_charge_id', charge.id).eq('action', 'manually_paid').order('performed_at', { ascending: false }).limit(1).maybeSingle()
+      const { data: banked } = await supabase.from('payment_audit_log').select('id').eq('rent_charge_id', charge.id).eq('action', 'bank_confirmed').limit(1)
+      const hand = (lastHand as any)?.new_value
+      if (hand?.bank_status === 'awaiting' && !(banked ?? []).length && Math.abs(Number(hand.this_payment) - Number(txn.amount)) < 0.005) {
+        preview.push({ ...txn, ...TENANCY_EXTRA, category: 'awaiting_bank', rent_charge_id: charge.id, charge_month: charge.charge_month, charge_status: charge.status, charge_amount_due: charge.amount_due, charge_amount_received: Number(charge.amount_received || 0) } as any)
+        continue
+      }
       // Charge already paid — possible genuine double payment, flag for human review
       preview.push({ ...txn, ...TENANCY_EXTRA, category: 'possible_dupe', rent_charge_id: charge.id, charge_month: charge.charge_month, charge_status: charge.status, charge_amount_due: charge.amount_due, charge_amount_received: Number(charge.amount_received || 0), tenancy_id: tenancy.tenancy_id, tenant_name: tenancy.tenant_name, room_name: tenancy.room_name, property_name: tenancy.property_name })
       continue

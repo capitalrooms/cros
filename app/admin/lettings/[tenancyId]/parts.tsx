@@ -560,6 +560,7 @@ export function TermsTab({ file, patch }: { file: LettingFile; patch: Patch }) {
       )}
       {file.stage !== 'fell_through' && <JointTenant file={file} patch={patch} />}
       {!edit && file.stage !== 'fell_through' && (file as any).undo?.ok && <WrongRoom file={file} patch={patch} />}
+      {!edit && file.stage === 'live' && <MoveToRoom file={file} />}
     </section>
   )
 }
@@ -601,6 +602,72 @@ function JointTenant({ file, patch }: { file: LettingFile; patch: Patch }) {
       )}
       <p className="text-xs text-neutral-500">Both are named on the tenancy and jointly and severally liable. Both get the tenant app and every message.</p>
       {err && <p className="text-xs text-red-700">{err}</p>}
+    </div>
+  )
+}
+
+// Moved to another room (24 Nov 2026): ends this tenancy the day before, starts one in the new room on the move date.
+// Quiet: one link on a live tenancy; the form only opens when it's wanted. Money rules are on the server route.
+function MoveToRoom({ file }: { file: LettingFile }) {
+  const [open, setOpen] = useState(false)
+  const [rooms, setRooms] = useState<{ id: string; name: string }[]>([])
+  const [roomId, setRoomId] = useState('')
+  const [moveDate, setMoveDate] = useState('')
+  const [rent, setRent] = useState('')
+  const deposit = 'retake' as const   // DPS: refund and take again when a tenant changes room
+  const [reason, setReason] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+  const [done, setDone] = useState<string[] | null>(null)
+  useEffect(() => {
+    if (!open) return
+    const sb = createClient()
+    if (!sb) return
+    sb.from('rooms').select('id, name').eq('property_id', file.property.id).neq('id', file.room.id)
+      .then(({ data }) => setRooms(((data ?? []) as any[]).sort((a, b) => String(a.name).localeCompare(String(b.name), 'en', { numeric: true }))))
+  }, [open, file.property.id, file.room.id])
+  async function submit() {
+    setBusy(true); setErr('')
+    try {
+      const r = await adminFetch(`/api/admin/lettings/${file.tenancy.id}/move-tenancy`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId, moveDate, rentAmount: Number(rent), deposit, reason }) })
+      const d = await r.json().catch(() => ({}))
+      if (!r.ok) { setErr(d.error ?? 'Could not move them'); return }
+      setDone(d.nextSteps ?? [])
+    } catch (e) { setErr(e instanceof Error ? e.message : 'Could not move them') }
+    finally { setBusy(false) }
+  }
+  if (done) return (
+    <div className="space-y-xs rounded-xl border border-neutral-200 bg-white p-md text-sm text-neutral-800">
+      <p className="font-semibold">Moved. The old tenancy ends the day before; the new one starts on {moveDate}.</p>
+      {done.length > 0 && <ul className="list-disc pl-5 text-neutral-600">{done.map(x => <li key={x}>{x}</li>)}</ul>}
+      <button type="button" onClick={() => window.location.reload()} className={btn}>Done</button>
+    </div>
+  )
+  if (!open) return <button type="button" onClick={() => setOpen(true)} className="text-xs text-neutral-500 underline-offset-2 hover:text-neutral-800 hover:underline">Moved to another room?</button>
+  return (
+    <div className="space-y-sm rounded-xl border border-neutral-200 bg-white p-md">
+      <p className="text-sm font-bold text-neutral-900">Move them from {file.room.name}</p>
+      <div className="grid gap-sm sm:grid-cols-2">
+        <label className="space-y-xs"><span className={label}>New room</span>
+          <select className={`${input} w-full`} value={roomId} onChange={e => setRoomId(e.target.value)}>
+            <option value="">Choose the room</option>
+            {rooms.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+          </select></label>
+        <label className="space-y-xs"><span className={label}>Moves on</span>
+          <input type="date" className={`${input} w-full`} value={moveDate} onChange={e => setMoveDate(e.target.value)} /></label>
+        <label className="space-y-xs"><span className={label}>Rent in the new room (£ a month)</span>
+          <input type="number" min="0" step="0.01" className={`${input} w-full`} value={rent} onChange={e => setRent(e.target.value)} /></label>
+      </div>
+      <fieldset className="space-y-xs text-sm text-neutral-800">
+        <legend className={label}>Deposit</legend>
+        <p className="text-neutral-700">Refund the old deposit and take a new one for the new room. DPS requires this when a tenant changes room.</p>
+      </fieldset>
+      <input className={`${input} w-full`} placeholder="Note for the record (optional)" value={reason} onChange={e => setReason(e.target.value)} />
+      {err && <p className="text-sm text-red-700">{err}</p>}
+      <div className="flex gap-sm">
+        <button type="button" onClick={() => { setOpen(false); setErr('') }} disabled={busy} className={btn}>Cancel</button>
+        <button type="button" onClick={submit} disabled={busy || !roomId || !moveDate || !(Number(rent) > 0)} className={btnDark}>{busy ? 'Moving…' : 'Move them'}</button>
+      </div>
     </div>
   )
 }

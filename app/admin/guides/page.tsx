@@ -142,7 +142,7 @@ export default function AdminGuidesPage() {
   useEffect(() => {
     fetch('/api/admin/guides')
       .then(r => r.json())
-      .then(d => setGuides(d.guides || []))
+      .then(d => setGuides([...(d.guides || [])].sort((x: Guide, y: Guide) => String(x.title).localeCompare(String(y.title), 'en', { sensitivity: 'base' }))))
       .finally(() => setLoading(false))
   }, [])
 

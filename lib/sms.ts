@@ -1,3 +1,4 @@
+import { DRY_RUN, DRY_RUN_MESSAGE } from '@/lib/dryRun'
 // Text messages through Twilio. Server only. Returns whether it went — never throws, so a failed text
 // never stops the thing that sent it (the caller records the outcome).
 import twilio from 'twilio'
@@ -29,6 +30,7 @@ export function withNoReply(body: string) {
 }
 
 export async function sendSms(to: string | null | undefined, rawBody: string, opts: { asName?: boolean } = {}): Promise<{ ok: boolean; error?: string }> {
+  if (DRY_RUN) return { ok: false, error: DRY_RUN_MESSAGE }
   const body = withNoReply(rawBody)
   const num = toE164(to)
   if (!num) return { ok: false, error: 'no valid mobile number' }

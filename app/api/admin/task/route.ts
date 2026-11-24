@@ -19,7 +19,9 @@ export async function GET(req: NextRequest) {
   if (!(await requireAdministrator(req))) return NO
   const { data, error } = await createServiceClient().from('task_log').select('id, created_by, text, reply, actions, results, created_at').order('created_at', { ascending: false }).limit(25)
   if (error) return NextResponse.json({ items: [], historyReady: false })
-  return NextResponse.json({ items: data ?? [], historyReady: true })
+  // "didn't work": the planner gave no card (and didn't ask a question) or it failed — the list to build from later
+  const items = (data ?? []).map((x: any) => ({ ...x, unmet: !(Array.isArray(x.actions) && x.actions.length) }))
+  return NextResponse.json({ items, historyReady: true })
 }
 
 export async function POST(req: NextRequest) {
@@ -35,7 +37,10 @@ export async function POST(req: NextRequest) {
     const { data: log } = await s.from('task_log').insert({ created_by: me.email, text: text.slice(0, 2000), reply: plan.message, actions: plan.actions.map(a => ({ kind: a.kind, title: a.title })) }).select('id').maybeSingle()
     return NextResponse.json({ ...plan, logId: (log as any)?.id ?? null })
   } catch (e) {
-    return NextResponse.json({ error: e instanceof Error ? e.message : 'That didn’t work — try again.' }, { status: 500 })
+    // a request that failed is kept too, so it can be built later (24 Nov 2026)
+    const msg = e instanceof Error ? e.message : 'That didn’t work — try again.'
+    await s.from('task_log').insert({ created_by: me.email, text: text.slice(0, 2000), reply: `FAILED: ${msg}`.slice(0, 500), actions: [] }).then(() => null, () => null)
+    return NextResponse.json({ error: msg }, { status: 500 })
   }
 }
 

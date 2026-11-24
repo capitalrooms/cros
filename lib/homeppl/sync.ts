@@ -13,6 +13,7 @@ import { logTenancyEvent } from '@/lib/lettings/incomingTenancy'
 
 const BUCKET = 'property-documents'
 const FINISHED = ['APPROVED', 'UNAPPROVED']
+const RTR_PASSPORT = ['UK_PASSPORT', 'PASSPORT', 'BRITISH_NATIONAL_OVERSEAS_PASSPORT']
 
 // Homeppl's document types → the letting file's (app/admin/lettings/[tenancyId]/parts.tsx DOC_LABEL)
 const ID = ['ID', 'DRIVING_LICENCE', 'UK_DRIVING_LICENCE', 'PASSPORT', 'UK_PASSPORT', 'BRITISH_NATIONAL_OVERSEAS_PASSPORT', 'DIPLOMATIC_PASSPORT', 'TIME_LIMITED_PASSPORT', 'LIVE_PHOTO', 'IDVT_REPORT', 'BIRTH_ADOPTION', 'NATURALIZATION', 'BRITISH_CITIZEN', 'ARMED_FORCES']
@@ -29,7 +30,7 @@ const extOf = (link: string, type: string) => (link.split('?')[0].match(/\.([a-z
 const MIME: Record<string, string> = { pdf: 'application/pdf', png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', heic: 'image/heic', webp: 'image/webp' }
 
 async function tenancyPerson(s: SupabaseClient, tenancyId: string) {
-  const { data: t } = await s.from('tenancies').select('id, property_id, person_id, applicant_id, referencing_sent_at, referencing_passed_at, let_cancelled_at, people:person_id(email, first_name, last_name)').eq('id', tenancyId).maybeSingle() as { data: any }
+  const { data: t } = await s.from('tenancies').select('id, property_id, person_id, applicant_id, referencing_sent_at, referencing_passed_at, right_to_rent_checked_at, let_cancelled_at, people:person_id(email, first_name, last_name)').eq('id', tenancyId).maybeSingle() as { data: any }
   if (!t) throw new Error('Tenancy not found')
   let email = t.people?.email ?? null, last = t.people?.last_name ?? null, first = t.people?.first_name ?? ''
   if ((!email || !last) && t.applicant_id) {
@@ -98,9 +99,12 @@ export async function bringInFromHomeppl(s: SupabaseClient, tenancyId: string, b
     { who: '', applicantUuid: check.applicantUuid, guarantor: false },
     ...(check.guarantor ? [{ who: `Guarantor ${check.guarantor.name}`.trim(), applicantUuid: check.guarantor.applicantUuid, guarantor: true }] : []),
   ]
+  let tenantRtr = false   // the tenant's own Right to Rent documents are at Homeppl (24 Nov 2026)
   for (const src of sources) {
     if (!src.applicantUuid) continue
     for (const d of await documentsFor(src.applicantUuid)) {
+      // a UK passport on its own is Right to Rent evidence, so it counts as well as the Right to Rent documents
+      if (!src.guarantor && (docTypeFor(d.type, false) === 'right_to_rent' || RTR_PASSPORT.includes(d.type))) tenantRtr = true
       if (have.has(d.uuid)) { res.skipped++; continue }
       // raw open-banking data (TrueLayer JSON) — machine-readable, of no use to anyone reading the file
       if (/TRUELAYER|TRANSACTIONS/.test(d.type) || /\.json(\?|$)/i.test(d.link ?? '')) { res.skipped++; continue }
@@ -134,6 +138,9 @@ export async function bringInFromHomeppl(s: SupabaseClient, tenancyId: string, b
   const upd: Record<string, string> = {}
   if (!t.referencing_sent_at) { upd.referencing_sent_at = (check.created || today).slice(0, 10); res.ticked.push('Sent to Homeppl') }
   if (!t.referencing_passed_at && check.status === 'APPROVED' && (!check.guarantor || check.guarantor.status === 'APPROVED')) { upd.referencing_passed_at = today; res.ticked.push('Referencing passed') }
+  // Right to Rent: an approved Homeppl check with the tenant's Right to Rent documents on it is the check done (the office
+  // can still change it on the letting file). Expiry is not in Homeppl's record, so Right to Rent until stays for the office.
+  if (!t.right_to_rent_checked_at && check.status === 'APPROVED' && tenantRtr) { upd.right_to_rent_checked_at = today; res.ticked.push('Right to Rent checked') }
   if (o.ticks === false) { res.ticked = []; for (const k in upd) delete upd[k] }
   if (Object.keys(upd).length) await s.from('tenancies').update(upd).eq('id', tenancyId)
 

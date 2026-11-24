@@ -41,6 +41,8 @@ const TENANCY: ReportLink[] = [
 ]
 
 function Section({ title, items }: { title: string; items: ReportLink[] }) {
+  // lists are always alphabetical (Harry's rule)
+  items = [...items].sort((x, y) => x.label.localeCompare(y.label, 'en', { sensitivity: 'base' }))
   return (
     <div>
       <h2 className="text-xs font-bold uppercase tracking-widest text-neutral-400 mb-md">{title}</h2>

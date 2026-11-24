@@ -1,6 +1,7 @@
 import { Suspense } from 'react'
 import { headers } from 'next/headers'
 import NavTrail from '@/app/components/NavTrail'
+import DryRunBanner from '@/app/components/DryRunBanner'
 import type { Metadata, Viewport } from 'next'
 import { Baloo_2 } from 'next/font/google'
 import './globals.css'
@@ -75,6 +76,7 @@ export default async function RootLayout({
   return (
     <html lang="en" className={baloo2.variable}>
       <body className="flex flex-col min-h-screen">
+        <DryRunBanner />
         <AuthFetchBridge />
         <PushOwner />
         <ReinstallNotice />

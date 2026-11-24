@@ -50,6 +50,11 @@ const tellContractor = (p: any, personId: string, msg: { text: string; title: st
   tellPerson(p, personId, { ...msg, link: `${SITE}${msg.url}` })
 const reached = (r: { via: string[]; error?: string }) => r.via.length ? ` (${r.via.join(', ')})` : ` (couldn’t reach them: ${r.error})`
 
+// The call-out limit (Harry, 24 Nov 2026): the normal limit (£150 by default) applies to anything the tenant has
+// made safe until morning. An emergency that can't be contained until morning may go up to £500 without waiting for the office.
+export const URGENT_CALL_OUT_MAX = 500
+export const limitFor = (em: { status: string }, set: { costLimit: number }) => em.status === 'morning' ? set.costLimit : Math.max(set.costLimit, URGENT_CALL_OUT_MAX)
+
 export interface Settings { auto: boolean; windowMin: number; costLimit: number; overLimit: 'wait' | 'send_after_15'; followupMin: number; tenantUpdates: boolean }
 export async function settings(s: S): Promise<Settings> {
   const { data } = await s.from('system_settings').select('key, value').like('key', 'emergency_%')
@@ -254,7 +259,7 @@ export async function decide(s: S, emId: string, reason = 'Answers closed') {
   if (!em || em.status !== 'collecting') return
   const set = await settings(s)
   const yes = await yesAnswers(s, emId)
-  const within = yes.filter(r => r.call_out_fee == null || Number(r.call_out_fee) <= set.costLimit)
+  const within = yes.filter(r => r.call_out_fee == null || Number(r.call_out_fee) <= limitFor(em, set))
   if (!set.auto) {
     await s.from('emergencies').update({ status: 'awaiting_office', updated_at: new Date().toISOString() }).eq('id', emId).eq('status', 'collecting')
     await log(s, emId, 'waiting', `${reason}: ${yes.length} can attend — automatic choosing is off, waiting for the office`)
@@ -398,7 +403,7 @@ export async function respond(s: S, t: string, a: { answer: 'yes' | 'no'; etaAt?
   // a late "yes" after the office was asked because no one could come: take it straight away if it's within the limit
   if (em.status === 'awaiting_office' && a.answer === 'yes') {
     const set = await settings(s)
-    if (set.auto && !em.office_by && (a.fee == null || a.fee <= set.costLimit)) {
+    if (set.auto && !em.office_by && (a.fee == null || a.fee <= limitFor(em, set))) {
       const { data: anyYes } = await s.from('emergency_responses').select('id').eq('emergency_id', em.id).eq('answer', 'yes').neq('id', r.id).limit(1)
       if (!anyYes?.length) await choose(s, em.id, r.id, 'CROS', 'First to answer after no one else could come')
     } else {
@@ -411,7 +416,7 @@ export async function respond(s: S, t: string, a: { answer: 'yes' | 'no'; etaAt?
   if (em.status === 'collecting' && a.answer === 'yes') {
     const set = await settings(s)
     const soon = new Date(a.etaAt!).getTime() - Date.now() <= GOOD_ETA_MIN * 60000
-    const cheapEnough = a.fee == null || a.fee <= set.costLimit
+    const cheapEnough = a.fee == null || a.fee <= limitFor(em, set)
     const grace = new Date(Date.now() + GRACE_MIN * 60000)
     if (set.auto && soon && cheapEnough && (!em.window_ends_at || new Date(em.window_ends_at) > grace)) {
       await s.from('emergencies').update({ window_ends_at: grace.toISOString() }).eq('id', em.id).eq('status', 'collecting')

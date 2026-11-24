@@ -1,3 +1,4 @@
+import { DRY_RUN, DRY_RUN_MESSAGE } from '@/lib/dryRun'
 /**
  * ╔══════════════════════════════════════════════════════════════════════════╗
  * ║  Capital Rooms — enforced email sender                                   ║
@@ -82,6 +83,7 @@ export async function sendEmail(
   bodyHtml: string,
   opts: SendOptions = {}
 ): Promise<SendResult> {
+  if (DRY_RUN) return { ok: false, error: DRY_RUN_MESSAGE }
   const apiKey = process.env.RESEND_API_KEY
   if (!apiKey) {
     console.error('[sendEmail] RESEND_API_KEY not set')

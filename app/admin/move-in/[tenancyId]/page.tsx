@@ -251,7 +251,7 @@ export default function MoveInPackAdmin({ params }: { params: Promise<{ tenancyI
               <p className="text-xs font-bold uppercase tracking-wide text-neutral-500">Agreement</p>
               <div className="mt-xs flex flex-wrap gap-sm">
                 {([['managed', 'Capital Rooms managed', 'Rent to the Capital Rooms client account · all guides'],
-                   ['let_only', 'Nigel let-only', 'Rent to the landlord’s own account · no Jedi or Checking Out guide · landlord signs']] as const).map(([v, label, sub]) => {
+                   ['let_only', 'Let only (landlord collects rent)', 'Rent to the landlord’s own account · no Jedi or Checking Out guide · landlord signs']] as const).map(([v, label, sub]) => {
                   const on = (c.lettingType === 'let_only' ? 'let_only' : 'managed') === v
                   return (
                     <button key={v} type="button" onClick={() => setAgreement(v)}

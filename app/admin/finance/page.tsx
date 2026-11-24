@@ -79,8 +79,6 @@ function FinanceHomeScreen({ initialMonth }: { initialMonth?: string }) {
             <h1 className={`${display.className} mt-xs text-4xl font-extrabold tracking-tight ${C.ink}`}>Agency accounts</h1>
           </div>
           <div className="flex items-center gap-md">
-            {/* practice mode (migration 209): the demo house, X numbers, never the real books — try the whole cycle safely */}
-            <Pill tone="paper" second href="/admin/rent-roll?practice=1">Practice mode</Pill>
             <More />
             <Link href="/admin/client-money" className={`rounded-[22px] px-lg py-md text-right ${C.olive}`}>
               <span className="block text-xs opacity-80">Client account{d?.client ? (d.client.agrees ? ' · ledgers agree' : ' · ledgers don’t agree') : ''}</span>
@@ -209,7 +207,7 @@ function Tile({ id, open, setOpen, tone, warn, title, big, sub, actions, childre
         {actions.map((a, i) => <Pill key={a.href} href={a.href} tone={tone} second={i > 0}>{a.label}</Pill>)}
         {list.length > 0 && (
           <button type="button" onClick={() => setOpen(isOpen ? null : id)} aria-expanded={isOpen} className="ml-auto text-sm font-semibold">
-            {isOpen ? 'Hide' : `Show ${list.length}`} <span aria-hidden>{isOpen ? '▴' : '▾'}</span>
+            {isOpen ? 'Hide list' : `Show the ${list.length} listed`} <span aria-hidden>{isOpen ? '▴' : '▾'}</span>
           </button>
         )}
       </div>
@@ -251,7 +249,7 @@ function StatementsTile() {
       <div className="mt-auto flex flex-wrap items-center gap-sm pt-md">
         <Pill href="/admin/statements/review" tone="olive">Statements in</Pill>
         <Pill href="/admin/books/vat" tone="olive" second>VAT</Pill>
-        {c.missing.length > 0 && <button type="button" onClick={() => setOpen(!open)} className="ml-auto text-sm font-semibold">{open ? 'Hide' : `Show ${c.missing.length}`} <span aria-hidden>{open ? '▴' : '▾'}</span></button>}
+        {c.missing.length > 0 && <button type="button" onClick={() => setOpen(!open)} className="ml-auto text-sm font-semibold">{open ? 'Hide the list' : `Show the ${c.missing.length} missing`} <span aria-hidden>{open ? '▴' : '▾'}</span></button>}
       </div>
       {open && <ul className="-mx-sm mt-md rounded-2xl bg-[var(--paper,#FFFDF6)] px-md text-[var(--ink,#23261A)]">{c.missing.map(x => <Row key={x.propertyId} href={`/admin/properties/${x.propertyId}`} left={x.property} sub={`Last: ${x.last}`} right="Not in yet" />)}</ul>}
     </div>

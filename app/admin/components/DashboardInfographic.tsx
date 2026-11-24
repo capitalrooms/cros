@@ -268,26 +268,9 @@ export default function DashboardInfographic({ d, name }: { d: DashboardData; na
 
         </div>
 
-        <Tile title="Certificates · every house, every type" href="/admin/compliance?tab=certificates" wide
-          note={<span className="flex flex-wrap gap-x-md gap-y-1">{([['valid', 'Valid'], ['due', 'Due in 30 days'], ['expired', 'Expired'], ['missing', 'Not on file'], ['applied', 'Licence applied for']] as const).map(([k, l]) => <span key={k} className="inline-flex items-center gap-1"><i className="inline-block h-3 w-3 rounded-[3px]" style={{ background: CELL[k].bg }} />{l}</span>)}</span>}
+        <Tile title="Certificates" href="/admin/compliance?tab=certificates"
           foot={<><b>{d.certs.valid} valid</b> · {d.certs.expired || d.certs.due ? <Warn>{d.certs.expired} expired · {d.certs.due} due</Warn> : 'none expired'} · {d.certs.missing} not on file.</>}>
-          <div className="overflow-x-auto px-sm pb-sm pt-xs">
-            <table className="w-full border-separate text-[11.5px]" style={{ borderSpacing: 3 }}>
-              <thead><tr><th />{d.certs.types.map(t => <th key={t} className="whitespace-nowrap px-0.5 text-center text-[10.5px] font-semibold text-neutral-500">{t}</th>)}</tr></thead>
-              <tbody>
-                {d.certs.rows.map(row => (
-                  <tr key={row.id}>
-                    <td className="whitespace-nowrap pr-sm font-semibold"><Link href={`/admin/properties/${row.id}`} className="hover:underline">{row.name}</Link></td>
-                    {row.cells.map((c, i) => <td key={i}><i className="block h-[18px] min-w-[52px] rounded text-center text-[10px] font-bold not-italic leading-[18px]" style={{ background: CELL[c].bg, color: CELL[c].fg }}>{CELL[c].text}</i></td>)}
-                  </tr>
-                ))}
-                <tr><td className="pt-1 text-[11px] font-semibold text-neutral-500">Valid</td>{d.certs.types.map((t, i) => {
-                  const col = d.certs.rows.map(r => r.cells[i]); const applies = col.filter(c => c !== 'na').length
-                  return <td key={t} className="pt-1 text-center text-[11px] font-semibold text-neutral-500">{col.filter(c => c === 'valid').length}/{applies}</td>
-                })}</tr>
-              </tbody>
-            </table>
-          </div>
+          <p className="px-md pb-md pt-xs text-[12.5px] text-neutral-600">House by house on the compliance screen.</p>
         </Tile>
 
       </main>

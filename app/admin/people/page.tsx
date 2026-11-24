@@ -567,7 +567,8 @@ export default function PeopleManagement({ searchParams }: { searchParams: PageS
           Pill({ k: f, on: pr[f], busy: nBusy === p.id + f, onClick: () => setPref(p.id, f), label: f === 'push' ? 'App' : f === 'email' ? 'Email' : 'Text',
             title: `${f === 'push' ? 'App notifications' : f === 'email' ? 'Emails' : 'Text messages'} — tap to turn ${pr[f] ? 'off' : 'on'}` })
         ))}
-        {pr && <span className={`rounded-full px-sm py-0.5 text-[11px] font-semibold ${pr.onApp ? 'bg-emerald-50 text-emerald-800' : 'bg-neutral-100 text-neutral-500'}`} title={pr.onApp ? 'Their phone shows app notifications' : 'They haven’t tapped “Allow” on a phone yet'}>{pr.onApp ? 'Phone set up' : 'Phone not set up'}</span>}
+        {/* only the positive chip: the grey “not set up” repeated what the App switch already says (24 Nov 2026) */}
+        {pr && pr.onApp && <span className={`rounded-full px-sm py-0.5 text-[11px] font-semibold ${pr.onApp ? 'bg-emerald-50 text-emerald-800' : 'bg-neutral-100 text-neutral-500'}`} title={pr.onApp ? 'Their phone shows app notifications' : 'They haven’t tapped “Allow” on a phone yet'}>{pr.onApp ? 'Phone set up' : 'Phone not set up'}</span>}
         {see && <Link href={see} className="relative z-10 rounded-full border border-neutral-300 bg-white px-sm py-0.5 text-[11px] font-semibold text-neutral-800 hover:border-neutral-900">See their app →</Link>}
       </span>
     )

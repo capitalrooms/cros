@@ -103,7 +103,7 @@ export const agreementChoice = (v: unknown): AgreementChoice | null => (v === 'm
 // the agreement, whose bank account is printed, and which guides go in — the house's setting is only the default.
 export async function loadPackContext(s: SupabaseClient, tenancyId: string, opts: { agreement?: AgreementChoice | null } = {}): Promise<PackContext | null> {
   const { data: t } = await s.from('tenancies')
-    .select('id, start_date, rent_amount, rent_due_day, deposit_amount, holding_deposit_received, payment_reference, person_id, room_id, property_id, people!person_id(id, salutation, first_name, middle_name, last_name, full_name, email), co:people!co_tenant_id(id, salutation, first_name, middle_name, last_name, full_name, email), rooms(id, name)')
+    .select('id, start_date, rent_amount, rent_due_day, deposit_amount, deposit_received_on, holding_deposit_received, payment_reference, person_id, room_id, property_id, people!person_id(id, salutation, first_name, middle_name, last_name, full_name, email), co:people!co_tenant_id(id, salutation, first_name, middle_name, last_name, full_name, email), rooms(id, name)')
     .eq('id', tenancyId).maybeSingle()
   if (!t) return null
   // certificates on file whose dates aren't on the house yet are read first (lib/compliance/certFromDocument)
@@ -129,6 +129,9 @@ export async function loadPackContext(s: SupabaseClient, tenancyId: string, opts
   const rentMonthly = Number(t.rent_amount || 0)
   const rentDueDay = Number(t.rent_due_day || 1)
   const deposit = Number(t.deposit_amount || 0)
+  // the DPS form is served once the deposit has been received (24 Nov 2026): before then it's not in the pack, and it's
+  // sent from the Deposits screen when the money is in
+  const depositReceived = !!t.deposit_received_on
   // the holding deposit: the register first, the typed figure only for lets from before it (lib/lettings/holdingFor) —
   // 5 Nov 2026: final funds allocated wrongly elsewhere because the holding deposit wasn't on the system yet
   const holding = await holdingFor(s, { tenancyId })
@@ -166,7 +169,7 @@ export async function loadPackContext(s: SupabaseClient, tenancyId: string, opts
     { key: 'check_in', label: 'Check-in balance', group: 'Your tenancy', source: 'generated', available: true, include: true },
     // the deposit's prescribed information on the DPS's own form, filled in — every let taking a deposit (let-only too,
     // signed by the landlord: Harry, 30 Oct 2026)
-    ...(deposit > 0
+    ...(deposit > 0 && depositReceived
       ? [{ key: 'prescribed_info', label: 'Deposit prescribed information (DPS form) — to sign', group: 'Your deposit' as DocGroup, source: 'generated' as const, available: true, include: true }] : []),
     ...certDocs,
     // let-only (Nigel) tenants don't get the housemate and checking-out guides (Harry, 15 Oct 2026)

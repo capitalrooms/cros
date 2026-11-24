@@ -1,3 +1,4 @@
+import { guardWrites } from '@/lib/dryRun'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
@@ -12,14 +13,14 @@ let supabaseInstance: ReturnType<typeof createSupabaseClient> | null = null
 
 export function createClient() {
   if (!supabaseInstance) {
-    supabaseInstance = createSupabaseClient(supabaseUrl, supabaseAnonKey, {
+    supabaseInstance = guardWrites(createSupabaseClient(supabaseUrl, supabaseAnonKey, {
       auth: {
         persistSession: true,      // store session in localStorage so PWA survives restarts
         autoRefreshToken: true,    // silently refresh access tokens before they expire
         detectSessionInUrl: true,  // pick up magic-link / OAuth callbacks
         storageKey: 'cros-auth',   // stable key so reinstalling the PWA keeps the session
       },
-    })
+    }))
   }
   return supabaseInstance
 }
@@ -74,9 +75,9 @@ export function createServiceClient() {
   if (!serviceKey) {
     throw new Error('SUPABASE_SERVICE_ROLE_KEY is not set')
   }
-  return createSupabaseClient(supabaseUrl, serviceKey, {
+  return guardWrites(createSupabaseClient(supabaseUrl, serviceKey, {
     auth: { persistSession: false, autoRefreshToken: false },
-  })
+  }))
 }
 
 export type UserRole = 'administrator' | 'tenant' | 'contractor' | 'cleaner' | 'landlord' | 'lettings'

@@ -30,6 +30,7 @@ const KIND_LABEL: Record<string, string> = { rent: 'Rent received', fee: 'Agency
 const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 function quickRange(k: string): [string, string] {
   const n = new Date(), y = n.getFullYear(), m = n.getMonth()
+  if (k === 'since-start') return [RECORDS_FROM, iso(n)]
   if (k === 'this-month') return [iso(new Date(y, m, 1)), iso(new Date(y, m + 1, 0))]
   if (k === 'last-month') return [iso(new Date(y, m - 1, 1)), iso(new Date(y, m, 0))]
   const q = Math.floor(m / 3) * 3
@@ -38,16 +39,20 @@ function quickRange(k: string): [string, string] {
   if (k === 'last-12') return [iso(new Date(y, m - 11, 1)), iso(new Date(y, m + 1, 0))]
   return [iso(new Date(y, 0, 1)), iso(new Date(y, 11, 31))]   // this calendar year
 }
-const QUICK: [string, string][] = [['this-month', 'This month'], ['last-month', 'Last month'], ['this-quarter', 'This quarter'], ['last-quarter', 'Last quarter'], ['last-12', 'Last 12 months'], ['this-year', 'This calendar year']]
+// First day the books are kept from (system_settings records_start, lib/finance/dates). Statements before this are not expected.
+const RECORDS_FROM = '2026-04-01'
+const todayIso = () => iso(new Date())
+const QUICK: [string, string][] = [['since-start', 'Since 1 April 2026'],['this-month', 'This month'], ['last-month', 'Last month'], ['this-quarter', 'This quarter'], ['last-quarter', 'Last quarter'], ['last-12', 'Last 12 months'], ['this-year', 'This calendar year']]
 
 export default function BooksPage({ searchParams }: { searchParams: PageSearchParams }) {
   const sp = use(searchParams)
   const [view, setViewRaw] = useState<View>((VIEWS.some(v => v[0] === one(sp.view)) ? one(sp.view) : 'all') as View)
   const [year, setYear] = useState<number>(Number(one(sp.year)) || thisTaxYear())
   // dates: a tax year, or any from–to (quick picks fill them in)
-  const [mode, setMode] = useState<'year' | 'dates'>(one(sp.from) ? 'dates' : 'year')
-  const [from, setFrom] = useState(one(sp.from) || quickRange('this-month')[0])
-  const [to, setTo] = useState(one(sp.to) || quickRange('this-month')[1])
+  // Default: everything since the records start (1 Apr 2026), all properties — the whole picture first, then narrow down
+  const [mode, setMode] = useState<'year' | 'dates'>(one(sp.from) || !one(sp.year) ? 'dates' : 'year')
+  const [from, setFrom] = useState(one(sp.from) || RECORDS_FROM)
+  const [to, setTo] = useState(one(sp.to) || todayIso())
   const [category, setCategory] = useState('')
   const setView = (v: View) => { setViewRaw(v); setCategory('') }
   const [landlordId, setLandlordId] = useState('')
@@ -208,7 +213,7 @@ export default function BooksPage({ searchParams }: { searchParams: PageSearchPa
                     <tr key={i} className="border-t border-neutral-100 align-top">
                       <td className="whitespace-nowrap px-md py-sm tabular-nums text-neutral-700">{view === 'payout' || view === 'deposit' || view === 'all' ? day(r.date) : monthName(r.month) || day(r.date)}</td>
                       <td className="px-md py-sm"><span className="block font-semibold">{r.property}</span><span className="text-xs text-neutral-500">{r.landlord}</span></td>
-                      <td className="px-md py-sm"><span className="block">{r.description}</span><span className="text-xs text-neutral-500">{[view === 'all' ? KIND_LABEL[r.kind] : null, r.category, r.source === 'per statement' ? 'statement total' : null].filter(Boolean).join(' · ')}</span>{r.note && <span className="block text-xs font-semibold text-amber-800">{r.note}</span>}</td>
+                      <td className="px-md py-sm"><span className="block">{r.description}</span><span className="text-xs text-neutral-500">{[view === 'all' ? KIND_LABEL[r.kind] : null, r.category, r.source === 'CROS expense' || r.source === 'let-only monies' || r.source === 'tenancy' || r.source === 'holding deposit' ? 'recorded in CROS' : 'per statement', r.source === 'per statement' ? 'statement total' : null].filter(Boolean).join(' · ')}</span>{r.note && <span className="block text-xs font-semibold text-amber-800">{r.note}</span>}</td>
                       {view === 'fee' && data.vat && <><td className="px-md py-sm text-right tabular-nums">{gbp(r.net ?? r.amount)}</td><td className="px-md py-sm text-right tabular-nums">{gbp(r.vat ?? 0)}</td></>}
                       <td className="whitespace-nowrap px-md py-sm text-right font-semibold tabular-nums">{gbp(r.amount)}</td>
                       <td className="whitespace-nowrap px-md py-sm text-xs text-neutral-600">{r.reference ?? '—'}</td>

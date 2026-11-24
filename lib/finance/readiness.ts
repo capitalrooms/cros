@@ -1,7 +1,7 @@
 // Readiness for the month, from the rent roll (lib/finance/rentRoll). One green list of the houses that are ready to
 // process (every unit's rent is in, nothing blocking), and beneath it, for every house not yet ready, exactly what is
 // still missing — house by house and unit by unit. Pure: no database. Tested by lib/finance/readiness.test.ts.
-import type { RentRoll, RollProperty, RollRoom } from '@/lib/finance/rentRoll'
+import type { RentRoll, RollProperty, RollRoom } from './rentRoll'
 
 export type Blocker = { kind: 'no_charge' | 'unpaid' | 'part_paid' | 'over_paid'; room: string; tenant: string; amount: number; text: string }
 export interface HouseReadiness {

@@ -637,15 +637,12 @@ export default function AdminStatementsPage() {
                         return (
                           <td key={m} className="px-sm py-xs text-right tabular-nums whitespace-nowrap">
                             {found.length ? found.map((st) => (
-                              <button key={st.id} type="button" title={st.statement_reference}
+                              <button key={st.id} type="button" title={`${st.statement_reference} · Rent ${gbp0(st.gross_rent)} · Fees ${gbp0(Number(st.management_fees || 0) + Number(st.letting_fees || 0))}${Number(st.property_charges || 0) ? ` · Expenses ${gbp0(st.property_charges)}` : ''} — click for the statement`}
                                 onClick={() => { setExpandedStatementId(st.id); setTimeout(() => document.getElementById(`st-${st.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50) }}
                                 className="block w-full py-0.5 text-right hover:underline">
                                 {/* what the landlord was paid, then where the rent went (17 Oct 2026: "it doesn't show fees … what
                                     landlords were paid … what expenses were charged") */}
                                 <span className="block font-semibold text-green-800">Paid {gbp0(st.net_to_landlord)}</span>
-                                <span className="block text-[10px] font-normal text-neutral-500">
-                                  Rent {gbp0(st.gross_rent)} · Fees {gbp0(Number(st.management_fees || 0) + Number(st.letting_fees || 0))}{Number(st.property_charges || 0) ? ` · Exp ${gbp0(st.property_charges)}` : ''}
-                                </span>
                               </button>
                             )) : coverage.covered(h.id, m)
                               ? <span className="text-[10px] text-neutral-500" title="This statement covers more than one month">in {coverage.spanning(h.id, m)?.statement_reference?.split(' ')[0] ?? 'another statement'}</span>

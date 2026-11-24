@@ -100,6 +100,16 @@ export async function createIncomingTenancy(sb: SupabaseClient, applicantId: str
       .limit(1).maybeSingle()
     if (existingTenancy) tenancyId = existingTenancy.id
     else {
+      // one tenancy at a time: a tenant moving rooms ends the old tenancy first (from the old tenancy's screen), so rent is
+      // never charged twice for the same person (24 Nov 2026 audit)
+      const startOn = body.start_date || applicant.preferred_start_date || today
+      const { data: other } = await sb.from('tenancies').select('id, rooms(name)')
+        .eq('person_id', personId).is('let_cancelled_at', null).neq('room_id', roomId)
+        .or(`end_date.is.null,end_date.gte.${startOn}`).limit(1).maybeSingle()
+      if (other) {
+        const old = (other as any).rooms?.name ?? 'another room'
+        return { error: `This person still has a tenancy on ${old} that runs on or after ${startOn}. End that tenancy first (give its end date), then set up this one.`, status: 409 }
+      }
       const { data: room } = await sb.from('rooms').select('name, is_let_only').eq('id', roomId).maybeSingle()
       const { data: prop } = await sb.from('properties').select('name, letting_type, landlord_id').eq('id', propertyId).maybeSingle()
       // who holds this landlord's deposits, when set (migration 265 — before it runs the column simply isn't there)

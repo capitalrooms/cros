@@ -903,6 +903,10 @@ export default function ApplicantsPage() {
                             <button type="button" onClick={() => setLandlordFor(landlordFor === applicant.id ? null : applicant.id)}
                               className="rounded-lg border border-neutral-300 px-md py-xs text-xs font-semibold hover:bg-neutral-50">Landlord updates…</button>
                           )}
+                          {/* the let fell through: the same box as on the letting file (holding deposit kept or refunded there) */}
+                          {lettingFiles[applicant.id] && (
+                            <Link href={`/admin/lettings/${lettingFiles[applicant.id]}?tab=notice&from=/admin/applicants`} className="rounded-lg border border-red-300 px-md py-xs text-xs font-semibold text-red-700 hover:bg-red-50">Let fell through…</Link>
+                          )}
                           {applicant.converted_person_id && !lettingFiles[applicant.id] && (
                             <Link href={`/admin/tenant/${applicant.converted_person_id}`} className="rounded-lg border border-neutral-300 px-md py-xs text-xs font-semibold hover:bg-neutral-50">Tenant profile →</Link>
                           )}
@@ -919,20 +923,25 @@ export default function ApplicantsPage() {
                               <span className="text-neutral-400">(no email)</span>
                             </label>
                           )}
-                          {archiveFor === applicant.id ? (
-                            <span className="flex flex-wrap items-center gap-xs rounded-lg bg-neutral-100 px-sm py-xs text-xs">
-                              <span className="font-semibold text-neutral-700">Archive: why?</span>
-                              <select value={['Not interested', 'Withdrew', 'Duplicate', 'Test'].includes(archiveReason) ? archiveReason : 'Other'} onChange={e => setArchiveReason(e.target.value === 'Other' ? '' : e.target.value)} className="rounded border border-neutral-300 bg-white px-xs py-0.5 text-xs">
-                                {['Not interested', 'Withdrew', 'Duplicate', 'Test', 'Other'].map(x => <option key={x}>{x}</option>)}
-                              </select>
-                              {!['Not interested', 'Withdrew', 'Duplicate', 'Test'].includes(archiveReason) && (
-                                <input autoFocus value={archiveReason} onChange={e => setArchiveReason(e.target.value)} placeholder="Reason" className="w-36 rounded border border-neutral-300 bg-white px-xs py-0.5 text-xs" />
-                              )}
-                              <button type="button" disabled={!archiveReason.trim()} onClick={() => setArchived(applicant, true, archiveReason)} className="rounded bg-neutral-900 px-sm py-0.5 font-bold text-white disabled:opacity-40">Archive</button>
-                              <button type="button" onClick={() => setArchiveFor(null)} className="font-semibold text-neutral-500 underline">Cancel</button>
-                            </span>
-                          ) : !applicant.archived_at && (
-                            <button type="button" onClick={() => { setArchiveFor(applicant.id); setArchiveReason('Not interested') }} className="text-xs font-semibold text-neutral-500 underline hover:text-neutral-800">Archive</button>
+                          {/* archive: its own panel under the row, reasons as taps (no dropdown to lose off-screen) */}
+                          {!applicant.archived_at && archiveFor !== applicant.id && (
+                            <button type="button" onClick={() => { setArchiveFor(applicant.id); setArchiveReason('') }} className="rounded-lg border border-neutral-300 px-md py-xs text-xs font-semibold hover:bg-neutral-50">Archive…</button>
+                          )}
+                          {archiveFor === applicant.id && (
+                            <div className="flex w-full flex-col gap-sm rounded-xl bg-neutral-100 p-md">
+                              <p className="text-sm font-bold text-neutral-900">Archive {applicant.full_name || 'this applicant'}?</p>
+                              <p className="text-xs text-neutral-600">They leave the active list and their record is kept. Nothing is sent to them.</p>
+                              <div className="flex flex-wrap items-center gap-xs">
+                                {['Not interested', 'Withdrew', 'Duplicate', 'Test'].map(x => (
+                                  <button key={x} type="button" onClick={() => setArchiveReason(x)} className={`rounded-full border px-md py-xs text-xs font-semibold ${archiveReason === x ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-300 bg-white text-neutral-800'}`}>{x}</button>
+                                ))}
+                                <input value={archiveReason} onChange={e => setArchiveReason(e.target.value)} placeholder="Or type a reason" className="min-w-[14rem] flex-1 rounded-lg border border-neutral-300 bg-white px-sm py-xs text-sm" />
+                              </div>
+                              <div className="flex gap-sm">
+                                <button type="button" disabled={!archiveReason.trim()} onClick={() => setArchived(applicant, true, archiveReason)} className="rounded-lg bg-neutral-900 px-md py-xs text-sm font-bold text-white disabled:opacity-40">Archive applicant</button>
+                                <button type="button" onClick={() => setArchiveFor(null)} className="rounded-lg border border-neutral-300 px-md py-xs text-sm font-semibold text-neutral-800 hover:bg-neutral-50">Cancel</button>
+                              </div>
+                            </div>
                           )}
                           {!isConverted && archiveFor !== applicant.id && (
                             <button type="button" onClick={() => deleteApplicant(applicant)} title="Set up by mistake? Remove them from CROS completely" className="text-xs font-semibold text-red-700 underline hover:text-red-900">Delete</button>
