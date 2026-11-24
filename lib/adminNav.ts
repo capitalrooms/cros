@@ -166,6 +166,7 @@ const ZONES_AS_WRITTEN: Zone[] = [
       { emoji: '📊', label: 'Reports',          href: '/admin/reports' },
     ] : [
       { emoji: '🏠', label: 'Finance Home',     href: '/admin/finance' },
+      { emoji: '📋', label: 'Rent Roll',        href: '/admin/rent-roll' },   // step 1 of the monthly cycle, in statements-only mode too (24 Nov 2026: search missed it)
       { emoji: '📥', label: 'Statements In',    href: '/admin/statements/review' },   // what arrived at statements@ — check against the PDF
       { emoji: '🧾', label: 'Statements',       href: '/admin/statements' },          // the record, by landlord and month
       { emoji: '💷', label: 'Expenses',         href: '/admin/expense-log' },
