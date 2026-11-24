@@ -31,7 +31,7 @@ interface Data {
 
 const gbp = (n: number) => '£' + n.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const when = (iso: string) => new Date(iso).toLocaleString('en-GB', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })
-const GROUPS = ['Your tenancy', 'Safety certificates', 'Your deposit', 'Your rights', 'Living in the house']
+const GROUPS = ['Your tenancy', 'Safety certificates', 'Your deposit', 'Your rights', 'Living in the house', 'Property documents']
 const input = 'mt-xs w-full rounded-lg border border-neutral-300 bg-white px-md py-sm text-sm text-neutral-900'
 
 export default function MoveInPackAdmin({ params }: { params: Promise<{ tenancyId: string }> }) {
@@ -79,6 +79,7 @@ export default function MoveInPackAdmin({ params }: { params: Promise<{ tenancyI
   }, [load])
   // a missing certificate can be uploaded from right here
   const [uploadFor, setUploadFor] = useState<{ key: string; label: string } | null>(null)
+  const [docSearch, setDocSearch] = useState('')
 
   // Live figures from the form (same maths as the documents)
   const live = useMemo(() => {
@@ -300,11 +301,16 @@ export default function MoveInPackAdmin({ params }: { params: Promise<{ tenancyI
             <h2 className="font-bold text-neutral-900">Documents</h2>
             <div className="mt-sm space-y-md">
               {GROUPS.map(g => {
-                const list = c.documents.filter(d => d.group === g)
-                if (!list.length) return null
+                const q = docSearch.trim().toLowerCase()
+                const list = c.documents.filter(d => d.group === g && (g !== 'Property documents' || !q || `${d.label} ${d.note ?? ''}`.toLowerCase().includes(q)))
+                if (!list.length && g !== 'Property documents') return null
                 return (
                   <div key={g}>
                     <p className="text-xs font-bold uppercase tracking-wide text-neutral-500">{g}</p>
+                    {g === 'Property documents' && (
+                      <input value={docSearch} onChange={e => setDocSearch(e.target.value)} placeholder="Search the house’s documents to add to this pack…" className="mt-xs w-full rounded-xl border border-neutral-300 px-md py-sm text-sm" />
+                    )}
+                    {g === 'Property documents' && !list.length && <p className="mt-xs text-xs text-neutral-500">{c.documents.some(d => d.group === g) ? 'No documents match.' : 'No other documents on this house.'}</p>}
                     <ul className="mt-xs space-y-xs">
                       {list.map(d => (
                         <li key={d.key} className="flex items-start gap-sm text-sm">

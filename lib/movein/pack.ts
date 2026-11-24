@@ -24,7 +24,7 @@ export const CLIENT_ACCOUNT = {
   iban: 'GB19 BUKB 2018 9340 1625 74', swift: 'BUKBGB22',
 }
 
-export type DocGroup = 'Your tenancy' | 'Safety certificates' | 'Your deposit' | 'Your rights' | 'Living in the house'
+export type DocGroup = 'Your tenancy' | 'Safety certificates' | 'Your deposit' | 'Your rights' | 'Living in the house' | 'Property documents'
 export interface PackDoc {
   key: string
   label: string
@@ -175,6 +175,20 @@ export async function loadPackContext(s: SupabaseClient, tenancyId: string, opts
     // let-only (Nigel) tenants don't get the housemate and checking-out guides (Harry, 15 Oct 2026)
     ...STATIC.map(d => ({ ...d, source: 'static' as const, available: true, include: d.include && !(lettingType === 'let_only' && (d.key === 'jedi' || d.key === 'checking_out')) && !(isWholeLet((prop as any)?.property_type, room.name) && d.key === 'jedi') })),   // no housemates in a whole home
   ]
+
+  // Other files on the house (fire plans, insurance, floor plans…) the office can search and add to this pack (Harry, 24 Nov 2026).
+  // Tenant identity and referencing files never appear here, and certificates are already above.
+  const CERT_TYPES = new Set(CERTS.flatMap(c => c.types))
+  const PRIVATE_TYPES = new Set(['id_proof', 'reference_report', 'referencing_evidence', 'guarantor_document', 'right_to_rent', 'tenancy_agreement'])
+  const usedUrls = new Set(documents.map(d => (d as any).url).filter(Boolean))
+  const seenUrls = new Set<string>()
+  const hashKey = (u: string) => { let h = 5381; for (const ch of u) h = ((h * 33) ^ ch.charCodeAt(0)) >>> 0; return `prop_${h.toString(36)}` }
+  for (const d of (docs ?? []) as any[]) {
+    if (!d.storage_url || CERT_TYPES.has(d.document_type) || PRIVATE_TYPES.has(d.document_type)) continue
+    if (usedUrls.has(d.storage_url) || seenUrls.has(d.storage_url)) continue
+    seenUrls.add(d.storage_url)
+    documents.push({ key: hashKey(d.storage_url), label: String(d.file_name || d.document_type).replace(/\.[a-z0-9]+$/i, ''), group: 'Property documents', source: 'property', url: d.storage_url, available: true, include: false, note: `${String(d.document_type).replace(/_/g, ' ')} · ${String(d.uploaded_at ?? '').slice(0, 10)}` } as PackDoc)
+  }
 
   // formalName = title, first, middle and surname — it goes on the agreement
   return {
