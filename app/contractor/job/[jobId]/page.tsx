@@ -16,6 +16,7 @@ import JobCompletion from '@/app/components/JobCompletion'
 import StaffQuickNotifyModal from '@/app/components/StaffQuickNotifyModal'
 import Link from 'next/link'
 import { inTenantRoom, jobWhere, jobPlace } from '@/lib/repairs/where'
+import PlannedDailyUpdate from './PlannedDailyUpdate'
 // the office's note for the contractor — without the office's own chase stamps ("[02/10/2026] Update requested from …
 // by harry@… (app)"), which are records for the office, not messages (21 Oct 2026)
 const officeNote = (n?: string | null) => String(n ?? '').split('\n').filter(l => !/^\[\d{1,2}\/\d{1,2}\/\d{4}\] Update requested from /.test(l.trim())).join('\n').trim()
@@ -692,6 +693,9 @@ export default function JobDetailPage() {
             </div>
           </div>
         </div>
+
+        {/* Planned works: daily update on a multi-day project (24 Nov 2026) */}
+        {job && <PlannedDailyUpdate ticketId={(job as any).id} />}
 
         {/* Admin "before you go" note */}
         {/* reopened by the tenant (migration 236): why, and what they said */}

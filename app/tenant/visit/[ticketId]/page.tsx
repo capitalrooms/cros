@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { inTenantRoom } from '@/lib/repairs/where'
 import { adminFetch } from '@/lib/adminFetch'
+import PlannedWorksTenant from './PlannedWorksTenant'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import AppBar from '@/components/AppBar'
@@ -479,6 +480,9 @@ export default function VisitDetailPage() {
             </>)}
           </section>
         )}
+
+        {/* ── Planned works: the project and its updates (24 Nov 2026) ── */}
+        {ticket && <PlannedWorksTenant ticketId={ticket.id} />}
 
         {/* ── Ask for an update on an open job (24 Nov 2026) ───────────── */}
         {ticket.status !== 'completed' && ticket.status !== 'cancelled' && (
