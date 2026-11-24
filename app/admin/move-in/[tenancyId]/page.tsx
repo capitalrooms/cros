@@ -18,6 +18,7 @@ interface Pack {
   confirmed_at: string | null; confirmed_name: string | null; tenant_questions: string | null
   documents: { key: string; label: string; available: boolean }[]
   tenancy_pack_events: { event: string; document_key: string | null; at: string }[]
+  missingCerts?: { key: string; label: string }[]
 }
 interface Data {
   context: {
@@ -369,6 +370,11 @@ export default function MoveInPackAdmin({ params }: { params: Promise<{ tenancyI
                         {p.status === 'confirmed' ? 'Ready to sign' : p.status}
                       </span>
                     </div>
+                    {(p.missingCerts?.length ?? 0) > 0 && p.status !== 'withdrawn' && p.missingCerts && (
+                      <p className="mt-xs rounded-lg bg-amber-50 px-sm py-xs text-xs font-semibold text-amber-900">
+                        Sent without {p.missingCerts.map((c: { label: string }) => c.label.toLowerCase()).join(', ')}, which {p.missingCerts.length === 1 ? 'is' : 'are'} now on the property. Send the pack again to include {p.missingCerts.length === 1 ? 'it' : 'them'}.
+                      </p>
+                    )}
                     <p className="text-xs text-neutral-500">
                       {p.first_viewed_at ? `First opened ${when(p.first_viewed_at)}` : 'Not opened yet'} · {opened.size} of {avail.length} documents opened
                       {p.confirmed_at ? ` · confirmed by “${p.confirmed_name}” ${when(p.confirmed_at)}` : ''}
