@@ -7,6 +7,7 @@ import { TIERS, STEPS, GOOGLE_RATING, LANDLORD_FEATURES } from '@/lib/website/si
 import { Photo, Tick, Reviews, Badges } from './parts'
 import { LandlordPhone, TenantPhone } from './Showcase'
 import HomesStrip from './HomesStrip'
+import AudienceSwitch from './AudienceSwitch'
 
 const TENANT_FEATURES: [string, string][] = [
   ['Move in from your phone', 'Apply, reference, sign and pay online. No printing, no office visits.'],
@@ -53,6 +54,8 @@ export default async function Home() {
         <Badges />
       </div></section>
 
+      <AudienceSwitch
+        landlord={<>
       {/* landlords: the portal */}
       <section className="block"><div className="wrap show">
         <div>
@@ -65,20 +68,6 @@ export default async function Home() {
           <p className="rise" style={{ marginTop: 22, display: 'flex', flexWrap: 'wrap', gap: 10 }}><Link className="btn" href={`${b}/landlords`}>Landlord services</Link><Link className="line" href={`${b}/instant_valuation`}>Free valuation</Link></p>
         </div>
         <div className="show-phone"><LandlordPhone /></div>
-      </div></section>
-
-      {/* tenants: the app */}
-      <section className="block dark-block"><div className="wrap show rev">
-        <div className="show-phone"><TenantPhone /></div>
-        <div>
-          <p className="eyebrow rise" style={{ color: 'var(--lime)' }}>For tenants</p>
-          <h2 className="h2 rise" style={{ margin: '8px 0 14px' }}>A home that<br />just works.</h2>
-          <p className="lead rise" style={{ marginBottom: 24, color: '#C9D6CC' }}>Well-kept homes and rooms across London, with an app that keeps everything simple, from the day you apply to the day you move on.</p>
-          <ol className="feats light">
-            {TENANT_FEATURES.map(([t, d], i) => <li key={t} className="rise"><span className="n">{String(i + 1).padStart(2, '0')}</span><span><strong>{t}</strong><span>{d}</span></span></li>)}
-          </ol>
-          <p className="rise" style={{ marginTop: 22, display: 'flex', flexWrap: 'wrap', gap: 10 }}><Link className="gold" href={`${b}/residential-lettings`}>Homes to rent</Link><Link className="ghost" href={`${b}/tenants`}>Renting with us</Link></p>
-        </div>
       </div></section>
 
       {/* fees */}
@@ -106,34 +95,6 @@ export default async function Home() {
         </ol>
       </div></section>
 
-      {/* where we work */}
-      <section className="block"><div className="wrap">
-        <p className="eyebrow rise">Where we work</p>
-        <h2 className="h2 rise" style={{ margin: '8px 0 24px' }}>East, south-east and across London.</h2>
-      </div>
-        <div className="marquee" aria-label={`Areas we cover: ${AREAS.join(', ')}`}>
-          <div className="marquee-track" aria-hidden="true">{[...AREAS, ...AREAS].map((a, i) => <span key={i}>{a}</span>)}</div>
-        </div>
-      </section>
-
-      {/* homes */}
-      <section className="block"><div className="wrap">
-        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'end', gap: 16, marginBottom: 28 }}>
-          <div><p className="eyebrow rise">To rent now</p><h2 className="h2 rise" style={{ marginTop: 8 }}>Free right now.</h2></div>
-          <Link className="line" href={`${b}/residential-lettings`}>All homes to rent</Link>
-        </div>
-        <HomesStrip />
-      </div></section>
-
-      {/* reviews */}
-      <section className="block"><div className="wrap">
-        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'end', gap: 16, marginBottom: 32 }}>
-          <h2 className="h2 rise">What people say</h2>
-          <Link className="line" href={`${b}/testimonial`}>All reviews</Link>
-        </div>
-        <Reviews limit={3} />
-      </div></section>
-
       {/* close */}
       <section className="block" style={{ padding: '110px 16px 0' }}>
         <div className="band closer">
@@ -146,6 +107,53 @@ export default async function Home() {
           </div>
         </div>
       </section>
+        </>}
+        tenant={<>
+      {/* tenants: the app */}
+      <section className="block dark-block"><div className="wrap show rev">
+        <div className="show-phone"><TenantPhone /></div>
+        <div>
+          <p className="eyebrow rise" style={{ color: 'var(--lime)' }}>For tenants</p>
+          <h2 className="h2 rise" style={{ margin: '8px 0 14px' }}>A home that<br />just works.</h2>
+          <p className="lead rise" style={{ marginBottom: 24, color: '#C9D6CC' }}>Well-kept homes and rooms across London, with an app that keeps everything simple, from the day you apply to the day you move on.</p>
+          <ol className="feats light">
+            {TENANT_FEATURES.map(([t, d], i) => <li key={t} className="rise"><span className="n">{String(i + 1).padStart(2, '0')}</span><span><strong>{t}</strong><span>{d}</span></span></li>)}
+          </ol>
+          <p className="rise" style={{ marginTop: 22, display: 'flex', flexWrap: 'wrap', gap: 10 }}><Link className="gold" href={`${b}/residential-lettings`}>Homes to rent</Link><Link className="ghost" href={`${b}/tenants`}>Renting with us</Link></p>
+        </div>
+      </div></section>
+
+      {/* homes */}
+      <section className="block"><div className="wrap">
+        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'end', gap: 16, marginBottom: 28 }}>
+          <div><p className="eyebrow rise">To rent now</p><h2 className="h2 rise" style={{ marginTop: 8 }}>Free right now.</h2></div>
+          <Link className="line" href={`${b}/residential-lettings`}>All homes to rent</Link>
+        </div>
+        <HomesStrip />
+      </div></section>
+
+        </>}
+      />
+
+      {/* where we work */}
+      <section className="block"><div className="wrap">
+        <p className="eyebrow rise">Where we work</p>
+        <h2 className="h2 rise" style={{ margin: '8px 0 24px' }}>East, south-east and across London.</h2>
+      </div>
+        <div className="marquee" aria-label={`Areas we cover: ${AREAS.join(', ')}`}>
+          <div className="marquee-track" aria-hidden="true">{[...AREAS, ...AREAS].map((a, i) => <span key={i}>{a}</span>)}</div>
+        </div>
+      </section>
+
+      {/* reviews */}
+      <section className="block"><div className="wrap">
+        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'end', gap: 16, marginBottom: 32 }}>
+          <h2 className="h2 rise">What people say</h2>
+          <Link className="line" href={`${b}/testimonial`}>All reviews</Link>
+        </div>
+        <Reviews limit={3} />
+      </div></section>
+
     </>
   )
 }
