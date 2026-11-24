@@ -28,13 +28,9 @@ export async function POST(req: NextRequest) {
     else if (typeof b.visible === 'boolean') await s.from('tenant_icebreakers').upsert({ person_id: c.personId, visible_to_housemates: b.visible, updated_at: new Date().toISOString() }, { onConflict: 'person_id' })
     if ('avatar' in b) { const a = parseAvatar(b.avatar); await saveAvatar(s, c.personId, a ? avatarValue(a) : null) }
     // phone and where post should go after the tenancy (24 Nov 2026): optional, and the tenant can change them any time
-    if ('phone' in b || 'forwardingAddress' in b) {
+    // phone numbers are added and confirmed by code through /api/tenant/phones, never saved here
+    if ('forwardingAddress' in b) {
       const patch: Record<string, unknown> = {}
-      if ('phone' in b) {
-        const digits = String(b.phone ?? '').replace(/[^\d+]/g, '')
-        if (digits && !/^\+?\d{10,14}$/.test(digits)) return NextResponse.json({ error: 'That phone number does not look right. Check it and try again.' }, { status: 400 })
-        patch.phone = digits || null
-      }
       if ('forwardingAddress' in b) patch.forwarding_address = String(b.forwardingAddress ?? '').trim().slice(0, 300) || null
       const { error } = await s.from('people').update(patch).eq('id', c.personId)
       if (error) return NextResponse.json({ error: error.message }, { status: 400 })

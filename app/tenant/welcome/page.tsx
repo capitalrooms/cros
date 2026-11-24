@@ -36,13 +36,33 @@ export default function Welcome() {
   const [forwarding, setForwarding] = useState('')
   const [contactMsg, setContactMsg] = useState('')
   const [savingContact, setSavingContact] = useState(false)
+  const [codeStage, setCodeStage] = useState(false)
+  const [code, setCode] = useState('')
+  async function postPhones(body: Record<string, unknown>) {
+    const r = await adminFetch('/api/tenant/phones', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).catch(() => null)
+    const j = r ? await r.json().catch(() => ({})) : {}
+    return { ok: !!r?.ok, error: j.error as string | undefined }
+  }
   async function saveContact() {
     setContactMsg(''); setSavingContact(true)
-    const r = await adminFetch('/api/tenant/profile', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone, forwardingAddress: forwarding }) }).catch(() => null)
-    const j = r ? await r.json().catch(() => ({})) : {}
+    if (phone.trim() && !codeStage) {
+      const r = await postPhones({ action: 'add', phone })
+      setSavingContact(false)
+      if (!r.ok) { setContactMsg(r.error || 'That number did not save. You can add it later in your profile.'); return }
+      setCodeStage(true); setContactMsg(''); return
+    }
+    if (forwarding.trim()) {
+      await adminFetch('/api/tenant/profile', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ forwardingAddress: forwarding }) }).catch(() => null)
+    }
     setSavingContact(false)
-    if (!r?.ok) { setContactMsg(j.error || 'Those details did not save. You can add them later in your profile.'); return }
     next()
+  }
+  async function confirmCode() {
+    setContactMsg(''); setSavingContact(true)
+    const r = await postPhones({ action: 'confirm', phone, code })
+    setSavingContact(false)
+    if (!r.ok) { setContactMsg(r.error || 'That code did not work.'); return }
+    setCodeStage(false); setCode(''); next()
   }
   const step = STEPS[i]
   const next = () => setI(x => Math.min(x + 1, STEPS.length - 1))
@@ -100,13 +120,19 @@ export default function Welcome() {
         <section style={{ paddingTop: 40, animation: 'rise .5s ease-out both' }}>
           <h2 style={head}>Your contact details</h2>
           <p style={body}>So the office can reach you about repairs. Both are optional, and you can change them any time in your profile. You can also talk to us through the app instead.</p>
-          <label style={label}>Mobile number</label>
-          <input value={phone} onChange={e => setPhone(e.target.value)} inputMode="tel" placeholder="07700 900000" style={field} />
-          <label style={label}>Where should your post go after you leave?</label>
-          <textarea value={forwarding} onChange={e => setForwarding(e.target.value)} rows={3} placeholder="Family home, or your new address" style={{ ...field, resize: 'none' }} />
-          <p style={{ ...body, fontSize: 14, marginTop: 8 }}>We will only send post there that is addressed to you.</p>
+          {!codeStage ? (<>
+            <label style={label}>Mobile number</label>
+            <input value={phone} onChange={e => setPhone(e.target.value)} inputMode="tel" placeholder="07700 900000" style={field} />
+            <label style={label}>Where should your post go after you leave?</label>
+            <textarea value={forwarding} onChange={e => setForwarding(e.target.value)} rows={3} placeholder="Family home, or your new address" style={{ ...field, resize: 'none' }} />
+            <p style={{ ...body, fontSize: 14, marginTop: 8 }}>We will only send post there that is addressed to you.</p>
+          </>) : (<>
+            <p style={{ ...body, marginTop: 18 }}>We have texted a 6-digit code to <strong>{phone}</strong>. Type it in to make this your preferred number.</p>
+            <label style={label}>Code</label>
+            <input value={code} onChange={e => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))} inputMode="numeric" placeholder="123456" style={field} />
+          </>)}
           {contactMsg && <p style={{ ...body, color: '#7A5410', marginTop: 10 }}>{contactMsg}</p>}
-          <button onClick={saveContact} disabled={savingContact} style={{ ...btn(INK, '#fff'), marginTop: 20 }}>{savingContact ? 'Saving…' : 'Save and continue'}</button>
+          <button onClick={codeStage ? confirmCode : saveContact} disabled={savingContact || (codeStage && code.length !== 6)} style={{ ...btn(INK, '#fff'), marginTop: 20 }}>{savingContact ? 'Saving…' : codeStage ? 'Confirm code' : 'Save and continue'}</button>
           <button onClick={next} style={{ ...btn('transparent', INK), border: `1.5px solid ${INK}`, marginTop: 12 }}>Talk to us in the app instead</button>
         </section>
       )}
