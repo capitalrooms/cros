@@ -13,6 +13,25 @@ export const maxDuration = 120
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 const CATEGORIES = ['tenants', 'landlords'] as const
 
+// a cover in the style of the site's existing pictures (flat, simple, muted teal and cream, no text) — gpt-image-1 via OPENAI_API_KEY
+async function generateCover(title: string, brief: string): Promise<string | null> {
+  if (!process.env.OPENAI_API_KEY) return null
+  const prompt = `A flat, simple editorial illustration for a UK lettings advice article titled "${title}". Subject: ${brief.slice(0, 300)}. Style: clean flat vector shapes, no outlines, muted deep teal, soft cream and one warm gold accent, generous empty space, calm and reassuring. No text, no letters, no logos, no real people's faces.`
+  const r = await fetch('https://api.openai.com/v1/images/generations', {
+    method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
+    body: JSON.stringify({ model: 'gpt-image-1', prompt, size: '1536x1024', n: 1, quality: 'medium' }), signal: AbortSignal.timeout(110000),
+  })
+  if (!r.ok) return null
+  const j: any = await r.json().catch(() => null)
+  const b64 = j?.data?.[0]?.b64_json
+  if (!b64) return null
+  const path = `posts/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.png`
+  const s = createServiceClient() as any
+  const { error } = await s.storage.from('website').upload(path, Buffer.from(b64, 'base64'), { contentType: 'image/png', upsert: false })
+  if (error) return null
+  return s.storage.from('website').getPublicUrl(path).data.publicUrl as string
+}
+
 const SYSTEM = `You write advice posts for the Capital Rooms website. Capital Rooms is a London letting agent for shared houses (HMOs) and whole homes.
 Voice: plain, warm, direct British English. No hype, no emojis, no jargon. Short paragraphs. Specific and practical.
 Facts: only state UK law, dates, figures or statistics you are sure of, or that you found in a web search you cite. If unsure, leave it out.
@@ -56,6 +75,9 @@ export async function POST(req: NextRequest) {
   if (!title || !out.body) return NextResponse.json({ error: 'The draft was empty. Try again with more detail in the brief.' }, { status: 502 })
   const sources = Array.isArray(out.sources) ? out.sources.filter((u: unknown) => typeof u === 'string' && /^https?:\/\//.test(u)).slice(0, 8) : []
   const idx = Number.isInteger(out.cover_index) ? out.cover_index : null
-  const cover_url = idx != null && covers[idx] ? covers[idx].cover_url : null
-  return NextResponse.json({ title, excerpt: String(out.excerpt ?? '').slice(0, 300), body: String(out.body), category, sources, cover_url })
+  // a new picture in the site's style if the image service is set up; otherwise the closest existing cover
+  const generated = await generateCover(title, brief).catch(() => null)
+  const cover_url = generated ?? (idx != null && covers[idx] ? covers[idx].cover_url : null)
+  const coverNote = generated ? 'generated' : cover_url ? 'existing' : 'none'
+  return NextResponse.json({ title, excerpt: String(out.excerpt ?? '').slice(0, 300), body: String(out.body), category, sources, cover_url, coverNote })
 }
