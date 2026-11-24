@@ -128,7 +128,7 @@ export default function InitialMonies({ tenancyId, onChanged }: { tenancyId: str
             </div>
           </div>
           <div className="flex flex-wrap items-center justify-between gap-sm rounded-xl border border-neutral-200 px-md py-sm">
-            <p className="text-sm">{gbp(e.holding)} held + {gbp(Number(balance || 0))} balance − {gbp(Number(fee || 0))} fee = <strong className="tabular-nums">{gbp(toLandlord)} to the landlord</strong></p>
+                        {fee === '' ? <p className="text-sm text-neutral-600">Enter the tenant-find fee to see what goes to the landlord.</p> : <p className="text-sm">{gbp(e.holding)} held + {gbp(Number(balance || 0))} balance − {gbp(Number(fee || 0))} fee = <strong className="tabular-nums">{gbp(toLandlord)} to the landlord</strong></p>}
             <button type="button" disabled={busy || !balance || fee === '' || toLandlord < 0} onClick={() => act({ action: 'receive', balanceAmount: Number(balance), receivedOn, fee: Number(fee), bankTransactionId: bankId || null })}
               className="rounded-lg bg-neutral-900 px-md py-xs text-sm font-bold text-white disabled:opacity-40">{busy ? 'Saving…' : 'Record initial monies'}</button>
           </div>
