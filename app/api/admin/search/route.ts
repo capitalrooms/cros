@@ -7,7 +7,13 @@ export const dynamic = 'force-dynamic'
 
 const svc = () => createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { persistSession: false } })
 
-export interface SearchHit { id: string; kind: 'person' | 'property' | 'room' | 'job'; title: string; detail: string; href: string }
+export interface SearchHit { id: string; kind: 'person' | 'property' | 'room' | 'job' | 'document' | 'invoice' | 'deposit'; title: string; detail: string; href: string; score?: number }
+
+// words people type for certificates → the document type stored (24 Nov 2026: "gas" and "epc" found nothing)
+const DOC_ALIAS: Record<string, string[]> = {
+  gas: ['gas_safety_certificate', 'gas_safety'], epc: ['epc'], eicr: ['electrical_eicr', 'electrical_cert'], electrical: ['electrical_eicr', 'electrical_cert'],
+  hmo: ['hmo_licence'], licence: ['hmo_licence'], license: ['hmo_licence'], fire: ['fire_risk_assessment', 'fire_alarm_certificate', 'emergency_lighting_certificate'], insurance: ['insurance_policy', 'insurance'], pat: ['pat_test'],
+}
 
 const personHref = (id: string, role: string | null) =>
   role === 'tenant' ? `/admin/tenant/${id}` : role === 'landlord' ? `/admin/landlord/${id}` : role === 'contractor' ? `/admin/contractor/${id}` : `/admin/person/${id}`
@@ -56,6 +62,23 @@ export async function GET(req: NextRequest) {
     if (pick) fileFor.set(id, pick)
   }
 
+  // property documents: by file name, type or house (certificates, plans, licences) — 24 Nov 2026
+  const lowq = q.toLowerCase()
+  const aliasTypes = DOC_ALIAS[lowq] ?? []
+  const docOr = [`file_name.ilike.${like}`, `document_type.ilike.${like}`, ...aliasTypes.map(t => `document_type.eq.${t}`)].join(',')
+  const { data: docs } = await s.from('property_documents').select('id, property_id, document_type, file_name, uploaded_at, properties(name, address)').or(docOr).order('uploaded_at', { ascending: false }).limit(10)
+  const docHits: SearchHit[] = ((docs ?? []) as any[]).map(d => ({
+    id: d.id, kind: 'document' as const, title: String(d.file_name || d.document_type).replace(/\.[a-z0-9]+$/i, ''),
+    detail: [String(d.document_type).replace(/_/g, ' '), d.properties?.name || d.properties?.address, String(d.uploaded_at ?? '').slice(0, 10)].filter(Boolean).join(' · '),
+    href: `/admin/properties/${d.property_id}`,
+  }))
+  // fee invoices by number or description
+  const { data: invs } = await s.from('fee_invoices').select('id, invoice_no, description, total_amount, payer_kind').or(`invoice_no.ilike.${like},description.ilike.${like}`).limit(6)
+  const invHits: SearchHit[] = ((invs ?? []) as any[]).map(i => ({ id: i.id, kind: 'invoice' as const, title: i.invoice_no, detail: [i.description, `£${Number(i.total_amount).toFixed(2)}`].filter(Boolean).join(' · '), href: '/admin/finance' }))
+  // deposits by reference (DEP…)
+  const { data: deps } = await s.from('tenancies').select('id, deposit_no, deposit_reference, rooms(name), properties(name)').or(`deposit_no.ilike.${like},deposit_reference.ilike.${like}`).limit(6)
+  const depHits: SearchHit[] = ((deps ?? []) as any[]).map(t => ({ id: t.id, kind: 'deposit' as const, title: t.deposit_no || t.deposit_reference, detail: [t.rooms?.name, t.properties?.name].filter(Boolean).join(', '), href: `/admin/lettings/${t.id}?from=/admin/search` }))
+
   const hits: SearchHit[] = [
     ...(people.data ?? []).map((p: any) => {
       const t = fileFor.get(p.id)
@@ -77,5 +100,11 @@ export async function GET(req: NextRequest) {
       id: j.id, kind: 'job' as const, title: j.title || 'Maintenance job', detail: [j.properties?.name, j.status?.replace('_', ' ')].filter(Boolean).join(' · '), href: `/admin/maintenance?ticket=${j.id}`,
     })),
   ]
-  return NextResponse.json({ hits })
+  // ranking: exact and starting-with matches first, then anything containing the words
+  const rank = (h: SearchHit) => {
+    const t = h.title.toLowerCase()
+    return t === lowq ? 0 : t.startsWith(lowq) ? 1 : t.split(/\s+/).some(w => w.startsWith(lowq)) ? 2 : h.detail.toLowerCase().includes(lowq) ? 3 : 4
+  }
+  const ranked = [...hits, ...docHits, ...invHits, ...depHits].map(h => ({ ...h, score: rank(h) })).sort((a, b) => (a.score ?? 9) - (b.score ?? 9))
+  return NextResponse.json({ hits: ranked.slice(0, 30) })
 }

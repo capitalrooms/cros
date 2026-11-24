@@ -11,7 +11,7 @@ import { adminFetch } from '@/lib/adminFetch'
 import type { SearchHit } from '@/app/api/admin/search/route'
 
 type Row = { key: string; group: string; title: string; detail?: string; href: string }
-const KIND: Record<SearchHit['kind'], string> = { person: 'People', property: 'Properties', room: 'Rooms', job: 'Maintenance' }
+const KIND: Record<SearchHit['kind'], string> = { person: 'People', property: 'Properties', room: 'Rooms', job: 'Maintenance', document: 'Documents', invoice: 'Invoices', deposit: 'Deposits' }
 const EXTRA = [
   { label: 'My profile', href: '/admin/profile', zone: 'You' }, { label: 'Office settings', href: '/admin/settings', zone: 'Office' }, { label: 'Notifications — who gets what', href: '/admin/people?tab=tenants', zone: 'Contacts' }, { label: 'Tenant messages on/off', href: '/admin/people?tab=tenants', zone: 'Contacts' },
   { label: 'Email signatures', href: '/admin/settings/signatures', zone: 'You' }, { label: 'Password & sign-in', href: '/account', zone: 'You' },
