@@ -319,7 +319,7 @@ function PostEditor({ post, onClose, onSaved, onDeleted, act }: {
       <section className={`${card} overflow-hidden`}>
         <p className="border-b border-neutral-100 px-lg py-sm text-xs font-bold uppercase tracking-wider text-neutral-500">Preview</p>
         <article className="website-post px-lg py-lg">
-          {p.cover_url && <img src={p.cover_url} alt="" className="mb-md w-full rounded-xl object-cover" style={{ maxHeight: 320 }} />}
+          {p.cover_url && <img src={p.cover_url} alt="" className="mb-md w-full rounded-xl object-cover" style={{ maxHeight: 320, objectPosition: p.cover_position || '50% 50%' }} />}
           <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500">{CATS.find(c => c[0] === p.category)?.[1]}{p.shown_date ? ` · ${day(p.shown_date)}` : ''}</p>
           <h1 className="mt-xs font-serif text-3xl leading-tight text-neutral-900">{p.title || 'Your title'}</h1>
           {p.excerpt && <p className="mt-sm text-base text-neutral-600">{p.excerpt}</p>}
