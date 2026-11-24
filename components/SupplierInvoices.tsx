@@ -196,7 +196,7 @@ function Lines({ lines, setLines, post, role }: { lines: Line[]; setLines: (l: L
               <button type="button" className="px-2 text-neutral-400" onClick={() => setLines(lines.filter(x => x.key !== l.key))} aria-label="Remove line">✕</button>
             </div>
             <input className={input} value={l.where} onChange={e => set(l.key, { where: e.target.value })} placeholder={role === 'cleaner' ? 'Property / notes' : 'Where exactly, e.g. Room 3 en-suite, kitchen'} />
-            <label className="block text-xs text-neutral-600">{role === 'cleaner' ? 'Clean price (£)' : 'Labour (£)'}<input inputMode="decimal" className={`${input} mt-1`} value={l.labour} onChange={e => set(l.key, { labour: e.target.value.replace(/[^\d.]/g, '') })} placeholder="£" /></label>
+            <label className="block text-xs text-neutral-600">{role === 'cleaner' ? 'Clean price (£)' : 'Labour (£)'}<input inputMode="decimal" className={`${input} mt-1`} value={l.labour} onChange={e => set(l.key, { labour: e.target.value.replace(/[^\d.]/g, '') })} onBlur={e => { const n = Number(e.target.value); if (e.target.value !== '' && n > 0) set(l.key, { labour: n.toFixed(2) }) }} placeholder="£" /></label>
 
             <label className="flex items-center gap-2 py-1 text-xs text-neutral-700">
               <input type="checkbox" checked={l.partsPaid} onChange={e => e.target.checked ? set(l.key, { partsPaid: true }) : set(l.key, { partsPaid: false, partItems: [], parts: '', receipt: null })} />

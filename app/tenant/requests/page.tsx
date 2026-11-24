@@ -110,7 +110,7 @@ export default function TenantRequests() {
 
   const filtered = requests.filter((r) => {
     if (filter === 'all') return true;
-    if (filter === 'pending') return r.status === 'reported';
+    if (filter === 'pending') return !['assigned', 'in_progress', 'completed', 'cancelled'].includes(r.status) && !r.booked_date;
     if (filter === 'scheduled') return (r.status === 'assigned' || r.status === 'in_progress') && r.booked_date;
     if (filter === 'completed') return r.status === 'completed';
     return true;
@@ -118,7 +118,7 @@ export default function TenantRequests() {
 
   const counts = {
     all: requests.length,
-    pending: requests.filter((r) => r.status === 'reported').length,
+    pending: requests.filter((r) => !['assigned', 'in_progress', 'completed', 'cancelled'].includes(r.status) && !r.booked_date).length,
     scheduled: requests.filter((r) => (r.status === 'assigned' || r.status === 'in_progress') && r.booked_date).length,
     completed: requests.filter((r) => r.status === 'completed').length,
   };

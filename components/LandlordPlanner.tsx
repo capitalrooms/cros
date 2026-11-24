@@ -153,7 +153,7 @@ export default function LandlordPlanner({ previewBoardId, officeBoardId }: { pre
 
   if (error) return <p className="pub-error">{error}</p>
   if (!entries) return <p className="pub-muted m-0 text-[15px]">Loading your planner…</p>
-  if (!boardId) return <p className="pub-note">Your planner with Capital Rooms will appear here shortly.</p>
+  if (!boardId) return <p className="pub-note">Nothing shared yet. Jobs, notes and photos you share with Capital Rooms will show here once your board is set up.</p>
 
   const live = entries.filter(e => e.status === 'open')
   const done = entries.filter(e => e.status === 'done')

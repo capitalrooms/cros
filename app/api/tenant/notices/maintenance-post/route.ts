@@ -79,6 +79,12 @@ export async function POST(req: NextRequest) {
   const categoryLabel = category || 'Maintenance'
   const noticeText = `${categoryLabel} issue reported in the ${locationLabel}. Our team has been notified and will arrange a visit — we'll update everyone when it's resolved. [ref:${ticketId}]`
 
+  // one notice per repair ticket: a second report of the same job, or a retry, must not post it again (24 Nov 2026)
+  if (ticketId) {
+    const { data: already } = await sb.from('communal_notices').select('id').eq('property_id', propertyId).ilike('raw_text', `%[ref:${ticketId}]%`).limit(1)
+    if (already && already.length) return NextResponse.json({ ok: true, skipped: true, reason: 'already posted for this job' })
+  }
+
   const { error: insertErr } = await sb.from('communal_notices').insert({
     property_id: propertyId,
     raw_text: noticeText,

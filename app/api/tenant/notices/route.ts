@@ -73,7 +73,18 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  return NextResponse.json({ notices: notices ?? [], propertyId, personId })
+  // a repair notice comes off the board once its job is completed or cancelled (24 Nov 2026: the notice promised this, nothing did it)
+  const refs = [...new Set((notices ?? []).map((n: any) => (String(n.raw_text ?? '').match(/\[ref:([0-9a-f-]{36})\]/i) || [])[1]).filter(Boolean))]
+  let closed = new Set<string>()
+  if (refs.length) {
+    const { data: tickets } = await sb.from('maintenance_tickets').select('id, status').in('id', refs)
+    closed = new Set(((tickets ?? []) as any[]).filter(t => t.status === 'completed' || t.status === 'cancelled').map(t => t.id))
+  }
+  const visible = (notices ?? []).filter((n: any) => {
+    const ref = (String(n.raw_text ?? '').match(/\[ref:([0-9a-f-]{36})\]/i) || [])[1]
+    return !(ref && closed.has(ref))
+  })
+  return NextResponse.json({ notices: visible, propertyId, personId })
 }
 
 // POST /api/tenant/notices — create a new notice
