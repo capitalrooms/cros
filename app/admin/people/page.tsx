@@ -582,6 +582,8 @@ export default function PeopleManagement({ searchParams }: { searchParams: PageS
     const st = acct?.statuses[p.id]
     if (!(p as any).email) return <span className="hidden lg:inline-block rounded-full bg-neutral-100 px-sm py-0.5 text-[11px] font-semibold text-neutral-400" title="No email, so no sign-in">No email</span>
     if (!st) return null
+    // not invited yet: no chip on every row (the banner counts them; ⋯ › Send sign-in invite)
+    if (!st.off && !st.hasLogin) return null
     const [label, cls, title] = st.off ? ['Sign-in off', 'bg-red-50 text-red-700', 'The office turned their sign-in off']
       : !st.hasLogin ? ['No login', 'bg-neutral-100 text-neutral-500', 'Not invited yet — ⋯ › Send sign-in invite']
       : !st.confirmed ? ['Invited', 'bg-amber-50 text-amber-800', st.invitedAt ? `Invited ${new Date(st.invitedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/London' })} — not signed in yet` : 'Not signed in yet']

@@ -144,7 +144,7 @@ function RentRollScreen({ initialMonth, practice }: { initialMonth?: string; pra
         ] : undefined}
         tabs={financeTabs('rent-roll', month)}
       />
-      <div className="mx-auto max-w-6xl px-lg py-lg">
+      <div className="mx-auto max-w-6xl px-lg py-xl">
         {error && <p className="mb-md rounded-xl border border-red-200 bg-red-50 px-lg py-md text-sm text-red-700">{error}</p>}
         {prevAgent && <p className="mb-md rounded-xl border border-neutral-200 bg-white px-lg py-md text-sm text-neutral-600">{monthLabel(month)} is before CROS took over collecting rent ({shortDate(roll!.takeover)}). This shows the rent on the statements imported for that month — collected and paid to landlords before CROS went live.</p>}
 
@@ -164,7 +164,7 @@ function RentRollScreen({ initialMonth, practice }: { initialMonth?: string; pra
             rows={exportRows} totals={roll ? { property: 'Total', due: roll.totals.due, received: roll.totals.received } : undefined} />
         </div>
 
-        <div className="grid grid-cols-1 gap-md lg:grid-cols-[minmax(0,1fr)_460px]">
+        <div className="grid grid-cols-1 gap-md xl:grid-cols-[minmax(0,1fr)_380px]">
           {/* ── Properties — a ledger table (17 Oct 2026) ── */}
           <section className="ledger-card h-fit">
             <div className="overflow-x-auto">
@@ -184,8 +184,8 @@ function RentRollScreen({ initialMonth, practice }: { initialMonth?: string; pra
                           <span className={`block truncate text-[11px] ${on ? 'opacity-60' : 'text-neutral-500'}`}>{p.landlord}{!prevAgent && <span className={`ml-xs ${on ? 'text-[#F6F3EC]/80' : 'text-neutral-600'}`}> · {ticks[p.id] ? `☑ expenses ${ticks[p.id].count} · £${ticks[p.id].total.toLocaleString('en-GB', { minimumFractionDigits: 2 })}` : '☐ no expenses yet'}</span>}{p.readyForStatement > 0 && !prevAgent ? <span className={on ? 'text-[#E8B06B]' : 'text-amber-700'}> · ready {gbp(p.readyForStatement)}</span> : null}</span>
                         </td>
                         <td className="hidden sm:table-cell whitespace-nowrap">{paidCount(p)}/{p.rooms.length} paid</td>
-                        {!prevAgent && <td className="text-right">{gbp(p.due)}</td>}
-                        <td className="text-right font-semibold">{gbp(p.received)}</td>
+                        {!prevAgent && <td className="whitespace-nowrap text-right">{gbp(p.due)}</td>}
+                        <td className="whitespace-nowrap text-right font-semibold">{gbp(p.received)}</td>
                         {!prevAgent && <td className={`text-right ${p.missing > 0 ? (roll?.source === 'mirror' ? (on ? 'text-[#F3F0E6]/80' : 'text-neutral-600') : on ? 'text-[#F28B82]' : 'text-red-700 font-semibold') : 'text-neutral-400'}`}>{p.missing > 0 ? gbp(p.missing) : '—'}</td>}
                       </tr>
                     )

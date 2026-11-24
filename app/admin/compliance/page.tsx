@@ -717,12 +717,12 @@ function CertificatesTab({
       <button
         onClick={() => onCellClick(propertyId, propertyName, certKey, expiry)}
         title={title}
-        className={`inline-flex flex-col items-center rounded px-sm py-[3px] text-xs font-medium min-w-[5rem] text-center leading-tight transition cursor-pointer ${cls}`}
+        className={`inline-flex flex-col items-center whitespace-nowrap rounded px-sm py-[3px] text-xs font-medium min-w-[5rem] text-center leading-tight transition cursor-pointer ${cls}`}
       >
         {e ? (
           <>
             <span className={`text-[9px] font-bold uppercase tracking-wide ${st === 'expired' ? 'text-white/80' : 'opacity-70'}`}>{st === 'expired' ? 'Expired' : 'Due'}</span>
-            <span>{short(e.due)}</span>
+            <span className="whitespace-nowrap">{new Date(e.due + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
           </>
         ) : <span className="py-[5px]">Add</span>}
       </button>
