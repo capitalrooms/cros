@@ -89,7 +89,7 @@ export default async function Home() {
       {/* how a let works */}
       <section className="block"><div className="wrap">
         <p className="eyebrow rise">How it works</p>
-        <h2 className="h2 rise" style={{ margin: '8px 0 32px', maxWidth: 820 }}>From valuation to keys, and every year after.</h2>
+        <h2 className="h2 rise" style={{ margin: '8px 0 32px', maxWidth: 820 }}>How a let works, from first valuation to keys, and after.</h2>
         <ol className="steps5" style={{ listStyle: 'none', margin: 0, padding: 0 }}>
           {STEPS.map((s, i) => <li key={s.title} className="s rise"><span className="n">{i + 1}</span><h3 className="h3" style={{ fontSize: 22 }}>{s.title}</h3><p style={{ color: 'var(--muted)', fontSize: 16 }}>{s.body}</p></li>)}
         </ol>
