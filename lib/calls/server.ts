@@ -5,6 +5,7 @@ import { createServiceClient } from '@/lib/supabase'
 import { deliverEmail } from '@/lib/sendEmail'
 import { buildEmail } from '@/lib/emailWrapper'
 import { candidateSlots, slotLabel, usableSlots } from './slots'
+import { landlordTimesRequest, landlordBooked, landlordFollowUp, landlordNewTimes } from './emailDesign'
 
 const BASE = (process.env.NEXT_PUBLIC_APP_URL || 'https://capitalrooms.co.uk').replace(/\/$/, '')
 const svc = () => createServiceClient() as any
@@ -36,12 +37,8 @@ export async function createCallRequest(args: { applicantEmail: string; applican
   const landlord = await landlordOf(row.landlord_id)
   if (landlord?.email) {
     await sendHtml(landlord.email, 'Please tick when you are free for a short video call',
-      `<p>Hello ${esc(firstName(landlord.first_name))},</p>
-       <p>${esc(firstName(row.applicant_name || ''))} has paid the holding deposit and is keen to go ahead. Could you tick the times you are free for a short informal video call? It takes a few minutes.</p>
-       <p><a href="${BASE}/call/landlord/${data.landlord_token}">Choose your times</a></p>
-       <p>You can change your times from the same link at any time until the applicant picks one.</p>`)
-  }
-  return data
+      landlordTimesRequest({ firstName: firstName(landlord.first_name), applicantFirst: firstName(row.applicant_name || ''), link: `${BASE}/call/landlord/${data.landlord_token}` }))
+  }return data
 }
 
 export async function landlordState(tok: string, now = new Date()) {
@@ -94,9 +91,7 @@ export async function applicantPick(tok: string, iso: string, now = new Date()) 
   const when = slotLabel(iso)
   if (landlord?.email) {
     await sendHtml(landlord.email, `${firstName(r.applicant_name)} has picked a time for the call`,
-      `<p>Hello ${esc(firstName(landlord.first_name))},</p>
-       <p>${esc(firstName(r.applicant_name))} has picked <strong>${esc(when)}</strong> for the video call. They will call you then.</p>
-       <p>If that time has become a problem, let the office know straight away.</p>`)
+      landlordBooked({ firstName: firstName(landlord.first_name), applicantFirst: firstName(r.applicant_name), when }))
   }
   if (r.applicant_email) {
     await sendHtml(r.applicant_email, `Your video call with ${esc(firstName(landlord?.first_name))}`,
@@ -119,9 +114,7 @@ export async function applicantCannot(tok: string, now = new Date()) {
   const landlord = await landlordOf(r.landlord_id)
   if (landlord?.email) {
     await sendHtml(landlord.email, 'Could you suggest other times for the call?',
-      `<p>Hello ${esc(firstName(landlord.first_name))},</p>
-       <p>${esc(firstName(r.applicant_name))} can't make the times you picked. Could you choose some others?</p>
-       <p><a href="${BASE}/call/landlord/${r.landlord_token}">Choose new times</a></p>`)
+      landlordNewTimes({ firstName: firstName(landlord.first_name), applicantFirst: firstName(r.applicant_name), link: `${BASE}/call/landlord/${r.landlord_token}` }))
   }
   if (rounds >= 3) {
     await s.from('video_call_requests').update({ reminded_office: now.toISOString() }).eq('id', r.id)
@@ -171,7 +164,7 @@ export async function runCallReminders(now = new Date()) {
     if (r.status === 'booked' && r.chosen_slot && !r.followup_sent && now.getTime() >= new Date(r.chosen_slot).getTime() + 20 * 60000) {
       const landlord = await landlordOf(r.landlord_id)
       if (landlord?.email) await sendHtml(landlord.email, `How did it go with ${firstName(r.applicant_name)}?`,
-        `<p>Hello ${esc(firstName(landlord.first_name))},</p><p>How did the call go? Can we proceed with the offer?</p><p><a href="${BASE}/call/landlord/${r.landlord_token}">Let us know</a></p>`)
+        landlordFollowUp({ firstName: firstName(landlord.first_name), applicantFirst: firstName(r.applicant_name), link: `${BASE}/call/landlord/${r.landlord_token}` }))
       await s.from('video_call_requests').update({ followup_sent: now.toISOString() }).eq('id', r.id)
       sent.followUp++
     }
