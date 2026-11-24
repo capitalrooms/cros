@@ -108,6 +108,18 @@ export default function VisitDetailPage() {
     if (!r?.ok) { alert(j.error || 'That didn’t send — try again.'); return }
     setNoteDone(true); setNoteText(''); setNotePhotos([])
   }
+  const [updateBusy, setUpdateBusy] = useState(false)
+  const [updateDone, setUpdateDone] = useState(false)
+  async function askForUpdate() {
+    if (!ticket) return
+    setUpdateBusy(true)
+    const r = await adminFetch('/api/tenant/job-update-request', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ticketId: ticket.id }) }).catch(() => null)
+    const j = r ? await r.json().catch(() => ({})) : {}
+    setUpdateBusy(false)
+    if (r?.ok) { setUpdateDone(true); return }
+    if (r?.status === 429) { setUpdateDone(true); return }
+    alert(j.error || 'That didn’t send — try again.')
+  }
   const [requestText, setRequestText] = useState('')
   const [submittingRequest, setSubmittingRequest] = useState(false)
   const [requestDone, setRequestDone] = useState(false)
@@ -465,6 +477,18 @@ export default function VisitDetailPage() {
                   className="ml-auto rounded-full px-lg py-sm text-sm font-bold text-[#17332B] shadow-[0_3px_0_var(--cr-honey-edge)] disabled:opacity-40" style={{ background: 'var(--cr-gold)' }}>{noteBusy ? 'Sending…' : 'Add to the job'}</button>
               </div>
             </>)}
+          </section>
+        )}
+
+        {/* ── Ask for an update on an open job (24 Nov 2026) ───────────── */}
+        {ticket.status !== 'completed' && ticket.status !== 'cancelled' && (
+          <section className="rounded-[22px] bg-white p-lg">
+            <h2 className="font-bold text-neutral-900">Ask for an update</h2>
+            <p className="mt-xs text-sm text-neutral-600">Want to know where this job is up to{(ticket as any).contractor_id ? ', or when your contractor can book it' : ''}? We’ll ask the office{(ticket as any).contractor_id ? ' and your contractor' : ''} for you. One request a day is enough.</p>
+            {updateDone ? <p className="mt-md rounded-xl bg-[#E3ECE5] p-md text-sm font-semibold text-[#17332B]">✓ Asked — you’ll hear back as soon as there’s news.</p> : (
+              <button type="button" disabled={updateBusy} onClick={askForUpdate}
+                className="mt-md rounded-full bg-white px-lg py-sm text-sm font-bold text-neutral-900 ring-1 ring-neutral-300 disabled:opacity-40">{updateBusy ? 'Asking…' : 'Ask for an update'}</button>
+            )}
           </section>
         )}
 
