@@ -5,7 +5,7 @@ import { createServiceClient } from '@/lib/supabase'
 import { deliverEmail } from '@/lib/sendEmail'
 import { buildEmail } from '@/lib/emailWrapper'
 import { candidateSlots, slotLabel, usableSlots } from './slots'
-import { landlordTimesRequest, landlordBooked, landlordFollowUp, landlordNewTimes } from './emailDesign'
+import { landlordTimesRequest, landlordBooked, landlordFollowUp, landlordNewTimes, applicantPickTime, applicantBooked } from './emailDesign'
 
 const BASE = (process.env.NEXT_PUBLIC_APP_URL || 'https://capitalrooms.co.uk').replace(/\/$/, '')
 const svc = () => createServiceClient() as any
@@ -68,13 +68,9 @@ export async function landlordSaveTimes(tok: string, picked: string[], now = new
   if (first && r.applicant_email) {
     const landlord = await landlordOf(r.landlord_id)
     const name = firstName(landlord?.first_name)
-    await sendHtml(r.applicant_email, 'Your offer: a short video call next',
-      `<p>Hello ${esc(firstName(r.applicant_name))},</p>
-       <p>The landlord has accepted your offer, subject to an informal video call. Please choose a time from the list below that suits you.</p>
-       <p><a href="${BASE}/call/applicant/${r.applicant_token}">Choose a time</a></p>
-       <p>The call is a 5 to 10 minute informal chat, so you can both see if you like each other before going ahead.</p><p>If for any reason either of you does not wish to proceed, your holding deposit will be refunded in full.</p><p>The times are in London time. If you can't make any of them, use the same link and ask for new times.</p>`)
-  }
-  return { ok: true, status: 200 }
+    await sendHtml(r.applicant_email, 'Your offer: pick a time for a short call',
+      applicantPickTime({ firstName: firstName(r.applicant_name), landlordFirst: name, link: `${BASE}/call/applicant/${r.applicant_token}`, options: clean.map(slotLabel) }))
+  }return { ok: true, status: 200 }
 }
 
 /** The applicant picks one of the ticked times. Both sides get the details; the landlord's number only goes out now. */
@@ -94,13 +90,9 @@ export async function applicantPick(tok: string, iso: string, now = new Date()) 
       landlordBooked({ firstName: firstName(landlord.first_name), applicantFirst: firstName(r.applicant_name), when }))
   }
   if (r.applicant_email) {
-    await sendHtml(r.applicant_email, `Your video call with ${esc(firstName(landlord?.first_name))}`,
-      `<p>Hello ${esc(firstName(r.applicant_name))},</p>
-       <p>Your call is booked for <strong>${esc(when)}</strong>.</p>
-       <p>You can FaceTime or WhatsApp video call ${esc(firstName(landlord?.first_name))} at that time on <strong>${esc(landlord?.phone || 'the number the office will send')}</strong>.</p>
-       <p>It is a 5 to 10 minute informal chat, so you can both see if you like each other before going ahead.</p><p>If something comes up, reply to this email so the office can help.</p>`)
-  }
-  return { ok: true, status: 200 }
+    await sendHtml(r.applicant_email, `Your video call with ${firstName(landlord?.first_name)}`,
+      applicantBooked({ firstName: firstName(r.applicant_name), landlordFirst: firstName(landlord?.first_name), when, phone: landlord?.phone || 'the office will send the number' }))
+  }return { ok: true, status: 200 }
 }
 
 /** The applicant can't make any of the times. The landlord is asked for new ones; this counts as one round. */

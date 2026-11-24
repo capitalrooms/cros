@@ -66,3 +66,28 @@ export function landlordNewTimes(o: { firstName: string; applicantFirst: string;
     + para(`Could you choose some others? It takes a moment on the same page.`)
     + button('Choose new times', o.link)
 }
+
+// ---- Applicant emails (with the illustration hosted on the website store) ----
+export const CALL_IMAGE = 'https://fihjzzxxhprxgjuefgtb.supabase.co/storage/v1/object/public/website/emails/call-illustration.webp'
+
+const hero = (alt: string) => `<img src="${CALL_IMAGE}" alt="${esc(alt)}" width="520" style="display:block;width:100%;max-width:520px;height:auto;border-radius:20px;border:0;" />`
+
+/** The applicant is asked to pick one of the times the landlord ticked. */
+export function applicantPickTime(o: { firstName: string; landlordFirst: string; link: string; options: string[] }) {
+  return hero('A call is ready to book')
+    + band('Your next step', `Hello ${esc(o.firstName)}, pick a time to talk`,
+      `${esc(o.landlordFirst)} has accepted your offer, subject to a short informal video call.`)
+    + para(`It is a 5 to 10 minute informal chat, so you can both see if you like each other before going ahead.`)
+    + chips(o.options)
+    + button('Choose a time', o.link)
+    + note(`If for any reason either of you does not wish to proceed, your holding deposit will be refunded in full.`)
+}
+
+/** The applicant's call is booked: when, and how to reach the landlord. */
+export function applicantBooked(o: { firstName: string; landlordFirst: string; when: string; phone: string }) {
+  return hero('Your call is booked')
+    + band('Booked', `You are booked in, ${esc(o.firstName)}`,
+      `Your video call with ${esc(o.landlordFirst)} is on ${esc(o.when)}.`)
+    + para(`Call ${esc(o.landlordFirst)} on video at that time. You can use FaceTime or WhatsApp video on <strong>${esc(o.phone)}</strong>.`)
+    + note(`If anything comes up, reply to this email and the office will help.`)
+}
