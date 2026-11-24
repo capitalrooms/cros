@@ -24,7 +24,7 @@ const OLD_SITE_PATHS: [RegExp, string][] = [
   [/^\/(home|index)(\.php)?\/?$/i, '/'],
 ]
 
-const SITE_PAGES = /^\/$|^\/(landlords|tenants|about-us|contact|maintenance-services|instant_valuation|testimonial|blogs|residential-lettings|shared-accommodation|privacy_policy|user_blog|areas)(\/|$)|^\/page\/[\w-]+$|^\/l\/[\w-]+\/[\w-]+$/
+const SITE_PAGES = /^\/$|^\/(landlords|tenants|about-us|contact|maintenance-services|instant_valuation|testimonial|blogs|residential-lettings|shared-accommodation|privacy_policy|complaints|user_blog|areas)(\/|$)|^\/page\/[\w-]+$|^\/l\/[\w-]+\/[\w-]+$/
 
 // browsers only ever use https for the website, for two years (the app's headers in next.config cover the rest)
 function secure(res: NextResponse) { res.headers.set('Strict-Transport-Security', 'max-age=63072000'); return res }
