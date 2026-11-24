@@ -20,6 +20,8 @@ const OLD_SITE_PATHS: [RegExp, string][] = [
   [/^\/blog(\/.*)?$/i, '/blogs'],
   [/^\/page\/\d+-tenant-affordability-calculator\/?$/i, '/page/9-guarantor-affordability-calculator'],
   [/^\/notice(\.php)?\/?$/i, '/shared-accommodation'],
+  // old site front pages (Search Console, 24 Nov 2026: refused as 403 by the app's gate)
+  [/^\/(home|index)(\.php)?\/?$/i, '/'],
 ]
 
 const SITE_PAGES = /^\/$|^\/(landlords|tenants|about-us|contact|maintenance-services|instant_valuation|testimonial|blogs|residential-lettings|shared-accommodation|privacy_policy|user_blog|areas)(\/|$)|^\/page\/[\w-]+$|^\/l\/[\w-]+\/[\w-]+$/
