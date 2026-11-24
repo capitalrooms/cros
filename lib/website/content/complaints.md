@@ -9,7 +9,7 @@ We consider the needs of each person and, where appropriate, make reasonable adj
 Put your complaint in writing, by letter or email, addressed to:
 
 **Harry, Director**
-Capital Rooms, Third Floor, 86-90 Paul Street, London, EC2A 4NE
+Capital Rooms, Hoxton Mix, 66 Paul Street, London EC2A 4NA
 Email: management@capitalrooms.co.uk
 
 Include as much detail as you can: the issues you want considered, relevant dates, the names of any staff you dealt with, and any supporting evidence you can enclose or attach.
@@ -33,7 +33,7 @@ If you are still dissatisfied after our final viewpoint letter, you can refer yo
 - Web: [www.tpos.co.uk](https://www.tpos.co.uk)
 - Email: [complaints@tpos.co.uk](mailto:complaints@tpos.co.uk)
 
-The Property Ombudsman no longer accepts complaints by post. Referrals must be made online or by email.
+You can only refer a complaint once we have sent our final viewpoint letter, or 8 weeks have passed since you first complained. The Property Ombudsman no longer accepts complaints by post. Referrals must be made online or by email.
 
 **Timescale:** refer your complaint within 12 months of the date of our final viewpoint letter. There is no charge for making a complaint.
 
