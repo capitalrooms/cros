@@ -72,24 +72,24 @@ export const CALL_IMAGE = 'https://fihjzzxxhprxgjuefgtb.supabase.co/storage/v1/o
 const F = "font-family:Nunito,Helvetica,Arial,sans-serif;"
 const pre = (t: string) => `<div style="display:none;max-height:0;overflow:hidden;opacity:0;">${esc(t)}</div>`
 const brand = `<table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td style="${F}font-family:'Baloo 2',Helvetica,Arial,sans-serif;font-size:18px;font-weight:700;color:${INK};">Capital Rooms</td></tr></table>`
-const picture = (alt: string) => `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:22px 0 4px;"><tr><td align="center"><img src="${CALL_IMAGE}" alt="${esc(alt)}" width="240" style="display:block;width:240px;max-width:100%;height:auto;border:0;" /></td></tr></table>`
-const h1 = (t: string) => `<h1 class="cr-ink" style="${F}margin:18px 0 10px;font-size:26px;line-height:1.2;font-weight:800;color:${INK};text-align:center;">${t}</h1>`
-const lead = (t: string) => `<p class="cr-muted" style="${F}margin:0 auto;max-width:440px;font-size:16px;line-height:1.6;color:${MUTED};text-align:center;">${t}</p>`
-const cta = (label: string, href: string) => `<table role="presentation" cellspacing="0" cellpadding="0" align="center" style="margin:26px auto 0;"><tr><td align="center" style="border-radius:999px;background:${INK};"><a href="${href}" style="${F}display:inline-block;padding:14px 30px;font-size:16px;font-weight:700;color:#ffffff;text-decoration:none;border-radius:999px;">${esc(label)}</a></td></tr></table>`
-const foot = (t: string) => `<p style="${F}margin:26px 0 0;font-size:13px;line-height:1.6;color:${MUTED};text-align:center;">${t}</p>`
+const picture = (alt: string) => `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:8px 0 6px;"><tr><td align="center"><img src="${CALL_IMAGE}" alt="${esc(alt)}" width="240" style="display:block;width:240px;max-width:100%;height:auto;border:0;" /></td></tr></table>`
+const h1 = (t: string) => `<h1 class="cr-ink" style="${F}margin:28px 0 14px;font-size:26px;line-height:1.25;font-weight:800;color:${INK};text-align:center;">${t}</h1>`
+const lead = (t: string) => `<p class="cr-muted" style="${F}margin:0 auto;max-width:440px;font-size:16px;line-height:1.7;color:${MUTED};text-align:center;">${t}</p>`
+const cta = (label: string, href: string) => `<table role="presentation" cellspacing="0" cellpadding="0" align="center" style="margin:36px auto 0;"><tr><td align="center" style="border-radius:999px;background:${INK};"><a href="${href}" style="${F}display:inline-block;padding:14px 30px;font-size:16px;font-weight:700;color:#ffffff;text-decoration:none;border-radius:999px;">${esc(label)}</a></td></tr></table>`
+const foot = (t: string) => `<p style="${F}margin:38px 0 0;font-size:13px;line-height:1.6;color:${MUTED};text-align:center;">${t}</p>`
 // The mint of the illustration behind everything; a deep teal card-and-ground in dark mode (where mail apps respect it).
 const MINT = '#98ECD5'
 const darkStyle = `<style>@media (prefers-color-scheme: dark){.cr-bg{background:#0E2B25 !important}.cr-card{background:#163B33 !important}.cr-ink{color:#EAF7F2 !important}.cr-muted{color:#A8C7BC !important}.cr-chip{background:#21493F !important;color:#EAF7F2 !important}}</style>`
-const shellRow = (inner: string) => `${darkStyle}<table role="presentation" width="100%" cellspacing="0" cellpadding="0" class="cr-bg" style="background:${MINT};padding:28px 12px;"><tr><td><table role="presentation" width="100%" cellspacing="0" cellpadding="0" class="cr-card" style="max-width:480px;margin:0 auto;background:#ffffff;border-radius:24px;"><tr><td style="padding:28px 26px 30px;">${inner}</td></tr></table></td></tr></table>`
+const shellRow = (inner: string) => `${darkStyle}<table role="presentation" width="100%" cellspacing="0" cellpadding="0" class="cr-bg" style="background:${MINT};padding:28px 12px;"><tr><td><table role="presentation" width="100%" cellspacing="0" cellpadding="0" class="cr-card" style="max-width:480px;margin:0 auto;background:#ffffff;border-radius:24px;"><tr><td style="padding:40px 36px 42px;">${inner}</td></tr></table></td></tr></table>`
 
 /** Pick a time: the landlord has ticked the times that suit them. */
 export function applicantPickTime(o: { firstName: string; landlordFirst: string; link: string; options: string[] }) {
-  const list = o.options.map(t => `<tr><td class="cr-chip" style="${F}padding:10px 14px;margin:0 0 8px;background:${SAGE};border-radius:12px;font-size:15px;font-weight:700;color:${INK};text-align:center;">${esc(t)}</td></tr><tr><td style="height:8px;"></td></tr>`).join('')
+  const list = o.options.map(t => `<tr><td class="cr-chip" style="${F}padding:13px 16px;margin:0 0 8px;background:${SAGE};border-radius:12px;font-size:15px;font-weight:700;color:${INK};text-align:center;">${esc(t)}</td></tr><tr><td style="height:12px;"></td></tr>`).join('')
   return pre(`${o.landlordFirst} has accepted your offer. Pick a time for a short call.`)
     + shellRow(brand + picture('A call is ready to book')
       + h1(`Hi ${esc(o.firstName)}, pick a time to talk`)
       + lead(`${esc(o.landlordFirst)} has accepted your offer, subject to a short informal video call. It takes 5 to 10 minutes, a relaxed chat so you can both see if it feels right before going ahead.`)
-      + `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:24px 0 0;">${list}</table>`
+      + `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:34px 0 0;">${list}</table>`
       + cta('Choose my time', o.link)
       + foot(`If either of you does not wish to go ahead, your holding deposit is refunded in full.`))
 }
@@ -100,6 +100,6 @@ export function applicantBooked(o: { firstName: string; landlordFirst: string; w
     + shellRow(brand + picture('Your call is booked')
       + h1(`You're booked in, ${esc(o.firstName)}`)
       + lead(`Your call with ${esc(o.landlordFirst)} is on <strong style="color:${INK};">${esc(o.when)}</strong>.`)
-      + `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:24px 0 0;"><tr><td style="${F}padding:16px;background:${SAGE};border-radius:14px;text-align:center;font-size:15px;line-height:1.6;color:${INK};">Call <strong>${esc(o.landlordFirst)}</strong> on video at that time, on FaceTime or WhatsApp, using<br><strong style="font-size:18px;">${esc(o.phone)}</strong></td></tr></table>`
+      + `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:34px 0 0;"><tr><td style="${F}padding:20px;background:${SAGE};border-radius:14px;text-align:center;font-size:15px;line-height:1.6;color:${INK};">Call <strong>${esc(o.landlordFirst)}</strong> on video at that time, on FaceTime or WhatsApp, using<br><strong style="font-size:18px;">${esc(o.phone)}</strong></td></tr></table>`
       + foot(`Anything come up? Just reply to this email and the office will help.`))
 }
