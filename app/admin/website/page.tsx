@@ -31,6 +31,22 @@ export default function WebsitePage({ searchParams }: { searchParams: PageSearch
   const [data, setData] = useState<any>(null)
   const [err, setErr] = useState('')
   const [editing, setEditing] = useState<Post | null>(null)
+  const [briefOpen, setBriefOpen] = useState(false)
+  const [brief, setBrief] = useState('')
+  const [briefCat, setBriefCat] = useState<'tenants' | 'landlords'>('tenants')
+  const [briefBusy, setBriefBusy] = useState(false)
+  const [briefErr, setBriefErr] = useState('')
+  // a draft from the brief opens in the editor, filled in — nothing is saved until Save
+  async function writeFromBrief() {
+    setBriefBusy(true); setBriefErr('')
+    const r = await adminFetch('/api/admin/website/draft', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ brief, category: briefCat }) }).catch(() => null)
+    const j = r ? await r.json().catch(() => ({})) : {}
+    setBriefBusy(false)
+    if (!r?.ok) { setBriefErr(j.error || 'That didn’t work. Try again.'); return }
+    const draftBody = j.sources?.length ? `${j.body}\n\n---\nSources checked: ${j.sources.join(', ')}` : j.body
+    setEditing({ ...blank(), title: j.title, excerpt: j.excerpt, body: draftBody, category: j.category, status: 'draft', cover_url: j.cover_url ?? null })
+    setBriefOpen(false); setBrief('')
+  }
 
   const load = useCallback(async () => {
     const r = await adminFetch('/api/admin/website')
@@ -69,6 +85,26 @@ export default function WebsitePage({ searchParams }: { searchParams: PageSearch
         {err && <p className="rounded-xl bg-red-50 px-md py-sm text-sm text-red-800">{err}</p>}
         {data?.setupNeeded && <p className="rounded-xl border border-amber-300 bg-amber-50 px-md py-sm text-sm text-amber-900">Run migration 221 to switch the Website section on.</p>}
 
+        {briefOpen && (
+          <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-md">
+            <div className="w-full max-w-lg rounded-2xl bg-white p-lg shadow-xl">
+              <h2 className="font-bold text-neutral-900">Write a post from a brief</h2>
+              <p className="mt-xs text-sm text-neutral-600">Say what the post should cover in a sentence or two. Claude drafts it and checks current facts on the web where it needs them. It opens as a draft for you to edit and save.</p>
+              <textarea value={brief} onChange={e => setBrief(e.target.value)} rows={4} maxLength={1200} placeholder="e.g. What tenants should check before moving into a shared house, including the bills, the fire safety basics and who to call if something breaks"
+                className="mt-md w-full resize-none rounded-xl border border-neutral-300 px-md py-sm text-sm" />
+              <label className="mt-sm block text-sm text-neutral-700">For
+                <select value={briefCat} onChange={e => setBriefCat(e.target.value as 'tenants' | 'landlords')} className="ml-sm rounded-lg border border-neutral-300 px-sm py-xs text-sm">
+                  <option value="tenants">Tenants</option><option value="landlords">Landlords</option>
+                </select>
+              </label>
+              {briefErr && <p className="mt-sm text-sm font-semibold text-red-700">{briefErr}</p>}
+              <div className="mt-md flex justify-end gap-sm">
+                <button type="button" onClick={() => setBriefOpen(false)} className="rounded-full px-md py-sm text-sm font-semibold text-neutral-700">Cancel</button>
+                <button type="button" disabled={briefBusy || brief.trim().length < 10} onClick={writeFromBrief} className="rounded-full bg-neutral-900 px-lg py-sm text-sm font-bold text-white disabled:opacity-40">{briefBusy ? 'Writing… (this can take a minute)' : 'Write the draft'}</button>
+              </div>
+            </div>
+          </div>
+        )}
         {data && tab === 'advice' && (editing
           ? <PostEditor post={editing} onClose={() => setEditing(null)} onSaved={async p => { await load(); setEditing(p) }} onDeleted={async () => { await load(); setEditing(null) }} act={act} />
           : (
@@ -96,6 +132,7 @@ export default function WebsitePage({ searchParams }: { searchParams: PageSearch
                       if (d) { alert(d.added ? `Scheduled ${d.added} videos, one a day from ${d.first} to ${d.last}.${d.skipped ? ` (${d.skipped} were already there.)` : ''}` : 'They’re all scheduled already.'); load() }
                     }}>Schedule the housemate videos</button>
                   )}
+                  <button type="button" className={btnDark} onClick={() => { setBriefOpen(true); setBriefErr('') }}>Write from a brief</button>
                   <button type="button" className={btnDark} onClick={() => setEditing(blank())}>+ New post</button>
                 </div>
               </div>
