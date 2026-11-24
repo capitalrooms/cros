@@ -9,6 +9,8 @@ import { svc, packLink, defaultPackSubject, defaultPackMessage } from '@/lib/mov
 
 export const dynamic = 'force-dynamic'
 
+const SHORT_CERT: Record<string, string> = { gas: 'gas safety certificate', eicr: 'EICR', epc: 'EPC' }
+
 export async function GET(req: NextRequest, { params }: { params: Promise<{ tenancyId: string }> }) {
   if (!(await requireAdmin(req))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { tenancyId } = await params
@@ -26,7 +28,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ tena
     // certificates on the property now that this pack was sent without (a pack is a snapshot): the office sends again to include them
     packs: (packs ?? []).map((p: any) => {
       const sentOk = new Set((p.documents ?? []).filter((d: any) => d.available).map((d: any) => d.key))
-      const missingCerts = (ctx.documents as any[]).filter(d => d.source === 'property' && d.available && !sentOk.has(d.key)).map(d => ({ key: d.key, label: d.label }))
+      const missingCerts = (ctx.documents as any[]).filter(d => d.source === 'property' && d.available && !sentOk.has(d.key)).map(d => ({ key: d.key, label: SHORT_CERT[d.key] ?? d.label }))
       return { ...p, link: packLink(p.token), missingCerts }
     }),
     commsLive: await getNewTenantCommsLive(),   // move-in packs go to new tenants: allowed while tenant messages are paused

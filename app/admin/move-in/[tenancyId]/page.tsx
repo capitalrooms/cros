@@ -321,19 +321,21 @@ export default function MoveInPackAdmin({ params }: { params: Promise<{ tenancyI
                     {g === 'Property documents' && !list.length && <p className="mt-xs text-xs text-neutral-500">{c.documents.some(d => d.group === g) ? 'No documents match.' : 'No other documents on this house.'}</p>}
                     <ul className="mt-xs space-y-xs">
                       {list.map(d => (
-                        <li key={d.key} className="flex items-start gap-sm text-sm">
+                        <li key={d.key} className="flex flex-wrap items-start gap-x-sm gap-y-xs text-sm">
                           <input type="checkbox" className="mt-1" checked={picked.has(d.key)} onChange={e => setPicked(p => { const n = new Set(p); if (e.target.checked) n.add(d.key); else n.delete(d.key); return n })} />
-                          <span className="flex-1">
+                          <span className="min-w-[14rem] flex-1">
                             <span className="text-neutral-900">{d.label}</span>
                             {!d.available && <span className="ml-sm rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold uppercase text-amber-800">Missing</span>}
                             {d.note && <span className="block text-xs text-neutral-500">{d.note}</span>}
                           </span>
                           {!d.available && d.group === 'Safety certificates' && <button type="button" onClick={() => setUploadFor({ key: d.key, label: d.label })} className="rounded-lg bg-neutral-900 px-sm py-1 text-xs font-bold text-white">Upload</button>}
                           {!d.available && d.group === 'Safety certificates' && (
+                            <span className="flex w-full flex-wrap items-center gap-sm pl-lg sm:w-auto sm:pl-0">
                             <select defaultValue="" onChange={e => { if (e.target.value) useFileFor(d.key, d.label, e.target.value); e.target.value = '' }} className="rounded-lg border border-neutral-300 px-xs py-1 text-xs">
                               <option value="">Use a file on the house…</option>
                               {c.documents.filter(x => x.group === 'Property documents' && x.url).map(x => <option key={x.key} value={x.url}>{x.label}</option>)}
                             </select>
+                            </span>
                           )}
                           {d.url && d.available && <button type="button" onClick={() => d.url!.startsWith('/') ? window.open(d.url, '_blank') : openStoredFile(d.url!)} className="text-xs font-semibold text-neutral-500 underline">Open</button>}
                         </li>
@@ -392,7 +394,7 @@ export default function MoveInPackAdmin({ params }: { params: Promise<{ tenancyI
                     </div>
                     {(p.missingCerts?.length ?? 0) > 0 && p.status !== 'withdrawn' && p.missingCerts && (
                       <p className="mt-xs rounded-lg bg-amber-50 px-sm py-xs text-xs font-semibold text-amber-900">
-                        Sent without {p.missingCerts.map((c: { label: string }) => c.label.toLowerCase()).join(', ')}, which {p.missingCerts.length === 1 ? 'is' : 'are'} now on the property. Send the pack again to include {p.missingCerts.length === 1 ? 'it' : 'them'}.
+                        Sent without the {p.missingCerts.map((c: { label: string }) => c.label).join(' and ')}, which {p.missingCerts.length === 1 ? 'is' : 'are'} now on the property. Send the pack again to include {p.missingCerts.length === 1 ? 'it' : 'them'}.
                       </p>
                     )}
                     <p className="text-xs text-neutral-500">
