@@ -196,7 +196,7 @@ function Detail({ d, act }: { d: any; act: (b: Record<string, unknown>) => Promi
         {rs.length ? (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead><tr className="text-left text-[11px] uppercase tracking-wide text-neutral-500"><th className="px-lg py-xs">Contractor</th><th className="py-xs">Answer</th><th className="py-xs">Can be there</th><th className="py-xs">Call-out</th><th className="py-xs">After the visit</th><th /></tr></thead>
+              <thead><tr className="text-left text-[11px] uppercase tracking-wide text-neutral-500"><th className="px-lg py-xs">Contractor</th><th className="py-xs">Answer</th><th className="py-xs whitespace-nowrap">Can be there</th><th className="py-xs whitespace-nowrap">Call-out</th><th className="py-xs whitespace-nowrap">After the visit</th><th /></tr></thead>
               <tbody className="divide-y divide-neutral-100">
                 {rs.map(r => (
                   <tr key={r.id} className={r.chosen ? 'bg-green-50' : ''}>
