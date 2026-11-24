@@ -440,7 +440,16 @@ export default function ListingEditor({ params }: { params: Promise<{ roomId: st
         <Section id="price" title="Price & availability" sub="Material information part A — must be on every advert.">
           <div className="grid gap-md sm:grid-cols-2">
             <div className={lbl}>Rent
-              <div className="flex gap-sm"><input inputMode="decimal" className={field} value={l.rent ?? ''} onChange={e => set('rent', e.target.value)} placeholder="£" />
+              <div className="flex gap-sm"><input inputMode="decimal" className={field} value={l.rent ?? ''} placeholder="£" onChange={e => {
+                const r = e.target.value; set('rent', r)
+                // deposits follow the rent: five weeks and one week, filled in when empty or now above the limit (Harry, 24 Nov 2026)
+                const w = Number(r) > 0 ? (l.rent_frequency === 'pw' ? Number(r) : Number(r) * 12 / 52) : 0
+                if (w) {
+                  const c5 = Math.floor(w * 5 * 100) / 100, c1 = Math.floor(w * 100) / 100
+                  if (l.deposit == null || l.deposit === '' || Number(l.deposit) > c5) set('deposit', String(c5))
+                  if (l.holding_deposit == null || l.holding_deposit === '' || Number(l.holding_deposit) > c1) set('holding_deposit', String(c1))
+                }
+              }} />
                 <select className={`${field} w-40`} value={l.rent_frequency} onChange={e => set('rent_frequency', e.target.value)}><option value="pcm">a month</option><option value="pw">a week</option></select></div>
             </div>
             <label className={lbl}>Available from<input type="date" className={field} value={l.available_from ?? ''} onChange={e => set('available_from', e.target.value)} /></label>
