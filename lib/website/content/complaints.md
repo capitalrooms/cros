@@ -26,6 +26,19 @@ Harry (or a relevant member of staff, where that applies) will investigate and s
 
 **Timescale:** we aim to respond within 15 working days of receiving your complaint.
 
+## What you can expect from our reply
+
+Our final reply sets out, in plain language:
+
+- **What happened**, with the dates of each step taken, so you can follow the history.
+- **What we accept** we could have done better. We will say so where it is true.
+- **What we will do next**, with a named person responsible and a timescale for each outstanding item.
+- **Who to contact**, including a direct number, if you have questions about the letter.
+
+If a repair is still outstanding, we keep you informed while we wait for a part or a contractor, and we will not treat a delivered part as a finished repair. Changing contractor does not change our responsibility to see the work through.
+
+We also review how outstanding repairs are tracked, so that delays are escalated sooner and responsibility for follow-up is clear.
+
 ## Stage 4: The Property Ombudsman
 
 If you are still dissatisfied after our final viewpoint letter, you can refer your complaint to The Property Ombudsman:
