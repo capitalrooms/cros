@@ -7,8 +7,8 @@ import { enablePush, pushSupported, pushPermission } from '@/lib/push'
 import { adminFetch } from '@/lib/adminFetch'
 
 const INK = '#17332B', MINT = '#98ECD5', GOLD = '#F2B84B', IVORY = '#F6F3EC'
-type Step = 'arrive' | 'you' | 'notify' | 'done'
-const STEPS: Step[] = ['arrive', 'you', 'notify', 'done']
+type Step = 'arrive' | 'contact' | 'you' | 'notify' | 'done'
+const STEPS: Step[] = ['arrive', 'contact', 'you', 'notify', 'done']
 
 // little houses and flats drive past on the way in (drawn in CSS, no images)
 function Passing() {
@@ -32,6 +32,18 @@ export default function Welcome() {
   const [house, setHouse] = useState('')
   const [personId, setPersonId] = useState<string | null>(null)
   const [pushMsg, setPushMsg] = useState('')
+  const [phone, setPhone] = useState('')
+  const [forwarding, setForwarding] = useState('')
+  const [contactMsg, setContactMsg] = useState('')
+  const [savingContact, setSavingContact] = useState(false)
+  async function saveContact() {
+    setContactMsg(''); setSavingContact(true)
+    const r = await adminFetch('/api/tenant/profile', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone, forwardingAddress: forwarding }) }).catch(() => null)
+    const j = r ? await r.json().catch(() => ({})) : {}
+    setSavingContact(false)
+    if (!r?.ok) { setContactMsg(j.error || 'Those details did not save. You can add them later in your profile.'); return }
+    next()
+  }
   const step = STEPS[i]
   const next = () => setI(x => Math.min(x + 1, STEPS.length - 1))
   const skip = () => { window.location.href = '/tenant' }
@@ -84,6 +96,21 @@ export default function Welcome() {
         </section>
       )}
 
+      {step === 'contact' && (
+        <section style={{ paddingTop: 40, animation: 'rise .5s ease-out both' }}>
+          <h2 style={head}>Your contact details</h2>
+          <p style={body}>So the office can reach you about repairs. Both are optional, and you can change them any time in your profile. You can also talk to us through the app instead.</p>
+          <label style={label}>Mobile number</label>
+          <input value={phone} onChange={e => setPhone(e.target.value)} inputMode="tel" placeholder="07700 900000" style={field} />
+          <label style={label}>Where should your post go after you leave?</label>
+          <textarea value={forwarding} onChange={e => setForwarding(e.target.value)} rows={3} placeholder="Family home, or your new address" style={{ ...field, resize: 'none' }} />
+          <p style={{ ...body, fontSize: 14, marginTop: 8 }}>We will only send post there that is addressed to you.</p>
+          {contactMsg && <p style={{ ...body, color: '#7A5410', marginTop: 10 }}>{contactMsg}</p>}
+          <button onClick={saveContact} disabled={savingContact} style={{ ...btn(INK, '#fff'), marginTop: 20 }}>{savingContact ? 'Saving…' : 'Save and continue'}</button>
+          <button onClick={next} style={{ ...btn('transparent', INK), border: `1.5px solid ${INK}`, marginTop: 12 }}>Talk to us in the app instead</button>
+        </section>
+      )}
+
       {step === 'you' && (
         <section style={{ paddingTop: 40, animation: 'rise .5s ease-out both' }}>
           <div style={{ width: 96, height: 96, borderRadius: 48, background: MINT, display: 'grid', placeItems: 'center', fontFamily: 'Baloo 2, system-ui, sans-serif', fontSize: 30, fontWeight: 700, color: INK, animation: 'bob 3s ease-in-out infinite' }}>Hi</div>
@@ -129,3 +156,6 @@ export default function Welcome() {
 const head: React.CSSProperties = { fontFamily: 'Baloo 2, system-ui, sans-serif', fontSize: 30, lineHeight: 1.1, margin: '18px 0 8px' }
 const body: React.CSSProperties = { fontSize: 16, lineHeight: 1.6, margin: 0, opacity: .85 }
 const btn = (bg: string, fg: string): React.CSSProperties => ({ width: '100%', padding: '15px 20px', borderRadius: 999, border: 0, background: bg, color: fg, fontWeight: 800, fontSize: 16, cursor: 'pointer' })
+
+const label: React.CSSProperties = { display: 'block', fontSize: 12, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase', marginTop: 18, marginBottom: 6, opacity: .7 }
+const field: React.CSSProperties = { width: '100%', boxSizing: 'border-box', padding: '13px 14px', borderRadius: 14, border: '1px solid #DDE5DE', background: '#fff', color: INK, fontSize: 16, fontFamily: 'inherit' }
