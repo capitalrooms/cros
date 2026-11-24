@@ -176,7 +176,8 @@ function LettingFileScreen({ tenancyId, from, initialTab, done, mark }: { tenanc
               </ul>
             </section>}
             {/* Landlord updates — before move-in every step; the first two months the full report; after that only what was sent */}
-            {file.stage !== 'fell_through' && <LandlordUpdates tenancyId={tenancyId} phase={
+            {/* shown on the Progress tab only — not repeated on every tab (24 Nov 2026 review) */}
+            {activeTab === 'progress' && file.stage !== 'fell_through' && <LandlordUpdates tenancyId={tenancyId} phase={
               file.stage === 'let_agreed' ? 'letting'
               : file.stage === 'live' && tn.start_date && (Date.parse(file.today) - Date.parse(tn.start_date)) / 86_400_000 <= 60 ? 'settling'
               : 'established'} />}
@@ -201,7 +202,7 @@ function LettingFileScreen({ tenancyId, from, initialTab, done, mark }: { tenanc
                 {file.documents.length > 4 && <button type="button" onClick={() => setTab('letters')} className="mt-xs text-xs font-semibold text-blue-700 hover:underline">All {file.documents.length}</button>}
               </section>
             )}
-            {activeTab !== 'activity' && (() => {
+            {activeTab === 'progress' && (() => {
               const recent = activityItems(file).slice(0, 4)
               return (
                 <section className="rounded-2xl border border-neutral-200 bg-white p-md">

@@ -561,7 +561,10 @@ export default function PeopleManagement({ searchParams }: { searchParams: PageS
     if (!pr && !see) return null
     const office = ['administrator', 'admin', 'lettings'].includes(p.role)
     return (
-      <span className="col-start-2 col-span-full flex flex-wrap items-center gap-xs pt-0.5" data-row-menu>
+      <details className="group col-start-2 col-span-full pt-0.5" data-row-menu>
+        {/* messaging switches are behind one toggle, closed by default (24 Nov 2026 review) */}
+        <summary className="inline-flex cursor-pointer list-none items-center gap-xs text-xs font-semibold text-neutral-600 hover:text-neutral-900 [&::-webkit-details-marker]:hidden">Messages <span aria-hidden="true" className="transition-transform group-open:rotate-180">▾</span></summary>
+      <span className="mt-xs flex flex-wrap items-center gap-xs">
         {pr && p.role === 'landlord' && Pill({ on: pr.landlordOn, busy: nBusy === p.id + 'll', onClick: () => setLandlord(p.id), label: 'Updates', title: 'Updates about their properties (they pick which kinds in their own app)' })}
         {pr && p.role !== 'landlord' && !office && (['push', 'email', 'sms'] as const).map(f => (
           Pill({ k: f, on: pr[f], busy: nBusy === p.id + f, onClick: () => setPref(p.id, f), label: f === 'push' ? 'App' : f === 'email' ? 'Email' : 'Text',
@@ -571,6 +574,7 @@ export default function PeopleManagement({ searchParams }: { searchParams: PageS
         {pr && pr.onApp && <span className={`rounded-full px-sm py-0.5 text-[11px] font-semibold ${pr.onApp ? 'bg-emerald-50 text-emerald-800' : 'bg-neutral-100 text-neutral-500'}`} title={pr.onApp ? 'Their phone shows app notifications' : 'They haven’t tapped “Allow” on a phone yet'}>{pr.onApp ? 'Phone set up' : 'Phone not set up'}</span>}
         {see && <Link href={see} className="relative z-10 rounded-full border border-neutral-300 bg-white px-sm py-0.5 text-[11px] font-semibold text-neutral-800 hover:border-neutral-900">See their app →</Link>}
       </span>
+      </details>
     )
   }
   // sign-in status at a glance, and what can be done about it

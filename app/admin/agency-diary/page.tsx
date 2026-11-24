@@ -206,14 +206,16 @@ export default function AgencyDiaryPage() {
           </div>
           {outstandingJobs.length > 0 && (
             <button onClick={() => setShowOutstanding(!showOutstanding)} className="inline-flex items-center gap-xs rounded-lg border border-amber-300 bg-amber-50 px-md py-sm text-sm font-semibold text-amber-900 hover:bg-amber-100">
-              <LineIcon glyph="⚠️" /> {outstandingJobs.length} repair{outstandingJobs.length === 1 ? '' : 's'} to book
+              <LineIcon glyph="⚠️" /> {outstandingJobs.length} approved repair{outstandingJobs.length === 1 ? '' : 's'} waiting for a date
             </button>
           )}
           <div className="ml-auto"><WeekNav monday={weekStart} onChange={setWeekStart} /></div>
         </div>
 
         {/* filters = legend */}
-        <div className="mb-lg flex flex-wrap gap-xs">
+        {/* the counts are what's booked in the week shown — repairs still waiting for a date are in the banner (24 Nov 2026) */}
+        <div className="mb-lg flex flex-wrap items-center gap-xs">
+          <span className="mr-xs text-xs text-neutral-500">Booked this week:</span>
           {(Object.keys(KIND) as Kind[]).map(k => {
             const n = entries.filter(e => e.kind === k).length, off = hidden.has(k)
             return (

@@ -195,6 +195,22 @@ export default function MoveInPackAdmin({ params }: { params: Promise<{ tenancyI
       <div className="mx-auto max-w-6xl px-lg py-xl space-y-lg">
 
         {data.setupNeeded && <p className="rounded-xl border border-amber-200 bg-amber-50 px-md py-sm text-sm text-amber-900">{data.setupNeeded}</p>}
+        {/* what's left, at a glance (24 Nov 2026 review) — built from what the pack already knows */}
+        {(() => {
+          const latest = data.packs[0]
+          const left: string[] = []
+          if (!c.paymentRefStored) left.push('Set the payment reference')
+          if (!latest) left.push('Send the pack to the tenant')
+          else if (!latest.first_viewed_at) left.push('Waiting for the tenant to open it')
+          if (latest && !latest.confirmed_at) left.push('Waiting for the tenant to confirm they’ve read it')
+          if (!left.length) return <p className="rounded-xl bg-green-50 px-md py-sm text-sm font-semibold text-green-800">Pack complete — the tenant has opened it and confirmed.</p>
+          return (
+            <div className="rounded-xl bg-white px-md py-sm text-sm text-neutral-800">
+              <span className="mr-sm text-[11px] font-bold uppercase tracking-wider text-neutral-500">Still to do</span>
+              {left.map((x, i) => <span key={x} className="mr-md">{i + 1}. {x}</span>)}
+            </div>
+          )
+        })()}
         {error && <p className="rounded-xl bg-red-50 px-md py-sm text-sm text-red-700">{error}</p>}
         {notice && <p className="rounded-xl bg-green-50 px-md py-sm text-sm text-green-800 break-all">{notice}</p>}
 
