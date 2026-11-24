@@ -67,27 +67,36 @@ export function landlordNewTimes(o: { firstName: string; applicantFirst: string;
     + button('Choose new times', o.link)
 }
 
-// ---- Applicant emails (with the illustration hosted on the website store) ----
+// ---- Applicant emails (2026 layout: one column, one action, the picture small and centred) ----
 export const CALL_IMAGE = 'https://fihjzzxxhprxgjuefgtb.supabase.co/storage/v1/object/public/website/emails/call-illustration.webp'
+const F = "font-family:Nunito,Helvetica,Arial,sans-serif;"
+const pre = (t: string) => `<div style="display:none;max-height:0;overflow:hidden;opacity:0;">${esc(t)}</div>`
+const brand = `<table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td style="${F}font-family:'Baloo 2',Helvetica,Arial,sans-serif;font-size:18px;font-weight:700;color:${INK};">Capital Rooms</td></tr></table>`
+const picture = (alt: string) => `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:22px 0 4px;"><tr><td align="center"><img src="${CALL_IMAGE}" alt="${esc(alt)}" width="240" style="display:block;width:240px;max-width:100%;height:auto;border:0;" /></td></tr></table>`
+const h1 = (t: string) => `<h1 style="${F}margin:18px 0 10px;font-size:26px;line-height:1.2;font-weight:800;color:${INK};text-align:center;">${t}</h1>`
+const lead = (t: string) => `<p style="${F}margin:0 auto;max-width:440px;font-size:16px;line-height:1.6;color:${MUTED};text-align:center;">${t}</p>`
+const cta = (label: string, href: string) => `<table role="presentation" cellspacing="0" cellpadding="0" align="center" style="margin:26px auto 0;"><tr><td align="center" style="border-radius:999px;background:${INK};"><a href="${href}" style="${F}display:inline-block;padding:14px 30px;font-size:16px;font-weight:700;color:#ffffff;text-decoration:none;border-radius:999px;">${esc(label)}</a></td></tr></table>`
+const foot = (t: string) => `<p style="${F}margin:26px 0 0;font-size:13px;line-height:1.6;color:${MUTED};text-align:center;">${t}</p>`
+const shellRow = (inner: string) => `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:480px;margin:0 auto;background:#ffffff;border-radius:24px;"><tr><td style="padding:28px 26px 30px;">${inner}</td></tr></table>`
 
-const hero = (alt: string) => `<img src="${CALL_IMAGE}" alt="${esc(alt)}" width="520" style="display:block;width:100%;max-width:520px;height:auto;border-radius:20px;border:0;" />`
-
-/** The applicant is asked to pick one of the times the landlord ticked. */
+/** Pick a time: the landlord has ticked the times that suit them. */
 export function applicantPickTime(o: { firstName: string; landlordFirst: string; link: string; options: string[] }) {
-  return hero('A call is ready to book')
-    + band('Your next step', `Hello ${esc(o.firstName)}, pick a time to talk`,
-      `${esc(o.landlordFirst)} has accepted your offer, subject to a short informal video call.`)
-    + para(`It is a 5 to 10 minute informal chat, so you can both see if you like each other before going ahead.`)
-    + chips(o.options)
-    + button('Choose a time', o.link)
-    + note(`If for any reason either of you does not wish to proceed, your holding deposit will be refunded in full.`)
+  const list = o.options.map(t => `<tr><td style="${F}padding:10px 14px;margin:0 0 8px;background:${SAGE};border-radius:12px;font-size:15px;font-weight:700;color:${INK};text-align:center;">${esc(t)}</td></tr><tr><td style="height:8px;"></td></tr>`).join('')
+  return pre(`${o.landlordFirst} has accepted your offer. Pick a time for a short call.`)
+    + shellRow(brand + picture('A call is ready to book')
+      + h1(`Hi ${esc(o.firstName)}, pick a time to talk`)
+      + lead(`${esc(o.landlordFirst)} has accepted your offer, subject to a short informal video call. It takes 5 to 10 minutes, a relaxed chat so you can both see if it feels right before going ahead.`)
+      + `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:24px 0 0;">${list}</table>`
+      + cta('Choose my time', o.link)
+      + foot(`If either of you does not wish to go ahead, your holding deposit is refunded in full.`))
 }
 
-/** The applicant's call is booked: when, and how to reach the landlord. */
+/** Booked: when, and how to reach the landlord. */
 export function applicantBooked(o: { firstName: string; landlordFirst: string; when: string; phone: string }) {
-  return hero('Your call is booked')
-    + band('Booked', `You are booked in, ${esc(o.firstName)}`,
-      `Your video call with ${esc(o.landlordFirst)} is on ${esc(o.when)}.`)
-    + para(`Call ${esc(o.landlordFirst)} on video at that time. You can use FaceTime or WhatsApp video on <strong>${esc(o.phone)}</strong>.`)
-    + note(`If anything comes up, reply to this email and the office will help.`)
+  return pre(`Booked: ${o.when}`)
+    + shellRow(brand + picture('Your call is booked')
+      + h1(`You're booked in, ${esc(o.firstName)}`)
+      + lead(`Your call with ${esc(o.landlordFirst)} is on <strong style="color:${INK};">${esc(o.when)}</strong>.`)
+      + `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:24px 0 0;"><tr><td style="${F}padding:16px;background:${SAGE};border-radius:14px;text-align:center;font-size:15px;line-height:1.6;color:${INK};">Call <strong>${esc(o.landlordFirst)}</strong> on video at that time, on FaceTime or WhatsApp, using<br><strong style="font-size:18px;">${esc(o.phone)}</strong></td></tr></table>`
+      + foot(`Anything come up? Just reply to this email and the office will help.`))
 }
