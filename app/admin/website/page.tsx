@@ -14,7 +14,7 @@ import { markdownToHtml, slugify, isLive } from '@/lib/website/markdown'
 import { one, type PageSearchParams } from '@/lib/pageSearchParams'
 
 type Tab = 'advice' | 'rooms' | 'documents'
-interface Post { id?: string; slug: string; title: string; excerpt: string | null; body: string; cover_url: string | null; category: string; status: string; publish_at: string | null; shown_date: string | null; old_path?: string | null; note: string | null; updated_at?: string; updated_by?: string | null }
+interface Post { id?: string; slug: string; title: string; excerpt: string | null; body: string; cover_url: string | null; cover_position?: string | null; category: string; status: string; publish_at: string | null; shown_date: string | null; old_path?: string | null; note: string | null; updated_at?: string; updated_by?: string | null }
 const CATS: [string, string][] = [['tenants', 'Tenants'], ['landlords', 'Landlords'], ['area', 'Area guide'], ['rooms', 'Rooms'], ['news', 'News']]
 const blank = (): Post => ({ slug: '', title: '', excerpt: '', body: '', cover_url: null, category: 'tenants', status: 'draft', publish_at: null, shown_date: null, note: null })
 const card = 'rounded-2xl border border-neutral-200 bg-white'
@@ -144,7 +144,7 @@ export default function WebsitePage({ searchParams }: { searchParams: PageSearch
                       <li key={p.id}>
                         <button type="button" onClick={() => setEditing(p)} className="flex w-full items-center gap-md px-lg py-sm text-left hover:bg-neutral-50">
                           {p.cover_url
-                            ? <img src={p.cover_url} alt="" className="h-12 w-16 shrink-0 rounded-md object-cover bg-neutral-100" />
+                            ? <img src={p.cover_url} alt="" className="h-12 w-16 shrink-0 rounded-md object-cover bg-neutral-100" style={{ objectPosition: p.cover_position || '50% 50%' }} />
                             : <span className="h-12 w-16 shrink-0 rounded-md bg-neutral-100" />}
                           <span className="min-w-0 flex-1">
                             <span className="block truncate text-sm font-semibold text-neutral-900">{p.title}</span>
@@ -259,13 +259,31 @@ function PostEditor({ post, onClose, onSaved, onDeleted, act }: {
         </label>
         <div>
           <p className="text-sm font-semibold text-neutral-800">Cover picture</p>
-          <div className="mt-xs flex items-center gap-sm">
-            {p.cover_url ? <img src={p.cover_url} alt="" className="h-16 w-24 rounded-md object-cover" /> : <span className="h-16 w-24 rounded-md bg-neutral-100" />}
-            <label className={`${btn} cursor-pointer`}>{busy === 'upload' ? 'Uploading…' : p.cover_url ? 'Change' : 'Add a picture'}
-              <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="hidden" onChange={async e => { const f = e.target.files?.[0]; if (f) { const url = await upload(f); if (url) set('cover_url', url) } e.target.value = '' }} />
-            </label>
-            {p.cover_url && <button type="button" className="text-xs font-semibold text-neutral-500 underline" onClick={() => set('cover_url', null)}>Remove</button>}
-          </div>
+          {(() => {
+            const [px, py] = (p.cover_position || '50% 50%').split(' ').map(v => parseFloat(v))
+            const setPos = (e: React.MouseEvent<HTMLDivElement>) => {
+              const r = e.currentTarget.getBoundingClientRect()
+              set('cover_position', `${Math.round(((e.clientX - r.left) / r.width) * 100)}% ${Math.round(((e.clientY - r.top) / r.height) * 100)}%`)
+            }
+            return (
+              <div className="mt-xs flex flex-wrap items-start gap-md">
+                {p.cover_url ? (
+                  <div className="relative w-72 cursor-crosshair overflow-hidden rounded-xl bg-neutral-100" style={{ aspectRatio: '3 / 2' }} onClick={setPos} title="Click where the important part of the picture should sit">
+                    <img src={p.cover_url} alt="" className="h-full w-full object-cover" style={{ objectPosition: p.cover_position || '50% 50%' }} />
+                    <span className="pointer-events-none absolute h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-neutral-900 shadow" style={{ left: `${px}%`, top: `${py}%` }} />
+                  </div>
+                ) : <span className="h-24 w-36 rounded-md bg-neutral-100" />}
+                <div className="space-y-xs">
+                  <label className={`${btn} inline-block cursor-pointer`}>{busy === 'upload' ? 'Uploading…' : p.cover_url ? 'Change picture' : 'Add a picture'}
+                    <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="hidden" onChange={async e => { const f = e.target.files?.[0]; if (f) { const url = await upload(f); if (url) set('cover_url', url) } e.target.value = '' }} />
+                  </label>
+                  {p.cover_url && <p className="text-xs text-neutral-600">Click the picture to choose which part shows in the list, on the post and on the website.</p>}
+                  {p.cover_url && <button type="button" className="block text-xs font-semibold text-neutral-600 underline" onClick={() => set('cover_position', '50% 50%')}>Reset to centre</button>}
+                  {p.cover_url && <button type="button" className="block text-xs font-semibold text-neutral-500 underline" onClick={() => set('cover_url', null)}>Remove picture</button>}
+                </div>
+              </div>
+            )
+          })()}
         </div>
         <div>
           <div className="flex items-center justify-between gap-sm">

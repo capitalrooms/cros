@@ -72,6 +72,7 @@ export async function POST(req: NextRequest) {
       excerpt: String(p.excerpt ?? '').trim().slice(0, 300) || null,
       body: String(p.body ?? '').slice(0, 100_000),
       cover_url: String(p.cover_url ?? '').trim() || null,
+      cover_position: /^\d{1,3}% \d{1,3}%$/.test(String(p.cover_position ?? '')) ? String(p.cover_position) : '50% 50%',
       category: CATEGORIES.includes(p.category) ? p.category : 'tenants',
       status: p.status === 'published' ? 'published' : 'draft',
       publish_at: p.status === 'published' && p.publish_at ? new Date(p.publish_at).toISOString() : null,

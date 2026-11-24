@@ -40,7 +40,7 @@ export default async function Post({ params }: { params: Promise<{ slug: string 
       <h1 className="h1 load2" style={{ margin: '18px 0 28px', maxWidth: 900, fontSize: 'clamp(40px,6vw,68px)' }}>{p.title}</h1>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       {/* a post with its own video shows the video, not the cover picture as well */}
-      {p.cover_url && !/^@\[video\]/m.test(p.body ?? '') && <img src={p.cover_url} alt={p.title} style={{ width: '100%', maxHeight: 520, objectFit: 'cover', objectPosition: 'center 20%', borderRadius: 32, marginBottom: 40 }} />}
+      {p.cover_url && !/^@\[video\]/m.test(p.body ?? '') && <img src={p.cover_url} alt={p.title} style={{ width: '100%', maxHeight: 520, objectFit: 'cover', objectPosition: p.cover_position || 'center 50%', borderRadius: 32, marginBottom: 40 }} />}
       <div className="prose" dangerouslySetInnerHTML={{ __html: markdownToHtml(p.body ?? '') }} />
     </article>
     {related.length > 0 && (
