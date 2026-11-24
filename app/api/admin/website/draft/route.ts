@@ -71,6 +71,11 @@ export async function POST(req: NextRequest) {
   const json = text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1)
   let out: any
   try { out = JSON.parse(json) } catch { return NextResponse.json({ error: 'The draft came back in the wrong shape. Try again, or add more to the brief.' }, { status: 502 }) }
+  // the web search tool wraps quoted facts in <cite> tags; the reader should see the words, not the markup
+  const clean = (t: unknown) => String(t ?? '').replace(/<\/?cite[^>]*>/gi, '').replace(/[ \t]{2,}/g, ' ')
+  out.title = clean(out.title)
+  out.excerpt = clean(out.excerpt)
+  out.body = clean(out.body)
   const title = String(out.title ?? '').trim().slice(0, 200)
   if (!title || !out.body) return NextResponse.json({ error: 'The draft was empty. Try again with more detail in the brief.' }, { status: 502 })
   const sources = Array.isArray(out.sources) ? out.sources.filter((u: unknown) => typeof u === 'string' && /^https?:\/\//.test(u)).slice(0, 8) : []
