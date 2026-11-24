@@ -8,7 +8,7 @@ const BASE = 'https://capitalrooms.co.uk'
 const PAGES: [string, number, MetadataRoute.Sitemap[number]['changeFrequency']][] = [
   ['/', 1, 'weekly'], ['/landlords', 0.9, 'monthly'], ['/residential-lettings', 0.9, 'daily'], ['/shared-accommodation', 0.8, 'daily'],
   ['/tenants', 0.8, 'monthly'], ['/maintenance-services', 0.7, 'monthly'], ['/instant_valuation', 0.8, 'monthly'], ['/about-us', 0.6, 'yearly'],
-  ['/testimonial', 0.6, 'monthly'], ['/blogs', 0.6, 'weekly'], ['/contact', 0.6, 'yearly'], ['/page/9-guarantor-affordability-calculator', 0.5, 'yearly'], ['/privacy_policy', 0.2, 'yearly'], ['/areas', 0.8, 'weekly'],
+  ['/testimonial', 0.6, 'monthly'], ['/blogs', 0.6, 'weekly'], ['/contact', 0.6, 'yearly'], ['/complaints', 0.4, 'yearly'], ['/page/9-guarantor-affordability-calculator', 0.5, 'yearly'], ['/privacy_policy', 0.2, 'yearly'], ['/areas', 0.8, 'weekly'],
 ]
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date()

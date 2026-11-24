@@ -63,7 +63,7 @@ export function Footer({ b = '' }: { b?: string }) {
             <a href="/website/documents/aml-certificate.pdf" style={{ fontSize: 13 }}>AML certificate</a>
             <a href="/website/documents/client-money-protection-certificate.pdf" style={{ fontSize: 13 }}>CMP certificate</a>
             <Link href={`${b}/page/6-update-your-communication-preference`} style={{ fontSize: 13 }}>Communication preferences</Link>
-            <a href="/website/documents/complaints-procedure.pdf" style={{ fontSize: 13 }}>Complaints</a>
+            <Link href={`${b}/complaints`} style={{ fontSize: 13 }}>Complaints</Link>
             <Link href={`${b}/privacy_policy`} style={{ fontSize: 13 }}>Privacy policy</Link>
           </div>
         </div>
