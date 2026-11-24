@@ -116,3 +116,30 @@ Type check: 1,361 errors before and after; none in the files changed.
 6. NRL and HMRC T19 reports — not started; only if overseas landlords or T19 are needed.
 7. Written retention policy — not started.
 
+
+## Workstream F — Planned Works (multi-day projects) — added 24 Nov 2026
+
+Harry's direction: not a standard maintenance job. A refurbishment is an ongoing project that tenants are kept informed about throughout. **Do not build yet.** First inspect the existing maintenance, contractor and tenant-app architecture, then propose how Planned Works integrates without duplicating anything.
+
+**Proposed design (from Harry's note):**
+- One project record with a timeline of daily updates. Raised as "Planned works" alongside "Standard job" at raise time.
+- Fields: contractor, duration (working days), start date, expected completion, progress (e.g. "Day 3 of 5"), project status.
+- Two independent statuses:
+  - Project: Planned · In progress · Paused · Delayed · Completed
+  - Facility (per facility, e.g. sink, shower): Available · Restricted · Unavailable · Partially available · Restored
+- Contractor daily update from the contractor app: ready-made messages (water unavailable, paint drying, work ongoing, area inaccessible, facility restored, delayed works) plus free text; photos; what was completed; return date; updated completion date; flag delays or problems.
+- Tenant app: a "Property works" section showing the live project, current restrictions, expected completion and the full history (not just the latest), so someone away for days can catch up.
+- Admin: a property-wide active works panel (several contractors at one house, all restrictions in one place). Useful for HMOs.
+
+**Safeguards:**
+- The project stays open over weekends and gaps between visits.
+- A daily update can never complete the whole project.
+- Tenants are notified when facility availability changes.
+- Confirmed delays move the expected completion date.
+- Only authorised staff can mark a facility restored.
+- Full history stays attached to the property.
+
+**Next steps:**
+1. Inspect how maintenance tickets, contractor job pages and the tenant visit page currently work (read-only).
+2. Propose the integration: which existing parts extend, what's new, data model and migration.
+3. Wait for Harry's go-ahead before building.
