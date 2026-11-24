@@ -80,6 +80,14 @@ export default function MoveInPackAdmin({ params }: { params: Promise<{ tenancyI
   // a missing certificate can be uploaded from right here
   const [uploadFor, setUploadFor] = useState<{ key: string; label: string } | null>(null)
   const [docSearch, setDocSearch] = useState('')
+  // a file already on the house goes into a missing certificate slot (the route files it under that type and reads its dates)
+  async function useFileFor(slotKey: string, label: string, storageUrl: string) {
+    if (!c || !confirm(`Use this file as the ${label.toLowerCase()} for this pack? It will be filed on the house as that certificate.`)) return
+    const r = await adminFetch(`/api/admin/move-in/${tenancyId}/slot`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ slotKey, storageUrl }) }).catch(() => null)
+    const j = r ? await r.json().catch(() => ({})) : {}
+    if (!r?.ok) { alert(j.error || 'That didn’t save — try again.'); return }
+    await load()
+  }
 
   // Live figures from the form (same maths as the documents)
   const live = useMemo(() => {
@@ -321,6 +329,12 @@ export default function MoveInPackAdmin({ params }: { params: Promise<{ tenancyI
                             {d.note && <span className="block text-xs text-neutral-500">{d.note}</span>}
                           </span>
                           {!d.available && d.group === 'Safety certificates' && <button type="button" onClick={() => setUploadFor({ key: d.key, label: d.label })} className="rounded-lg bg-neutral-900 px-sm py-1 text-xs font-bold text-white">Upload</button>}
+                          {!d.available && d.group === 'Safety certificates' && (
+                            <select defaultValue="" onChange={e => { if (e.target.value) useFileFor(d.key, d.label, e.target.value); e.target.value = '' }} className="rounded-lg border border-neutral-300 px-xs py-1 text-xs">
+                              <option value="">Use a file on the house…</option>
+                              {c.documents.filter(x => x.group === 'Property documents' && x.url).map(x => <option key={x.key} value={x.url}>{x.label}</option>)}
+                            </select>
+                          )}
                           {d.url && d.available && <button type="button" onClick={() => d.url!.startsWith('/') ? window.open(d.url, '_blank') : openStoredFile(d.url!)} className="text-xs font-semibold text-neutral-500 underline">Open</button>}
                         </li>
                       ))}
