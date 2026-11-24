@@ -5,31 +5,34 @@ const INK = '#17332B', GOLD = '#C4922A', GOLD_LIGHT = '#F2B84B', IVORY = '#F6F3E
 const esc = (s: string) => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' } as Record<string, string>)[c]!)
 
 function band(eyebrow: string, headline: string, sub: string) {
-  return `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-radius:18px;background:${INK};">
-  <tr><td style="padding:30px 28px;font-family:Nunito,Helvetica,Arial,sans-serif;">
-    <p style="margin:0 0 10px;font-size:12px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:${GOLD_LIGHT};">${esc(eyebrow)}</p>
-    <h1 style="margin:0 0 10px;font-family:'Baloo 2',Helvetica,Arial,sans-serif;font-size:28px;line-height:1.15;font-weight:700;color:#ffffff;">${esc(headline)}</h1>
-    <p style="margin:0;font-size:15px;line-height:1.55;color:#C9D6CC;">${esc(sub)}</p>
+  return `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-radius:20px;background:${SAGE};">
+  <tr><td style="padding:26px 26px 24px;font-family:Nunito,Helvetica,Arial,sans-serif;">
+    <table role="presentation" cellspacing="0" cellpadding="0"><tr>
+      <td style="width:10px;height:10px;border-radius:50%;background:${GOLD};font-size:0;line-height:0;">&nbsp;</td>
+      <td style="padding-left:8px;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:${MUTED};">${esc(eyebrow)}</td>
+    </tr></table>
+    <h1 style="margin:14px 0 8px;font-family:'Baloo 2',Helvetica,Arial,sans-serif;font-size:26px;line-height:1.2;font-weight:700;color:${INK};">${esc(headline)}</h1>
+    <p style="margin:0;font-size:15px;line-height:1.6;color:${MUTED};">${esc(sub)}</p>
   </td></tr></table>`
 }
 
-const para = (t: string) => `<p style="margin:18px 0 0;font-family:Nunito,Helvetica,Arial,sans-serif;font-size:16px;line-height:1.6;color:${INK};">${t}</p>`
+const para = (t: string) => `<p style="margin:18px 4px 0;font-family:Nunito,Helvetica,Arial,sans-serif;font-size:16px;line-height:1.65;color:${INK};">${t}</p>`
 
-const button = (label: string, href: string) => `<table role="presentation" cellspacing="0" cellpadding="0" style="margin:24px 0 0;"><tr><td style="border-radius:999px;background:${GOLD};">
-  <a href="${href}" style="display:inline-block;padding:14px 28px;font-family:Nunito,Helvetica,Arial,sans-serif;font-size:16px;font-weight:800;color:${INK};text-decoration:none;border-radius:999px;">${esc(label)}</a>
+const button = (label: string, href: string) => `<table role="presentation" cellspacing="0" cellpadding="0" style="margin:22px 0 0;"><tr><td style="border-radius:999px;border:1.5px solid ${GOLD};background:#ffffff;">
+  <a href="${href}" style="display:inline-block;padding:11px 22px;font-family:Nunito,Helvetica,Arial,sans-serif;font-size:15px;font-weight:700;color:${INK};text-decoration:none;border-radius:999px;">${esc(label)} &rarr;</a>
 </td></tr></table>`
 
-const chip = (t: string) => `<td style="background:${SAGE};border-radius:12px;padding:12px 14px;font-family:Nunito,Helvetica,Arial,sans-serif;font-size:15px;font-weight:700;color:${INK};">${esc(t)}</td>`
+const chip = (t: string, i = 0) => `<td style="background:${i % 2 ? BUTTER : '#ffffff'};border:1px solid ${i % 2 ? BUTTER : '#DDE5DE'};border-radius:14px;padding:11px 14px;font-family:Nunito,Helvetica,Arial,sans-serif;font-size:15px;color:${INK};">${esc(t)}</td>`
 
 function chips(labels: string[]) {
   const rows: string[] = []
   for (let i = 0; i < labels.length; i += 2) {
-    rows.push(`<tr>${chip(labels[i])}<td style="width:10px;"></td>${labels[i + 1] ? chip(labels[i + 1]) : '<td></td>'}</tr><tr><td style="height:8px;"></td></tr>`)
+    rows.push(`<tr>${chip(labels[i], i)}<td style="width:10px;"></td>${labels[i + 1] ? chip(labels[i + 1], i + 1) : '<td></td>'}</tr><tr><td style="height:10px;"></td></tr>`)
   }
   return `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:18px 0 0;">${rows.join('')}</table>`
 }
 
-const note = (t: string) => `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:22px 0 0;"><tr><td style="background:${BUTTER};border-radius:12px;padding:14px 16px;font-family:Nunito,Helvetica,Arial,sans-serif;font-size:14px;line-height:1.5;color:${BUTTER_INK};">${t}</td></tr></table>`
+const note = (t: string) => `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:22px 0 0;"><tr><td style="background:${BUTTER};border-radius:14px;padding:13px 16px;font-family:Nunito,Helvetica,Arial,sans-serif;font-size:14px;line-height:1.55;color:${BUTTER_INK};">${t}</td></tr></table>`
 
 /** Asked to tick the times they are free. */
 export function landlordTimesRequest(o: { firstName: string; applicantFirst: string; link: string }) {
