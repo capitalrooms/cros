@@ -1,7 +1,6 @@
 // sitemap.xml (9 Nov 2026): the website's pages, advice posts and the homes on the website — refreshed hourly.
 import type { MetadataRoute } from 'next'
 import { livePosts } from '@/lib/website/posts'
-import { websiteHomes } from '@/lib/website/homes'
 import { AREAS } from '@/lib/website/areas'
 export const revalidate = 3600
 const BASE = 'https://capitalrooms.co.uk'
@@ -12,11 +11,11 @@ const PAGES: [string, number, MetadataRoute.Sitemap[number]['changeFrequency']][
 ]
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date()
-  const [posts, homes] = await Promise.all([livePosts().catch(() => []), websiteHomes().catch(() => [])])
+  const posts = await livePosts().catch(() => [])
   return [
     ...PAGES.map(([p, priority, changeFrequency]) => ({ url: BASE + (p === '/' ? '' : p), lastModified: now, changeFrequency, priority })),
     ...AREAS.map(a => ({ url: `${BASE}/areas/${a.slug}`, lastModified: now, changeFrequency: 'daily' as const, priority: 0.8 })),
     ...posts.map((p: any) => ({ url: `${BASE}/blogs/${p.slug}`, lastModified: new Date(p.shown_date || p.publish_at || now), changeFrequency: 'yearly' as const, priority: 0.5 })),
-    ...homes.map(h => ({ url: BASE + h.href, lastModified: now, changeFrequency: 'daily' as const, priority: 0.7 })),
+    // room share links (/l/… with a token) are for sending to people, not for search, so they stay out of the sitemap
   ]
 }
