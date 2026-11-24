@@ -140,7 +140,7 @@ export default function CommunicationsHubPage() {
           </div>
 
           {roomId && (
-            <p className="border-b border-neutral-200 px-lg py-sm text-sm text-neutral-600">
+            <p className="border-b border-neutral-200 px-md py-sm text-sm text-neutral-600">
               Showing all messages for <strong className="text-neutral-900">{roomLabel}, {propName}</strong> — includes former tenants associated with this room
             </p>
           )}
@@ -150,11 +150,11 @@ export default function CommunicationsHubPage() {
             <table className="w-full min-w-[720px] text-left">
               <thead>
                 <tr className="border-b border-neutral-200 text-xs font-bold uppercase tracking-wide text-neutral-400">
-                  <th className="px-lg py-sm">Date</th>
-                  <th className="px-lg py-sm">Type</th>
-                  <th className="px-lg py-sm">From → To</th>
-                  <th className="px-lg py-sm">Message</th>
-                  <th className="px-lg py-sm">Thread</th>
+                  <th className="px-md py-sm">Date</th>
+                  <th className="px-md py-sm">Type</th>
+                  <th className="px-md py-sm">From → To</th>
+                  <th className="px-md py-sm">Message</th>
+                  <th className="hidden px-md py-sm xl:table-cell">Thread</th>
                 </tr>
               </thead>
               <tbody>
@@ -167,21 +167,21 @@ export default function CommunicationsHubPage() {
                       onClick={() => m.link && router.push(m.link)}
                       className={`border-b border-neutral-100 align-top text-sm ${m.link ? 'cursor-pointer hover:bg-neutral-50' : ''} ${m.former ? 'opacity-55' : ''}`}
                     >
-                      <td className="whitespace-nowrap px-lg py-sm text-neutral-600">
+                      <td className="whitespace-nowrap px-md py-sm text-neutral-600">
                         {new Date(m.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })}
                         <span className="block text-xs text-neutral-400">
                           {new Date(m.date).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
                         </span>
                       </td>
-                      <td className="px-lg py-sm">
+                      <td className="px-md py-sm">
                         <span className={`inline-block rounded-full px-sm py-0.5 text-xs font-semibold ${TYPE_PILL[m.type] || 'bg-neutral-200 text-neutral-700'}`}>{m.type}</span>
                       </td>
-                      <td className="px-lg py-sm text-neutral-800">
+                      <td className="px-md py-sm text-neutral-800">
                         {m.from} <span className="text-neutral-400">→</span> {m.to}
                         {m.former && <span className="block text-xs italic text-neutral-400">former tenant</span>}
                       </td>
-                      <td className="px-lg py-sm text-neutral-700">{m.message}</td>
-                      <td className="whitespace-nowrap px-lg py-sm text-neutral-500">{m.threadLabel}</td>
+                      <td className="px-md py-sm text-neutral-700">{m.message}</td>
+                      <td className="hidden whitespace-nowrap px-md py-sm text-neutral-500 xl:table-cell">{m.threadLabel}</td>
                     </tr>
                   ))
                 )}

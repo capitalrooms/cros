@@ -94,9 +94,9 @@ export default function WeeklyEmail() {
         </div>
 
         {/* extra jobs this week */}
-        <div className="rounded-xl bg-neutral-50 p-md">
-          <p className="text-sm font-bold text-neutral-900">Extra jobs this week</p>
-          <p className="mb-sm text-xs text-neutral-600">For example “Room 3 is empty, clean it ready for viewings”. It goes to that house’s regular cleaner in this week’s email.</p>
+        <details className="rounded-xl bg-neutral-50 p-md">
+          <summary className="cursor-pointer text-sm font-bold text-neutral-900">Extra jobs this week</summary>
+          <p className="mb-sm mt-xs text-xs text-neutral-600">For example “Room 3 is empty, clean it ready for viewings”. It goes to that house’s regular cleaner in this week’s email.</p>
           <form className="grid grid-cols-2 gap-sm sm:grid-cols-[1.4fr_1fr_2fr_1fr_auto]" onSubmit={async e => {
             e.preventDefault()
             if (!form.propertyId) { setError('Pick the house.'); return }
@@ -132,7 +132,7 @@ export default function WeeklyEmail() {
               ))}
             </ul>
           )}
-        </div>
+        </details>
 
         {note && <p className="text-sm font-semibold text-green-800">{note}</p>}
         {error && <p className="text-sm font-semibold text-red-700">{error}</p>}
