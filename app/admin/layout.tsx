@@ -22,7 +22,9 @@ import BackButton from '@/app/components/BackButton'
 function getActiveZone(pathname: string): Zone | null {
   if (pathname === '/admin') return ZONES[0]
   // Skip dash zone — it only matches the exact /admin path above
-  return ZONES.find(z => z.id !== 'dash' && z.routes.some(r => pathname === r || pathname.startsWith(r + '/'))) ?? null
+  // a page belongs to the zone whose route list or menu entries include it (the menu entries catch pages the route list misses)
+  const inside = (href: string) => { const base = href.split('?')[0]; return pathname === base || pathname.startsWith(base + '/') }
+  return ZONES.find(z => z.id !== 'dash' && (z.routes.some(inside) || z.subnav.some(i => inside(i.href)))) ?? null
 }
 
 /** The page's name for the top bar: the menu item it sits under (longest match), and its section above it. */
