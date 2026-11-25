@@ -5,6 +5,7 @@ import { createServiceClient } from '@/lib/supabase'
 import { deliverEmail } from '@/lib/sendEmail'
 import { buildEmail } from '@/lib/emailWrapper'
 import { candidateSlots, slotLabel, usableSlots } from './slots'
+import { preferredPhone } from '@/lib/phones'
 import { landlordTimesRequest, landlordBooked, landlordFollowUp, landlordNewTimes, applicantPickTime, applicantBooked } from './emailDesign'
 
 const BASE = (process.env.NEXT_PUBLIC_APP_URL || 'https://capitalrooms.co.uk').replace(/\/$/, '')
@@ -91,7 +92,7 @@ export async function applicantPick(tok: string, iso: string, now = new Date()) 
   }
   if (r.applicant_email) {
     await sendHtml(r.applicant_email, `Your video call with ${firstName(landlord?.first_name)}`,
-      applicantBooked({ firstName: firstName(r.applicant_name), landlordFirst: firstName(landlord?.first_name), when, phone: landlord?.phone || 'the office will send the number' }))
+      applicantBooked({ firstName: firstName(r.applicant_name), landlordFirst: firstName(landlord?.first_name), when, phone: (await preferredPhone(r.landlord_id)) || 'the office will send the number' }))
   }return { ok: true, status: 200 }
 }
 
